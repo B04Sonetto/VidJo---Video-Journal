@@ -3,9 +3,11 @@
 	import { goto } from '$app/navigation';
 	import Book from '#lib/components/Book.svelte';
 	import CalendarModal from '#lib/components/CalendarModal.svelte';
+	import CommunityView from '#lib/components/CommunityView.svelte';
 	import FriendsView from '#lib/components/FriendsView.svelte';
 	import Header from '#lib/components/Header.svelte';
 	import LoginScreen from '#lib/components/LoginScreen.svelte';
+	import ProfilePage from '#lib/components/ProfilePage.svelte';
 	import StickerTray from '#lib/components/StickerTray.svelte';
 	import Toast from '#lib/components/Toast.svelte';
 	import { auth } from '#lib/state/auth.svelte';
@@ -80,6 +82,10 @@
 	<main>
 		{#if nav.view === 'friends'}
 			<FriendsView />
+		{:else if nav.view === 'community'}
+			<CommunityView />
+		{:else if nav.view === 'profile'}
+			<ProfilePage />
 		{:else if journal.ready}
 			<Book />
 			<StickerTray />

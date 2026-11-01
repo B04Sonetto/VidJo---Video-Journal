@@ -63,6 +63,8 @@ export interface Profile {
 	updated_at: string;
 }
 
+export type FriendRequestStatus = 'pending' | 'incoming' | 'outgoing' | 'accepted' | 'declined';
+
 export interface Friend {
 	id: string;
 	username: string;
@@ -72,6 +74,24 @@ export interface Friend {
 	friendCode: string;
 	mutualCount?: number;
 	lastActive?: string;
+	status?: 'accepted';
+	isOnline?: boolean;
+	hasNewPost?: boolean;
+}
+
+export interface FriendRequest {
+	id: string;
+	fromUserId: string;
+	toUserId: string;
+	fromUsername: string;
+	fromDisplayName: string;
+	fromAvatarUrl: string | null;
+	fromBio?: string;
+	fromFriendCode?: string;
+	toFriendCode?: string;
+	status: 'pending';
+	direction: 'incoming' | 'outgoing';
+	createdAt: string;
 }
 
 export interface FriendComment {

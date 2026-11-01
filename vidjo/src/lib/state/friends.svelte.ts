@@ -1,11 +1,12 @@
 import { isSupabaseConfigured, supabase } from '#lib/supabase';
-import type { Friend, FriendPost, FriendComment, FriendPostReaction, Entry } from '#lib/types';
+import type { Friend, FriendPost, FriendComment, FriendPostReaction, FriendRequest } from '#lib/types';
 import { profile } from '#lib/state/profile.svelte';
 import { journal } from '#lib/state/journal.svelte';
 import { auth } from '#lib/state/auth.svelte';
 import { offsetDate } from '#lib/dates';
 
 const FRIENDS_STORAGE_KEY = 'vidjo-friends';
+const FRIEND_REQUESTS_STORAGE_KEY = 'vidjo-friend-requests';
 const REACTIONS_STORAGE_KEY = 'vidjo-feed-reactions';
 const COMMENTS_STORAGE_KEY = 'vidjo-feed-comments';
 
@@ -149,13 +150,27 @@ function seedDefaultPosts(): FriendPost[] {
 
 class FriendsState {
 	friends = $state<Friend[]>([]);
+	friendRequests = $state<FriendRequest[]>([]);
 	posts = $state<FriendPost[]>([]);
 	loading = $state(false);
 	activeFilter = $state<'all' | 'video' | 'written'>('all');
 	currentUserId = $state<string>('');
+	stories = $state<Friend[]>([]);
 
 	get myFriendCode() {
 		return profile.friendCode;
+	}
+
+	get incomingRequests() {
+		return this.friendRequests.filter((r) => r.direction === 'incoming');
+	}
+
+	get outgoingRequests() {
+		return this.friendRequests.filter((r) => r.direction === 'outgoing');
+	}
+
+	get pendingCount() {
+		return this.incomingRequests.length;
 	}
 
 	get filteredPosts() {
@@ -181,13 +196,29 @@ class FriendsState {
 		try {
 			const saved = localStorage.getItem(`${FRIENDS_STORAGE_KEY}:${userId}`);
 			if (saved) {
-				this.friends = JSON.parse(saved) as Friend[];
+				this.friends = (JSON.parse(saved) as Friend[])
+					.filter((f) => f.id && f.id.startsWith('friend-') && !DEFAULT_FRIENDS.some((d) => d.id === f.id))
+					.map((f) => ({ ...f, status: 'accepted' as const }));
 			} else {
-				this.friends = [...DEFAULT_FRIENDS];
-				this.persistFriends();
+				this.friends = [];
 			}
 		} catch {
-			this.friends = [...DEFAULT_FRIENDS];
+			this.friends = [];
+		}
+
+		// Ensure no demo friends exist
+		this.friends = this.friends.filter((f) => !DEFAULT_FRIENDS.some((d) => d.id === f.id));
+
+		// Load friend requests
+		try {
+			const savedRequests = localStorage.getItem(`${FRIEND_REQUESTS_STORAGE_KEY}:${userId}`);
+			if (savedRequests) {
+				this.friendRequests = JSON.parse(savedRequests) as FriendRequest[];
+			} else {
+				this.friendRequests = [];
+			}
+		} catch {
+			this.friendRequests = [];
 		}
 
 		// 2. Load reaction & comment overlays
@@ -202,12 +233,19 @@ class FriendsState {
 			// Ignore read errors
 		}
 
+		this.friends = this.friends.map((f, idx) => ({
+			...f,
+			isOnline: idx % 2 === 0,
+			hasNewPost: idx === 0
+		}));
+		this.stories = this.friends.filter((f) => f.hasNewPost || f.isOnline).slice(0, 8);
+
 		// 3. Assemble feed from sample posts + user's own friends-shared entries
-		const basePosts = seedDefaultPosts();
+		const basePosts: FriendPost[] = [];
 
 		// Merge user's own journal entries that are set to "friends"
 		const myEntries = this.getMyFriendsEntries();
-		const all = [...myEntries, ...basePosts];
+		const all = [...myEntries];
 
 		// Apply stored reactions & comments
 		this.posts = all.map((post) => {
@@ -284,6 +322,18 @@ class FriendsState {
 		}
 	}
 
+	private persistFriendRequests() {
+		if (!this.currentUserId) return;
+		try {
+			localStorage.setItem(
+				`${FRIEND_REQUESTS_STORAGE_KEY}:${this.currentUserId}`,
+				JSON.stringify(this.friendRequests)
+			);
+		} catch {
+			// Ignore storage write issues
+		}
+	}
+
 	private persistReactions() {
 		if (!this.currentUserId) return;
 		try {
@@ -314,7 +364,7 @@ class FriendsState {
 		}
 	}
 
-	async addFriendByCode(rawCode: string): Promise<{ success: boolean; message: string; friend?: Friend }> {
+	async addFriendByCode(rawCode: string): Promise<{ success: boolean; message: string; friend?: Friend; requestSent?: boolean }> {
 		const clean = rawCode.trim().toUpperCase();
 		const formattedCode = clean.startsWith('VJ-') ? clean : `VJ-${clean}`;
 
@@ -331,6 +381,22 @@ class FriendsState {
 		const exists = this.friends.find((f) => f.friendCode === formattedCode);
 		if (exists) {
 			return { success: false, message: `${exists.displayName} is already on your friends list!` };
+		}
+
+		// Check if request already sent
+		const outgoing = this.friendRequests.find(
+			(r) => r.direction === 'outgoing' && r.toFriendCode === formattedCode
+		);
+		if (outgoing) {
+			return { success: false, message: 'Friend request already sent. Waiting for them to accept.' };
+		}
+
+		// Check if they already sent us a request
+		const incoming = this.friendRequests.find(
+			(r) => r.direction === 'incoming' && r.fromFriendCode === formattedCode
+		);
+		if (incoming) {
+			return { success: false, message: 'They already sent you a request! Check your Requests tab to accept it.' };
 		}
 
 		// 1. Try Supabase if configured
@@ -360,15 +426,14 @@ class FriendsState {
 		}
 
 		// 2. Default/Local Fallback: Match against demo catalog or generate a friend
-		let newFriend: Friend;
+		let targetFriend: Partial<Friend> = {};
 		if (formattedCode === 'VJ-SAMIRA') {
-			newFriend = { ...DEFAULT_FRIENDS[0] };
+			targetFriend = { ...DEFAULT_FRIENDS[0] };
 		} else if (formattedCode === 'VJ-JORDAN') {
-			newFriend = { ...DEFAULT_FRIENDS[1] };
+			targetFriend = { ...DEFAULT_FRIENDS[1] };
 		} else if (formattedCode === 'VJ-LIAMV9') {
-			newFriend = { ...DEFAULT_FRIENDS[2] };
+			targetFriend = { ...DEFAULT_FRIENDS[2] };
 		} else {
-			// Generate a realistic student friend from the code
 			const codeSuffix = formattedCode.replace('VJ-', '');
 			const studentNames = ['Alex Morgan', 'Taylor Swift', 'Riley Harper', 'Maya Lin', 'Chris Patel', 'Noah Kim'];
 			const seedIdx = (codeSuffix.charCodeAt(0) || 0) % studentNames.length;
@@ -377,7 +442,7 @@ class FriendsState {
 			const avatars = ['🎒', '☕', '📚', '✨', '🎧', '🌿'];
 			const avatar = avatars[seedIdx % avatars.length];
 
-			newFriend = {
+			targetFriend = {
 				id: `friend-${codeSuffix.toLowerCase()}`,
 				username: uname,
 				displayName: name,
@@ -389,10 +454,73 @@ class FriendsState {
 			};
 		}
 
-		this.friends.unshift(newFriend);
-		this.persistFriends();
-		journal.toast(`✦ Added ${newFriend.displayName} as a friend!`);
-		return { success: true, message: `Connected with ${newFriend.displayName}!`, friend: newFriend };
+		const request: FriendRequest = {
+			id: `req-${Date.now()}`,
+			fromUserId: this.currentUserId,
+			toUserId: targetFriend.id || formattedCode,
+			fromUsername: profile.username,
+			fromDisplayName: profile.displayName,
+			fromAvatarUrl: profile.avatarUrl,
+			fromBio: profile.bio,
+			fromFriendCode: this.myFriendCode,
+			toFriendCode: formattedCode,
+			status: 'pending',
+			direction: 'outgoing',
+			createdAt: new Date().toISOString()
+		};
+
+		this.friendRequests.unshift(request);
+		this.persistFriendRequests();
+		journal.toast(`Friend request sent to ${targetFriend.displayName}!`);
+		return {
+			success: true,
+			message: `Friend request sent to ${targetFriend.displayName}!`,
+			requestSent: true
+		};
+	}
+
+	acceptFriendRequest(requestId: string) {
+		const request = this.friendRequests.find((r) => r.id === requestId && r.direction === 'incoming');
+		if (!request) return;
+
+		const newFriend: Friend = {
+			id: request.fromUserId || `friend-${request.fromUsername}`,
+			username: request.fromUsername,
+			displayName: request.fromDisplayName,
+			avatarUrl: request.fromAvatarUrl,
+			bio: request.fromBio || 'VidJo classmate',
+			friendCode: request.fromFriendCode || '',
+			mutualCount: 1,
+			lastActive: 'Just now',
+			status: 'accepted'
+		};
+
+		if (!this.friends.find((f) => f.username === newFriend.username)) {
+			this.friends.unshift(newFriend);
+			this.persistFriends();
+		}
+
+		this.friendRequests = this.friendRequests.filter((r) => r.id !== requestId);
+		this.persistFriendRequests();
+		journal.toast(`You are now friends with ${newFriend.displayName}!`);
+	}
+
+	declineFriendRequest(requestId: string) {
+		const request = this.friendRequests.find((r) => r.id === requestId);
+		if (!request) return;
+		this.friendRequests = this.friendRequests.filter((r) => r.id !== requestId);
+		this.persistFriendRequests();
+		if (request.direction === 'incoming') {
+			journal.toast('Friend request declined.');
+		}
+	}
+
+	cancelFriendRequest(requestId: string) {
+		const request = this.friendRequests.find((r) => r.id === requestId && r.direction === 'outgoing');
+		if (!request) return;
+		this.friendRequests = this.friendRequests.filter((r) => r.id !== requestId);
+		this.persistFriendRequests();
+		journal.toast('Friend request canceled.');
 	}
 
 	removeFriend(friendId: string) {

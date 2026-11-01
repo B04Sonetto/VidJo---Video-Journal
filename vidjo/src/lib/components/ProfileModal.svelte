@@ -2,7 +2,9 @@
 	import { auth } from '#lib/state/auth.svelte';
 	import { profile } from '#lib/state/profile.svelte';
 	import { journal } from '#lib/state/journal.svelte';
+	import { friends } from '#lib/state/friends.svelte';
 	import { isSupabaseConfigured } from '#lib/supabase';
+	import { onMount } from 'svelte';
 
 	let { open, onClose }: { open: boolean; onClose: () => void } = $props();
 
@@ -100,6 +102,55 @@
 	}
 
 	let totalPages = $derived(Object.keys(journal.entries).length);
+
+	let streak = $state(0);
+	let badges = $state<string[]>([]);
+
+	function calculateStreak() {
+		const dates = Object.keys(journal.entries).sort((a, b) => b.localeCompare(a));
+		if (dates.length === 0) {
+			streak = 0;
+			return;
+		}
+		let count = 0;
+		let current = new Date();
+		for (let i = 0; i < 365; i++) {
+			const key = current.toISOString().split('T')[0];
+			if (dates.includes(key) && journal.entries[key]?.saved) {
+				count++;
+				current.setDate(current.getDate() - 1);
+			} else if (count > 0) {
+				break;
+			} else {
+				current.setDate(current.getDate() - 1);
+			}
+		}
+		streak = count;
+	}
+
+	function calculateBadges() {
+		const earned: string[] = [];
+		if (totalPages >= 1) earned.push('first-post');
+		if (totalPages >= 5) earned.push('five-pages');
+		if (totalPages >= 10) earned.push('ten-pages');
+		if (streak >= 3) earned.push('three-day-streak');
+		if (streak >= 7) earned.push('week-streak');
+		if (friends.friendCount >= 1) earned.push('made-friend');
+		if (friends.friendCount >= 3) earned.push('social-circle');
+		badges = earned;
+	}
+
+	$effect(() => {
+		if (open) {
+			calculateStreak();
+			calculateBadges();
+		}
+	});
+
+	onMount(() => {
+		calculateStreak();
+		calculateBadges();
+	});
 </script>
 
 <svelte:window
@@ -218,7 +269,7 @@
 										class="font-ui text-xs font-semibold text-accent hover:underline"
 										onclick={() => {
 											navigator.clipboard?.writeText(profile.friendCode);
-											journal.showToast(`Friend Code ${profile.friendCode} copied!`);
+											journal.toast(`Friend Code ${profile.friendCode} copied!`);
 										}}
 									>
 										Copy
@@ -241,18 +292,58 @@
 						</div>
 
 						<!-- Quick Stats Strip -->
-						<div class="grid grid-cols-3 gap-3">
+						<div class="grid grid-cols-4 gap-2 min-[480px]:gap-3">
 							<div class="flex flex-col items-center rounded-2xl border border-line bg-paper-2 p-3 text-center">
 								<span class="font-display text-xl font-bold text-accent">{totalPages}</span>
-								<span class="font-ui text-[11px] text-ink-soft">Pages Written</span>
+								<span class="font-ui text-[10px] text-ink-soft min-[480px]:text-[11px]">Pages</span>
+							</div>
+							<div class="flex flex-col items-center rounded-2xl border border-[#E6D9B8] bg-[linear-gradient(135deg,#FFF8E7,#F7F2FD)] p-3 text-center">
+								<span class="flex items-center gap-1 font-display text-xl font-bold text-gold">
+									🔥 {streak}
+								</span>
+								<span class="font-ui text-[10px] text-ink-soft min-[480px]:text-[11px]">Day Streak</span>
 							</div>
 							<div class="flex flex-col items-center rounded-2xl border border-line bg-paper-2 p-3 text-center">
-								<span class="font-display text-xl font-bold text-gold">✦ 7</span>
-								<span class="font-ui text-[11px] text-ink-soft">Mood Colors</span>
+								<span class="font-display text-xl font-bold text-[#3F7A4F]">{friends.friendCount}</span>
+								<span class="font-ui text-[10px] text-ink-soft min-[480px]:text-[11px]">Friends</span>
 							</div>
 							<div class="flex flex-col items-center rounded-2xl border border-line bg-paper-2 p-3 text-center">
-								<span class="font-display text-xl font-bold text-[#3F7A4F]">Active</span>
-								<span class="font-ui text-[11px] text-ink-soft">Community Status</span>
+								<span class="font-display text-xl font-bold text-lav">{badges.length}</span>
+								<span class="font-ui text-[10px] text-ink-soft min-[480px]:text-[11px]">Badges</span>
+							</div>
+						</div>
+
+						<!-- Badges -->
+						<div class="rounded-2xl border border-line bg-paper-2 p-4">
+							<div class="flex items-center justify-between">
+								<span class="font-ui text-xs font-bold tracking-wide uppercase text-accent">Achievements</span>
+								<span class="font-ui text-[11px] text-ink-soft">{badges.length} earned</span>
+							</div>
+							<div class="mt-3 flex flex-wrap gap-2">
+								{#if badges.includes('first-post')}
+									<span class="inline-flex items-center gap-1.5 rounded-full border border-[#D5C6E8] bg-light px-3 py-1 font-ui text-xs font-semibold text-accent">✨ First Page</span>
+								{/if}
+								{#if badges.includes('five-pages')}
+									<span class="inline-flex items-center gap-1.5 rounded-full border border-[#D5C6E8] bg-light px-3 py-1 font-ui text-xs font-semibold text-accent">📓 Scribbler</span>
+								{/if}
+								{#if badges.includes('ten-pages')}
+									<span class="inline-flex items-center gap-1.5 rounded-full border border-[#D5C6E8] bg-light px-3 py-1 font-ui text-xs font-semibold text-accent">📚 Storyteller</span>
+								{/if}
+								{#if badges.includes('three-day-streak')}
+									<span class="inline-flex items-center gap-1.5 rounded-full border border-[#F0D9A8] bg-[#FFF8E7] px-3 py-1 font-ui text-xs font-semibold text-[#7A5618]">🔥 3-Day Streak</span>
+								{/if}
+								{#if badges.includes('week-streak')}
+									<span class="inline-flex items-center gap-1.5 rounded-full border border-[#F0D9A8] bg-[#FFF8E7] px-3 py-1 font-ui text-xs font-semibold text-[#7A5618]">🔥 Week Streak</span>
+								{/if}
+								{#if badges.includes('made-friend')}
+									<span class="inline-flex items-center gap-1.5 rounded-full border border-[#C9E6D1] bg-[#EDF6EF] px-3 py-1 font-ui text-xs font-semibold text-[#2F6B45]">🤝 Friendly</span>
+								{/if}
+								{#if badges.includes('social-circle')}
+									<span class="inline-flex items-center gap-1.5 rounded-full border border-[#C9E6D1] bg-[#EDF6EF] px-3 py-1 font-ui text-xs font-semibold text-[#2F6B45]">👥 Social Circle</span>
+								{/if}
+								{#if badges.length === 0}
+									<p class="font-ui text-xs text-ink-soft">Start writing pages and making friends to earn badges!</p>
+								{/if}
 							</div>
 						</div>
 

@@ -26,6 +26,10 @@ class ProfileState {
 	loading = $state(false);
 	saving = $state(false);
 	error = $state('');
+	accentColor = $state('#7D58C2');
+	theme = $state<'classic' | 'sunset' | 'midnight'>('classic');
+	defaultPrivacy = $state<'private' | 'friends' | 'community'>('private');
+	allowFriendRequests = $state(true);
 
 	get username() {
 		return this.profile?.username || auth.username || 'friend';

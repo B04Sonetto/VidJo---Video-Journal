@@ -3,6 +3,7 @@
 	import { nav } from '#lib/state/navigation.svelte';
 	import { auth } from '#lib/state/auth.svelte';
 	import { profile } from '#lib/state/profile.svelte';
+	import { friends } from '#lib/state/friends.svelte';
 	import { TODAY } from '#lib/dates';
 	import { isSupabaseConfigured } from '#lib/supabase';
 	import ProfileModal from '#lib/components/ProfileModal.svelte';
@@ -62,47 +63,82 @@
 		</div>
 	</button>
 
-	<nav class="flex flex-wrap gap-1" aria-label="Main">
+	<nav
+		class="flex items-center gap-1 rounded-full border border-[#5A4580]/60 bg-[#2A1B3F]/80 p-1 shadow-[0_8px_24px_rgba(0,0,0,.25)] backdrop-blur-sm"
+		aria-label="Main"
+	>
 		<button
 			type="button"
-			class="flex min-h-11 items-center gap-2 rounded-full px-4 py-2.5 font-ui text-[15px] transition-colors {nav.view === 'journal' ? 'bg-white/10 font-semibold text-white shadow-inner' : 'text-[#D6CBEC] hover:bg-white/[.07] hover:text-white'}"
+			class="group relative flex min-h-10 items-center gap-2 rounded-full px-4 py-2 font-ui text-[14px] transition-all {nav.view === 'journal'
+				? 'bg-white/15 font-semibold text-white shadow-[inset_0_1px_0_rgba(255,255,255,.12)]'
+				: 'text-[#D6CBEC] hover:bg-white/[.08] hover:text-white'}"
 			aria-current={nav.view === 'journal' ? 'page' : undefined}
 			onclick={() => nav.setView('journal')}
 		>
-			Journal
+			<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="transition-transform group-hover:scale-105" aria-hidden="true">
+				<path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H19a1 1 0 0 1 1 1v18a1 1 0 0 1-1 1H6.5a1 1 0 0 1 0-5H20"></path>
+			</svg>
+			<span>Journal</span>
 		</button>
 		<button
 			type="button"
-			class="flex min-h-11 items-center gap-2 rounded-full px-4 py-2.5 font-ui text-[15px] text-[#D6CBEC] transition-colors hover:bg-white/[.07] hover:text-white"
+			class="group flex min-h-10 items-center gap-2 rounded-full px-4 py-2 font-ui text-[14px] text-[#D6CBEC] transition-all hover:bg-white/[.08] hover:text-white"
 			onclick={onCalendar}
 		>
-			Calendar
+			<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="transition-transform group-hover:scale-105" aria-hidden="true">
+				<rect width="18" height="18" x="3" y="4" rx="2" ry="2"></rect>
+				<line x1="16" x2="16" y1="2" y2="6"></line>
+				<line x1="8" x2="8" y1="2" y2="6"></line>
+				<line x1="3" x2="21" y1="10" y2="10"></line>
+			</svg>
+			<span>Calendar</span>
 		</button>
 		<button
 			type="button"
-			class="flex min-h-11 items-center gap-2 rounded-full px-4 py-2.5 font-ui text-[15px] transition-colors {nav.view === 'friends' ? 'bg-white/10 font-semibold text-white shadow-inner' : 'text-[#D6CBEC] hover:bg-white/[.07] hover:text-white'}"
+			class="group relative flex min-h-10 items-center gap-2 rounded-full px-4 py-2 font-ui text-[14px] transition-all {nav.view === 'friends'
+				? 'bg-white/15 font-semibold text-white shadow-[inset_0_1px_0_rgba(255,255,255,.12)]'
+				: 'text-[#D6CBEC] hover:bg-white/[.08] hover:text-white'}"
 			aria-current={nav.view === 'friends' ? 'page' : undefined}
 			onclick={() => nav.setView('friends')}
 		>
+			<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="transition-transform group-hover:scale-105" aria-hidden="true">
+				<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path>
+				<circle cx="9" cy="7" r="4"></circle>
+				<path d="M22 21v-2a4 4 0 0 0-3-3.87"></path>
+				<path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+			</svg>
 			<span>Friends</span>
-			<span class="rounded-full bg-lav/20 px-1.5 py-0.2 font-ui text-[10px] text-lav">New</span>
+			{#if friends.pendingCount > 0}
+				<span class="absolute -top-1 -right-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-gold px-1 text-[10px] font-bold text-[#2A1B3F] shadow-[0_0_0_2px_#2A1B3F]">
+					{friends.pendingCount}
+				</span>
+			{/if}
 		</button>
 		<button
 			type="button"
-			class="flex min-h-11 items-center gap-2 rounded-full px-4 py-2.5 font-ui text-[15px] text-[#D6CBEC] transition-colors hover:bg-white/[.07] hover:text-white"
-			onclick={() => openSocial('community')}
+			class="group relative flex min-h-10 items-center gap-2 rounded-full px-4 py-2 font-ui text-[14px] transition-all {nav.view === 'community'
+				? 'bg-white/15 font-semibold text-white shadow-[inset_0_1px_0_rgba(255,255,255,.12)]'
+				: 'text-[#D6CBEC] hover:bg-white/[.08] hover:text-white'}"
+			aria-current={nav.view === 'community' ? 'page' : undefined}
+			onclick={() => nav.setView('community')}
 		>
+			<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="transition-transform group-hover:scale-105" aria-hidden="true">
+				<circle cx="12" cy="12" r="10"></circle>
+				<path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"></path>
+				<path d="M2 12h20"></path>
+			</svg>
 			<span>Community</span>
-			<span class="rounded-full bg-gold/20 px-1.5 py-0.2 font-ui text-[10px] text-gold">Soon</span>
 		</button>
 	</nav>
 
 	<button
 		type="button"
-		class="inline-flex min-h-11 items-center gap-2 rounded-xl border border-gold/60 bg-[linear-gradient(135deg,rgba(212,162,76,0.18),rgba(81,57,122,0.3))] px-[18px] font-ui text-[15px] font-semibold text-[#FFFDF6] shadow-[0_2px_10px_rgba(212,162,76,0.15)] transition-all hover:border-gold hover:bg-[linear-gradient(135deg,rgba(212,162,76,0.28),rgba(81,57,122,0.4))] hover:shadow-[0_4px_16px_rgba(212,162,76,0.25)] active:scale-[0.98]"
+		class="group inline-flex min-h-11 items-center gap-2 rounded-xl border border-gold/60 bg-[linear-gradient(135deg,rgba(212,162,76,0.22),rgba(81,57,122,0.35))] px-[18px] font-ui text-[15px] font-semibold text-[#FFFDF6] shadow-[0_4px_18px_rgba(212,162,76,0.18)] transition-all hover:border-gold hover:bg-[linear-gradient(135deg,rgba(212,162,76,0.32),rgba(81,57,122,0.45))] hover:shadow-[0_6px_22px_rgba(212,162,76,0.28)] hover:scale-[1.02] active:scale-[0.98]"
 		onclick={() => nav.jump(TODAY)}
 	>
-		<span class="text-base text-gold" aria-hidden="true">✦</span>
+		<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" class="text-gold transition-transform group-hover:scale-110" aria-hidden="true">
+			<path d="M12 2L13.09 8.26L19 6L14.74 10.74L21 12L14.74 13.26L19 18L13.09 15.74L12 22L10.91 15.74L5 18L9.26 13.26L3 12L9.26 10.74L5 6L10.91 8.26L12 2Z"></path>
+		</svg>
 		Today's page
 	</button>
 
@@ -214,32 +250,15 @@
 					<div class="my-3 h-px bg-line"></div>
 
 					<div class="flex items-center justify-between gap-3 font-ui text-xs text-ink-soft">
-						<span>
-							{journal.syncing
-								? 'Saving your page…'
-								: journal.remote
-									? 'Synced to Supabase'
-									: 'Saved on this device'}
-						</span>
-						<span
-							class="size-2.5 flex-none rounded-full {journal.remote ? 'bg-[#3F7A4F]' : 'bg-gold'}"
-							aria-hidden="true"
-						></span>
+						<span>{journal.syncing ? 'Saving your page…' : 'Saved locally'}</span>
+						<span class="size-2.5 flex-none rounded-full bg-[#3F7A4F]" aria-hidden="true"></span>
 					</div>
 
-					<!-- Shared computer checkbox on signout -->
-					<label class="mt-3 flex cursor-pointer items-start gap-2 font-ui text-[11px] text-ink-soft">
-						<input
-							type="checkbox"
-							bind:checked={clearCacheOnSignOut}
-							class="mt-0.5 rounded border-line text-accent"
-						/>
-						<span>Clear cached pages on sign out (recommended on shared browsers)</span>
-					</label>
+
 
 					<button
 						type="button"
-						class="mt-3 flex min-h-10 w-full items-center justify-center gap-2 rounded-xl border-[1.5px] border-[#CDBBE9] bg-light px-4 font-ui text-xs font-bold text-accent transition-colors hover:bg-[#E8DCF8]"
+						class="mt-4 flex min-h-10 w-full items-center justify-center gap-2 rounded-xl border-[1.5px] border-[#CDBBE9] bg-light px-4 font-ui text-xs font-bold text-accent transition-colors hover:bg-[#E8DCF8]"
 						role="menuitem"
 						onclick={signOut}
 					>
@@ -273,6 +292,84 @@
 		</button>
 	{/if}
 </header>
+
+<!-- Mobile Bottom Navigation -->
+<nav
+	class="fixed bottom-0 left-0 right-0 z-40 mx-auto flex max-w-[480px] items-center justify-around rounded-t-3xl border border-t-[#5A4580]/60 border-x-[#5A4580]/40 bg-[#1C142B]/95 px-2 pb-[calc(env(safe-area-inset-bottom)+6px)] pt-2 shadow-[0_-16px_40px_rgba(0,0,0,.45)] backdrop-blur-lg min-[900px]:hidden"
+	aria-label="Mobile navigation"
+>
+	<button
+		type="button"
+		class="flex flex-col items-center gap-1 rounded-2xl px-3 py-1.5 transition-all {nav.view === 'journal'
+			? 'text-white'
+			: 'text-[#BBA8E0]'}"
+		onclick={() => nav.setView('journal')}
+	>
+		<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+			<path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H19a1 1 0 0 1 1 1v18a1 1 0 0 1-1 1H6.5a1 1 0 0 1 0-5H20"></path>
+		</svg>
+		<span class="font-ui text-[10px] font-semibold">Journal</span>
+	</button>
+	<button
+		type="button"
+		class="flex flex-col items-center gap-1 rounded-2xl px-3 py-1.5 text-[#BBA8E0] transition-all"
+		onclick={onCalendar}
+	>
+		<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+			<rect width="18" height="18" x="3" y="4" rx="2" ry="2"></rect>
+			<line x1="16" x2="16" y1="2" y2="6"></line>
+			<line x1="8" x2="8" y1="2" y2="6"></line>
+			<line x1="3" x2="21" y1="10" y2="10"></line>
+		</svg>
+		<span class="font-ui text-[10px] font-semibold">Calendar</span>
+	</button>
+	<button
+		type="button"
+		class="relative flex flex-col items-center gap-1 rounded-2xl px-3 py-1.5 transition-all {nav.view === 'friends'
+			? 'text-white'
+			: 'text-[#BBA8E0]'}"
+		onclick={() => nav.setView('friends')}
+	>
+		<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+			<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path>
+			<circle cx="9" cy="7" r="4"></circle>
+			<path d="M22 21v-2a4 4 0 0 0-3-3.87"></path>
+			<path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+		</svg>
+		<span class="font-ui text-[10px] font-semibold">Friends</span>
+		{#if friends.pendingCount > 0}
+			<span class="absolute -top-0.5 right-2 flex h-4 min-w-4 items-center justify-center rounded-full bg-gold px-1 text-[9px] font-bold text-[#2A1B3F]">
+				{friends.pendingCount}
+			</span>
+		{/if}
+	</button>
+	<button
+		type="button"
+		class="flex flex-col items-center gap-1 rounded-2xl px-3 py-1.5 transition-all {nav.view === 'community'
+			? 'text-white'
+			: 'text-[#BBA8E0]'}"
+		onclick={() => nav.setView('community')}
+	>
+		<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+			<circle cx="12" cy="12" r="10"></circle>
+			<path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"></path>
+			<path d="M2 12h20"></path>
+		</svg>
+		<span class="font-ui text-[10px] font-semibold">Community</span>
+	</button>
+	<button
+		type="button"
+		class="flex flex-col items-center gap-1 rounded-2xl px-3 py-1.5 transition-all {nav.view === 'profile' ? 'text-white' : 'text-[#BBA8E0]'}"
+		onclick={() => nav.setView('profile')}
+	>
+		<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+			<path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+			<circle cx="12" cy="7" r="4"></circle>
+		</svg>
+		<span class="font-ui text-[10px] font-semibold">Profile</span>
+	</button>
+</nav>
+<div class="h-20 min-[900px]:hidden"></div>
 
 <ProfileModal open={profileOpen} onClose={() => (profileOpen = false)} />
 <SocialModal open={socialOpen} tab={socialTab} onClose={() => (socialOpen = false)} />

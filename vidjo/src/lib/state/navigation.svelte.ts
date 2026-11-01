@@ -1,4 +1,4 @@
-export type MainView = 'journal' | 'friends';
+export type MainView = 'journal' | 'friends' | 'community' | 'profile';
 
 class Navigation {
 	/** Active main view tab */
