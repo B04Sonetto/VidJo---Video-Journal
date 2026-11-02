@@ -17,7 +17,7 @@
 		{
 			v: 'community',
 			label: 'Community',
-			small: 'Everyone',
+			small: 'Your communities',
 			icon: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c3 3 3 15 0 18M12 3c-3 3-3 15 0 18"/></svg>'
 		}
 	];
@@ -49,10 +49,9 @@
 			disabled={readonly}
 			onclick={() => onSelect?.(option.v)}
 		>
-			<!-- eslint-disable-next-line svelte/no-at-html-tags -- static SVG icon constants -->
-			<span class="flex items-center gap-1.5 text-ink leading-none">
-				{@html option.icon}
-				<span>{option.label}</span>
+			<span class="flex items-center gap-1.5 leading-none text-ink">
+				<!-- eslint-disable-next-line svelte/no-at-html-tags -- static SVG icon constants -->
+				{@html option.icon} <span>{option.label}</span>
 			</span>
 			<small class="mt-1 block font-hand text-sm leading-tight font-normal text-ink-soft">
 				{option.small}

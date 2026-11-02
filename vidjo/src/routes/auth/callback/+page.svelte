@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
+	import { resolve } from '$app/paths';
 	import { completeAuthCallback } from '#lib/authCallback';
 
 	let message = $state('Finishing sign-in…');
@@ -11,7 +12,7 @@
 			const result = await completeAuthCallback();
 
 			if (result.ok) {
-				await goto('/', { replaceState: true });
+				await goto(resolve('/'), { replaceState: true });
 				return;
 			}
 
@@ -41,7 +42,7 @@
 			<h1 class="mt-4 font-display text-3xl font-bold">Could not finish sign-in</h1>
 			<p class="mt-2 font-hand text-xl leading-snug text-ink-soft">{message}</p>
 			<a
-				href="/"
+				href={resolve('/')}
 				class="mt-6 inline-flex h-12 items-center justify-center rounded-xl border border-[#6A528F] bg-accent px-6 font-ui text-[15px] font-bold text-white hover:bg-[#624690]"
 			>
 				Back to sign in

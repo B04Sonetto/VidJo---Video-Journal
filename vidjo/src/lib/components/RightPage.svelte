@@ -3,7 +3,10 @@
 	import StickerLayer from '#lib/components/StickerLayer.svelte';
 	import { PROMPTS } from '#lib/data/prompts';
 	import { journal } from '#lib/state/journal.svelte';
+	import { community } from '#lib/state/community.svelte';
+	import { nav } from '#lib/state/navigation.svelte';
 	import { viewport } from '#lib/state/viewport.svelte';
+	import CommunityIcon from '#lib/components/CommunityIcon.svelte';
 	import type { Entry, Privacy } from '#lib/types';
 
 	let {
@@ -149,6 +152,45 @@
 	</div>
 
 	<PrivacyPicker value={entry.privacy} readonly={preview} onSelect={selectPrivacy} />
+
+	{#if entry.privacy === 'community' && !preview}
+		<div class="rounded-xl border-2 border-line bg-[#FFFDF6] p-3">
+			{#if community.joinedCommunities.length === 0}
+				<div class="flex flex-wrap items-center justify-between gap-2">
+					<p class="font-hand text-base text-ink-soft">
+						Join a community to choose where this page appears.
+					</p>
+					<button
+						type="button"
+						class="inline-flex items-center gap-1.5 rounded-full bg-accent px-3 py-1.5 font-ui text-xs font-bold text-white hover:bg-[#624690]"
+						onclick={() => nav.setView('community')}
+					>
+						<CommunityIcon name="globe" size={13} />
+						Find communities
+					</button>
+				</div>
+			{:else}
+				<label
+					class="flex items-center gap-2 font-ui text-xs font-bold tracking-wider text-ink-soft uppercase"
+					for={`${id}-community`}
+				>
+					<CommunityIcon name="globe" size={14} />
+					Post to community
+				</label>
+				<select
+					id={`${id}-community`}
+					class="mt-1.5 h-10 w-full rounded-lg border border-line bg-white px-3 font-ui text-sm text-ink focus:border-accent focus:outline-none"
+					value={entry.communitySlug}
+					onchange={(event) => journal.setCommunity(event.currentTarget.value)}
+				>
+					<option value="">Choose a community…</option>
+					{#each community.joinedCommunities as item (item.slug)}
+						<option value={item.slug}>{item.tag} — {item.name}</option>
+					{/each}
+				</select>
+			{/if}
+		</div>
+	{/if}
 
 	<button
 		type="button"

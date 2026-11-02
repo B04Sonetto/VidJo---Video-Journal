@@ -3,8 +3,8 @@
 	import { profile } from '#lib/state/profile.svelte';
 	import { journal } from '#lib/state/journal.svelte';
 	import { friends } from '#lib/state/friends.svelte';
-	import { isSupabaseConfigured } from '#lib/supabase';
 	import { onMount } from 'svelte';
+	import { SvelteDate } from 'svelte/reactivity';
 
 	let { open, onClose }: { open: boolean; onClose: () => void } = $props();
 
@@ -20,7 +20,6 @@
 	});
 
 	let saveError = $state('');
-	let saveSuccess = $state('');
 	let checkTimer: ReturnType<typeof setTimeout> | null = null;
 	let clearCacheConfirm = $state(false);
 
@@ -41,7 +40,6 @@
 		editBio = profile.bio;
 		editAvatar = profile.avatarUrl;
 		saveError = '';
-		saveSuccess = '';
 		usernameStatus = { checking: false, available: true };
 		mode = 'edit';
 	}
@@ -72,7 +70,6 @@
 
 	async function save() {
 		saveError = '';
-		saveSuccess = '';
 
 		if (usernameStatus.available === false) {
 			saveError = usernameStatus.error || 'Please choose an available username.';
@@ -113,7 +110,7 @@
 			return;
 		}
 		let count = 0;
-		let current = new Date();
+		let current = new SvelteDate();
 		for (let i = 0; i < 365; i++) {
 			const key = current.toISOString().split('T')[0];
 			if (dates.includes(key) && journal.entries[key]?.saved) {
@@ -215,7 +212,9 @@
 					<!-- VIEW MODE -->
 					<div class="flex flex-col gap-6">
 						<!-- Main Profile Header Card -->
-						<div class="flex flex-col items-center text-center sm:flex-row sm:items-start sm:text-left sm:gap-5">
+						<div
+							class="flex flex-col items-center text-center sm:flex-row sm:items-start sm:gap-5 sm:text-left"
+						>
 							<!-- Avatar -->
 							<div class="relative shrink-0">
 								{#if profile.avatarUrl}
@@ -259,9 +258,11 @@
 								{/if}
 
 								<!-- Friend Code -->
-								<div class="mt-2 flex items-center justify-center sm:justify-start gap-2">
+								<div class="mt-2 flex items-center justify-center gap-2 sm:justify-start">
 									<span class="font-ui text-xs text-ink-soft">Friend Code:</span>
-									<code class="rounded-md bg-accent/10 px-2 py-0.5 font-mono text-xs font-bold text-accent select-all">
+									<code
+										class="rounded-md bg-accent/10 px-2 py-0.5 font-mono text-xs font-bold text-accent select-all"
+									>
 										{profile.friendCode}
 									</code>
 									<button
@@ -283,8 +284,9 @@
 											“{profile.bio}”
 										</p>
 									{:else}
-										<p class="font-ui text-xs italic text-ink-soft">
-											No bio yet. Click "Edit Profile" below to share a few words with your classmates and community!
+										<p class="font-ui text-xs text-ink-soft italic">
+											No bio yet. Click "Edit Profile" below to share a few words with your
+											classmates and community!
 										</p>
 									{/if}
 								</div>
@@ -293,76 +295,121 @@
 
 						<!-- Quick Stats Strip -->
 						<div class="grid grid-cols-4 gap-2 min-[480px]:gap-3">
-							<div class="flex flex-col items-center rounded-2xl border border-line bg-paper-2 p-3 text-center">
+							<div
+								class="bg-paper-2 flex flex-col items-center rounded-2xl border border-line p-3 text-center"
+							>
 								<span class="font-display text-xl font-bold text-accent">{totalPages}</span>
 								<span class="font-ui text-[10px] text-ink-soft min-[480px]:text-[11px]">Pages</span>
 							</div>
-							<div class="flex flex-col items-center rounded-2xl border border-[#E6D9B8] bg-[linear-gradient(135deg,#FFF8E7,#F7F2FD)] p-3 text-center">
+							<div
+								class="flex flex-col items-center rounded-2xl border border-[#E6D9B8] bg-[linear-gradient(135deg,#FFF8E7,#F7F2FD)] p-3 text-center"
+							>
 								<span class="flex items-center gap-1 font-display text-xl font-bold text-gold">
 									🔥 {streak}
 								</span>
-								<span class="font-ui text-[10px] text-ink-soft min-[480px]:text-[11px]">Day Streak</span>
+								<span class="font-ui text-[10px] text-ink-soft min-[480px]:text-[11px]"
+									>Day Streak</span
+								>
 							</div>
-							<div class="flex flex-col items-center rounded-2xl border border-line bg-paper-2 p-3 text-center">
-								<span class="font-display text-xl font-bold text-[#3F7A4F]">{friends.friendCount}</span>
-								<span class="font-ui text-[10px] text-ink-soft min-[480px]:text-[11px]">Friends</span>
+							<div
+								class="bg-paper-2 flex flex-col items-center rounded-2xl border border-line p-3 text-center"
+							>
+								<span class="font-display text-xl font-bold text-[#3F7A4F]"
+									>{friends.friendCount}</span
+								>
+								<span class="font-ui text-[10px] text-ink-soft min-[480px]:text-[11px]"
+									>Friends</span
+								>
 							</div>
-							<div class="flex flex-col items-center rounded-2xl border border-line bg-paper-2 p-3 text-center">
+							<div
+								class="bg-paper-2 flex flex-col items-center rounded-2xl border border-line p-3 text-center"
+							>
 								<span class="font-display text-xl font-bold text-lav">{badges.length}</span>
-								<span class="font-ui text-[10px] text-ink-soft min-[480px]:text-[11px]">Badges</span>
+								<span class="font-ui text-[10px] text-ink-soft min-[480px]:text-[11px]">Badges</span
+								>
 							</div>
 						</div>
 
 						<!-- Badges -->
-						<div class="rounded-2xl border border-line bg-paper-2 p-4">
+						<div class="bg-paper-2 rounded-2xl border border-line p-4">
 							<div class="flex items-center justify-between">
-								<span class="font-ui text-xs font-bold tracking-wide uppercase text-accent">Achievements</span>
+								<span class="font-ui text-xs font-bold tracking-wide text-accent uppercase"
+									>Achievements</span
+								>
 								<span class="font-ui text-[11px] text-ink-soft">{badges.length} earned</span>
 							</div>
 							<div class="mt-3 flex flex-wrap gap-2">
 								{#if badges.includes('first-post')}
-									<span class="inline-flex items-center gap-1.5 rounded-full border border-[#D5C6E8] bg-light px-3 py-1 font-ui text-xs font-semibold text-accent">✨ First Page</span>
+									<span
+										class="inline-flex items-center gap-1.5 rounded-full border border-[#D5C6E8] bg-light px-3 py-1 font-ui text-xs font-semibold text-accent"
+										>✨ First Page</span
+									>
 								{/if}
 								{#if badges.includes('five-pages')}
-									<span class="inline-flex items-center gap-1.5 rounded-full border border-[#D5C6E8] bg-light px-3 py-1 font-ui text-xs font-semibold text-accent">📓 Scribbler</span>
+									<span
+										class="inline-flex items-center gap-1.5 rounded-full border border-[#D5C6E8] bg-light px-3 py-1 font-ui text-xs font-semibold text-accent"
+										>📓 Scribbler</span
+									>
 								{/if}
 								{#if badges.includes('ten-pages')}
-									<span class="inline-flex items-center gap-1.5 rounded-full border border-[#D5C6E8] bg-light px-3 py-1 font-ui text-xs font-semibold text-accent">📚 Storyteller</span>
+									<span
+										class="inline-flex items-center gap-1.5 rounded-full border border-[#D5C6E8] bg-light px-3 py-1 font-ui text-xs font-semibold text-accent"
+										>📚 Storyteller</span
+									>
 								{/if}
 								{#if badges.includes('three-day-streak')}
-									<span class="inline-flex items-center gap-1.5 rounded-full border border-[#F0D9A8] bg-[#FFF8E7] px-3 py-1 font-ui text-xs font-semibold text-[#7A5618]">🔥 3-Day Streak</span>
+									<span
+										class="inline-flex items-center gap-1.5 rounded-full border border-[#F0D9A8] bg-[#FFF8E7] px-3 py-1 font-ui text-xs font-semibold text-[#7A5618]"
+										>🔥 3-Day Streak</span
+									>
 								{/if}
 								{#if badges.includes('week-streak')}
-									<span class="inline-flex items-center gap-1.5 rounded-full border border-[#F0D9A8] bg-[#FFF8E7] px-3 py-1 font-ui text-xs font-semibold text-[#7A5618]">🔥 Week Streak</span>
+									<span
+										class="inline-flex items-center gap-1.5 rounded-full border border-[#F0D9A8] bg-[#FFF8E7] px-3 py-1 font-ui text-xs font-semibold text-[#7A5618]"
+										>🔥 Week Streak</span
+									>
 								{/if}
 								{#if badges.includes('made-friend')}
-									<span class="inline-flex items-center gap-1.5 rounded-full border border-[#C9E6D1] bg-[#EDF6EF] px-3 py-1 font-ui text-xs font-semibold text-[#2F6B45]">🤝 Friendly</span>
+									<span
+										class="inline-flex items-center gap-1.5 rounded-full border border-[#C9E6D1] bg-[#EDF6EF] px-3 py-1 font-ui text-xs font-semibold text-[#2F6B45]"
+										>🤝 Friendly</span
+									>
 								{/if}
 								{#if badges.includes('social-circle')}
-									<span class="inline-flex items-center gap-1.5 rounded-full border border-[#C9E6D1] bg-[#EDF6EF] px-3 py-1 font-ui text-xs font-semibold text-[#2F6B45]">👥 Social Circle</span>
+									<span
+										class="inline-flex items-center gap-1.5 rounded-full border border-[#C9E6D1] bg-[#EDF6EF] px-3 py-1 font-ui text-xs font-semibold text-[#2F6B45]"
+										>👥 Social Circle</span
+									>
 								{/if}
 								{#if badges.length === 0}
-									<p class="font-ui text-xs text-ink-soft">Start writing pages and making friends to earn badges!</p>
+									<p class="font-ui text-xs text-ink-soft">
+										Start writing pages and making friends to earn badges!
+									</p>
 								{/if}
 							</div>
 						</div>
 
 						<!-- Friends & Community Preview Card -->
-						<div class="rounded-2xl border border-line bg-paper-2 p-4">
+						<div class="bg-paper-2 rounded-2xl border border-line p-4">
 							<div class="flex items-center justify-between">
-								<span class="font-ui text-xs font-bold tracking-wide uppercase text-accent">
+								<span class="font-ui text-xs font-bold tracking-wide text-accent uppercase">
 									Community Preview
 								</span>
-								<span class="rounded-md bg-gold/20 px-2 py-0.5 font-ui text-[11px] font-medium text-[#7A5618]">
+								<span
+									class="rounded-md bg-gold/20 px-2 py-0.5 font-ui text-[11px] font-medium text-[#7A5618]"
+								>
 									Public Profile
 								</span>
 							</div>
 							<p class="mt-1 font-ui text-xs text-ink-soft">
-								Here is how your profile card will appear to friends and in the student community directory:
+								Here is how your profile card will appear to friends and in the student community
+								directory:
 							</p>
 
 							<!-- Preview mockup card -->
-							<div class="mt-3 flex items-center gap-3 rounded-xl border border-line bg-paper p-3 shadow-sm">
+							<div
+								class="mt-3 flex items-center gap-3 rounded-xl border border-line bg-paper p-3 shadow-sm"
+							>
 								{#if profile.avatarUrl}
 									<img
 										src={profile.avatarUrl}
@@ -378,14 +425,18 @@
 								{/if}
 								<div class="min-w-0 flex-1">
 									<div class="flex items-center gap-1.5">
-										<b class="truncate font-display text-sm font-bold text-ink">{profile.displayName}</b>
+										<b class="truncate font-display text-sm font-bold text-ink"
+											>{profile.displayName}</b
+										>
 										<span class="text-xs text-ink-soft">@{profile.username}</span>
 									</div>
 									<p class="truncate font-hand text-sm text-ink-soft">
 										{profile.bio || 'Small videos, big thoughts.'}
 									</p>
 								</div>
-								<span class="rounded-full bg-lav/20 px-2.5 py-1 font-ui text-xs font-medium text-accent">
+								<span
+									class="rounded-full bg-lav/20 px-2.5 py-1 font-ui text-xs font-medium text-accent"
+								>
 									Friend
 								</span>
 							</div>
@@ -398,7 +449,8 @@
 								<div class="flex-1">
 									<b class="font-ui text-ink">Shared Computer Security</b>
 									<p class="mt-0.5 font-ui leading-normal">
-										On shared computers, you can clear cached journal pages from this browser so other visitors cannot view them.
+										On shared computers, you can clear cached journal pages from this browser so
+										other visitors cannot view them.
 									</p>
 									{#if clearCacheConfirm}
 										<div class="mt-2.5 flex items-center gap-2">
@@ -434,21 +486,26 @@
 					<!-- EDIT MODE -->
 					<div class="flex flex-col gap-5">
 						{#if saveError}
-							<div class="rounded-xl border border-red-300 bg-red-50 p-3 font-ui text-xs font-medium text-red-700">
+							<div
+								class="rounded-xl border border-red-300 bg-red-50 p-3 font-ui text-xs font-medium text-red-700"
+							>
 								{saveError}
 							</div>
 						{/if}
 
 						<!-- Avatar selection -->
 						<div>
-							<span class="block font-ui text-xs font-bold uppercase tracking-wide text-ink-soft">
+							<span class="block font-ui text-xs font-bold tracking-wide text-ink-soft uppercase">
 								Choose Your Avatar
 							</span>
 							<div class="mt-2 flex flex-wrap items-center gap-2">
-								{#each PRESET_AVATARS as preset}
+								{#each PRESET_AVATARS as preset (preset.label)}
 									<button
 										type="button"
-										class="flex size-11 items-center justify-center rounded-full text-xl shadow-sm transition-transform hover:scale-110 active:scale-95 {editAvatar === preset.emoji ? 'ring-3 ring-accent scale-105' : 'border border-line'}"
+										class="flex size-11 items-center justify-center rounded-full text-xl shadow-sm transition-transform hover:scale-110 active:scale-95 {editAvatar ===
+										preset.emoji
+											? 'scale-105 ring-3 ring-accent'
+											: 'border border-line'}"
 										onclick={() => (editAvatar = preset.emoji)}
 										title={preset.label}
 									>
@@ -457,7 +514,7 @@
 								{/each}
 								<button
 									type="button"
-									class="rounded-full border border-line px-3 py-1 font-ui text-xs text-ink-soft hover:bg-paper-2"
+									class="hover:bg-paper-2 rounded-full border border-line px-3 py-1 font-ui text-xs text-ink-soft"
 									onclick={() => (editAvatar = null)}
 								>
 									Initials only
@@ -467,7 +524,10 @@
 
 						<!-- Display Name -->
 						<div>
-							<label for="edit-display-name" class="block font-ui text-xs font-bold uppercase tracking-wide text-ink-soft">
+							<label
+								for="edit-display-name"
+								class="block font-ui text-xs font-bold tracking-wide text-ink-soft uppercase"
+							>
 								Display Name
 							</label>
 							<input
@@ -476,7 +536,7 @@
 								bind:value={editDisplayName}
 								placeholder="e.g. Maya Lin"
 								maxlength="32"
-								class="mt-1.5 w-full rounded-xl border border-line bg-paper px-3.5 py-2.5 font-ui text-sm text-ink shadow-inner outline-none transition focus:border-accent focus:ring-2 focus:ring-lav/40"
+								class="mt-1.5 w-full rounded-xl border border-line bg-paper px-3.5 py-2.5 font-ui text-sm text-ink shadow-inner transition outline-none focus:border-accent focus:ring-2 focus:ring-lav/40"
 							/>
 							<span class="mt-1 block font-ui text-[11px] text-ink-soft">
 								How friends will know you across VidJo.
@@ -485,7 +545,10 @@
 
 						<!-- Unique Username -->
 						<div>
-							<label for="edit-username" class="flex items-center justify-between font-ui text-xs font-bold uppercase tracking-wide text-ink-soft">
+							<label
+								for="edit-username"
+								class="flex items-center justify-between font-ui text-xs font-bold tracking-wide text-ink-soft uppercase"
+							>
 								<span>Unique Username</span>
 								{#if usernameStatus.checking}
 									<span class="text-accent">Checking availability…</span>
@@ -496,7 +559,9 @@
 								{/if}
 							</label>
 							<div class="relative mt-1.5">
-								<span class="absolute inset-y-0 left-3.5 flex items-center font-ui text-sm text-ink-soft">
+								<span
+									class="absolute inset-y-0 left-3.5 flex items-center font-ui text-sm text-ink-soft"
+								>
 									@
 								</span>
 								<input
@@ -506,18 +571,22 @@
 									oninput={(e) => onUsernameInput(e.currentTarget.value)}
 									placeholder="username"
 									maxlength="24"
-									class="w-full rounded-xl border border-line bg-paper py-2.5 pr-3.5 pl-8 font-ui text-sm text-ink shadow-inner outline-none transition focus:border-accent focus:ring-2 focus:ring-lav/40"
+									class="w-full rounded-xl border border-line bg-paper py-2.5 pr-3.5 pl-8 font-ui text-sm text-ink shadow-inner transition outline-none focus:border-accent focus:ring-2 focus:ring-lav/40"
 								/>
 							</div>
 							<span class="mt-1 block font-ui text-[11px] text-ink-soft">
-								Letters, numbers, underscores, dots, or dashes (2–24 characters). Must be globally unique.
+								Letters, numbers, underscores, dots, or dashes (2–24 characters). Must be globally
+								unique.
 							</span>
 						</div>
 
 						<!-- Bio -->
 						<div>
 							<div class="flex items-center justify-between">
-								<label for="edit-bio" class="block font-ui text-xs font-bold uppercase tracking-wide text-ink-soft">
+								<label
+									for="edit-bio"
+									class="block font-ui text-xs font-bold tracking-wide text-ink-soft uppercase"
+								>
 									Bio / About You
 								</label>
 								<span class="font-ui text-[11px] text-ink-soft">
@@ -530,7 +599,7 @@
 								rows="3"
 								maxlength="200"
 								placeholder="Share a short note about yourself, your hobbies, or what inspires your journal entries..."
-								class="mt-1.5 w-full resize-none rounded-xl border border-line bg-paper px-3.5 py-2.5 font-hand text-base text-ink shadow-inner outline-none transition focus:border-accent focus:ring-2 focus:ring-lav/40"
+								class="mt-1.5 w-full resize-none rounded-xl border border-line bg-paper px-3.5 py-2.5 font-hand text-base text-ink shadow-inner transition outline-none focus:border-accent focus:ring-2 focus:ring-lav/40"
 							></textarea>
 						</div>
 					</div>
@@ -538,7 +607,7 @@
 			</div>
 
 			<!-- Modal Footer -->
-			<div class="flex items-center justify-between border-t border-line bg-paper-2 px-6 py-4">
+			<div class="bg-paper-2 flex items-center justify-between border-t border-line px-6 py-4">
 				{#if mode === 'view'}
 					<button
 						type="button"
@@ -583,7 +652,9 @@
 						disabled={profile.saving || usernameStatus.available === false}
 					>
 						{#if profile.saving}
-							<div class="size-4 animate-spin rounded-full border-2 border-white border-t-transparent"></div>
+							<div
+								class="size-4 animate-spin rounded-full border-2 border-white border-t-transparent"
+							></div>
 							Saving…
 						{:else}
 							Save Changes

@@ -1,5 +1,5 @@
 import { isSupabaseConfigured, supabase } from '#lib/supabase';
-import type { Profile } from '#lib/types';
+import type { Privacy, Profile } from '#lib/types';
 import { auth } from '#lib/state/auth.svelte';
 
 export function generateFriendCode(userId: string): string {
@@ -14,22 +14,43 @@ export function generateFriendCode(userId: string): string {
 	let seed = Math.abs(hash);
 	for (let i = 0; i < 6; i++) {
 		code += chars[seed % chars.length];
-		seed = Math.floor(seed / chars.length) + (i * 13) + 7;
+		seed = Math.floor(seed / chars.length) + i * 13 + 7;
 	}
 	return `VJ-${code}`;
 }
 
 const PROFILE_STORAGE_KEY = 'vidjo-profile';
+const PREFERENCES_STORAGE_KEY = 'vidjo-profile-preferences';
+
+type ThemeName = 'classic' | 'sunset' | 'midnight';
+
+interface Preferences {
+	accentColor: string;
+	theme: ThemeName;
+	defaultPrivacy: Privacy;
+	allowFriendRequests: boolean;
+	clearCacheOnSignOut: boolean;
+}
+
+const DEFAULT_PREFERENCES: Preferences = {
+	accentColor: '#51397A',
+	theme: 'classic',
+	defaultPrivacy: 'private',
+	allowFriendRequests: true,
+	clearCacheOnSignOut: false
+};
 
 class ProfileState {
 	profile = $state<Profile | null>(null);
 	loading = $state(false);
 	saving = $state(false);
 	error = $state('');
-	accentColor = $state('#7D58C2');
-	theme = $state<'classic' | 'sunset' | 'midnight'>('classic');
-	defaultPrivacy = $state<'private' | 'friends' | 'community'>('private');
-	allowFriendRequests = $state(true);
+
+	accentColor = $state(DEFAULT_PREFERENCES.accentColor);
+	theme = $state<ThemeName>(DEFAULT_PREFERENCES.theme);
+	defaultPrivacy = $state<Privacy>(DEFAULT_PREFERENCES.defaultPrivacy);
+	allowFriendRequests = $state(DEFAULT_PREFERENCES.allowFriendRequests);
+	clearCacheOnSignOut = $state(DEFAULT_PREFERENCES.clearCacheOnSignOut);
 
 	get username() {
 		return this.profile?.username || auth.username || 'friend';
@@ -37,6 +58,10 @@ class ProfileState {
 
 	get displayName() {
 		return this.profile?.display_name || auth.displayName || 'Friend';
+	}
+
+	get nickname() {
+		return this.displayName;
 	}
 
 	get bio() {
@@ -57,22 +82,34 @@ class ProfileState {
 		return generateFriendCode(userId);
 	}
 
+	get memberSince() {
+		const value = this.profile?.created_at;
+		if (!value) return 'New member';
+		const date = new Date(value);
+		if (Number.isNaN(date.getTime())) return 'New member';
+		return date.toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
+	}
+
 	async init(userId: string) {
 		if (!userId) return;
 		this.loading = true;
 		this.error = '';
 
-		// 1. Try local storage cache first
+		this.loadPreferences(userId);
+
+		// 1. Show a cached profile immediately so the app never flashes empty.
+		let cached: Profile | null = null;
 		try {
-			const cached = localStorage.getItem(`${PROFILE_STORAGE_KEY}:${userId}`);
-			if (cached) {
-				this.profile = JSON.parse(cached) as Profile;
+			const local = localStorage.getItem(`${PROFILE_STORAGE_KEY}:${userId}`);
+			if (local) {
+				cached = JSON.parse(local) as Profile;
+				this.profile = cached;
+				this.applyProfile(cached);
 			}
 		} catch {
 			// Ignore local storage errors
 		}
 
-		// 2. Fetch from Supabase if connected
 		if (isSupabaseConfigured) {
 			try {
 				const { data, error } = await supabase
@@ -84,61 +121,132 @@ class ProfileState {
 				if (error) throw error;
 
 				if (data) {
-					this.profile = data as Profile;
+					const remote = data as Profile;
+
+					// Older rows may not have a friend code yet. Preserve the code the
+					// user already saw on this device, otherwise generate one.
+					if (!remote.friend_code) {
+						remote.friend_code = cached?.friend_code || generateFriendCode(userId);
+						const { error: repairError } = await supabase
+							.from('vidjo_profiles')
+							.update({ friend_code: remote.friend_code })
+							.eq('user_id', userId);
+						if (repairError) {
+							console.warn('[VidJo] Could not save the generated friend code.', repairError);
+						}
+					}
+
+					this.profile = remote;
+					this.applyProfile(remote);
 					this.persistLocal(userId);
 				} else {
-					// Seed profile from auth metadata if row doesn't exist yet
+					// Seed profile from auth metadata if the database row does not exist.
 					const initialUsername = auth.username || `user_${userId.slice(0, 8)}`;
 					const initialName = auth.displayName || initialUsername;
-					const initialAvatar = auth.avatarUrl || null;
 
 					const newProfile: Profile = {
 						user_id: userId,
 						username: initialUsername,
 						display_name: initialName,
 						bio: '',
-						avatar_url: initialAvatar,
-						created_at: new Date().toISOString(),
+						avatar_url: auth.avatarUrl || null,
+						friend_code: cached?.friend_code || generateFriendCode(userId),
+						accent_color: this.accentColor,
+						theme: this.theme,
+						default_privacy: this.defaultPrivacy,
+						allow_friend_requests: this.allowFriendRequests,
+						created_at: cached?.created_at || new Date().toISOString(),
 						updated_at: new Date().toISOString()
 					};
 
-					await supabase.from('vidjo_profiles').upsert(newProfile);
+					const { error: seedError } = await supabase
+						.from('vidjo_profiles')
+						.upsert(newProfile, { onConflict: 'user_id' });
+					if (seedError) throw seedError;
+
 					this.profile = newProfile;
 					this.persistLocal(userId);
 				}
 			} catch (err) {
 				console.warn('[VidJo] Could not load profile from Supabase, using local fallback.', err);
 				if (!this.profile) {
-					this.profile = {
-						user_id: userId,
-						username: auth.username || `user_${userId.slice(0, 8)}`,
-						display_name: auth.displayName || 'Friend',
-						bio: '',
-						avatar_url: auth.avatarUrl || null,
-						created_at: new Date().toISOString(),
-						updated_at: new Date().toISOString()
-					};
+					this.profile = this.localProfile(userId, cached);
 				}
 			}
 		} else if (!this.profile) {
-			this.profile = {
-				user_id: userId,
-				username: 'guest_student',
-				display_name: 'Guest Student',
-				bio: 'Documenting daily moments on this device ✨',
-				avatar_url: null,
-				created_at: new Date().toISOString(),
-				updated_at: new Date().toISOString()
-			};
+			this.profile = this.localProfile(userId, cached);
 		}
 
+		this.persistLocal(userId);
 		this.loading = false;
 	}
 
-	private persistLocal(userId: string) {
-		if (!this.profile) return;
+	private localProfile(userId: string, cached: Profile | null): Profile {
+		return {
+			user_id: userId,
+			username: cached?.username || auth.username || 'guest_student',
+			display_name: cached?.display_name || auth.displayName || 'Guest Student',
+			bio: cached?.bio || '',
+			avatar_url: cached?.avatar_url || auth.avatarUrl || null,
+			friend_code: cached?.friend_code || generateFriendCode(userId),
+			accent_color: this.accentColor,
+			theme: this.theme,
+			default_privacy: this.defaultPrivacy,
+			allow_friend_requests: this.allowFriendRequests,
+			created_at: cached?.created_at || new Date().toISOString(),
+			updated_at: new Date().toISOString()
+		};
+	}
+
+	private applyProfile(value: Profile) {
+		if (value.accent_color) this.accentColor = value.accent_color;
+		if (value.theme) this.theme = value.theme;
+		if (value.default_privacy) this.defaultPrivacy = value.default_privacy;
+		if (typeof value.allow_friend_requests === 'boolean') {
+			this.allowFriendRequests = value.allow_friend_requests;
+		}
+	}
+
+	private loadPreferences(userId: string) {
 		try {
-			localStorage.setItem(`${PROFILE_STORAGE_KEY}:${userId}`, JSON.stringify(this.profile));
+			const raw = localStorage.getItem(`${PREFERENCES_STORAGE_KEY}:${userId}`);
+			if (!raw) return;
+			const parsed = JSON.parse(raw) as Partial<Preferences>;
+			if (typeof parsed.accentColor === 'string') this.accentColor = parsed.accentColor;
+			if (parsed.theme === 'classic' || parsed.theme === 'sunset' || parsed.theme === 'midnight') {
+				this.theme = parsed.theme;
+			}
+			if (
+				parsed.defaultPrivacy === 'private' ||
+				parsed.defaultPrivacy === 'friends' ||
+				parsed.defaultPrivacy === 'community'
+			) {
+				this.defaultPrivacy = parsed.defaultPrivacy;
+			}
+			if (typeof parsed.allowFriendRequests === 'boolean') {
+				this.allowFriendRequests = parsed.allowFriendRequests;
+			}
+			if (typeof parsed.clearCacheOnSignOut === 'boolean') {
+				this.clearCacheOnSignOut = parsed.clearCacheOnSignOut;
+			}
+		} catch {
+			// Ignore storage errors
+		}
+	}
+
+	private persistLocal(userId: string) {
+		try {
+			if (this.profile) {
+				localStorage.setItem(`${PROFILE_STORAGE_KEY}:${userId}`, JSON.stringify(this.profile));
+			}
+			const preferences: Preferences = {
+				accentColor: this.accentColor,
+				theme: this.theme,
+				defaultPrivacy: this.defaultPrivacy,
+				allowFriendRequests: this.allowFriendRequests,
+				clearCacheOnSignOut: this.clearCacheOnSignOut
+			};
+			localStorage.setItem(`${PREFERENCES_STORAGE_KEY}:${userId}`, JSON.stringify(preferences));
 		} catch {
 			// Ignore storage write issues
 		}
@@ -167,7 +275,6 @@ class ProfileState {
 			const { data, error } = await supabase.rpc('is_username_available', { uname: clean });
 			if (error) {
 				console.warn('[VidJo] Username check failed RPC, falling back to table query.', error);
-				// Fallback to table query
 				const { data: existing, error: queryError } = await supabase
 					.from('vidjo_profiles')
 					.select('username')
@@ -198,14 +305,17 @@ class ProfileState {
 		}
 
 		if (!cleanDisplayName) {
-			return { error: 'Display name cannot be empty.' };
+			return { error: 'Nickname cannot be empty.' };
+		}
+
+		if (cleanDisplayName.length > 32) {
+			return { error: 'Nickname must be 32 characters or fewer.' };
 		}
 
 		if (cleanBio.length > 200) {
 			return { error: 'Bio must be under 200 characters.' };
 		}
 
-		// Check availability if username is changing
 		if (!this.profile || this.profile.username.toLowerCase() !== cleanUsername.toLowerCase()) {
 			const { available } = await this.checkUsernameAvailable(cleanUsername);
 			if (!available) {
@@ -223,6 +333,10 @@ class ProfileState {
 			bio: cleanBio,
 			avatar_url: patch.avatar_url,
 			friend_code: this.profile?.friend_code || generateFriendCode(userId),
+			accent_color: this.accentColor,
+			theme: this.theme,
+			default_privacy: this.defaultPrivacy,
+			allow_friend_requests: this.allowFriendRequests,
 			created_at: this.profile?.created_at || new Date().toISOString(),
 			updated_at: new Date().toISOString()
 		};
@@ -235,11 +349,12 @@ class ProfileState {
 
 				if (profileError) throw profileError;
 
-				// Also sync with auth user metadata so session reflects it
+				// Keep auth metadata in sync so a fresh sign-in shows the same names.
 				await supabase.auth.updateUser({
 					data: {
 						username: cleanUsername,
 						user_name: cleanUsername,
+						nickname: cleanDisplayName,
 						full_name: cleanDisplayName,
 						display_name: cleanDisplayName,
 						bio: cleanBio,
@@ -259,13 +374,48 @@ class ProfileState {
 		return { error: '' };
 	}
 
+	async savePreferences(): Promise<{ error: string }> {
+		const userId = this.profile?.user_id || auth.ownerId;
+		if (this.profile) {
+			this.profile.accent_color = this.accentColor;
+			this.profile.theme = this.theme;
+			this.profile.default_privacy = this.defaultPrivacy;
+			this.profile.allow_friend_requests = this.allowFriendRequests;
+			this.profile.updated_at = new Date().toISOString();
+		}
+
+		if (isSupabaseConfigured && userId) {
+			const { error } = await supabase
+				.from('vidjo_profiles')
+				.update({
+					accent_color: this.accentColor,
+					theme: this.theme,
+					default_privacy: this.defaultPrivacy,
+					allow_friend_requests: this.allowFriendRequests,
+					updated_at: new Date().toISOString()
+				})
+				.eq('user_id', userId);
+
+			if (error) {
+				return { error: error.message };
+			}
+		}
+
+		if (userId) this.persistLocal(userId);
+		return { error: '' };
+	}
+
 	reset() {
 		this.profile = null;
 		this.loading = false;
 		this.saving = false;
 		this.error = '';
+		this.accentColor = DEFAULT_PREFERENCES.accentColor;
+		this.theme = DEFAULT_PREFERENCES.theme;
+		this.defaultPrivacy = DEFAULT_PREFERENCES.defaultPrivacy;
+		this.allowFriendRequests = DEFAULT_PREFERENCES.allowFriendRequests;
+		this.clearCacheOnSignOut = DEFAULT_PREFERENCES.clearCacheOnSignOut;
 	}
 }
 
 export const profile = new ProfileState();
-

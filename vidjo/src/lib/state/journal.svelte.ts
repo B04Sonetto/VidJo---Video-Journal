@@ -5,10 +5,8 @@ import { peekDeviceId } from '#lib/identity';
 import { isSupabaseConfigured, supabase, VIDEO_BUCKET } from '#lib/supabase';
 import { viewport } from '#lib/state/viewport.svelte';
 import {
-	clearStoredVideos,
 	clearStoredVideosForOwner,
 	deleteStoredVideo,
-	deleteStoredVideos,
 	getStoredVideo,
 	putStoredVideo
 } from '#lib/videoStore';
@@ -48,6 +46,7 @@ function normalizeEntry(raw: Partial<Entry> & { date: string; videoUrl?: string 
 		mind: raw.mind ?? '',
 		refl: raw.refl ?? '',
 		privacy: raw.privacy ?? 'private',
+		communitySlug: raw.communitySlug ?? '',
 		stickers: Array.isArray(raw.stickers) ? raw.stickers : [],
 		saved: Boolean(raw.saved),
 		sample: Boolean(raw.sample),
@@ -80,6 +79,7 @@ export function blankEntry(date: string): Entry {
 		mind: '',
 		refl: '',
 		privacy: 'private',
+		communitySlug: '',
 		stickers: [],
 		saved: false,
 		sample: false,
@@ -96,6 +96,7 @@ function rowToEntry(row: EntryRow): Entry {
 		mind: row.mind ?? '',
 		refl: row.refl ?? '',
 		privacy: row.privacy ?? 'private',
+		communitySlug: row.community_slug ?? '',
 		stickers: Array.isArray(row.stickers) ? row.stickers : [],
 		saved: Boolean(row.saved),
 		sample: Boolean(row.sample),
@@ -113,6 +114,7 @@ function entryToRow(ownerId: string, entry: Entry): EntryRow {
 		mind: entry.mind,
 		refl: entry.refl,
 		privacy: entry.privacy,
+		community_slug: entry.communitySlug || null,
 		stickers: entry.stickers.map((sticker) => ({ ...sticker })),
 		saved: entry.saved,
 		sample: entry.sample,
@@ -321,7 +323,9 @@ class Journal {
 			try {
 				const raw = localStorage.getItem(LEGACY_STORAGE_KEY);
 				if (raw) {
-					const saved = JSON.parse(raw) as { entries?: Record<string, Partial<Entry> & { date: string }> };
+					const saved = JSON.parse(raw) as {
+						entries?: Record<string, Partial<Entry> & { date: string }>;
+					};
 					if (saved.entries) {
 						for (const [date, item] of Object.entries(saved.entries)) {
 							merged[date] = normalizeEntry(item);
@@ -470,6 +474,15 @@ class Journal {
 		const entry = this.entries[this.current];
 		if (!entry) return;
 		entry.privacy = privacy;
+		if (privacy !== 'community') entry.communitySlug = '';
+		entry.sample = false;
+		this.queueSave(this.current);
+	}
+
+	setCommunity(communitySlug: string) {
+		const entry = this.entries[this.current];
+		if (!entry) return;
+		entry.communitySlug = communitySlug;
 		entry.sample = false;
 		this.queueSave(this.current);
 	}

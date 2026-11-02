@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
+	import { resolve } from '$app/paths';
 	import Book from '#lib/components/Book.svelte';
 	import CalendarModal from '#lib/components/CalendarModal.svelte';
 	import CommunityView from '#lib/components/CommunityView.svelte';
@@ -14,11 +15,13 @@
 	import { journal } from '#lib/state/journal.svelte';
 	import { profile } from '#lib/state/profile.svelte';
 	import { friends } from '#lib/state/friends.svelte';
+	import { community } from '#lib/state/community.svelte';
 	import { nav } from '#lib/state/navigation.svelte';
 	import { viewport } from '#lib/state/viewport.svelte';
 
 	let calendarOpen = $state(false);
 	let activeOwner = $state('');
+	let initSeq = 0;
 
 	onMount(() => {
 		const cleanupViewport = viewport.init();
@@ -33,7 +36,7 @@
 	$effect(() => {
 		if (auth.ready && auth.passwordRecovery) {
 			auth.passwordRecovery = false;
-			void goto('/auth/reset', { replaceState: true });
+			void goto(resolve('/auth/reset'), { replaceState: true });
 		}
 	});
 
@@ -42,6 +45,9 @@
 
 		if (!auth.active) {
 			activeOwner = '';
+			initSeq += 1;
+			friends.reset();
+			community.reset();
 			return;
 		}
 
@@ -49,9 +55,23 @@
 		if (!ownerId || ownerId === activeOwner) return;
 
 		activeOwner = ownerId;
-		void journal.init(ownerId, auth.signedIn);
-		void profile.init(ownerId);
-		friends.init(ownerId);
+		const seq = ++initSeq;
+
+		void (async () => {
+			await journal.init(ownerId, auth.signedIn);
+			await profile.init(ownerId);
+			if (seq !== initSeq) return;
+			await Promise.all([friends.init(ownerId), community.init(ownerId)]);
+		})();
+	});
+
+	// Saved appearance preferences apply globally.
+	$effect(() => {
+		document.documentElement.style.setProperty('--color-accent', profile.accentColor);
+	});
+
+	$effect(() => {
+		document.documentElement.dataset.theme = profile.theme;
 	});
 </script>
 

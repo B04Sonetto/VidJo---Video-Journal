@@ -4,10 +4,10 @@
 	import { journal } from '#lib/state/journal.svelte';
 	import { nav } from '#lib/state/navigation.svelte';
 	import { TODAY } from '#lib/dates';
+	import { untrack } from 'svelte';
 	import type { MoodKey } from '#lib/types';
 
 	let activeSubTab = $state<'feed' | 'requests' | 'list'>('feed');
-	let searchUsers = $state('');
 	let addCodeInput = $state('');
 	let addBusy = $state(false);
 	let addError = $state('');
@@ -62,10 +62,25 @@
 		}
 	}
 
-	function handleAddDemo(code: string) {
-		addCodeInput = code;
-		void friends.addFriendByCode(code);
-	}
+	$effect(() => {
+		// Track the sharing fields of every page so the feed refreshes when a
+		// page is saved, made private, or gets a new video.
+		for (const entry of Object.values(journal.entries)) {
+			void entry.privacy;
+			void entry.title;
+			void entry.mind;
+			void entry.refl;
+			void entry.videoPath;
+			void entry.videoName;
+			void entry.stickers;
+		}
+		void profile.nickname;
+		void profile.username;
+		void profile.avatarUrl;
+		void profile.friendCode;
+
+		untrack(() => friends.syncOwnPosts());
+	});
 
 	function toggleNoteBox(postId: string) {
 		openCommentPost = openCommentPost === postId ? null : postId;
@@ -82,27 +97,37 @@
 <div class="mx-auto w-full max-w-[1100px] px-4 py-6 min-[900px]:px-6">
 	<!-- ── Top Hero Bar ── -->
 	<header
-		class="relative overflow-hidden rounded-[28px] border border-[#523A7A] bg-[radial-gradient(ellipse_at_top,#4A2F7A_0%,#24143D_70%)] p-6 shadow-[0_24px_60px_rgba(0,0,0,.5)] text-white min-[720px]:p-8"
+		class="relative overflow-hidden rounded-[28px] border border-[#523A7A] bg-[radial-gradient(ellipse_at_top,#4A2F7A_0%,#24143D_70%)] p-6 text-white shadow-[0_24px_60px_rgba(0,0,0,.5)] min-[720px]:p-8"
 	>
 		<!-- Background sparkles -->
-		<span class="pointer-events-none absolute -top-10 right-24 h-36 w-36 rounded-full bg-gold/10 blur-3xl"></span>
-		<span class="pointer-events-none absolute bottom-0 left-12 h-28 w-28 rounded-full bg-lav/10 blur-3xl"></span>
+		<span
+			class="pointer-events-none absolute -top-10 right-24 h-36 w-36 rounded-full bg-gold/10 blur-3xl"
+		></span>
+		<span
+			class="pointer-events-none absolute bottom-0 left-12 h-28 w-28 rounded-full bg-lav/10 blur-3xl"
+		></span>
 
-		<div class="relative flex flex-col gap-5 min-[800px]:flex-row min-[800px]:items-center min-[800px]:justify-between">
+		<div
+			class="relative flex flex-col gap-5 min-[800px]:flex-row min-[800px]:items-center min-[800px]:justify-between"
+		>
 			<div>
 				<div class="flex items-center gap-2">
-					<span class="inline-flex items-center gap-1.5 rounded-full bg-lav/20 px-3 py-1 font-ui text-xs font-semibold text-lav">
-						<span class="size-2 rounded-full bg-gold animate-pulse"></span>
+					<span
+						class="inline-flex items-center gap-1.5 rounded-full bg-lav/20 px-3 py-1 font-ui text-xs font-semibold text-lav"
+					>
+						<span class="size-2 animate-pulse rounded-full bg-gold"></span>
 						Social Circle
 					</span>
 					<span class="font-ui text-xs text-[#BBA8E0]">• Friends Feed</span>
 				</div>
-				<h1 class="mt-2 font-display text-3xl font-bold tracking-tight text-white min-[720px]:text-5xl">
+				<h1
+					class="mt-2 font-display text-3xl font-bold tracking-tight text-white min-[720px]:text-5xl"
+				>
 					Friends Journal
 				</h1>
 				<p class="mt-2 max-w-[620px] font-ui text-sm text-[#D6CBEC] min-[720px]:text-base">
-					A full social feed of small video moments and handwritten reflections shared by your friends.
-					Add friends with your unique friend code to grow your circle.
+					A full social feed of small video moments and handwritten reflections shared by your
+					friends. Add friends with your unique friend code to grow your circle.
 				</p>
 			</div>
 
@@ -126,12 +151,32 @@
 						title="Copy your friend code to share with friends"
 					>
 						{#if copied}
-							<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+							<svg
+								width="14"
+								height="14"
+								viewBox="0 0 24 24"
+								fill="none"
+								stroke="currentColor"
+								stroke-width="2.5"
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								aria-hidden="true"
+							>
 								<path d="M20 6L9 17l-5-5"></path>
 							</svg>
 							Copied!
 						{:else}
-							<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+							<svg
+								width="14"
+								height="14"
+								viewBox="0 0 24 24"
+								fill="none"
+								stroke="currentColor"
+								stroke-width="2"
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								aria-hidden="true"
+							>
 								<rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
 								<path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"></path>
 							</svg>
@@ -146,14 +191,29 @@
 		</div>
 
 		<!-- Sub-Nav Pill Switcher -->
-		<div class="mt-6 flex flex-wrap items-center justify-between gap-3 border-t border-white/10 pt-4">
+		<div
+			class="mt-6 flex flex-wrap items-center justify-between gap-3 border-t border-white/10 pt-4"
+		>
 			<div class="flex flex-wrap gap-2">
 				<button
 					type="button"
-					class="flex items-center gap-2 rounded-full px-5 py-2.5 font-ui text-sm font-semibold transition-all {activeSubTab === 'feed' ? 'bg-white/20 text-white shadow-inner' : 'text-[#D6CBEC] hover:bg-white/10 hover:text-white'}"
+					class="flex items-center gap-2 rounded-full px-5 py-2.5 font-ui text-sm font-semibold transition-all {activeSubTab ===
+					'feed'
+						? 'bg-white/20 text-white shadow-inner'
+						: 'text-[#D6CBEC] hover:bg-white/10 hover:text-white'}"
 					onclick={() => (activeSubTab = 'feed')}
 				>
-					<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+					<svg
+						width="16"
+						height="16"
+						viewBox="0 0 24 24"
+						fill="none"
+						stroke="currentColor"
+						stroke-width="2"
+						stroke-linecap="round"
+						stroke-linejoin="round"
+						aria-hidden="true"
+					>
 						<rect x="3" y="3" width="7" height="7"></rect>
 						<rect x="14" y="3" width="7" height="7"></rect>
 						<rect x="14" y="14" width="7" height="7"></rect>
@@ -167,10 +227,23 @@
 
 				<button
 					type="button"
-					class="relative flex items-center gap-2 rounded-full px-5 py-2.5 font-ui text-sm font-semibold transition-all {activeSubTab === 'requests' ? 'bg-white/20 text-white shadow-inner' : 'text-[#D6CBEC] hover:bg-white/10 hover:text-white'}"
+					class="relative flex items-center gap-2 rounded-full px-5 py-2.5 font-ui text-sm font-semibold transition-all {activeSubTab ===
+					'requests'
+						? 'bg-white/20 text-white shadow-inner'
+						: 'text-[#D6CBEC] hover:bg-white/10 hover:text-white'}"
 					onclick={() => (activeSubTab = 'requests')}
 				>
-					<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+					<svg
+						width="16"
+						height="16"
+						viewBox="0 0 24 24"
+						fill="none"
+						stroke="currentColor"
+						stroke-width="2"
+						stroke-linecap="round"
+						stroke-linejoin="round"
+						aria-hidden="true"
+					>
 						<path d="M16 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"></path>
 						<circle cx="9" cy="7" r="4"></circle>
 						<line x1="19" y1="8" x2="19" y2="14"></line>
@@ -186,10 +259,23 @@
 
 				<button
 					type="button"
-					class="flex items-center gap-2 rounded-full px-5 py-2.5 font-ui text-sm font-semibold transition-all {activeSubTab === 'list' ? 'bg-white/20 text-white shadow-inner' : 'text-[#D6CBEC] hover:bg-white/10 hover:text-white'}"
+					class="flex items-center gap-2 rounded-full px-5 py-2.5 font-ui text-sm font-semibold transition-all {activeSubTab ===
+					'list'
+						? 'bg-white/20 text-white shadow-inner'
+						: 'text-[#D6CBEC] hover:bg-white/10 hover:text-white'}"
 					onclick={() => (activeSubTab = 'list')}
 				>
-					<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+					<svg
+						width="16"
+						height="16"
+						viewBox="0 0 24 24"
+						fill="none"
+						stroke="currentColor"
+						stroke-width="2"
+						stroke-linecap="round"
+						stroke-linejoin="round"
+						aria-hidden="true"
+					>
 						<path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"></path>
 						<circle cx="9" cy="7" r="4"></circle>
 						<path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"></path>
@@ -208,7 +294,17 @@
 				onclick={() => nav.jump(TODAY)}
 			>
 				<span>Open my journal</span>
-				<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+				<svg
+					width="14"
+					height="14"
+					viewBox="0 0 24 24"
+					fill="none"
+					stroke="currentColor"
+					stroke-width="2"
+					stroke-linecap="round"
+					stroke-linejoin="round"
+					aria-hidden="true"
+				>
 					<path d="M5 12h14M12 5l7 7-7 7"></path>
 				</svg>
 			</button>
@@ -216,16 +312,33 @@
 	</header>
 
 	<!-- ── Add Friend Bar ── -->
-	<div class="mt-6 rounded-2xl border border-[#4D366D] bg-desk-2 p-4 shadow-[0_6px_20px_rgba(0,0,0,.25)]">
-		<form onsubmit={submitAddFriend} class="flex flex-col gap-3 min-[640px]:flex-row min-[640px]:items-center">
+	<div
+		class="mt-6 rounded-2xl border border-[#4D366D] bg-desk-2 p-4 shadow-[0_6px_20px_rgba(0,0,0,.25)]"
+	>
+		<form
+			onsubmit={submitAddFriend}
+			class="flex flex-col gap-3 min-[640px]:flex-row min-[640px]:items-center"
+		>
 			<div class="flex items-center gap-2 text-gold">
-				<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+				<svg
+					width="18"
+					height="18"
+					viewBox="0 0 24 24"
+					fill="none"
+					stroke="currentColor"
+					stroke-width="2"
+					stroke-linecap="round"
+					stroke-linejoin="round"
+					aria-hidden="true"
+				>
 					<path d="M16 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"></path>
 					<circle cx="9" cy="7" r="4"></circle>
 					<line x1="20" y1="8" x2="20" y2="14"></line>
 					<line x1="23" y1="11" x2="17" y2="11"></line>
 				</svg>
-				<span class="font-ui text-sm font-bold text-white whitespace-nowrap">Add a friend by code:</span>
+				<span class="font-ui text-sm font-bold whitespace-nowrap text-white"
+					>Add a friend by code:</span
+				>
 			</div>
 
 			<div class="relative flex-1">
@@ -234,7 +347,7 @@
 					type="text"
 					placeholder="Enter Friend Code (e.g. VJ-7K9M2P)"
 					maxlength="16"
-					class="h-11 w-full rounded-xl border border-line/40 bg-[#FFFDF6] px-3.5 font-ui text-sm font-medium text-ink placeholder:text-[#9B8CB5] focus:border-accent focus:outline-none uppercase"
+					class="h-11 w-full rounded-xl border border-line/40 bg-[#FFFDF6] px-3.5 font-ui text-sm font-medium text-ink uppercase placeholder:text-[#9B8CB5] focus:border-accent focus:outline-none"
 					disabled={addBusy}
 				/>
 			</div>
@@ -245,7 +358,9 @@
 				disabled={addBusy || !addCodeInput.trim()}
 			>
 				{#if addBusy}
-					<div class="size-4 animate-spin rounded-full border-2 border-white border-t-transparent"></div>
+					<div
+						class="size-4 animate-spin rounded-full border-2 border-white border-t-transparent"
+					></div>
 					Sending…
 				{:else}
 					Send Request
@@ -260,31 +375,25 @@
 			<p class="mt-2.5 font-ui text-xs font-semibold text-[#FF9B9B]">{addError}</p>
 		{/if}
 
-		<div class="mt-3 flex flex-col gap-2 border-t border-white/10 pt-3">
-			<div class="relative">
-				<svg
-					class="absolute left-3 top-1/2 -translate-y-1/2 text-[#9B8CB5]"
-					width="16"
-					height="16"
-					viewBox="0 0 24 24"
-					fill="none"
-					stroke="currentColor"
-					stroke-width="2"
-					stroke-linecap="round"
-					stroke-linejoin="round"
-					aria-hidden="true"
-				>
-					<circle cx="11" cy="11" r="8"></circle>
-					<path d="m21 21-4.3-4.3"></path>
-				</svg>
-				<input
-					bind:value={searchUsers}
-					type="text"
-					placeholder="Find friends by username or name..."
-					class="h-10 w-full rounded-xl border border-[#5A4580] bg-[#2A1B3F] pl-9 pr-3 font-ui text-sm text-white placeholder:text-[#9B8CB5] focus:border-gold/60 focus:outline-none"
-				/>
-			</div>
-			<p class="font-ui text-[11px] text-[#C9B8E8]">Friend search is available once users are connected. Share your code to grow your circle!</p>
+		<div class="mt-3 flex items-center gap-2 border-t border-white/10 pt-3">
+			<svg
+				width="15"
+				height="15"
+				viewBox="0 0 24 24"
+				fill="none"
+				stroke="currentColor"
+				stroke-width="2"
+				stroke-linecap="round"
+				stroke-linejoin="round"
+				class="text-gold"
+				aria-hidden="true"
+			>
+				<circle cx="12" cy="12" r="10"></circle>
+				<path d="M12 16v-4M12 8h.01"></path>
+			</svg>
+			<p class="font-ui text-[11px] text-[#C9B8E8]">
+				Friend codes are verified by Vidjo. Share yours and send a request with theirs.
+			</p>
 		</div>
 	</div>
 
@@ -295,17 +404,33 @@
 			<div class="flex items-center gap-1.5 rounded-full border border-[#4D366D] bg-desk-2 p-1">
 				<button
 					type="button"
-					class="rounded-full px-3.5 py-1.5 font-ui text-xs font-bold transition-all {friends.activeFilter === 'all' ? 'bg-accent text-white shadow-sm' : 'text-[#D6CBEC] hover:text-white'}"
+					class="rounded-full px-3.5 py-1.5 font-ui text-xs font-bold transition-all {friends.activeFilter ===
+					'all'
+						? 'bg-accent text-white shadow-sm'
+						: 'text-[#D6CBEC] hover:text-white'}"
 					onclick={() => friends.setFilter('all')}
 				>
 					All Posts ({friends.posts.length})
 				</button>
 				<button
 					type="button"
-					class="flex items-center gap-1.5 rounded-full px-3.5 py-1.5 font-ui text-xs font-bold transition-all {friends.activeFilter === 'video' ? 'bg-accent text-white shadow-sm' : 'text-[#D6CBEC] hover:text-white'}"
+					class="flex items-center gap-1.5 rounded-full px-3.5 py-1.5 font-ui text-xs font-bold transition-all {friends.activeFilter ===
+					'video'
+						? 'bg-accent text-white shadow-sm'
+						: 'text-[#D6CBEC] hover:text-white'}"
 					onclick={() => friends.setFilter('video')}
 				>
-					<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+					<svg
+						width="12"
+						height="12"
+						viewBox="0 0 24 24"
+						fill="none"
+						stroke="currentColor"
+						stroke-width="2"
+						stroke-linecap="round"
+						stroke-linejoin="round"
+						aria-hidden="true"
+					>
 						<polygon points="23 7 16 12 23 17 23 7"></polygon>
 						<rect x="1" y="5" width="15" height="14" rx="2" ry="2"></rect>
 					</svg>
@@ -313,10 +438,23 @@
 				</button>
 				<button
 					type="button"
-					class="flex items-center gap-1.5 rounded-full px-3.5 py-1.5 font-ui text-xs font-bold transition-all {friends.activeFilter === 'written' ? 'bg-accent text-white shadow-sm' : 'text-[#D6CBEC] hover:text-white'}"
+					class="flex items-center gap-1.5 rounded-full px-3.5 py-1.5 font-ui text-xs font-bold transition-all {friends.activeFilter ===
+					'written'
+						? 'bg-accent text-white shadow-sm'
+						: 'text-[#D6CBEC] hover:text-white'}"
 					onclick={() => friends.setFilter('written')}
 				>
-					<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+					<svg
+						width="12"
+						height="12"
+						viewBox="0 0 24 24"
+						fill="none"
+						stroke="currentColor"
+						stroke-width="2"
+						stroke-linecap="round"
+						stroke-linejoin="round"
+						aria-hidden="true"
+					>
 						<path d="M12 20h9M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4L16.5 3.5z"></path>
 					</svg>
 					Written VidJos
@@ -328,12 +466,12 @@
 			</span>
 		</div>
 
-			<!-- Stories/Highlights Row -->
+		<!-- Stories/Highlights Row -->
 		{#if friends.stories.length > 0}
 			<div class="mt-6">
 				<h2 class="mb-3 font-ui text-sm font-bold text-white">Stories</h2>
 				<div class="flex gap-3 overflow-x-auto pb-2">
-					{#each friends.stories as story}
+					{#each friends.stories as story (story.id)}
 						<button type="button" class="group flex shrink-0 flex-col items-center gap-1.5">
 							<div class="relative">
 								<div class="rounded-full bg-[linear-gradient(135deg,#D4A24C,#8B6FD0)] p-[2px]">
@@ -341,17 +479,23 @@
 										{#if story.avatarUrl && story.avatarUrl.length > 2}
 											<img src={story.avatarUrl} alt="" class="size-16 rounded-full object-cover" />
 										{:else}
-											<span class="flex size-16 items-center justify-center rounded-full bg-[linear-gradient(135deg,#C9B8E8,#8B6FD0)] font-display text-xl font-bold text-white">
+											<span
+												class="flex size-16 items-center justify-center rounded-full bg-[linear-gradient(135deg,#C9B8E8,#8B6FD0)] font-display text-xl font-bold text-white"
+											>
 												{story.avatarUrl || story.displayName[0]}
 											</span>
 										{/if}
 									</div>
 								</div>
 								{#if story.isOnline}
-									<span class="absolute bottom-0 right-0 size-4 rounded-full bg-[#3F7A4F] ring-2 ring-[#1C142B]"></span>
+									<span
+										class="absolute right-0 bottom-0 size-4 rounded-full bg-[#3F7A4F] ring-2 ring-[#1C142B]"
+									></span>
 								{/if}
 							</div>
-							<span class="max-w-[72px] truncate font-ui text-[11px] text-[#D6CBEC]">{story.displayName.split(' ')[0]}</span>
+							<span class="max-w-[72px] truncate font-ui text-[11px] text-[#D6CBEC]"
+								>{story.displayName.split(' ')[0]}</span
+							>
 						</button>
 					{/each}
 				</div>
@@ -361,9 +505,23 @@
 		<!-- Posts Roll -->
 		<div class="mt-6 space-y-8">
 			{#if friends.filteredPosts.length === 0}
-				<div class="rounded-3xl border border-[#4D366D] bg-[radial-gradient(ellipse_at_top,#3A275A_0%,#24143D_70%)] p-10 text-center text-white">
-					<div class="mx-auto mb-4 flex size-16 items-center justify-center rounded-full bg-white/10">
-						<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+				<div
+					class="rounded-3xl border border-[#4D366D] bg-[radial-gradient(ellipse_at_top,#3A275A_0%,#24143D_70%)] p-10 text-center text-white"
+				>
+					<div
+						class="mx-auto mb-4 flex size-16 items-center justify-center rounded-full bg-white/10"
+					>
+						<svg
+							width="28"
+							height="28"
+							viewBox="0 0 24 24"
+							fill="none"
+							stroke="currentColor"
+							stroke-width="2"
+							stroke-linecap="round"
+							stroke-linejoin="round"
+							aria-hidden="true"
+						>
 							<path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"></path>
 							<circle cx="9" cy="7" r="4"></circle>
 							<line x1="19" y1="8" x2="19" y2="14"></line>
@@ -395,7 +553,7 @@
 
 			{#each friends.filteredPosts as post (post.id)}
 				<article
-					class="relative overflow-hidden rounded-[28px] border border-[#E6D9B8] bg-paper p-6 text-ink shadow-[0_20px_50px_rgba(0,0,0,.4)] min-[720px]:p-9 transition-all hover:-translate-y-0.5 hover:shadow-[0_24px_56px_rgba(0,0,0,.44)]"
+					class="relative overflow-hidden rounded-[28px] border border-[#E6D9B8] bg-paper p-6 text-ink shadow-[0_20px_50px_rgba(0,0,0,.4)] transition-all hover:-translate-y-0.5 hover:shadow-[0_24px_56px_rgba(0,0,0,.44)] min-[720px]:p-9"
 				>
 					<!-- Scrapbook Washi Tape Strip -->
 					<span
@@ -423,11 +581,13 @@
 
 							<div>
 								<div class="flex items-center gap-2">
-									<h2 class="font-display text-lg font-bold leading-tight text-ink">
+									<h2 class="font-display text-lg leading-tight font-bold text-ink">
 										{post.authorName}
 									</h2>
 									{#if post.isOwner}
-										<span class="rounded bg-accent/10 px-1.5 py-0.2 font-ui text-[10px] font-bold text-accent">
+										<span
+											class="py-0.2 rounded bg-accent/10 px-1.5 font-ui text-[10px] font-bold text-accent"
+										>
 											You
 										</span>
 									{/if}
@@ -445,7 +605,17 @@
 								<span
 									class="inline-flex items-center gap-1.5 rounded-full border border-[#D5C6E8] bg-light px-3 py-1 font-ui text-xs font-bold text-accent"
 								>
-									<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+									<svg
+										width="14"
+										height="14"
+										viewBox="0 0 24 24"
+										fill="none"
+										stroke="currentColor"
+										stroke-width="2"
+										stroke-linecap="round"
+										stroke-linejoin="round"
+										aria-hidden="true"
+									>
 										{#if MOOD_ICONS[post.mood].icon === 'smile'}
 											<circle cx="12" cy="12" r="10"></circle>
 											<path d="M8 14s1.5 2 4 2 4-2 4-2"></path>
@@ -463,7 +633,9 @@
 										{:else if MOOD_ICONS[post.mood].icon === 'zap'}
 											<polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
 										{:else if MOOD_ICONS[post.mood].icon === 'flame'}
-											<path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.3 3.5 3.2 5 5.5A8 8 0 0 1 8.5 14.5z"></path>
+											<path
+												d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.3 3.5 3.2 5 5.5A8 8 0 0 1 8.5 14.5z"
+											></path>
 										{:else if MOOD_ICONS[post.mood].icon === 'spark'}
 											<path d="M12 3v18M3 12h18M5.6 5.6l12.8 12.8M18.4 5.6L5.6 18.4"></path>
 										{/if}
@@ -476,7 +648,17 @@
 								class="inline-flex items-center gap-1.5 rounded-full bg-paper px-2.5 py-1 font-ui text-[11px] font-semibold text-ink-soft"
 								title="Shared with friends"
 							>
-								<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+								<svg
+									width="12"
+									height="12"
+									viewBox="0 0 24 24"
+									fill="none"
+									stroke="currentColor"
+									stroke-width="2"
+									stroke-linecap="round"
+									stroke-linejoin="round"
+									aria-hidden="true"
+								>
 									<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path>
 									<circle cx="9" cy="7" r="4"></circle>
 									<path d="M22 21v-2a4 4 0 0 0-3-3.87"></path>
@@ -496,28 +678,40 @@
 
 					<!-- Video Display Section -->
 					{#if post.videoUrl || post.videoName || post.videoPath}
-						<div class="my-4 overflow-hidden rounded-2xl border-2 border-[#D8C8A2] bg-[#120A20] shadow-md">
+						<div
+							class="my-4 overflow-hidden rounded-2xl border-2 border-[#D8C8A2] bg-[#120A20] shadow-md"
+						>
 							{#if post.videoUrl}
 								<!-- svelte-ignore a11y_media_has_caption -->
 								<video
 									src={post.videoUrl}
 									controls
 									playsinline
-									class="max-h-[380px] w-full object-contain bg-black"
+									class="max-h-[380px] w-full bg-black object-contain"
 								></video>
 							{:else}
 								<!-- Aesthetic Scrapbook Camcorder Preview Card for Demo/Saved Entries -->
-								<div class="relative flex flex-col items-center justify-center p-8 text-center text-white bg-[radial-gradient(ellipse_at_center,#3D255F_0%,#190E2B_80%)]">
-									<span class="absolute top-3 left-4 flex items-center gap-1.5 font-mono text-xs text-red-400">
-										<span class="size-2 rounded-full bg-red-500 animate-pulse"></span>
+								<div
+									class="relative flex flex-col items-center justify-center bg-[radial-gradient(ellipse_at_center,#3D255F_0%,#190E2B_80%)] p-8 text-center text-white"
+								>
+									<span
+										class="absolute top-3 left-4 flex items-center gap-1.5 font-mono text-xs text-red-400"
+									>
+										<span class="size-2 animate-pulse rounded-full bg-red-500"></span>
 										REC • 00:32
 									</span>
-									<span class="absolute top-3 right-4 font-mono text-xs text-gold">
-										VIDJO HD
-									</span>
+									<span class="absolute top-3 right-4 font-mono text-xs text-gold"> VIDJO HD </span>
 
-									<div class="flex size-14 items-center justify-center rounded-full bg-white/10 text-white shadow-lg backdrop-blur-md transition-transform hover:scale-110">
-										<svg width="26" height="26" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+									<div
+										class="flex size-14 items-center justify-center rounded-full bg-white/10 text-white shadow-lg backdrop-blur-md transition-transform hover:scale-110"
+									>
+										<svg
+											width="26"
+											height="26"
+											viewBox="0 0 24 24"
+											fill="currentColor"
+											aria-hidden="true"
+										>
 											<path d="M8 5v14l11-7z"></path>
 										</svg>
 									</div>
@@ -532,7 +726,9 @@
 							{/if}
 
 							{#if post.videoCaption}
-								<div class="border-t border-[#3A2360] bg-[#1E1133] px-4 py-2 font-hand text-base text-[#E5DCF2]">
+								<div
+									class="border-t border-[#3A2360] bg-[#1E1133] px-4 py-2 font-hand text-base text-[#E5DCF2]"
+								>
 									“{post.videoCaption}”
 								</div>
 							{/if}
@@ -542,7 +738,7 @@
 					<!-- Written Journal Content (Gaegu Cursive) -->
 					{#if post.mind}
 						<div class="my-4 rounded-xl border-l-4 border-accent/40 bg-white/40 p-4">
-							<p class="font-hand text-[22px] leading-relaxed text-ink whitespace-pre-wrap">
+							<p class="font-hand text-[22px] leading-relaxed whitespace-pre-wrap text-ink">
 								{post.mind}
 							</p>
 						</div>
@@ -550,13 +746,15 @@
 
 					<!-- Reflection Card -->
 					{#if post.refl}
-						<div class="my-3 flex items-start gap-2.5 rounded-xl border border-[#DECFA4] bg-[#FFF8E7] p-3 shadow-xs">
-							<span class="text-base text-gold font-bold">★</span>
+						<div
+							class="my-3 flex items-start gap-2.5 rounded-xl border border-[#DECFA4] bg-[#FFF8E7] p-3 shadow-xs"
+						>
+							<span class="text-base font-bold text-gold">★</span>
 							<div>
-								<span class="font-ui text-xs font-bold text-accent uppercase tracking-wider block">
+								<span class="block font-ui text-xs font-bold tracking-wider text-accent uppercase">
 									Reflection
 								</span>
-								<p class="font-hand text-lg text-ink font-semibold mt-0.5">
+								<p class="mt-0.5 font-hand text-lg font-semibold text-ink">
 									{post.refl}
 								</p>
 							</div>
@@ -564,17 +762,35 @@
 					{/if}
 
 					<!-- Social Stamp Reactions -->
-					<div class="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-line pt-4">
+					<div
+						class="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-line pt-4"
+					>
 						<div class="flex flex-wrap items-center gap-1.5">
 							<!-- Love Reaction -->
 							<button
 								type="button"
-								class="flex items-center gap-1.5 rounded-full border px-3 py-1.5 font-ui text-xs font-bold transition-all active:scale-95 {post.userReactions.includes('love') ? 'border-pink-400 bg-pink-100/80 text-pink-700 shadow-xs' : 'border-line bg-white/70 text-ink hover:bg-light'}"
+								class="flex items-center gap-1.5 rounded-full border px-3 py-1.5 font-ui text-xs font-bold transition-all active:scale-95 {post.userReactions.includes(
+									'love'
+								)
+									? 'border-pink-400 bg-pink-100/80 text-pink-700 shadow-xs'
+									: 'border-line bg-white/70 text-ink hover:bg-light'}"
 								onclick={() => friends.toggleReaction(post.id, 'love')}
 								aria-label="React with love"
 							>
-								<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-									<path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"></path>
+								<svg
+									width="14"
+									height="14"
+									viewBox="0 0 24 24"
+									fill="none"
+									stroke="currentColor"
+									stroke-width="2"
+									stroke-linecap="round"
+									stroke-linejoin="round"
+									aria-hidden="true"
+								>
+									<path
+										d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"
+									></path>
 								</svg>
 								<span>{post.reactions.love}</span>
 							</button>
@@ -582,11 +798,25 @@
 							<!-- Sparkle Reaction -->
 							<button
 								type="button"
-								class="flex items-center gap-1.5 rounded-full border px-3 py-1.5 font-ui text-xs font-bold transition-all active:scale-95 {post.userReactions.includes('spark') ? 'border-amber-400 bg-amber-100/80 text-amber-800 shadow-xs' : 'border-line bg-white/70 text-ink hover:bg-light'}"
+								class="flex items-center gap-1.5 rounded-full border px-3 py-1.5 font-ui text-xs font-bold transition-all active:scale-95 {post.userReactions.includes(
+									'spark'
+								)
+									? 'border-amber-400 bg-amber-100/80 text-amber-800 shadow-xs'
+									: 'border-line bg-white/70 text-ink hover:bg-light'}"
 								onclick={() => friends.toggleReaction(post.id, 'spark')}
 								aria-label="React with inspiration"
 							>
-								<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+								<svg
+									width="14"
+									height="14"
+									viewBox="0 0 24 24"
+									fill="none"
+									stroke="currentColor"
+									stroke-width="2"
+									stroke-linecap="round"
+									stroke-linejoin="round"
+									aria-hidden="true"
+								>
 									<path d="M12 3v18M3 12h18M5.6 5.6l12.8 12.8M18.4 5.6L5.6 18.4"></path>
 								</svg>
 								<span>{post.reactions.spark}</span>
@@ -595,11 +825,25 @@
 							<!-- Warm Hug Reaction -->
 							<button
 								type="button"
-								class="flex items-center gap-1.5 rounded-full border px-3 py-1.5 font-ui text-xs font-bold transition-all active:scale-95 {post.userReactions.includes('warm') ? 'border-orange-400 bg-orange-100/80 text-orange-800 shadow-xs' : 'border-line bg-white/70 text-ink hover:bg-light'}"
+								class="flex items-center gap-1.5 rounded-full border px-3 py-1.5 font-ui text-xs font-bold transition-all active:scale-95 {post.userReactions.includes(
+									'warm'
+								)
+									? 'border-orange-400 bg-orange-100/80 text-orange-800 shadow-xs'
+									: 'border-line bg-white/70 text-ink hover:bg-light'}"
 								onclick={() => friends.toggleReaction(post.id, 'warm')}
 								aria-label="React with warm vibes"
 							>
-								<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+								<svg
+									width="14"
+									height="14"
+									viewBox="0 0 24 24"
+									fill="none"
+									stroke="currentColor"
+									stroke-width="2"
+									stroke-linecap="round"
+									stroke-linejoin="round"
+									aria-hidden="true"
+								>
 									<path d="M17 8h1a4 4 0 1 1 0 8h-1"></path>
 									<path d="M3 8h14v9a4 4 0 0 1-4 4H7a4 4 0 0 1-4-4Z"></path>
 									<line x1="6" y1="1" x2="6" y2="4"></line>
@@ -612,12 +856,28 @@
 							<!-- Proud Reaction -->
 							<button
 								type="button"
-								class="flex items-center gap-1.5 rounded-full border px-3 py-1.5 font-ui text-xs font-bold transition-all active:scale-95 {post.userReactions.includes('proud') ? 'border-purple-400 bg-purple-100/80 text-purple-800 shadow-xs' : 'border-line bg-white/70 text-ink hover:bg-light'}"
+								class="flex items-center gap-1.5 rounded-full border px-3 py-1.5 font-ui text-xs font-bold transition-all active:scale-95 {post.userReactions.includes(
+									'proud'
+								)
+									? 'border-purple-400 bg-purple-100/80 text-purple-800 shadow-xs'
+									: 'border-line bg-white/70 text-ink hover:bg-light'}"
 								onclick={() => friends.toggleReaction(post.id, 'proud')}
 								aria-label="React with proud of you"
 							>
-								<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-									<polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon>
+								<svg
+									width="14"
+									height="14"
+									viewBox="0 0 24 24"
+									fill="none"
+									stroke="currentColor"
+									stroke-width="2"
+									stroke-linecap="round"
+									stroke-linejoin="round"
+									aria-hidden="true"
+								>
+									<polygon
+										points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"
+									></polygon>
 								</svg>
 								<span>{post.reactions.proud}</span>
 							</button>
@@ -628,7 +888,17 @@
 							class="flex items-center gap-1.5 rounded-full border border-line bg-white/80 px-3.5 py-1.5 font-ui text-xs font-bold text-accent transition-colors hover:bg-light"
 							onclick={() => toggleNoteBox(post.id)}
 						>
-							<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+							<svg
+								width="14"
+								height="14"
+								viewBox="0 0 24 24"
+								fill="none"
+								stroke="currentColor"
+								stroke-width="2"
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								aria-hidden="true"
+							>
 								<path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"></path>
 							</svg>
 							<span>Notes ({post.comments.length})</span>
@@ -638,15 +908,19 @@
 					<!-- Comments / Notes Drawer -->
 					{#if openCommentPost === post.id || post.comments.length > 0}
 						<div class="mt-4 rounded-xl border border-line/60 bg-[#FAF4E6]/60 p-3.5">
-							<span class="font-ui text-[11px] font-bold text-ink-soft uppercase tracking-wider block mb-2.5">
+							<span
+								class="mb-2.5 block font-ui text-[11px] font-bold tracking-wider text-ink-soft uppercase"
+							>
 								Friend Notes
 							</span>
 
 							{#if post.comments.length > 0}
-								<div class="space-y-2 mb-3">
+								<div class="mb-3 space-y-2">
 									{#each post.comments as comment (comment.id)}
 										<div class="flex items-start gap-2.5 rounded-lg bg-white/80 p-2.5 shadow-2xs">
-											<span class="flex size-7 shrink-0 items-center justify-center rounded-full bg-lav/40 font-display text-sm font-bold text-accent">
+											<span
+												class="flex size-7 shrink-0 items-center justify-center rounded-full bg-lav/40 font-display text-sm font-bold text-accent"
+											>
 												{comment.authorAvatar || comment.authorName[0]}
 											</span>
 											<div class="min-w-0 flex-1">
@@ -654,7 +928,7 @@
 													<b class="font-ui text-xs text-ink">{comment.authorName}</b>
 													<time class="font-ui text-[10px] text-ink-soft">{comment.time}</time>
 												</div>
-												<p class="font-hand text-base text-ink leading-tight mt-0.5">
+												<p class="mt-0.5 font-hand text-base leading-tight text-ink">
 													{comment.text}
 												</p>
 											</div>
@@ -701,29 +975,45 @@
 
 			{#if friends.incomingRequests.length > 0}
 				<div>
-					<h3 class="mb-3 font-ui text-sm font-bold text-gold">Incoming ({friends.incomingRequests.length})</h3>
+					<h3 class="mb-3 font-ui text-sm font-bold text-gold">
+						Incoming ({friends.incomingRequests.length})
+					</h3>
 					<div class="grid gap-4 min-[640px]:grid-cols-2 min-[880px]:grid-cols-3">
 						{#each friends.incomingRequests as request (request.id)}
-							<div class="flex flex-col justify-between rounded-2xl border border-gold/40 bg-desk-2 p-5 text-white shadow-[0_12px_30px_rgba(212,162,76,.12)]">
+							<div
+								class="flex flex-col justify-between rounded-2xl border border-gold/40 bg-desk-2 p-5 text-white shadow-[0_12px_30px_rgba(212,162,76,.12)]"
+							>
 								<div>
 									<div class="flex items-start gap-3">
 										{#if request.fromAvatarUrl && request.fromAvatarUrl.length > 2}
-											<img src={request.fromAvatarUrl} alt="" class="size-12 rounded-full object-cover ring-2 ring-gold/50" />
+											<img
+												src={request.fromAvatarUrl}
+												alt=""
+												class="size-12 rounded-full object-cover ring-2 ring-gold/50"
+											/>
 										{:else}
-											<span class="flex size-12 items-center justify-center rounded-full bg-[linear-gradient(135deg,#C9B8E8,#8B6FD0)] font-display text-xl font-bold text-white ring-2 ring-gold/50">
+											<span
+												class="flex size-12 items-center justify-center rounded-full bg-[linear-gradient(135deg,#C9B8E8,#8B6FD0)] font-display text-xl font-bold text-white ring-2 ring-gold/50"
+											>
 												{request.fromDisplayName[0]}
 											</span>
 										{/if}
 										<div>
-											<b class="font-display text-lg block leading-tight text-white">{request.fromDisplayName}</b>
-											<span class="font-ui text-xs font-semibold text-lav">@{request.fromUsername}</span>
+											<b class="block font-display text-lg leading-tight text-white"
+												>{request.fromDisplayName}</b
+											>
+											<span class="font-ui text-xs font-semibold text-lav"
+												>@{request.fromUsername}</span
+											>
 											{#if request.fromFriendCode}
 												<p class="mt-1 font-mono text-[11px] text-gold">{request.fromFriendCode}</p>
 											{/if}
 										</div>
 									</div>
 									{#if request.fromBio}
-										<p class="mt-3 font-hand text-base text-[#EDE6F7] leading-snug">“{request.fromBio}”</p>
+										<p class="mt-3 font-hand text-base leading-snug text-[#EDE6F7]">
+											“{request.fromBio}”
+										</p>
 									{/if}
 								</div>
 								<div class="mt-5 flex items-center gap-2">
@@ -750,19 +1040,42 @@
 
 			{#if friends.outgoingRequests.length > 0}
 				<div>
-					<h3 class="mb-3 font-ui text-sm font-bold text-lav">Sent ({friends.outgoingRequests.length})</h3>
+					<h3 class="mb-3 font-ui text-sm font-bold text-lav">
+						Sent ({friends.outgoingRequests.length})
+					</h3>
 					<div class="grid gap-4 min-[640px]:grid-cols-2 min-[880px]:grid-cols-3">
 						{#each friends.outgoingRequests as request (request.id)}
-							<div class="flex flex-col justify-between rounded-2xl border border-[#4D366D] bg-desk-2 p-5 text-white shadow-md">
+							<div
+								class="flex flex-col justify-between rounded-2xl border border-[#4D366D] bg-desk-2 p-5 text-white shadow-md"
+							>
 								<div>
 									<div class="flex items-start gap-3">
-										<span class="flex size-12 items-center justify-center rounded-full bg-white/10 font-display text-xl text-lav">
-											{request.toFriendCode?.replace('VJ-', '').slice(0, 2) || '?'}
-										</span>
-										<div>
-											<b class="font-display text-lg block leading-tight text-white">Request sent</b>
-											<p class="font-ui text-xs text-[#D6CBEC]">To {request.toFriendCode}</p>
-											<p class="mt-1 font-ui text-[11px] text-ink-soft">Pending acceptance</p>
+										{#if request.toAvatarUrl && request.toAvatarUrl.length > 2}
+											<img
+												src={request.toAvatarUrl}
+												alt=""
+												class="size-12 rounded-full object-cover ring-2 ring-lav/40"
+											/>
+										{:else}
+											<span
+												class="flex size-12 items-center justify-center rounded-full bg-white/10 font-display text-xl text-lav"
+											>
+												{request.toDisplayName?.[0] || '?'}
+											</span>
+										{/if}
+										<div class="min-w-0">
+											<b class="block font-display text-lg leading-tight text-white">
+												{request.toDisplayName || 'Request sent'}
+											</b>
+											{#if request.toUsername}
+												<span class="font-ui text-xs font-semibold text-lav"
+													>@{request.toUsername}</span
+												>
+											{/if}
+											{#if request.toFriendCode}
+												<p class="mt-0.5 font-mono text-[11px] text-gold">{request.toFriendCode}</p>
+											{/if}
+											<p class="mt-1 font-ui text-[11px] text-[#BBA8E0]">Pending acceptance</p>
 										</div>
 									</div>
 								</div>
@@ -804,9 +1117,7 @@
 				<h2 class="font-display text-2xl font-bold text-white">
 					Connected Classmates ({friends.friendCount})
 				</h2>
-				<span class="font-ui text-xs text-[#D6CBEC]">
-					Share your code to grow your circle
-				</span>
+				<span class="font-ui text-xs text-[#D6CBEC]"> Share your code to grow your circle </span>
 			</div>
 
 			<div class="grid gap-4 min-[640px]:grid-cols-2 min-[880px]:grid-cols-3">
@@ -819,35 +1130,50 @@
 								<div class="flex items-center gap-3">
 									<div class="relative">
 										{#if friend.avatarUrl && friend.avatarUrl.length > 2}
-											<img src={friend.avatarUrl} alt="" class="size-12 rounded-full object-cover ring-2 ring-gold/40" />
+											<img
+												src={friend.avatarUrl}
+												alt=""
+												class="size-12 rounded-full object-cover ring-2 ring-gold/40"
+											/>
 										{:else}
-											<span class="flex size-12 items-center justify-center rounded-full bg-[linear-gradient(135deg,#C9B8E8,#8B6FD0)] font-display text-xl font-bold text-white ring-2 ring-gold/40">
+											<span
+												class="flex size-12 items-center justify-center rounded-full bg-[linear-gradient(135deg,#C9B8E8,#8B6FD0)] font-display text-xl font-bold text-white ring-2 ring-gold/40"
+											>
 												{friend.avatarUrl || friend.displayName[0]}
 											</span>
 										{/if}
 										{#if friend.isOnline}
-											<span class="absolute bottom-0 right-0 size-3 rounded-full bg-[#3F7A4F] ring-2 ring-[#1C142B]"></span>
+											<span
+												class="absolute right-0 bottom-0 size-3 rounded-full bg-[#3F7A4F] ring-2 ring-[#1C142B]"
+											></span>
 										{/if}
 									</div>
 
 									<div>
 										<div class="flex items-center gap-2">
-											<b class="font-display text-lg block leading-tight text-white">{friend.displayName}</b>
+											<b class="block font-display text-lg leading-tight text-white"
+												>{friend.displayName}</b
+											>
 											{#if friend.isOnline}
-												<span class="rounded-full bg-[#3F7A4F]/20 px-1.5 py-0.5 font-ui text-[9px] font-bold text-[#8BE2A4]">Online</span>
+												<span
+													class="rounded-full bg-[#3F7A4F]/20 px-1.5 py-0.5 font-ui text-[9px] font-bold text-[#8BE2A4]"
+													>Online</span
+												>
 											{/if}
 										</div>
 										<span class="font-ui text-xs font-semibold text-lav">@{friend.username}</span>
 									</div>
 								</div>
 
-								<span class="rounded-full bg-white/10 px-2 py-0.5 font-mono text-[11px] text-gold font-bold">
+								<span
+									class="rounded-full bg-white/10 px-2 py-0.5 font-mono text-[11px] font-bold text-gold"
+								>
 									{friend.friendCode}
 								</span>
 							</div>
 
 							{#if friend.bio}
-								<p class="mt-3 font-hand text-base text-[#EDE6F7] leading-snug">
+								<p class="mt-3 font-hand text-base leading-snug text-[#EDE6F7]">
 									“{friend.bio}”
 								</p>
 							{/if}

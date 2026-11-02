@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { onMount, tick } from 'svelte';
 	import { goto } from '$app/navigation';
+	import { resolve } from '$app/paths';
 	import { completeAuthCallback } from '#lib/authCallback';
 	import { auth } from '#lib/state/auth.svelte';
 
@@ -57,7 +58,7 @@
 			}
 
 			notice = 'Your password has been updated. Opening your journal…';
-			await goto('/', { replaceState: true });
+			await goto(resolve('/'), { replaceState: true });
 		} catch {
 			error = 'Could not reach Supabase. Check your connection and try again.';
 		} finally {
@@ -108,7 +109,7 @@
 				{error}
 			</p>
 			<a
-				href="/"
+				href={resolve('/')}
 				class="mt-6 inline-flex h-12 items-center justify-center rounded-xl border border-[#6A528F] bg-accent px-6 font-ui text-[15px] font-bold text-white hover:bg-[#624690]"
 			>
 				Back to sign in

@@ -11,12 +11,9 @@
 		onClose: () => void;
 	} = $props();
 
-	let currentTab = $state<'friends' | 'community'>('friends');
+	// svelte-ignore state_referenced_locally
+	let currentTab = $state<'friends' | 'community'>(tab);
 	let searchQuery = $state('');
-
-	$effect(() => {
-		currentTab = tab;
-	});
 
 	const SAMPLE_FRIENDS = [
 		{
@@ -129,7 +126,10 @@
 				<div class="mt-4 flex gap-2">
 					<button
 						type="button"
-						class="flex items-center gap-2 rounded-xl px-4 py-2 font-ui text-sm font-semibold transition-all {currentTab === 'friends' ? 'bg-accent text-white shadow' : 'bg-white/10 text-[#C9B8E8] hover:bg-white/15'}"
+						class="flex items-center gap-2 rounded-xl px-4 py-2 font-ui text-sm font-semibold transition-all {currentTab ===
+						'friends'
+							? 'bg-accent text-white shadow'
+							: 'bg-white/10 text-[#C9B8E8] hover:bg-white/15'}"
 						onclick={() => (currentTab = 'friends')}
 					>
 						<span>👥</span>
@@ -138,7 +138,10 @@
 					</button>
 					<button
 						type="button"
-						class="flex items-center gap-2 rounded-xl px-4 py-2 font-ui text-sm font-semibold transition-all {currentTab === 'community' ? 'bg-accent text-white shadow' : 'bg-white/10 text-[#C9B8E8] hover:bg-white/15'}"
+						class="flex items-center gap-2 rounded-xl px-4 py-2 font-ui text-sm font-semibold transition-all {currentTab ===
+						'community'
+							? 'bg-accent text-white shadow'
+							: 'bg-white/10 text-[#C9B8E8] hover:bg-white/15'}"
 						onclick={() => (currentTab = 'community')}
 					>
 						<span>🌍</span>
@@ -154,9 +157,13 @@
 					<!-- FRIENDS VIEW -->
 					<div class="flex flex-col gap-5">
 						<!-- Your Handle banner -->
-						<div class="flex items-center justify-between rounded-2xl border border-lav/40 bg-paper-2 p-3.5">
+						<div
+							class="bg-paper-2 flex items-center justify-between rounded-2xl border border-lav/40 p-3.5"
+						>
 							<div class="flex items-center gap-3">
-								<div class="flex size-10 items-center justify-center rounded-full bg-lav/30 font-display text-base font-bold text-accent">
+								<div
+									class="flex size-10 items-center justify-center rounded-full bg-lav/30 font-display text-base font-bold text-accent"
+								>
 									{profile.initials}
 								</div>
 								<div>
@@ -164,7 +171,9 @@
 									<div class="font-display font-bold text-ink">@{profile.username}</div>
 								</div>
 							</div>
-							<span class="rounded-full bg-gold/20 px-3 py-1 font-ui text-xs font-semibold text-[#7A5618]">
+							<span
+								class="rounded-full bg-gold/20 px-3 py-1 font-ui text-xs font-semibold text-[#7A5618]"
+							>
 								Ready for Friends
 							</span>
 						</div>
@@ -176,25 +185,27 @@
 								type="text"
 								bind:value={searchQuery}
 								placeholder="Find classmates by @username or name…"
-								class="w-full rounded-xl border border-line bg-paper py-2.5 pr-4 pl-10 font-ui text-sm text-ink outline-none transition focus:border-accent focus:ring-2 focus:ring-lav/30"
+								class="w-full rounded-xl border border-line bg-paper py-2.5 pr-4 pl-10 font-ui text-sm text-ink transition outline-none focus:border-accent focus:ring-2 focus:ring-lav/30"
 							/>
 						</div>
 
 						<div>
 							<div class="flex items-center justify-between">
-								<span class="font-ui text-xs font-bold uppercase tracking-wider text-ink-soft">
+								<span class="font-ui text-xs font-bold tracking-wider text-ink-soft uppercase">
 									Friend Entries Preview
 								</span>
-								<span class="font-ui text-xs text-accent">
-									Privacy: "Friends Only"
-								</span>
+								<span class="font-ui text-xs text-accent"> Privacy: "Friends Only" </span>
 							</div>
 
 							<div class="mt-3 flex flex-col gap-3">
-								{#each SAMPLE_FRIENDS as friend}
-									<div class="flex items-center justify-between rounded-2xl border border-line bg-light/70 p-4 transition-all hover:border-lav/60 hover:shadow-sm">
+								{#each SAMPLE_FRIENDS as friend (friend.username)}
+									<div
+										class="flex items-center justify-between rounded-2xl border border-line bg-light/70 p-4 transition-all hover:border-lav/60 hover:shadow-sm"
+									>
 										<div class="flex items-center gap-3.5">
-											<div class="flex size-12 items-center justify-center rounded-2xl bg-paper text-2xl shadow-sm">
+											<div
+												class="flex size-12 items-center justify-center rounded-2xl bg-paper text-2xl shadow-sm"
+											>
 												{friend.avatar}
 											</div>
 											<div>
@@ -231,23 +242,30 @@
 				{:else}
 					<!-- COMMUNITY VIEW -->
 					<div class="flex flex-col gap-5">
-						<div class="rounded-2xl border border-line bg-paper-2 p-4">
+						<div class="bg-paper-2 rounded-2xl border border-line p-4">
 							<b class="font-display text-base font-bold text-ink">Campus Community Reel</b>
-							<p class="mt-1 font-ui text-xs text-ink-soft leading-relaxed">
-								When you set a page's privacy to <span class="font-semibold text-accent">"Community"</span>, your non-private thoughts and video reflections appear on the campus reel for students to cheer and connect with.
+							<p class="mt-1 font-ui text-xs leading-relaxed text-ink-soft">
+								When you set a page's privacy to <span class="font-semibold text-accent"
+									>"Community"</span
+								>, your non-private thoughts and video reflections appear on the campus reel for
+								students to cheer and connect with.
 							</p>
 						</div>
 
 						<div>
-							<span class="font-ui text-xs font-bold uppercase tracking-wider text-ink-soft">
+							<span class="font-ui text-xs font-bold tracking-wider text-ink-soft uppercase">
 								Trending Campus Topics & Prompts
 							</span>
 							<div class="mt-2.5 flex flex-col gap-3">
-								{#each COMMUNITY_PROMPTS as topic}
-									<div class="rounded-2xl border border-line bg-light/70 p-4 transition-all hover:border-lav/60">
+								{#each COMMUNITY_PROMPTS as topic (topic.tag)}
+									<div
+										class="rounded-2xl border border-line bg-light/70 p-4 transition-all hover:border-lav/60"
+									>
 										<div class="flex items-center justify-between">
 											<span class="font-ui text-xs font-bold text-accent">{topic.tag}</span>
-											<span class="rounded-full bg-paper px-2.5 py-0.5 font-ui text-[11px] text-ink-soft">
+											<span
+												class="rounded-full bg-paper px-2.5 py-0.5 font-ui text-[11px] text-ink-soft"
+											>
 												{topic.entriesCount} student responses
 											</span>
 										</div>
@@ -263,7 +281,7 @@
 			</div>
 
 			<!-- Footer -->
-			<div class="flex items-center justify-between border-t border-line bg-paper-2 px-6 py-4">
+			<div class="bg-paper-2 flex items-center justify-between border-t border-line px-6 py-4">
 				<p class="font-ui text-xs text-ink-soft">
 					✨ Friends and Community features are in active development!
 				</p>
@@ -278,4 +296,3 @@
 		</div>
 	</div>
 {/if}
-

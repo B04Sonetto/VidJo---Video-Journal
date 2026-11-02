@@ -312,7 +312,10 @@
 		</svg>
 	</button>
 
-	<div class="min-w-[160px] text-center font-ui text-[15px] font-medium tracking-wide text-[#D6CBEC]" aria-live="polite">
+	<div
+		class="min-w-[160px] text-center font-ui text-[15px] font-medium tracking-wide text-[#D6CBEC]"
+		aria-live="polite"
+	>
 		{pageLabel}
 	</div>
 

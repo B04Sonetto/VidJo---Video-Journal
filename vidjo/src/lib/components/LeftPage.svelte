@@ -102,8 +102,12 @@
 					></video>
 				{/key}
 			{:else if journal.entries[date]?.videoPath}
-				<div class="flex flex-col items-center gap-2.5 text-center font-hand text-lg text-[#EDE6F7]">
-					<div class="size-7 animate-spin rounded-full border-2 border-lav border-t-transparent"></div>
+				<div
+					class="flex flex-col items-center gap-2.5 text-center font-hand text-lg text-[#EDE6F7]"
+				>
+					<div
+						class="size-7 animate-spin rounded-full border-2 border-lav border-t-transparent"
+					></div>
 					<span>Loading video…</span>
 				</div>
 			{:else}

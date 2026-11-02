@@ -21,6 +21,39 @@
 	--font-ui: 'DM Sans', system-ui, sans-serif;
 }
 
+/* Journal themes selected from Profile → Settings. */
+html[data-theme='sunset'] {
+	--color-desk: #241218;
+	--color-desk-2: #3a1e22;
+	--color-cover: #6e3526;
+	--color-cover-edge: #4a2018;
+	--color-paper: #fdf1df;
+	--color-paper-edge: #ecd5b6;
+	--color-line: #dfc3a0;
+}
+
+html[data-theme='sunset'] body {
+	background-image:
+		radial-gradient(1200px 600px at 50% 0, #5c2c2a 0, transparent 70%),
+		radial-gradient(circle at 20% 80%, rgb(232 140 93 / 0.12), transparent 40%);
+}
+
+html[data-theme='midnight'] {
+	--color-desk: #0c1322;
+	--color-desk-2: #152138;
+	--color-cover: #1e3358;
+	--color-cover-edge: #132241;
+	--color-paper: #f4f6fb;
+	--color-paper-edge: #d8e0ef;
+	--color-line: #bcc9df;
+}
+
+html[data-theme='midnight'] body {
+	background-image:
+		radial-gradient(1200px 600px at 50% 0, #1d3356 0, transparent 70%),
+		radial-gradient(circle at 20% 80%, rgb(120 170 255 / 0.08), transparent 40%);
+}
+
 @layer base {
 	html {
 		color-scheme: dark;

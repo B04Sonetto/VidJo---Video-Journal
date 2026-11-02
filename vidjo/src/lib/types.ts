@@ -24,6 +24,8 @@ export interface Entry {
 	mind: string;
 	refl: string;
 	privacy: Privacy;
+	/** Community slug (e.g. `creativeflow`) when privacy is `community`. */
+	communitySlug: string;
 	stickers: Sticker[];
 	saved: boolean;
 	sample: boolean;
@@ -43,6 +45,7 @@ export interface EntryRow {
 	mind: string | null;
 	refl: string | null;
 	privacy: Privacy | null;
+	community_slug: string | null;
 	stickers: Sticker[] | null;
 	saved: boolean | null;
 	sample: boolean | null;
@@ -55,12 +58,43 @@ export interface EntryRow {
 export interface Profile {
 	user_id: string;
 	username: string;
+	/** Nickname shown around the app. Stored as `display_name` in Postgres. */
 	display_name: string;
 	bio: string;
 	avatar_url: string | null;
 	friend_code?: string;
+	accent_color?: string;
+	theme?: 'classic' | 'sunset' | 'midnight';
+	default_privacy?: Privacy;
+	allow_friend_requests?: boolean;
 	created_at: string;
 	updated_at: string;
+}
+
+export interface Community {
+	slug: string;
+	name: string;
+	tag: string;
+	description: string;
+	icon: string;
+	color: string;
+	memberCount: number;
+	joined: boolean;
+}
+
+export interface CommunityRow {
+	slug: string;
+	name: string;
+	tag: string;
+	description: string;
+	icon: string;
+	color: string;
+	sort_order: number;
+}
+
+export interface CommunityPost extends FriendPost {
+	communitySlug: string;
+	tag: string;
 }
 
 export type FriendRequestStatus = 'pending' | 'incoming' | 'outgoing' | 'accepted' | 'declined';
@@ -89,6 +123,9 @@ export interface FriendRequest {
 	fromBio?: string;
 	fromFriendCode?: string;
 	toFriendCode?: string;
+	toUsername?: string;
+	toDisplayName?: string;
+	toAvatarUrl?: string | null;
 	status: 'pending';
 	direction: 'incoming' | 'outgoing';
 	createdAt: string;

@@ -1,151 +1,36 @@
-import { isSupabaseConfigured, supabase } from '#lib/supabase';
-import type { Friend, FriendPost, FriendComment, FriendPostReaction, FriendRequest } from '#lib/types';
+import { isSupabaseConfigured, supabase, VIDEO_BUCKET } from '#lib/supabase';
+import type {
+	EntryRow,
+	Friend,
+	FriendComment,
+	FriendPost,
+	FriendPostReaction,
+	FriendRequest
+} from '#lib/types';
 import { profile } from '#lib/state/profile.svelte';
 import { journal } from '#lib/state/journal.svelte';
 import { auth } from '#lib/state/auth.svelte';
-import { offsetDate } from '#lib/dates';
 
-const FRIENDS_STORAGE_KEY = 'vidjo-friends';
-const FRIEND_REQUESTS_STORAGE_KEY = 'vidjo-friend-requests';
-const REACTIONS_STORAGE_KEY = 'vidjo-feed-reactions';
-const COMMENTS_STORAGE_KEY = 'vidjo-feed-comments';
+const FRIENDS_CACHE_KEY = 'vidjo-friends-cache';
+const SIGNED_URL_TTL = 60 * 60 * 2;
 
-const DEFAULT_FRIENDS: Friend[] = [
-	{
-		id: 'friend-samira',
-		username: 'samirac',
-		displayName: 'Samira Chen',
-		avatarUrl: '🎨',
-		bio: 'Studying digital animation. Coffee addict ☕',
-		friendCode: 'VJ-SAMIRA',
-		mutualCount: 4,
-		lastActive: '12m ago'
-	},
-	{
-		id: 'friend-jordan',
-		username: 'jordan_r',
-		displayName: 'Jordan Rivera',
-		avatarUrl: '🎧',
-		bio: 'Beats, tracks, and library study sessions.',
-		friendCode: 'VJ-JORDAN',
-		mutualCount: 7,
-		lastActive: '2h ago'
-	},
-	{
-		id: 'friend-liam',
-		username: 'liamv',
-		displayName: 'Liam Vance',
-		avatarUrl: '🌱',
-		bio: 'Plant dad & biology major. Finding calm.',
-		friendCode: 'VJ-LIAMV9',
-		mutualCount: 2,
-		lastActive: 'Yesterday'
-	}
-];
+type ReactionKey = 'love' | 'spark' | 'warm' | 'proud';
 
-function seedDefaultPosts(): FriendPost[] {
-	const dates = {
-		today: offsetDate(0),
-		yesterday: offsetDate(-1),
-		twoDaysAgo: offsetDate(-2)
-	};
+const EMPTY_REACTIONS: FriendPostReaction = { love: 0, spark: 0, warm: 0, proud: 0 };
 
-	return [
-		{
-			id: 'post-samira-1',
-			authorId: 'friend-samira',
-			authorName: 'Samira Chen',
-			authorUsername: 'samirac',
-			authorAvatar: '🎨',
-			friendCode: 'VJ-SAMIRA',
-			date: dates.today,
-			dateFormatted: 'Today at 3:45 PM',
-			mood: 'excited',
-			title: 'Late night in the animation lab 🎬',
-			mind: 'Had three coffees and completely lost track of time. The lab was totally quiet except for the rain tapping the skylight. Finally got the character walk cycle to feel natural after 4 hours of tweaking keyframes!',
-			refl: 'Patience pays off. Small iterations matter.',
-			videoName: 'walk_cycle_test.mp4',
-			videoCaption: 'Character walk cycle test — render complete ✦',
-			stickers: [
-				{ id: 'stk-1', type: 'star', page: 'R', x: 80, y: 15, size: 85, rot: 8 },
-				{ id: 'stk-2', type: 'yay', page: 'R', x: 85, y: 80, size: 95, rot: -6 }
-			],
-			reactions: { love: 8, spark: 12, warm: 4, proud: 6 },
-			userReactions: ['spark'],
-			comments: [
-				{
-					id: 'c-1',
-					authorName: 'Jordan Rivera',
-					authorUsername: 'jordan_r',
-					authorAvatar: '🎧',
-					text: 'The bounce timing on that step is so smooth! 🔥',
-					time: '2h ago'
-				}
-			]
-		},
-		{
-			id: 'post-jordan-1',
-			authorId: 'friend-jordan',
-			authorName: 'Jordan Rivera',
-			authorUsername: 'jordan_r',
-			authorAvatar: '🎧',
-			friendCode: 'VJ-JORDAN',
-			date: dates.yesterday,
-			dateFormatted: 'Yesterday at 9:15 PM',
-			mood: 'calm',
-			title: 'Beats & biology notes 🎧',
-			mind: 'Making lo-fi synth loops to keep myself focused while prepping for the cellular bio exam. It is funny how rhythm turns daunting textbook pages into something peaceful.',
-			refl: 'Resting is part of the work. Step back when you need to.',
-			videoName: 'study_beats_demo.mp4',
-			videoCaption: 'Study loop #4 — analog synth & white noise',
-			stickers: [
-				{ id: 'stk-3', type: 'cloud', page: 'R', x: 78, y: 14, size: 90, rot: -8 },
-				{ id: 'stk-4', type: 'tea', page: 'R', x: 86, y: 82, size: 75, rot: 5 }
-			],
-			reactions: { love: 14, spark: 9, warm: 11, proud: 3 },
-			userReactions: ['warm'],
-			comments: [
-				{
-					id: 'c-2',
-					authorName: 'Liam Vance',
-					authorUsername: 'liamv',
-					authorAvatar: '🌱',
-					text: 'Share the link to that track! Listening while watering seedlings tomorrow.',
-					time: 'Yesterday'
-				}
-			]
-		},
-		{
-			id: 'post-liam-1',
-			authorId: 'friend-liam',
-			authorName: 'Liam Vance',
-			authorUsername: 'liamv',
-			authorAvatar: '🌱',
-			friendCode: 'VJ-LIAMV9',
-			date: dates.twoDaysAgo,
-			dateFormatted: 'Oct 29 at 8:05 AM',
-			mood: 'happy',
-			title: 'The greenhouse in morning fog 🌱',
-			mind: 'Woke up before the first lecture to check on the fern specimens. The mist in the campus greenhouse was completely still, with soft sunlight filtering through the glass. Sometimes just showing up early turns the whole week around.',
-			refl: 'Find your quiet corner on campus.',
-			stickers: [
-				{ id: 'stk-5', type: 'sakura', page: 'R', x: 82, y: 16, size: 80, rot: 12 },
-				{ id: 'stk-6', type: 'cat', page: 'R', x: 84, y: 84, size: 88, rot: -4 }
-			],
-			reactions: { love: 19, spark: 5, warm: 16, proud: 7 },
-			userReactions: ['love'],
-			comments: [
-				{
-					id: 'c-3',
-					authorName: 'Samira Chen',
-					authorUsername: 'samirac',
-					authorAvatar: '🎨',
-					text: 'That morning light sounds gorgeous 🌿',
-					time: 'Oct 29'
-				}
-			]
-		}
-	];
+function isUuid(value: string) {
+	return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value);
+}
+
+function postKey(ownerId: string, date: string) {
+	return `${ownerId}:${date}`;
+}
+
+function formatPostDate(date: string) {
+	if (date === journal.current) return 'Today';
+	const parsed = new Date(`${date}T00:00:00`);
+	if (Number.isNaN(parsed.getTime())) return date;
+	return parsed.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
 }
 
 class FriendsState {
@@ -153,20 +38,27 @@ class FriendsState {
 	friendRequests = $state<FriendRequest[]>([]);
 	posts = $state<FriendPost[]>([]);
 	loading = $state(false);
+	remote = $state(false);
 	activeFilter = $state<'all' | 'video' | 'written'>('all');
 	currentUserId = $state<string>('');
 	stories = $state<Friend[]>([]);
+
+	private reactionMap = $state<Record<string, { counts: FriendPostReaction; mine: ReactionKey[] }>>(
+		{}
+	);
+	private commentMap = $state<Record<string, FriendComment[]>>({});
+	private initializedFor = '';
 
 	get myFriendCode() {
 		return profile.friendCode;
 	}
 
 	get incomingRequests() {
-		return this.friendRequests.filter((r) => r.direction === 'incoming');
+		return this.friendRequests.filter((request) => request.direction === 'incoming');
 	}
 
 	get outgoingRequests() {
-		return this.friendRequests.filter((r) => r.direction === 'outgoing');
+		return this.friendRequests.filter((request) => request.direction === 'outgoing');
 	}
 
 	get pendingCount() {
@@ -175,10 +67,12 @@ class FriendsState {
 
 	get filteredPosts() {
 		if (this.activeFilter === 'video') {
-			return this.posts.filter((p) => Boolean(p.videoUrl || p.videoName || p.videoPath));
+			return this.posts.filter((post) =>
+				Boolean(post.videoUrl || post.videoName || post.videoPath)
+			);
 		}
 		if (this.activeFilter === 'written') {
-			return this.posts.filter((p) => !p.videoUrl && !p.videoName && !p.videoPath);
+			return this.posts.filter((post) => !post.videoUrl && !post.videoName && !post.videoPath);
 		}
 		return this.posts;
 	}
@@ -187,113 +81,242 @@ class FriendsState {
 		return this.friends.length;
 	}
 
-	init(userId: string) {
+	async init(userId: string) {
 		if (!userId) return;
+		if (this.initializedFor === userId && this.loading) return;
+
+		this.initializedFor = userId;
 		this.currentUserId = userId;
 		this.loading = true;
+		this.remote = false;
+		this.friends = [];
+		this.friendRequests = [];
+		this.posts = [];
+		this.stories = [];
+		this.reactionMap = {};
+		this.commentMap = {};
 
-		// 1. Load friends from storage
-		try {
-			const saved = localStorage.getItem(`${FRIENDS_STORAGE_KEY}:${userId}`);
-			if (saved) {
-				this.friends = (JSON.parse(saved) as Friend[])
-					.filter((f) => f.id && f.id.startsWith('friend-') && !DEFAULT_FRIENDS.some((d) => d.id === f.id))
-					.map((f) => ({ ...f, status: 'accepted' as const }));
-			} else {
-				this.friends = [];
+		if (isSupabaseConfigured && auth.signedIn) {
+			try {
+				await this.refreshRemote();
+				this.remote = true;
+			} catch (error) {
+				console.warn('[VidJo] Could not load friends from Supabase.', error);
+				this.remote = false;
+				this.loadCachedFriends();
+				this.posts = this.getMyFriendsEntries();
 			}
-		} catch {
-			this.friends = [];
+		} else {
+			this.loadCachedFriends();
+			this.posts = this.getMyFriendsEntries();
 		}
-
-		// Ensure no demo friends exist
-		this.friends = this.friends.filter((f) => !DEFAULT_FRIENDS.some((d) => d.id === f.id));
-
-		// Load friend requests
-		try {
-			const savedRequests = localStorage.getItem(`${FRIEND_REQUESTS_STORAGE_KEY}:${userId}`);
-			if (savedRequests) {
-				this.friendRequests = JSON.parse(savedRequests) as FriendRequest[];
-			} else {
-				this.friendRequests = [];
-			}
-		} catch {
-			this.friendRequests = [];
-		}
-
-		// 2. Load reaction & comment overlays
-		let userReactionsMap: Record<string, ('love' | 'spark' | 'warm' | 'proud')[]> = {};
-		let userCommentsMap: Record<string, FriendComment[]> = {};
-		try {
-			const r = localStorage.getItem(`${REACTIONS_STORAGE_KEY}:${userId}`);
-			if (r) userReactionsMap = JSON.parse(r);
-			const c = localStorage.getItem(`${COMMENTS_STORAGE_KEY}:${userId}`);
-			if (c) userCommentsMap = JSON.parse(c);
-		} catch {
-			// Ignore read errors
-		}
-
-		this.friends = this.friends.map((f, idx) => ({
-			...f,
-			isOnline: idx % 2 === 0,
-			hasNewPost: idx === 0
-		}));
-		this.stories = this.friends.filter((f) => f.hasNewPost || f.isOnline).slice(0, 8);
-
-		// 3. Assemble feed from sample posts + user's own friends-shared entries
-		const basePosts: FriendPost[] = [];
-
-		// Merge user's own journal entries that are set to "friends"
-		const myEntries = this.getMyFriendsEntries();
-		const all = [...myEntries];
-
-		// Apply stored reactions & comments
-		this.posts = all.map((post) => {
-			const userReacts = userReactionsMap[post.id] ?? post.userReactions ?? [];
-			const extraComments = userCommentsMap[post.id] ?? [];
-			return {
-				...post,
-				userReactions: userReacts,
-				comments: [...post.comments, ...extraComments]
-			};
-		});
 
 		this.loading = false;
 
-		// Check for any pending friend code entered during signup
 		try {
 			const pending = localStorage.getItem('vidjo-pending-friendcode');
 			if (pending) {
 				localStorage.removeItem('vidjo-pending-friendcode');
-				void this.addFriendByCode(pending);
+				await this.addFriendByCode(pending);
 			}
 		} catch {
-			// Ignore read issues
+			// Ignore local storage restrictions.
 		}
 	}
 
-	/**
-	 * Pull entries from current user's journal that have privacy === 'friends'
-	 */
+	private async refreshRemote() {
+		const userId = auth.user?.id || this.currentUserId;
+		if (!userId) throw new Error('You must be signed in.');
+
+		const { data: friendRows, error: friendError } = await supabase
+			.from('vidjo_friends')
+			.select('friend_id')
+			.eq('user_id', userId)
+			.eq('status', 'accepted');
+
+		if (friendError) throw friendError;
+
+		const friendIds = [
+			...new Set((friendRows ?? []).map((row) => row.friend_id as string).filter(Boolean))
+		];
+
+		let friendProfiles: Friend[] = [];
+		if (friendIds.length > 0) {
+			const { data: profiles, error: profileError } = await supabase
+				.from('vidjo_profiles')
+				.select('user_id, username, display_name, bio, avatar_url, friend_code')
+				.in('user_id', friendIds);
+
+			if (profileError) throw profileError;
+
+			friendProfiles = (profiles ?? []).map((row) => ({
+				id: row.user_id as string,
+				username: (row.username as string) || 'student',
+				displayName: (row.display_name as string) || (row.username as string) || 'VidJo student',
+				avatarUrl: (row.avatar_url as string) || null,
+				bio: (row.bio as string) || '',
+				friendCode: (row.friend_code as string) || '',
+				status: 'accepted'
+			}));
+		}
+
+		this.friends = friendProfiles;
+		this.persistFriendsCache();
+		this.friendRequests = await this.loadRequests(userId);
+
+		const remotePosts = await this.loadFriendPosts(friendIds);
+		const ownPosts = this.getMyFriendsEntries();
+		const all = [...ownPosts, ...remotePosts].sort((a, b) => b.date.localeCompare(a.date));
+
+		await this.applySocial(all);
+		this.stories = this.friends.slice(0, 8).map((friend) => ({
+			...friend,
+			hasNewPost: this.posts.some((post) => post.authorId === friend.id)
+		}));
+	}
+
+	private async loadRequests(userId: string): Promise<FriendRequest[]> {
+		const { data, error } = await supabase
+			.from('vidjo_friend_requests')
+			.select('*')
+			.eq('status', 'pending');
+
+		if (error) throw error;
+
+		const rows = data ?? [];
+		const otherIds = [
+			...new Set(
+				rows
+					.map((row) =>
+						(row.from_user as string) === userId
+							? (row.to_user as string)
+							: (row.from_user as string)
+					)
+					.filter(Boolean)
+			)
+		];
+
+		const profileMap: Record<string, Record<string, unknown>> = {};
+		if (otherIds.length > 0) {
+			const { data: profiles } = await supabase
+				.from('vidjo_profiles')
+				.select('user_id, username, display_name, bio, avatar_url, friend_code')
+				.in('user_id', otherIds);
+
+			for (const item of profiles ?? []) {
+				profileMap[item.user_id as string] = item as Record<string, unknown>;
+			}
+		}
+
+		return rows.map((row) => {
+			const incoming = (row.to_user as string) === userId;
+			const otherId = incoming ? (row.from_user as string) : (row.to_user as string);
+			const other = profileMap[otherId];
+			const otherName =
+				(other?.display_name as string) || (other?.username as string) || 'VidJo student';
+
+			return {
+				id: row.id as string,
+				fromUserId: row.from_user as string,
+				toUserId: row.to_user as string,
+				fromUsername: (other?.username as string) || '',
+				fromDisplayName: otherName,
+				fromAvatarUrl: (other?.avatar_url as string) || null,
+				fromBio: (other?.bio as string) || '',
+				fromFriendCode: (other?.friend_code as string) || undefined,
+				toFriendCode: incoming
+					? profile.profile?.friend_code || profile.friendCode
+					: (other?.friend_code as string) || undefined,
+				toUsername: (other?.username as string) || '',
+				toDisplayName: otherName,
+				toAvatarUrl: (other?.avatar_url as string) || null,
+				status: 'pending' as const,
+				direction: incoming ? ('incoming' as const) : ('outgoing' as const),
+				createdAt: row.created_at as string
+			};
+		});
+	}
+
+	private async loadFriendPosts(friendIds: string[]): Promise<FriendPost[]> {
+		if (friendIds.length === 0) return [];
+
+		const { data, error } = await supabase
+			.from('vidjo_entries')
+			.select('*')
+			.eq('privacy', 'friends')
+			.in('owner_id', friendIds)
+			.order('entry_date', { ascending: false })
+			.limit(100);
+
+		if (error) throw error;
+
+		const rows = ((data ?? []) as EntryRow[]).filter(
+			(row) => row.title || row.mind || row.refl || row.video_path
+		);
+		const friendMap = new Map(this.friends.map((friend) => [friend.id, friend]));
+
+		return Promise.all(
+			rows.map(async (row) => {
+				const author = friendMap.get(row.owner_id);
+				const videoPath = row.video_path || '';
+				let videoUrl = '';
+
+				if (videoPath) {
+					try {
+						const { data: signed } = await supabase.storage
+							.from(VIDEO_BUCKET)
+							.createSignedUrl(videoPath, SIGNED_URL_TTL);
+						videoUrl = signed?.signedUrl || '';
+					} catch {
+						// Videos are optional.
+					}
+				}
+
+				return {
+					id: `friend-${row.owner_id}-${row.entry_date}`,
+					authorId: row.owner_id,
+					authorName: author?.displayName || author?.username || 'VidJo student',
+					authorUsername: author?.username || 'student',
+					authorAvatar: author?.avatarUrl || null,
+					friendCode: author?.friendCode || undefined,
+					date: row.entry_date,
+					dateFormatted: formatPostDate(row.entry_date),
+					mood: row.mood || '',
+					title: row.title || 'Journal entry',
+					mind: row.mind || '',
+					refl: row.refl || '',
+					stickers: row.stickers || [],
+					videoPath,
+					videoName: row.video_name || '',
+					videoUrl,
+					reactions: { ...EMPTY_REACTIONS },
+					userReactions: [],
+					comments: [],
+					isOwner: false
+				};
+			})
+		);
+	}
+
 	private getMyFriendsEntries(): FriendPost[] {
 		const out: FriendPost[] = [];
-		const entries = journal.entries;
 		const myName = profile.displayName;
 		const myUsername = profile.username;
 		const myAvatar = profile.avatarUrl;
 		const myCode = profile.friendCode;
+		const authorId = this.currentUserId || auth.ownerId;
 
-		for (const [date, entry] of Object.entries(entries)) {
+		for (const [date, entry] of Object.entries(journal.entries)) {
 			if (entry.privacy === 'friends' && (entry.title || entry.mind || entry.videoPath)) {
 				out.push({
 					id: `my-${date}`,
-					authorId: this.currentUserId,
-					authorName: `${myName} (You)`,
+					authorId,
+					authorName: myName,
 					authorUsername: myUsername,
 					authorAvatar: myAvatar,
 					friendCode: myCode,
 					date,
-					dateFormatted: date === journal.current ? 'Today' : date,
+					dateFormatted: formatPostDate(date),
 					mood: entry.mood,
 					title: entry.title || 'Journal entry',
 					mind: entry.mind,
@@ -302,7 +325,7 @@ class FriendsState {
 					videoPath: entry.videoPath,
 					videoName: entry.videoName,
 					videoUrl: journal.sessionVideos[date],
-					reactions: { love: 3, spark: 2, warm: 4, proud: 1 },
+					reactions: { ...EMPTY_REACTIONS },
 					userReactions: [],
 					comments: [],
 					isOwner: true
@@ -313,264 +336,435 @@ class FriendsState {
 		return out;
 	}
 
-	persistFriends() {
+	/** Rebuild the current user's side of the feed without another network round-trip. */
+	syncOwnPosts() {
+		if (!this.currentUserId) return;
+
+		const remote = this.posts.filter((post) => !post.isOwner);
+		const own = this.getMyFriendsEntries().map((post) => this.enrich(post));
+		this.posts = [...own, ...remote].sort((a, b) => b.date.localeCompare(a.date));
+	}
+
+	private enrich(post: FriendPost): FriendPost {
+		const key = postKey(post.authorId, post.date);
+		return {
+			...post,
+			reactions: this.reactionMap[key]?.counts ?? post.reactions,
+			userReactions: this.reactionMap[key]?.mine ?? post.userReactions,
+			comments: this.commentMap[key] ?? post.comments
+		};
+	}
+
+	private async applySocial(posts: FriendPost[]) {
+		const ownerIds = [...new Set(posts.map((post) => post.authorId).filter(isUuid))];
+		const ids = [
+			...new Set(
+				[...ownerIds, isUuid(this.currentUserId) ? this.currentUserId : ''].filter(Boolean)
+			)
+		];
+
+		if (!auth.user || ids.length === 0) {
+			this.posts = posts;
+			return;
+		}
+
+		const [{ data: reactionRows }, { data: commentRows }] = await Promise.all([
+			supabase.from('vidjo_reactions').select('*').in('post_owner_id', ids),
+			supabase.from('vidjo_comments').select('*').in('post_owner_id', ids).order('created_at')
+		]);
+
+		const reactions: Record<string, { counts: FriendPostReaction; mine: ReactionKey[] }> = {};
+		for (const row of reactionRows ?? []) {
+			const key = postKey(row.post_owner_id as string, row.post_date as string);
+			const entry = reactions[key] ?? { counts: { ...EMPTY_REACTIONS }, mine: [] };
+			const reaction = row.reaction as ReactionKey;
+
+			if (reaction in entry.counts) {
+				entry.counts[reaction] += 1;
+				if (row.user_id === this.currentUserId) entry.mine.push(reaction);
+			}
+			reactions[key] = entry;
+		}
+
+		const authorIds = [
+			...new Set((commentRows ?? []).map((row) => row.author_id as string))
+		].filter((id) => id && !ids.includes(id));
+
+		let authorMap = new Map<string, Record<string, string | null>>();
+		if (authorIds.length > 0) {
+			const { data: authors } = await supabase
+				.from('vidjo_profiles')
+				.select('user_id, username, display_name, avatar_url')
+				.in('user_id', authorIds);
+			authorMap = new Map(
+				(authors ?? []).map((author) => [
+					author.user_id as string,
+					author as Record<string, string | null>
+				])
+			);
+		}
+
+		const comments: Record<string, FriendComment[]> = {};
+		for (const row of commentRows ?? []) {
+			const key = postKey(row.post_owner_id as string, row.post_date as string);
+			const author = authorMap.get(row.author_id as string);
+			const created = new Date(row.created_at as string);
+			if (!comments[key]) comments[key] = [];
+			comments[key].push({
+				id: row.id as string,
+				authorName:
+					(row.author_id as string) === this.currentUserId
+						? 'You'
+						: (author?.display_name as string) || (author?.username as string) || 'VidJo student',
+				authorUsername: (author?.username as string) || 'student',
+				authorAvatar: (author?.avatar_url as string) || null,
+				text: (row.body as string) || '',
+				time: Number.isNaN(created.getTime())
+					? 'Recently'
+					: created.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
+			});
+		}
+
+		this.reactionMap = reactions;
+		this.commentMap = comments;
+		this.posts = posts.map((post) => this.enrich(post));
+	}
+
+	private loadCachedFriends() {
 		if (!this.currentUserId) return;
 		try {
-			localStorage.setItem(`${FRIENDS_STORAGE_KEY}:${this.currentUserId}`, JSON.stringify(this.friends));
+			const raw = localStorage.getItem(`${FRIENDS_CACHE_KEY}:${this.currentUserId}`);
+			if (!raw) return;
+			const parsed = JSON.parse(raw) as Friend[];
+			this.friends = Array.isArray(parsed)
+				? parsed.filter((friend) => friend.id && friend.username && friend.displayName)
+				: [];
 		} catch {
-			// Ignore storage write issues
+			this.friends = [];
 		}
 	}
 
-	private persistFriendRequests() {
+	private persistFriendsCache() {
 		if (!this.currentUserId) return;
 		try {
 			localStorage.setItem(
-				`${FRIEND_REQUESTS_STORAGE_KEY}:${this.currentUserId}`,
-				JSON.stringify(this.friendRequests)
+				`${FRIENDS_CACHE_KEY}:${this.currentUserId}`,
+				JSON.stringify(this.friends)
 			);
 		} catch {
-			// Ignore storage write issues
+			// Ignore storage restrictions.
 		}
 	}
 
-	private persistReactions() {
-		if (!this.currentUserId) return;
-		try {
-			const map: Record<string, ('love' | 'spark' | 'warm' | 'proud')[]> = {};
-			for (const p of this.posts) {
-				if (p.userReactions.length > 0) map[p.id] = p.userReactions;
-			}
-			localStorage.setItem(`${REACTIONS_STORAGE_KEY}:${this.currentUserId}`, JSON.stringify(map));
-		} catch {
-			// Ignore storage write issues
-		}
-	}
-
-	private persistComments() {
-		if (!this.currentUserId) return;
-		try {
-			const map: Record<string, FriendComment[]> = {};
-			for (const p of this.posts) {
-				// Store comments that were authored by this user
-				const userAuthored = p.comments.filter(
-					(c) => c.authorUsername === profile.username || c.id.startsWith('uc-')
-				);
-				if (userAuthored.length > 0) map[p.id] = userAuthored;
-			}
-			localStorage.setItem(`${COMMENTS_STORAGE_KEY}:${this.currentUserId}`, JSON.stringify(map));
-		} catch {
-			// Ignore storage write issues
-		}
-	}
-
-	async addFriendByCode(rawCode: string): Promise<{ success: boolean; message: string; friend?: Friend; requestSent?: boolean }> {
+	async addFriendByCode(
+		rawCode: string
+	): Promise<{ success: boolean; message: string; friend?: Friend; requestSent?: boolean }> {
 		const clean = rawCode.trim().toUpperCase();
 		const formattedCode = clean.startsWith('VJ-') ? clean : `VJ-${clean}`;
 
-		if (!formattedCode || formattedCode.length < 5) {
-			return { success: false, message: 'Please enter a valid Friend Code (e.g. VJ-7K9M2P).' };
+		if (!/^VJ-[A-Z0-9]{4,12}$/.test(formattedCode)) {
+			return { success: false, message: 'Enter a valid friend code, like VJ-DBA6A2.' };
 		}
 
-		// Prevent adding yourself
 		if (formattedCode === this.myFriendCode) {
-			return { success: false, message: 'That is your own Friend Code! Share it with a friend instead.' };
-		}
-
-		// Check if already in friends list
-		const exists = this.friends.find((f) => f.friendCode === formattedCode);
-		if (exists) {
-			return { success: false, message: `${exists.displayName} is already on your friends list!` };
-		}
-
-		// Check if request already sent
-		const outgoing = this.friendRequests.find(
-			(r) => r.direction === 'outgoing' && r.toFriendCode === formattedCode
-		);
-		if (outgoing) {
-			return { success: false, message: 'Friend request already sent. Waiting for them to accept.' };
-		}
-
-		// Check if they already sent us a request
-		const incoming = this.friendRequests.find(
-			(r) => r.direction === 'incoming' && r.fromFriendCode === formattedCode
-		);
-		if (incoming) {
-			return { success: false, message: 'They already sent you a request! Check your Requests tab to accept it.' };
-		}
-
-		// 1. Try Supabase if configured
-		if (isSupabaseConfigured) {
-			try {
-				const { data, error } = await supabase.rpc('add_friend_by_code', { code: formattedCode });
-				if (!error && data && data.success && data.friend) {
-					const f = data.friend;
-					const newFriend: Friend = {
-						id: f.id,
-						username: f.username,
-						displayName: f.displayName || f.username,
-						avatarUrl: f.avatarUrl || '✦',
-						bio: f.bio || 'VidJo classmate',
-						friendCode: formattedCode,
-						mutualCount: 1,
-						lastActive: 'Just now'
-					};
-					this.friends.unshift(newFriend);
-					this.persistFriends();
-					journal.toast(`Added ${newFriend.displayName} to friends!`);
-					return { success: true, message: `Added ${newFriend.displayName}!`, friend: newFriend };
-				}
-			} catch (err) {
-				console.warn('[VidJo] Supabase add_friend_by_code fallback', err);
-			}
-		}
-
-		// 2. Default/Local Fallback: Match against demo catalog or generate a friend
-		let targetFriend: Partial<Friend> = {};
-		if (formattedCode === 'VJ-SAMIRA') {
-			targetFriend = { ...DEFAULT_FRIENDS[0] };
-		} else if (formattedCode === 'VJ-JORDAN') {
-			targetFriend = { ...DEFAULT_FRIENDS[1] };
-		} else if (formattedCode === 'VJ-LIAMV9') {
-			targetFriend = { ...DEFAULT_FRIENDS[2] };
-		} else {
-			const codeSuffix = formattedCode.replace('VJ-', '');
-			const studentNames = ['Alex Morgan', 'Taylor Swift', 'Riley Harper', 'Maya Lin', 'Chris Patel', 'Noah Kim'];
-			const seedIdx = (codeSuffix.charCodeAt(0) || 0) % studentNames.length;
-			const name = studentNames[seedIdx];
-			const uname = name.toLowerCase().replace(/\s+/g, '_');
-			const avatars = ['🎒', '☕', '📚', '✨', '🎧', '🌿'];
-			const avatar = avatars[seedIdx % avatars.length];
-
-			targetFriend = {
-				id: `friend-${codeSuffix.toLowerCase()}`,
-				username: uname,
-				displayName: name,
-				avatarUrl: avatar,
-				bio: 'Campus classmate & journaling partner ✨',
-				friendCode: formattedCode,
-				mutualCount: 1,
-				lastActive: 'Just now'
+			return {
+				success: false,
+				message: 'That is your own friend code. Share it with a friend instead!'
 			};
 		}
 
-		const request: FriendRequest = {
-			id: `req-${Date.now()}`,
-			fromUserId: this.currentUserId,
-			toUserId: targetFriend.id || formattedCode,
-			fromUsername: profile.username,
-			fromDisplayName: profile.displayName,
-			fromAvatarUrl: profile.avatarUrl,
-			fromBio: profile.bio,
-			fromFriendCode: this.myFriendCode,
-			toFriendCode: formattedCode,
-			status: 'pending',
-			direction: 'outgoing',
-			createdAt: new Date().toISOString()
+		const existing = this.friends.find((friend) => friend.friendCode === formattedCode);
+		if (existing) {
+			return {
+				success: false,
+				message: `${existing.displayName} is already on your friends list.`
+			};
+		}
+
+		const outgoing = this.friendRequests.find(
+			(request) => request.direction === 'outgoing' && request.toFriendCode === formattedCode
+		);
+		if (outgoing) {
+			return {
+				success: false,
+				message: 'Friend request already sent. Waiting for them to accept.'
+			};
+		}
+
+		const incoming = this.friendRequests.find(
+			(request) => request.direction === 'incoming' && request.fromFriendCode === formattedCode
+		);
+		if (incoming) {
+			return {
+				success: false,
+				message: 'They already sent you a request! Check your Requests tab to accept it.'
+			};
+		}
+
+		if (!isSupabaseConfigured || !auth.user) {
+			return {
+				success: false,
+				message: 'Friend codes need a connection to VidJo. Try again when you are online.'
+			};
+		}
+
+		const { data, error } = await supabase.rpc('send_friend_request_by_code', {
+			code: formattedCode
+		});
+
+		if (error) {
+			console.warn('[VidJo] send_friend_request_by_code failed.', error);
+			return {
+				success: false,
+				message: `Could not send the request: ${error.message}`
+			};
+		}
+
+		const result = data as {
+			success?: boolean;
+			message?: string;
+			friend?: {
+				id: string;
+				username: string;
+				displayName: string;
+				avatarUrl: string | null;
+				bio: string;
+				friendCode: string;
+			};
+			alreadyFriends?: boolean;
 		};
 
-		this.friendRequests.unshift(request);
-		this.persistFriendRequests();
-		journal.toast(`Friend request sent to ${targetFriend.displayName}!`);
+		if (!result?.success) {
+			return { success: false, message: result?.message || 'Friend code not found.' };
+		}
+
+		await this.refreshRemote();
+		const message = result.message || 'Friend request sent!';
+		journal.toast(message);
 		return {
 			success: true,
-			message: `Friend request sent to ${targetFriend.displayName}!`,
+			message,
 			requestSent: true
 		};
 	}
 
-	acceptFriendRequest(requestId: string) {
-		const request = this.friendRequests.find((r) => r.id === requestId && r.direction === 'incoming');
-		if (!request) return;
-
-		const newFriend: Friend = {
-			id: request.fromUserId || `friend-${request.fromUsername}`,
-			username: request.fromUsername,
-			displayName: request.fromDisplayName,
-			avatarUrl: request.fromAvatarUrl,
-			bio: request.fromBio || 'VidJo classmate',
-			friendCode: request.fromFriendCode || '',
-			mutualCount: 1,
-			lastActive: 'Just now',
-			status: 'accepted'
-		};
-
-		if (!this.friends.find((f) => f.username === newFriend.username)) {
-			this.friends.unshift(newFriend);
-			this.persistFriends();
+	async acceptFriendRequest(requestId: string) {
+		if (!isSupabaseConfigured || !auth.user) {
+			journal.toast('Friend requests need a connection to VidJo.');
+			return;
 		}
 
-		this.friendRequests = this.friendRequests.filter((r) => r.id !== requestId);
-		this.persistFriendRequests();
-		journal.toast(`You are now friends with ${newFriend.displayName}!`);
-	}
+		const { data, error } = await supabase.rpc('accept_friend_request', {
+			request_id: requestId
+		});
 
-	declineFriendRequest(requestId: string) {
-		const request = this.friendRequests.find((r) => r.id === requestId);
-		if (!request) return;
-		this.friendRequests = this.friendRequests.filter((r) => r.id !== requestId);
-		this.persistFriendRequests();
-		if (request.direction === 'incoming') {
-			journal.toast('Friend request declined.');
+		if (error) {
+			journal.toast(`Could not accept the request: ${error.message}`);
+			return;
 		}
+
+		const result = data as { success?: boolean; message?: string };
+		if (!result?.success) {
+			journal.toast(result?.message || 'Could not accept that request.');
+			return;
+		}
+
+		await this.refreshRemote();
+		journal.toast(result.message || 'You are now friends!');
 	}
 
-	cancelFriendRequest(requestId: string) {
-		const request = this.friendRequests.find((r) => r.id === requestId && r.direction === 'outgoing');
-		if (!request) return;
-		this.friendRequests = this.friendRequests.filter((r) => r.id !== requestId);
-		this.persistFriendRequests();
+	async declineFriendRequest(requestId: string) {
+		if (!isSupabaseConfigured || !auth.user) {
+			journal.toast('Friend requests need a connection to VidJo.');
+			return;
+		}
+
+		const { data, error } = await supabase.rpc('decline_friend_request', {
+			request_id: requestId
+		});
+
+		if (error) {
+			journal.toast(`Could not decline the request: ${error.message}`);
+			return;
+		}
+
+		const result = data as { success?: boolean; message?: string };
+		if (!result?.success) {
+			journal.toast(result?.message || 'Could not decline that request.');
+			return;
+		}
+
+		await this.refreshRemote();
+		journal.toast('Friend request declined.');
+	}
+
+	async cancelFriendRequest(requestId: string) {
+		if (!isSupabaseConfigured || !auth.user) {
+			journal.toast('Friend requests need a connection to VidJo.');
+			return;
+		}
+
+		const { data, error } = await supabase.rpc('cancel_friend_request', {
+			request_id: requestId
+		});
+
+		if (error) {
+			journal.toast(`Could not cancel the request: ${error.message}`);
+			return;
+		}
+
+		const result = data as { success?: boolean; message?: string };
+		if (!result?.success) {
+			journal.toast(result?.message || 'Could not cancel that request.');
+			return;
+		}
+
+		await this.refreshRemote();
 		journal.toast('Friend request canceled.');
 	}
 
-	removeFriend(friendId: string) {
-		const target = this.friends.find((f) => f.id === friendId);
-		this.friends = this.friends.filter((f) => f.id !== friendId);
-		this.persistFriends();
-		if (target) {
-			journal.toast(`Removed ${target.displayName} from friends.`);
+	async removeFriend(friendId: string) {
+		const target = this.friends.find((friend) => friend.id === friendId);
+
+		if (isSupabaseConfigured && auth.user) {
+			const { data, error } = await supabase.rpc('remove_friend', { friend_id: friendId });
+			const result = data as { success?: boolean; message?: string };
+
+			if (error || !result?.success) {
+				journal.toast(result?.message || error?.message || 'Could not remove that friend.');
+				return;
+			}
+
+			await this.refreshRemote();
+		} else {
+			this.friends = this.friends.filter((friend) => friend.id !== friendId);
+			this.persistFriendsCache();
 		}
+
+		if (target) journal.toast(`Removed ${target.displayName} from friends.`);
 	}
 
-	toggleReaction(postId: string, reaction: 'love' | 'spark' | 'warm' | 'proud') {
-		const post = this.posts.find((p) => p.id === postId);
+	toggleReaction(postId: string, reaction: ReactionKey) {
+		const post = this.posts.find((item) => item.id === postId);
 		if (!post) return;
 
-		const hasReacted = post.userReactions.includes(reaction);
+		const key = postKey(post.authorId, post.date);
+		const current = this.reactionMap[key] ?? { counts: { ...EMPTY_REACTIONS }, mine: [] };
+		const hasReacted = current.mine.includes(reaction);
+		const counts = { ...current.counts };
+		const mine = [...current.mine];
+
 		if (hasReacted) {
-			post.userReactions = post.userReactions.filter((r) => r !== reaction);
-			post.reactions[reaction] = Math.max(0, post.reactions[reaction] - 1);
+			counts[reaction] = Math.max(0, counts[reaction] - 1);
+			mine.splice(mine.indexOf(reaction), 1);
 		} else {
-			post.userReactions.push(reaction);
-			post.reactions[reaction] = (post.reactions[reaction] || 0) + 1;
+			counts[reaction] += 1;
+			mine.push(reaction);
 		}
 
-		this.persistReactions();
+		this.reactionMap = { ...this.reactionMap, [key]: { counts, mine } };
+		this.posts = this.posts.map((item) =>
+			item.id === postId ? { ...item, reactions: counts, userReactions: mine } : item
+		);
+
+		if (isSupabaseConfigured && auth.user && isUuid(post.authorId)) {
+			void (async () => {
+				const request = hasReacted
+					? supabase
+							.from('vidjo_reactions')
+							.delete()
+							.eq('post_owner_id', post.authorId)
+							.eq('post_date', post.date)
+							.eq('user_id', auth.user!.id)
+							.eq('reaction', reaction)
+					: supabase.from('vidjo_reactions').insert({
+							post_owner_id: post.authorId,
+							post_date: post.date,
+							user_id: auth.user!.id,
+							reaction
+						});
+
+				const { error } = await request;
+				if (error) console.warn('[VidJo] Could not save the reaction.', error);
+			})();
+		}
 	}
 
-	addComment(postId: string, text: string) {
+	async addComment(postId: string, text: string) {
 		const clean = text.trim();
 		if (!clean) return;
 
-		const post = this.posts.find((p) => p.id === postId);
+		const post = this.posts.find((item) => item.id === postId);
 		if (!post) return;
 
-		const newComment: FriendComment = {
-			id: `uc-${Date.now()}`,
-			authorName: profile.displayName,
+		const key = postKey(post.authorId, post.date);
+		const temp: FriendComment = {
+			id: `local-${Date.now()}`,
+			authorName: 'You',
 			authorUsername: profile.username,
 			authorAvatar: profile.avatarUrl,
 			text: clean,
 			time: 'Just now'
 		};
 
-		post.comments.push(newComment);
-		this.persistComments();
-		journal.toast('Note left for friend ✦');
+		this.commentMap = { ...this.commentMap, [key]: [...(this.commentMap[key] ?? []), temp] };
+		this.posts = this.posts.map((item) =>
+			item.id === postId ? { ...item, comments: [...item.comments, temp] } : item
+		);
+
+		if (!isSupabaseConfigured || !auth.user || !isUuid(post.authorId)) return;
+
+		const { data, error } = await supabase
+			.from('vidjo_comments')
+			.insert({
+				post_owner_id: post.authorId,
+				post_date: post.date,
+				author_id: auth.user.id,
+				body: clean
+			})
+			.select('id')
+			.single();
+
+		if (error) {
+			console.warn('[VidJo] Could not save the comment.', error);
+			journal.toast('Comment added for this session, but it could not be saved.');
+			return;
+		}
+
+		const savedId = (data?.id as string) || temp.id;
+		this.commentMap = {
+			...this.commentMap,
+			[key]: (this.commentMap[key] ?? []).map((comment) =>
+				comment.id === temp.id ? { ...comment, id: savedId } : comment
+			)
+		};
+		this.posts = this.posts.map((item) =>
+			item.id === postId
+				? {
+						...item,
+						comments: item.comments.map((comment) =>
+							comment.id === temp.id ? { ...comment, id: savedId } : comment
+						)
+					}
+				: item
+		);
 	}
 
 	setFilter(filter: 'all' | 'video' | 'written') {
 		this.activeFilter = filter;
+	}
+
+	reset() {
+		this.friends = [];
+		this.friendRequests = [];
+		this.posts = [];
+		this.stories = [];
+		this.reactionMap = {};
+		this.commentMap = {};
+		this.currentUserId = '';
+		this.initializedFor = '';
+		this.loading = false;
+		this.remote = false;
 	}
 }
 

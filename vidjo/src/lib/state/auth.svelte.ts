@@ -98,9 +98,15 @@ class Auth {
 	get displayName() {
 		if (profile.profile?.display_name) return profile.profile.display_name;
 		const metadata = (this.user?.user_metadata ?? {}) as Record<string, unknown>;
+		const nickname =
+			typeof metadata.nickname === 'string'
+				? metadata.nickname
+				: typeof metadata.display_name === 'string'
+					? metadata.display_name
+					: '';
 		const fullName = typeof metadata.full_name === 'string' ? metadata.full_name : '';
 		const name = typeof metadata.name === 'string' ? metadata.name : '';
-		return this.username || fullName || name || this.email.split('@')[0] || 'Friend';
+		return nickname || fullName || name || this.username || this.email.split('@')[0] || 'Friend';
 	}
 
 	get initials() {
@@ -325,12 +331,18 @@ class Auth {
 		return '';
 	}
 
-	async signUp(email: string, password: string, username = ''): Promise<SignUpResult> {
+	async signUp(
+		email: string,
+		password: string,
+		username = '',
+		nickname = ''
+	): Promise<SignUpResult> {
 		if (!isSupabaseConfigured) {
 			return { error: 'Sign-in is not configured for this build.', needsConfirmation: false };
 		}
 
 		const cleanUsername = username.trim();
+		const cleanNickname = nickname.trim() || cleanUsername;
 		if (cleanUsername) {
 			const check = await profile.checkUsernameAvailable(cleanUsername);
 			if (!check.available) {
@@ -345,7 +357,15 @@ class Auth {
 			email,
 			password,
 			options: {
-				data: cleanUsername ? { username: cleanUsername, full_name: cleanUsername } : undefined,
+				data: cleanUsername
+					? {
+							username: cleanUsername,
+							user_name: cleanUsername,
+							nickname: cleanNickname,
+							display_name: cleanNickname,
+							full_name: cleanNickname
+						}
+					: undefined,
 				emailRedirectTo: callbackUrl()
 			}
 		});

@@ -8,6 +8,7 @@
 	let view = $state<View>('signin');
 	let email = $state('');
 	let username = $state('');
+	let nickname = $state('');
 	let password = $state('');
 	let confirmPassword = $state('');
 	let friendInviteCode = $state('');
@@ -88,11 +89,7 @@
 					: 'Sign in'
 	);
 	let busyLabel = $derived(
-		view === 'code'
-			? 'Checking…'
-			: view === 'signup-2'
-				? 'Creating account…'
-				: 'Signing in…'
+		view === 'code' ? 'Checking…' : view === 'signup-2' ? 'Creating account…' : 'Signing in…'
 	);
 
 	onMount(() => {
@@ -420,7 +417,12 @@
 				}
 			}
 
-			const result = await auth.signUp(email.trim(), password, username.trim());
+			const result = await auth.signUp(
+				email.trim(),
+				password,
+				username.trim(),
+				nickname.trim() || username.trim()
+			);
 			if (result.error) {
 				error = result.error;
 				return;
@@ -598,10 +600,14 @@
 			</p>
 
 			{#if view === 'signup' || view === 'signup-2'}
-				<div class="mt-3 flex items-center gap-2" aria-label={`Step ${view === 'signup' ? '1' : '2'} of 2`}>
+				<div
+					class="mt-3 flex items-center gap-2"
+					aria-label={`Step ${view === 'signup' ? '1' : '2'} of 2`}
+				>
 					<span class="h-1.5 w-7 rounded-full bg-accent"></span>
-					<span class="h-1.5 w-7 rounded-full {view === 'signup-2' ? 'bg-accent' : 'bg-line'}"></span>
-					<span class="font-ui text-[11px] font-semibold text-ink-soft ml-1">
+					<span class="h-1.5 w-7 rounded-full {view === 'signup-2' ? 'bg-accent' : 'bg-line'}"
+					></span>
+					<span class="ml-1 font-ui text-[11px] font-semibold text-ink-soft">
 						Step {view === 'signup' ? '1' : '2'} of 2
 					</span>
 				</div>
@@ -662,7 +668,7 @@
 									maxlength="1"
 									autocomplete={index === 0 ? 'one-time-code' : 'off'}
 									aria-label={`Code digit ${index + 1}`}
-									class="h-14 w-full min-w-0 rounded-xl border-2 border-line bg-[#FFFDF6] text-center font-display text-2xl font-bold text-ink focus:border-accent focus:outline-none transition-colors"
+									class="h-14 w-full min-w-0 rounded-xl border-2 border-line bg-[#FFFDF6] text-center font-display text-2xl font-bold text-ink transition-colors focus:border-accent focus:outline-none"
 									disabled={busy}
 									oninput={(event) => onDigitInput(index, event)}
 									onkeydown={(event) => onDigitKey(index, event)}
@@ -710,7 +716,6 @@
 						Tip: the email contains a 6-digit code and a sign-in link. Use whichever is easier — the
 						link opens your journal on this device.
 					</p>
-
 				{:else if view === 'signup'}
 					<!-- ── Step 1: Email + Unique Username ── -->
 					<label class="block font-ui text-[13px] font-bold text-ink" for="vidjo-email">
@@ -725,7 +730,7 @@
 						autocomplete="email"
 						inputmode="email"
 						placeholder="you@school.edu"
-						class="mt-1.5 h-12 w-full rounded-xl border-2 border-line bg-[#FFFDF6] px-3.5 font-ui text-base text-ink placeholder:text-[#9B8CB5] focus:border-accent focus:outline-none transition-colors"
+						class="mt-1.5 h-12 w-full rounded-xl border-2 border-line bg-[#FFFDF6] px-3.5 font-ui text-base text-ink transition-colors placeholder:text-[#9B8CB5] focus:border-accent focus:outline-none"
 						disabled={busy}
 						required
 					/>
@@ -743,7 +748,9 @@
 						{/if}
 					</div>
 					<div class="relative mt-1.5">
-						<span class="absolute inset-y-0 left-3.5 flex items-center font-ui text-sm text-[#9B8CB5]">
+						<span
+							class="absolute inset-y-0 left-3.5 flex items-center font-ui text-sm text-[#9B8CB5]"
+						>
 							@
 						</span>
 						<input
@@ -755,13 +762,31 @@
 							autocomplete="username"
 							placeholder="e.g. mara"
 							maxlength="24"
-							class="h-12 w-full rounded-xl border-2 border-line bg-[#FFFDF6] pr-3.5 pl-8 font-ui text-base text-ink placeholder:text-[#9B8CB5] focus:border-accent focus:outline-none transition-colors"
+							class="h-12 w-full rounded-xl border-2 border-line bg-[#FFFDF6] pr-3.5 pl-8 font-ui text-base text-ink transition-colors placeholder:text-[#9B8CB5] focus:border-accent focus:outline-none"
 							disabled={busy}
 							required
 						/>
 					</div>
 					<p class="mt-1 font-ui text-[11px] text-ink-soft">
 						Choose a unique username for your journal, friends, and community.
+					</p>
+
+					<label class="mt-4 block font-ui text-[13px] font-bold text-ink" for="vidjo-nickname">
+						Nickname <span class="text-xs font-normal text-ink-soft">(shown to friends)</span>
+					</label>
+					<input
+						bind:value={nickname}
+						id="vidjo-nickname"
+						type="text"
+						name="nickname"
+						autocomplete="nickname"
+						placeholder="e.g. Rice Shower"
+						maxlength="32"
+						class="mt-1.5 h-12 w-full rounded-xl border-2 border-line bg-[#FFFDF6] px-3.5 font-ui text-base text-ink transition-colors placeholder:text-[#9B8CB5] focus:border-accent focus:outline-none"
+						disabled={busy}
+					/>
+					<p class="mt-1 font-ui text-[11px] text-ink-soft">
+						Your nickname can be anything. Your @username stays unique across VidJo.
 					</p>
 
 					<button
@@ -800,7 +825,6 @@
 							New sign-ups are paused right now. Try signing in instead.
 						{/if}
 					</p>
-
 				{:else if view === 'signup-2'}
 					<!-- ── Step 2: Password ── -->
 					<button
@@ -836,7 +860,7 @@
 							name="password"
 							autocomplete="new-password"
 							placeholder="At least 6 characters"
-							class="h-12 w-full rounded-xl border-2 border-line bg-[#FFFDF6] px-3.5 pr-16 font-ui text-base text-ink placeholder:text-[#9B8CB5] focus:border-accent focus:outline-none transition-colors"
+							class="h-12 w-full rounded-xl border-2 border-line bg-[#FFFDF6] px-3.5 pr-16 font-ui text-base text-ink transition-colors placeholder:text-[#9B8CB5] focus:border-accent focus:outline-none"
 							disabled={busy}
 							required
 						/>
@@ -861,13 +885,13 @@
 						name="confirm-password"
 						autocomplete="new-password"
 						placeholder="Type it once more"
-						class="mt-1.5 h-12 w-full rounded-xl border-2 border-line bg-[#FFFDF6] px-3.5 font-ui text-base text-ink placeholder:text-[#9B8CB5] focus:border-accent focus:outline-none transition-colors"
+						class="mt-1.5 h-12 w-full rounded-xl border-2 border-line bg-[#FFFDF6] px-3.5 font-ui text-base text-ink transition-colors placeholder:text-[#9B8CB5] focus:border-accent focus:outline-none"
 						disabled={busy}
 						required
 					/>
 
 					<label class="mt-4 block font-ui text-[13px] font-bold text-ink" for="vidjo-friendcode">
-						Friend invite code <span class="font-normal text-ink-soft text-xs">(optional)</span>
+						Friend invite code <span class="text-xs font-normal text-ink-soft">(optional)</span>
 					</label>
 					<input
 						bind:value={friendInviteCode}
@@ -875,7 +899,7 @@
 						type="text"
 						name="friendcode"
 						placeholder="e.g. VJ-7K9M2P"
-						class="mt-1.5 h-12 w-full rounded-xl border-2 border-line bg-[#FFFDF6] px-3.5 font-ui text-base text-ink placeholder:text-[#9B8CB5] focus:border-accent focus:outline-none transition-colors uppercase"
+						class="mt-1.5 h-12 w-full rounded-xl border-2 border-line bg-[#FFFDF6] px-3.5 font-ui text-base text-ink uppercase transition-colors placeholder:text-[#9B8CB5] focus:border-accent focus:outline-none"
 						disabled={busy}
 					/>
 					<p class="mt-1 font-ui text-[11px] text-ink-soft">
@@ -903,7 +927,6 @@
 							{primaryLabel}
 						{/if}
 					</button>
-
 				{:else}
 					<!-- ── Sign In ── -->
 					<label class="block font-ui text-[13px] font-bold text-ink" for="vidjo-email">
@@ -918,7 +941,7 @@
 						autocomplete="email"
 						inputmode="email"
 						placeholder="you@school.edu"
-						class="mt-1.5 h-12 w-full rounded-xl border-2 border-line bg-[#FFFDF6] px-3.5 font-ui text-base text-ink placeholder:text-[#9B8CB5] focus:border-accent focus:outline-none transition-colors"
+						class="mt-1.5 h-12 w-full rounded-xl border-2 border-line bg-[#FFFDF6] px-3.5 font-ui text-base text-ink transition-colors placeholder:text-[#9B8CB5] focus:border-accent focus:outline-none"
 						disabled={busy}
 						required
 					/>
@@ -935,7 +958,7 @@
 								name="password"
 								autocomplete="current-password"
 								placeholder="Your password"
-								class="h-12 w-full rounded-xl border-2 border-line bg-[#FFFDF6] px-3.5 pr-16 font-ui text-base text-ink placeholder:text-[#9B8CB5] focus:border-accent focus:outline-none transition-colors"
+								class="h-12 w-full rounded-xl border-2 border-line bg-[#FFFDF6] px-3.5 pr-16 font-ui text-base text-ink transition-colors placeholder:text-[#9B8CB5] focus:border-accent focus:outline-none"
 								disabled={busy}
 								required
 							/>

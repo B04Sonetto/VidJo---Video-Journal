@@ -434,10 +434,71 @@ alter table public.vidjo_profiles add column if not exists friend_code text;
 create unique index if not exists vidjo_profiles_friend_code_idx
 	on public.vidjo_profiles (upper(friend_code));
 
--- Backfill friend codes for existing profiles
+-- Deterministic friend codes. This mirrors generateFriendCode() in
+-- src/lib/state/profile.svelte.ts so a code shown offline matches the one the
+-- database would create. Existing codes (for example VJ-DBA6A2) are preserved.
+create or replace function public.vidjo_generate_friend_code(uid uuid)
+returns text
+language plpgsql
+immutable
+set search_path = public
+as $$
+declare
+	chars text := '23456789ABCDEFGHJKLMNPQRSTUVWXYZ';
+	uid_text text := coalesce(uid::text, '');
+	hash bigint := 0;
+	seed bigint;
+	code text := '';
+	i integer;
+	char_code integer;
+begin
+	if uid_text = '' then
+		return 'VJ-DEMO01';
+	end if;
+
+	for i in 1..length(uid_text) loop
+		char_code := ascii(substr(uid_text, i, 1));
+		hash := (hash << 5) - hash + char_code;
+		-- Wrap to a signed 32-bit integer, like JavaScript's `hash |= 0`.
+		hash := ((hash + 2147483648) % 4294967296) - 2147483648;
+	end loop;
+
+	seed := abs(hash);
+
+	for i in 0..5 loop
+		code := code || substr(chars, (seed % 32)::integer + 1, 1);
+		seed := (seed / 32) + i * 13 + 7;
+	end loop;
+
+	return 'VJ-' || code;
+end;
+$$;
+
+create or replace function public.vidjo_set_friend_code()
+returns trigger
+language plpgsql
+set search_path = public
+as $$
+begin
+	if new.friend_code is null or trim(new.friend_code) = '' then
+		new.friend_code := public.vidjo_generate_friend_code(new.user_id);
+	end if;
+	return new;
+end;
+$$;
+
+drop trigger if exists vidjo_set_friend_code on public.vidjo_profiles;
+create trigger vidjo_set_friend_code
+	before insert on public.vidjo_profiles
+	for each row execute function public.vidjo_set_friend_code();
+
+-- Backfill only missing codes; never overwrite a code a user has already shared.
 update public.vidjo_profiles
-set friend_code = 'VJ-' || upper(substr(md5(user_id::text), 1, 6))
-where friend_code is null;
+set friend_code = public.vidjo_generate_friend_code(user_id)
+where friend_code is null or trim(friend_code) = '';
+
+revoke all on function public.vidjo_generate_friend_code(uuid) from public;
+grant execute on function public.vidjo_generate_friend_code(uuid) to authenticated;
 
 create table if not exists public.vidjo_friends (
 	user_id uuid references auth.users(id) on delete cascade,
@@ -519,3 +580,536 @@ $$;
 
 revoke all on function public.add_friend_by_code(text) from public;
 grant execute on function public.add_friend_by_code(text) to authenticated;
+
+-- ---------------------------------------------------------------------------
+-- Profile preferences
+-- ---------------------------------------------------------------------------
+
+alter table public.vidjo_profiles
+	add column if not exists accent_color text not null default '#51397A';
+alter table public.vidjo_profiles
+	add column if not exists theme text not null default 'classic';
+alter table public.vidjo_profiles
+	add column if not exists default_privacy text not null default 'private';
+alter table public.vidjo_profiles
+	add column if not exists allow_friend_requests boolean not null default true;
+
+-- ---------------------------------------------------------------------------
+-- Communities (subreddit-style groups)
+-- ---------------------------------------------------------------------------
+
+create table if not exists public.vidjo_communities (
+	slug text primary key,
+	name text not null,
+	tag text not null,
+	description text not null default '',
+	icon text not null default 'globe',
+	color text not null default '#51397A',
+	sort_order integer not null default 0,
+	created_at timestamptz not null default now()
+);
+
+alter table public.vidjo_communities enable row level security;
+
+drop policy if exists "vidjo communities select" on public.vidjo_communities;
+create policy "vidjo communities select" on public.vidjo_communities
+	for select to authenticated
+	using (public.vidjo_is_member());
+
+revoke all on public.vidjo_communities from anon;
+grant select on public.vidjo_communities to authenticated;
+
+insert into public.vidjo_communities (slug, name, tag, description, icon, color, sort_order)
+values
+	('smallwins', 'Small Wins', '#SmallWins', 'Tiny victories, proud moments, and reasons to keep going.', 'spark', '#D4A24C', 1),
+	('campussunset', 'Campus Sunset', '#CampusSunset', 'Golden-hour photos, evening walks, and beautiful corners of campus.', 'sun', '#E88C5D', 2),
+	('creativeflow', 'Creative Flow', '#CreativeFlow', 'Art, music, writing, and every messy work-in-progress in between.', 'music', '#A77BE8', 3),
+	('midtermsurvivals', 'Midterm Survivors', '#MidtermSurvivals', 'Study plans, exam memes, and surviving the middle of the semester together.', 'book', '#5D8CE8', 4),
+	('mentalhealth', 'Mental Health', '#MentalHealth', 'Gentle check-ins, coping tips, and a soft place to land.', 'heart', '#E46A8A', 5),
+	('studytogether', 'Study Together', '#StudyTogether', 'Find study buddies, share focus playlists, and stay accountable.', 'users', '#3FA37A', 6),
+	('greencampus', 'Green Campus', '#GreenCampus', 'Sustainability projects, plants, and little ways to care for the planet.', 'leaf', '#5CA84F', 7)
+on conflict (slug) do update set
+	name = excluded.name,
+	tag = excluded.tag,
+	description = excluded.description,
+	icon = excluded.icon,
+	color = excluded.color,
+	sort_order = excluded.sort_order;
+
+create table if not exists public.vidjo_community_members (
+	community_slug text not null references public.vidjo_communities(slug) on delete cascade,
+	user_id uuid not null references auth.users(id) on delete cascade,
+	created_at timestamptz not null default now(),
+	primary key (community_slug, user_id)
+);
+
+create index if not exists vidjo_community_members_user_idx
+	on public.vidjo_community_members (user_id);
+
+alter table public.vidjo_community_members enable row level security;
+
+drop policy if exists "vidjo community members select" on public.vidjo_community_members;
+create policy "vidjo community members select" on public.vidjo_community_members
+	for select to authenticated
+	using (public.vidjo_is_member());
+
+drop policy if exists "vidjo community members insert own" on public.vidjo_community_members;
+create policy "vidjo community members insert own" on public.vidjo_community_members
+	for insert to authenticated
+	with check (public.vidjo_is_member() and auth.uid() = user_id);
+
+drop policy if exists "vidjo community members delete own" on public.vidjo_community_members;
+create policy "vidjo community members delete own" on public.vidjo_community_members
+	for delete to authenticated
+	using (public.vidjo_is_member() and auth.uid() = user_id);
+
+revoke all on public.vidjo_community_members from anon;
+grant select, insert, delete on public.vidjo_community_members to authenticated;
+
+alter table public.vidjo_entries add column if not exists community_slug text;
+
+create index if not exists vidjo_entries_community_idx
+	on public.vidjo_entries (community_slug, entry_date desc)
+	where privacy = 'community';
+
+-- ---------------------------------------------------------------------------
+-- Visibility helpers
+-- ---------------------------------------------------------------------------
+
+create or replace function public.vidjo_try_uuid(value text)
+returns uuid
+language plpgsql
+immutable
+set search_path = public
+as $$
+begin
+	if value is null or value = '' then
+		return null;
+	end if;
+	return value::uuid;
+exception
+	when others then
+		return null;
+end;
+$$;
+
+create or replace function public.vidjo_are_friends(a uuid, b uuid)
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+	select a is not null and b is not null and exists (
+		select 1
+		from public.vidjo_friends f
+		where f.status = 'accepted'
+			and (
+				(f.user_id = a and f.friend_id = b)
+				or (f.user_id = b and f.friend_id = a)
+			)
+	);
+$$;
+
+create or replace function public.vidjo_can_view_post(owner uuid, post_date date)
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+	select owner is not null and exists (
+		select 1
+		from public.vidjo_entries e
+		where e.owner_id = owner::text
+			and e.entry_date = post_date
+			and (
+				auth.uid()::text = e.owner_id
+				or e.privacy = 'community'
+				or (
+					e.privacy = 'friends'
+					and public.vidjo_are_friends(auth.uid(), owner)
+				)
+			)
+	);
+$$;
+
+revoke all on function public.vidjo_try_uuid(text) from public;
+revoke all on function public.vidjo_are_friends(uuid, uuid) from public;
+revoke all on function public.vidjo_can_view_post(uuid, date) from public;
+grant execute on function public.vidjo_try_uuid(text) to authenticated;
+grant execute on function public.vidjo_are_friends(uuid, uuid) to authenticated;
+grant execute on function public.vidjo_can_view_post(uuid, date) to authenticated;
+
+-- Friends entries are only readable by accepted friends. Community entries
+-- remain readable by any registered member.
+drop policy if exists "vidjo entries select own" on public.vidjo_entries;
+create policy "vidjo entries select own" on public.vidjo_entries
+	for select to authenticated
+	using (
+		public.vidjo_is_member()
+		and (
+			auth.uid()::text = owner_id
+			or privacy = 'community'
+			or (
+				privacy = 'friends'
+				and public.vidjo_are_friends(auth.uid(), public.vidjo_try_uuid(owner_id))
+			)
+		)
+	);
+
+-- ---------------------------------------------------------------------------
+-- Friend requests
+-- ---------------------------------------------------------------------------
+
+create table if not exists public.vidjo_friend_requests (
+	id uuid primary key default gen_random_uuid(),
+	from_user uuid not null references auth.users(id) on delete cascade,
+	to_user uuid not null references auth.users(id) on delete cascade,
+	status text not null default 'pending'
+		check (status in ('pending', 'accepted', 'declined', 'canceled')),
+	created_at timestamptz not null default now(),
+	responded_at timestamptz,
+	constraint vidjo_friend_requests_unique_pair unique (from_user, to_user),
+	constraint vidjo_friend_requests_not_self check (from_user <> to_user)
+);
+
+create index if not exists vidjo_friend_requests_to_user_idx
+	on public.vidjo_friend_requests (to_user, status);
+create index if not exists vidjo_friend_requests_from_user_idx
+	on public.vidjo_friend_requests (from_user, status);
+
+alter table public.vidjo_friend_requests enable row level security;
+
+drop policy if exists "vidjo friend requests select" on public.vidjo_friend_requests;
+create policy "vidjo friend requests select" on public.vidjo_friend_requests
+	for select to authenticated
+	using (
+		public.vidjo_is_member()
+		and (auth.uid() = from_user or auth.uid() = to_user)
+	);
+
+revoke all on public.vidjo_friend_requests from anon;
+grant select on public.vidjo_friend_requests to authenticated;
+
+create or replace function public.send_friend_request_by_code(code text)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+	curr_user uuid := auth.uid();
+	target_profile record;
+	pending_request record;
+begin
+	if curr_user is null then
+		return jsonb_build_object('success', false, 'message', 'Sign in to add friends.');
+	end if;
+
+	if not public.vidjo_is_member() then
+		return jsonb_build_object('success', false, 'message', 'Create a VidJo account before adding friends.');
+	end if;
+
+	select * into target_profile
+	from public.vidjo_profiles
+	where upper(friend_code) = upper(trim(code));
+
+	if not found then
+		return jsonb_build_object('success', false, 'message', 'Friend code not found. Check it and try again.');
+	end if;
+
+	if target_profile.user_id = curr_user then
+		return jsonb_build_object('success', false, 'message', 'That is your own friend code.');
+	end if;
+
+	if not coalesce(target_profile.allow_friend_requests, true) then
+		return jsonb_build_object('success', false, 'message', 'This person is not accepting friend requests right now.');
+	end if;
+
+	if public.vidjo_are_friends(curr_user, target_profile.user_id) then
+		return jsonb_build_object(
+			'success', true,
+			'alreadyFriends', true,
+			'message', target_profile.display_name || ' is already on your friends list.'
+		);
+	end if;
+
+	select * into pending_request
+	from public.vidjo_friend_requests
+	where status = 'pending'
+		and (
+			(from_user = curr_user and to_user = target_profile.user_id)
+			or (from_user = target_profile.user_id and to_user = curr_user)
+		)
+	limit 1;
+
+	if found then
+		if pending_request.from_user = curr_user then
+			return jsonb_build_object('success', false, 'message', 'Friend request already sent. Waiting for them to accept.');
+		end if;
+		return jsonb_build_object(
+			'success', false,
+			'message', 'They already sent you a request! Check your Requests tab to accept it.'
+		);
+	end if;
+
+	-- Clear old declined/canceled history so the pair has one fresh request.
+	delete from public.vidjo_friend_requests
+	where (from_user = curr_user and to_user = target_profile.user_id)
+		or (from_user = target_profile.user_id and to_user = curr_user);
+
+	insert into public.vidjo_friend_requests (from_user, to_user, status)
+	values (curr_user, target_profile.user_id, 'pending');
+
+	return jsonb_build_object(
+		'success', true,
+		'message', 'Friend request sent to ' || target_profile.display_name || '!'
+	);
+end;
+$$;
+
+create or replace function public.accept_friend_request(request_id uuid)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+	curr_user uuid := auth.uid();
+	request_row record;
+begin
+	if curr_user is null then
+		return jsonb_build_object('success', false, 'message', 'Sign in to accept requests.');
+	end if;
+
+	select * into request_row
+	from public.vidjo_friend_requests
+	where id = request_id and status = 'pending'
+	for update;
+
+	if not found then
+		return jsonb_build_object('success', false, 'message', 'That request is no longer pending.');
+	end if;
+
+	if request_row.to_user <> curr_user then
+		return jsonb_build_object('success', false, 'message', 'You cannot accept this request.');
+	end if;
+
+	insert into public.vidjo_friends (user_id, friend_id, status)
+	values (curr_user, request_row.from_user, 'accepted')
+	on conflict (user_id, friend_id) do update set status = 'accepted';
+
+	insert into public.vidjo_friends (user_id, friend_id, status)
+	values (request_row.from_user, curr_user, 'accepted')
+	on conflict (user_id, friend_id) do update set status = 'accepted';
+
+	update public.vidjo_friend_requests
+	set status = 'accepted', responded_at = now()
+	where id = request_id;
+
+	return jsonb_build_object('success', true, 'message', 'You are now friends!');
+end;
+$$;
+
+create or replace function public.decline_friend_request(request_id uuid)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+	curr_user uuid := auth.uid();
+	request_row record;
+begin
+	if curr_user is null then
+		return jsonb_build_object('success', false, 'message', 'Sign in to decline requests.');
+	end if;
+
+	select * into request_row
+	from public.vidjo_friend_requests
+	where id = request_id and status = 'pending'
+	for update;
+
+	if not found then
+		return jsonb_build_object('success', false, 'message', 'That request is no longer pending.');
+	end if;
+
+	if request_row.to_user <> curr_user then
+		return jsonb_build_object('success', false, 'message', 'You cannot decline this request.');
+	end if;
+
+	update public.vidjo_friend_requests
+	set status = 'declined', responded_at = now()
+	where id = request_id;
+
+	return jsonb_build_object('success', true, 'message', 'Friend request declined.');
+end;
+$$;
+
+create or replace function public.cancel_friend_request(request_id uuid)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+	curr_user uuid := auth.uid();
+	request_row record;
+begin
+	if curr_user is null then
+		return jsonb_build_object('success', false, 'message', 'Sign in to cancel requests.');
+	end if;
+
+	select * into request_row
+	from public.vidjo_friend_requests
+	where id = request_id and status = 'pending'
+	for update;
+
+	if not found then
+		return jsonb_build_object('success', false, 'message', 'That request is no longer pending.');
+	end if;
+
+	if request_row.from_user <> curr_user then
+		return jsonb_build_object('success', false, 'message', 'You cannot cancel this request.');
+	end if;
+
+	update public.vidjo_friend_requests
+	set status = 'canceled', responded_at = now()
+	where id = request_id;
+
+	return jsonb_build_object('success', true, 'message', 'Friend request canceled.');
+end;
+$$;
+
+create or replace function public.remove_friend(friend_id uuid)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+	curr_user uuid := auth.uid();
+begin
+	if curr_user is null then
+		return jsonb_build_object('success', false, 'message', 'Sign in to remove friends.');
+	end if;
+
+	delete from public.vidjo_friends
+	where (user_id = curr_user and friend_id = remove_friend.friend_id)
+		or (user_id = remove_friend.friend_id and friend_id = curr_user);
+
+	return jsonb_build_object('success', true, 'message', 'Friend removed.');
+end;
+$$;
+
+revoke all on function public.send_friend_request_by_code(text) from public;
+revoke all on function public.accept_friend_request(uuid) from public;
+revoke all on function public.decline_friend_request(uuid) from public;
+revoke all on function public.cancel_friend_request(uuid) from public;
+revoke all on function public.remove_friend(uuid) from public;
+grant execute on function public.send_friend_request_by_code(text) to authenticated;
+grant execute on function public.accept_friend_request(uuid) to authenticated;
+grant execute on function public.decline_friend_request(uuid) to authenticated;
+grant execute on function public.cancel_friend_request(uuid) to authenticated;
+grant execute on function public.remove_friend(uuid) to authenticated;
+
+-- ---------------------------------------------------------------------------
+-- Reactions and comments (friends + community feeds)
+-- ---------------------------------------------------------------------------
+
+create table if not exists public.vidjo_reactions (
+	post_owner_id uuid not null references auth.users(id) on delete cascade,
+	post_date date not null,
+	user_id uuid not null references auth.users(id) on delete cascade,
+	reaction text not null check (reaction in ('love', 'spark', 'warm', 'proud')),
+	created_at timestamptz not null default now(),
+	primary key (post_owner_id, post_date, user_id, reaction)
+);
+
+alter table public.vidjo_reactions enable row level security;
+
+drop policy if exists "vidjo reactions select" on public.vidjo_reactions;
+create policy "vidjo reactions select" on public.vidjo_reactions
+	for select to authenticated
+	using (public.vidjo_is_member() and public.vidjo_can_view_post(post_owner_id, post_date));
+
+drop policy if exists "vidjo reactions insert own" on public.vidjo_reactions;
+create policy "vidjo reactions insert own" on public.vidjo_reactions
+	for insert to authenticated
+	with check (
+		public.vidjo_is_member()
+		and auth.uid() = user_id
+		and public.vidjo_can_view_post(post_owner_id, post_date)
+	);
+
+drop policy if exists "vidjo reactions delete own" on public.vidjo_reactions;
+create policy "vidjo reactions delete own" on public.vidjo_reactions
+	for delete to authenticated
+	using (public.vidjo_is_member() and auth.uid() = user_id);
+
+revoke all on public.vidjo_reactions from anon;
+grant select, insert, delete on public.vidjo_reactions to authenticated;
+
+create table if not exists public.vidjo_comments (
+	id uuid primary key default gen_random_uuid(),
+	post_owner_id uuid not null references auth.users(id) on delete cascade,
+	post_date date not null,
+	author_id uuid not null references auth.users(id) on delete cascade,
+	body text not null check (char_length(body) between 1 and 500),
+	created_at timestamptz not null default now()
+);
+
+create index if not exists vidjo_comments_post_idx
+	on public.vidjo_comments (post_owner_id, post_date, created_at);
+
+alter table public.vidjo_comments enable row level security;
+
+drop policy if exists "vidjo comments select" on public.vidjo_comments;
+create policy "vidjo comments select" on public.vidjo_comments
+	for select to authenticated
+	using (public.vidjo_is_member() and public.vidjo_can_view_post(post_owner_id, post_date));
+
+drop policy if exists "vidjo comments insert own" on public.vidjo_comments;
+create policy "vidjo comments insert own" on public.vidjo_comments
+	for insert to authenticated
+	with check (
+		public.vidjo_is_member()
+		and auth.uid() = author_id
+		and public.vidjo_can_view_post(post_owner_id, post_date)
+	);
+
+drop policy if exists "vidjo comments delete own" on public.vidjo_comments;
+create policy "vidjo comments delete own" on public.vidjo_comments
+	for delete to authenticated
+	using (public.vidjo_is_member() and auth.uid() = author_id);
+
+revoke all on public.vidjo_comments from anon;
+grant select, insert, delete on public.vidjo_comments to authenticated;
+
+-- ---------------------------------------------------------------------------
+-- Tighten video playback to match entry visibility
+-- ---------------------------------------------------------------------------
+
+drop policy if exists "vidjo video read" on storage.objects;
+create policy "vidjo video read" on storage.objects
+	for select to authenticated
+	using (
+		bucket_id = 'vidjo-videos'
+		and public.vidjo_is_member()
+		and (
+			(storage.foldername(name))[1] = auth.uid()::text
+			or exists (
+				select 1
+				from public.vidjo_entries e
+				where (e.video_path = storage.objects.name or storage.objects.name like '%' || e.video_path)
+					and (
+						e.privacy = 'community'
+						or (
+							e.privacy = 'friends'
+							and public.vidjo_are_friends(auth.uid(), public.vidjo_try_uuid(e.owner_id))
+						)
+					)
+			)
+		)
+	);

@@ -26,6 +26,18 @@ auth/persistence and an offline `localStorage` fallback.
 - **Journal writing** — title, "What's on your mind?", optional reflection,
   character counters, and a prompt generator.
 - **Privacy choices** — private, friends, or community (stored with each entry).
+- **Full profile page** — a separate nickname and globally unique `@username`, bio,
+  member-since date, friend code, stats, portfolio, achievements, and settings.
+  Profile settings cover accent color, theme, default privacy, friend requests, and
+  cache controls.
+- **Friends** — search by friend code, send/accept/decline/cancel requests, remove
+  friends, and see a friend-only feed backed by Supabase.
+- **Communities** — subreddit-style discovery with seven seeded communities. Join
+  or leave, filter by community, switch between Trending and For You, and react or
+  comment on community posts. Community membership and social activity persist in
+  Supabase rather than only in the browser.
+- **Account menu** — Profile and Settings open the profile page directly; there are
+  no separate profile modals.
 - **Collapsible sticker tray** — the open/closed state is remembered. Drag
   stickers, add your own image, resize, rotate, delete, and drag stickers across
   the spine between pages.
@@ -68,12 +80,25 @@ PUBLIC_SUPABASE_PUBLISHABLE_KEY=sb_publishable_xxxxxxxxxxxxxxxxx
 Then run `supabase/schema.sql` in the Supabase SQL editor. It creates:
 
 - `public.vidjo_entries` with `auth.uid()` row-level security.
+- `public.vidjo_profiles` with unique usernames, nicknames, avatars, friend codes,
+  and profile preferences (`accent_color`, `theme`, `default_privacy`,
+  `allow_friend_requests`).
+- `public.vidjo_friends` and `public.vidjo_friend_requests`, plus RPCs for sending,
+  accepting, declining, and cancelling requests and removing friends.
+- `public.vidjo_communities` (seeded with `#SmallWins`, `#CampusSunset`,
+  `#CreativeFlow`, `#MidtermSurvivals`, `#MentalHealth`, `#StudyTogether`, and
+  `#GreenCampus`) and `public.vidjo_community_members`.
+- `public.vidjo_reactions` and `public.vidjo_comments` for the friends/community feeds.
 - Membership checks on journal/storage policies so OAuth-only accounts cannot
   read or write data.
 - The public `vidjo-videos` storage bucket and owner-scoped upload policies.
 - A `claim_device_entries()` function for migrating pre-account rows.
 - A `hook_reject_social_signups()` function for the Before User Created hook;
   enable it under **Authentication → Hooks** to stop Google OAuth signups.
+
+> **Upgrading an existing project?** Re-run the full `schema.sql`. It is written to
+> be re-run safely and adds the social/community tables, `community_slug`, and the
+> profile preference columns without deleting existing entries or friend codes.
 
 Email sign-in also needs a `{{ .Token }}` line in the **Magic Link** and
 **Confirm signup** email templates so the 6-digit code is included. See
@@ -98,7 +123,8 @@ Private videos cannot be viewed by anyone other than their owner.
 
 Journal pages are cached locally per account so the book opens offline.
 On shared browsers, users can check "Clear cached pages on sign out" or click
-"Clear local cache" in the Profile modal so no entries remain stored on that device.
+"Clear local cache" under **Profile → Settings** so no entries remain stored on
+that device.
 
 ## Scripts
 
@@ -131,9 +157,9 @@ node build
 src/
   env.ts                  Public environment variable declarations
   lib/
-    components/           Header, Book, pages, recorder, login, stickers, calendar
+    components/           Header, Book, pages, login, profile, community, friends
     data/                 Moods, stickers, prompts, sample entries
-    state/                Journal, auth, navigation, and viewport runes
+    state/                Journal, auth, profile, friends, community, navigation
     authCallback.ts       Shared OAuth / email-link callback handling
     authErrors.ts         Friendly Supabase auth error messages
     dates.ts              Date helpers and TODAY
