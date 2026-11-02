@@ -1,5 +1,4 @@
 import { STICKER_BY_KEY } from '#lib/data/stickers';
-import { sampleEntries } from '#lib/data/samples';
 import { TODAY, uid } from '#lib/dates';
 import { peekDeviceId } from '#lib/identity';
 import { isSupabaseConfigured, supabase, VIDEO_BUCKET } from '#lib/supabase';
@@ -51,7 +50,10 @@ function normalizeEntry(raw: Partial<Entry> & { date: string; videoUrl?: string 
 		saved: Boolean(raw.saved),
 		sample: Boolean(raw.sample),
 		videoPath: raw.videoPath || legacyVideoPath(raw.videoUrl),
-		videoName: raw.videoName ?? ''
+		videoName: raw.videoName ?? '',
+		excludedFriendIds: Array.isArray(raw.excludedFriendIds) ? raw.excludedFriendIds : [],
+		includedFriendIds: Array.isArray(raw.includedFriendIds) ? raw.includedFriendIds : [],
+		shareWithFriends: Boolean(raw.shareWithFriends)
 	};
 }
 
@@ -84,7 +86,10 @@ export function blankEntry(date: string): Entry {
 		saved: false,
 		sample: false,
 		videoPath: '',
-		videoName: ''
+		videoName: '',
+		excludedFriendIds: [],
+		includedFriendIds: [],
+		shareWithFriends: false
 	};
 }
 
@@ -101,7 +106,10 @@ function rowToEntry(row: EntryRow): Entry {
 		saved: Boolean(row.saved),
 		sample: Boolean(row.sample),
 		videoPath: row.video_path || legacyVideoPath(row.video_url),
-		videoName: row.video_name ?? ''
+		videoName: row.video_name ?? '',
+		excludedFriendIds: Array.isArray(row.excluded_friend_ids) ? row.excluded_friend_ids : [],
+		includedFriendIds: Array.isArray(row.included_friend_ids) ? row.included_friend_ids : [],
+		shareWithFriends: Boolean(row.share_with_friends)
 	};
 }
 
@@ -119,6 +127,9 @@ function entryToRow(ownerId: string, entry: Entry): EntryRow {
 		saved: entry.saved,
 		sample: entry.sample,
 		video_path: entry.videoPath || null,
+		excluded_friend_ids: entry.excludedFriendIds.length ? entry.excludedFriendIds : null,
+		included_friend_ids: entry.includedFriendIds.length ? entry.includedFriendIds : null,
+		share_with_friends: entry.shareWithFriends || null,
 		video_url: null,
 		video_name: entry.videoName || null
 	};
@@ -129,7 +140,7 @@ class Journal {
 	paper = $state<PaperStyle>('lined');
 	current = $state(TODAY);
 	side = $state<Side>('L');
-	selected = $state<string | null>(null);
+	selected = $state<string[]>([]);
 	lastPage = $state<Side>('R');
 	sessionVideos = $state<Record<string, string>>({});
 
@@ -194,16 +205,8 @@ class Journal {
 				const remoteDates = Object.keys(remote);
 
 				if (remoteDates.length === 0 && localDates.length === 0) {
-					// First run for this account: seed the sample pages.
-					const seeds = sampleEntries();
-					const { error: insertError } = await supabase
-						.from('vidjo_entries')
-						.insert(seeds.map((entry) => entryToRow(ownerId, entry)));
-
-					if (seq !== this.initSeq) return;
-					if (insertError) throw insertError;
-
-					this.entries = Object.fromEntries(seeds.map((entry) => [entry.date, entry]));
+					// First run for this account: start with an empty journal.
+					this.entries = {};
 				} else {
 					// Keep anything created while offline, then let remote rows win on
 					// the same date. Local-only pages are pushed back up.
@@ -228,11 +231,11 @@ class Journal {
 				this.remote = false;
 
 				if (Object.keys(this.entries).length === 0) {
-					this.entries = Object.fromEntries(sampleEntries().map((entry) => [entry.date, entry]));
+					this.entries = {};
 				}
 			}
 		} else if (Object.keys(this.entries).length === 0) {
-			this.entries = Object.fromEntries(sampleEntries().map((entry) => [entry.date, entry]));
+			this.entries = {};
 		}
 
 		if (seq !== this.initSeq) return;
@@ -244,7 +247,7 @@ class Journal {
 
 		this.current = TODAY;
 		this.side = 'L';
-		this.selected = null;
+		this.selected = [];
 		this.ready = true;
 
 		void this.hydrateVideos(seq);
@@ -276,7 +279,7 @@ class Journal {
 		this.entries = {};
 		this.current = TODAY;
 		this.side = 'L';
-		this.selected = null;
+		this.selected = [];
 		this.lastPage = 'R';
 		this.pending.clear();
 		this.signedUrlPending.clear();
@@ -449,6 +452,36 @@ class Journal {
 		}
 	}
 
+	async deleteEntry(date: string) {
+		const entry = this.entries[date];
+		if (!entry) return;
+
+		// Clean up video if present
+		if (entry.videoPath) {
+			void this.deleteRemoteVideo(entry.videoPath);
+		}
+		void deleteStoredVideo(this.videoKey(date));
+
+		// Remove from remote
+		void this.removeRemote(date);
+
+		// Remove from local state
+		delete this.entries[date];
+		this.persistLocal();
+
+		// Navigate to a nearby date
+		const dates = this.sortedDates;
+		const idx = dates.indexOf(date);
+		const target = dates[idx < dates.length - 1 ? idx + 1 : idx - 1] ?? TODAY;
+
+		if (this.current === date) {
+			this.current = target;
+			this.side = 'L';
+		}
+
+		this.toast('Page deleted');
+	}
+
 	ensureEntry(date: string) {
 		if (!this.entries[date]) this.entries[date] = blankEntry(date);
 		return this.entries[date];
@@ -474,7 +507,10 @@ class Journal {
 		const entry = this.entries[this.current];
 		if (!entry) return;
 		entry.privacy = privacy;
-		if (privacy !== 'community') entry.communitySlug = '';
+		if (privacy !== 'community') {
+			entry.communitySlug = '';
+			entry.shareWithFriends = false;
+		}
 		entry.sample = false;
 		this.queueSave(this.current);
 	}
@@ -483,6 +519,14 @@ class Journal {
 		const entry = this.entries[this.current];
 		if (!entry) return;
 		entry.communitySlug = communitySlug;
+		entry.sample = false;
+		this.queueSave(this.current);
+	}
+
+	setShareWithFriends(enabled: boolean) {
+		const entry = this.entries[this.current];
+		if (!entry) return;
+		entry.shareWithFriends = enabled;
 		entry.sample = false;
 		this.queueSave(this.current);
 	}
@@ -733,9 +777,10 @@ class Journal {
 
 		entry.stickers.push(sticker);
 		entry.sample = false;
-		this.selected = sticker.id;
+		this.selected = [sticker.id];
 		this.lastPage = page;
 		this.queueSave(this.current);
+		this.toast('Sticker added');
 	}
 
 	addImageSticker(src: string) {
@@ -753,12 +798,36 @@ class Journal {
 		const entry = this.entries[this.current];
 		if (!entry) return;
 		entry.stickers = entry.stickers.filter((sticker) => sticker.id !== id);
-		if (this.selected === id) this.selected = null;
+		this.selected = this.selected.filter((sid) => sid !== id);
 		this.commit();
 	}
 
-	selectSticker(id: string | null) {
-		this.selected = id;
+	deleteSelected() {
+		const entry = this.entries[this.current];
+		if (!entry) return;
+		const toRemove = [...this.selected];
+		for (const id of toRemove) {
+			entry.stickers = entry.stickers.filter((sticker) => sticker.id !== id);
+		}
+		this.selected = [];
+		this.commit();
+		this.toast(`${toRemove.length} sticker${toRemove.length > 1 ? 's' : ''} removed`);
+	}
+
+	selectSticker(id: string | null, multi = false) {
+		if (id === null) {
+			this.selected = [];
+			return;
+		}
+		if (multi) {
+			if (this.selected.includes(id)) {
+				this.selected = this.selected.filter((sid) => sid !== id);
+			} else {
+				this.selected = [...this.selected, id];
+			}
+		} else {
+			this.selected = [id];
+		}
 	}
 
 	commit() {

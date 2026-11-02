@@ -31,6 +31,9 @@
 	let editNickname = $state('');
 	let editBio = $state('');
 	let editAvatar = $state('');
+	let editBanner = $state('');
+	let avatarFile = $state<File | null>(null);
+	let bannerFile = $state<File | null>(null);
 	let editError = $state('');
 	let editSaving = $state(false);
 	let editSeed = '';
@@ -187,6 +190,7 @@
 			editNickname = profile.nickname;
 			editBio = profile.bio;
 			editAvatar = profile.avatarUrl ?? '';
+			editBanner = profile.bannerUrl ?? '';
 			editError = '';
 		}
 	});
@@ -219,7 +223,8 @@
 			username: editUsername,
 			display_name: editNickname,
 			bio: editBio,
-			avatar_url: editAvatar.trim() || null
+			avatar_url: editAvatar.trim() || null,
+			banner_url: editBanner.trim() || profile.bannerUrl
 		});
 
 		editSaving = false;
@@ -264,8 +269,19 @@
 		class="relative overflow-hidden rounded-[32px] border border-[#523A7A] shadow-[0_28px_70px_rgba(0,0,0,.5)]"
 	>
 		<div
-			class="relative h-44 bg-[radial-gradient(ellipse_at_top,#7D58C2_0%,#3A2360_60%,#24143D_100%)] min-[720px]:h-52"
+			class="relative h-44 min-[720px]:h-52"
 		>
+			{#if profile.bannerUrl}
+				<img
+					src={profile.bannerUrl}
+					alt=""
+					class="absolute inset-0 h-full w-full object-cover"
+				/>
+			{:else}
+				<div
+					class="absolute inset-0 bg-[radial-gradient(ellipse_at_top,#7D58C2_0%,#3A2360_60%,#24143D_100%)]"
+				></div>
+			{/if}
 			<div
 				class="absolute inset-0 [background-image:radial-gradient(circle_at_20%_30%,rgba(212,162,76,.4)_0%,transparent_40%),radial-gradient(circle_at_80%_20%,rgba(201,184,232,.3)_0%,transparent_35%)] opacity-40"
 			></div>
@@ -536,22 +552,22 @@
 			</div>
 
 			<div
-				class="rounded-[26px] border border-[#E6D9B8] bg-paper p-6 text-ink shadow-[0_18px_44px_rgba(0,0,0,.38)] lg:col-span-2"
+				class="rounded-[26px] border border-[#E6D9B8] bg-desk-2 p-6 text-white shadow-[0_18px_44px_rgba(0,0,0,.38)] lg:col-span-2"
 			>
 				<div class="flex items-center justify-between">
 					<h2 class="font-display text-xl font-bold">Recently shared</h2>
 					<button
 						type="button"
-						class="font-ui text-xs font-semibold text-accent hover:underline"
+						class="font-ui text-xs font-semibold text-gold hover:underline"
 						onclick={() => setTab('portfolio')}
 					>
 						Full portfolio
 					</button>
 				</div>
 				{#if recentlyShared.length === 0}
-					<div class="bg-paper-2 mt-4 rounded-2xl border border-line p-8 text-center">
+					<div class="rounded-2xl border border-[#4D366D] bg-white/5 p-8 text-center">
 						<p class="font-display text-lg font-bold">Nothing shared yet</p>
-						<p class="mt-1 font-ui text-sm text-ink-soft">
+						<p class="mt-1 font-ui text-sm text-[#BBA8E0]">
 							Set a page to Friends or Community to build your portfolio.
 						</p>
 						<button
@@ -567,12 +583,12 @@
 						{#each recentlyShared as post (post.date)}
 							<button
 								type="button"
-								class="group rounded-2xl border border-line bg-white/80 p-4 text-left transition-all hover:-translate-y-0.5 hover:shadow-md"
+								class="group rounded-2xl border border-line bg-white/10 p-4 text-left text-white transition-all hover:-translate-y-0.5 hover:shadow-md"
 								onclick={() => nav.jump(post.date)}
 							>
 								<div class="flex items-center justify-between gap-2">
 									<span
-										class="rounded-full bg-accent/10 px-2 py-0.5 font-ui text-[10px] font-bold text-accent uppercase"
+										class="rounded-full bg-accent/10 px-2 py-0.5 font-ui text-[10px] font-bold text-gold uppercase"
 									>
 										{post.communityTag || post.privacy}
 									</span>
@@ -586,7 +602,7 @@
 											stroke-width="2"
 											stroke-linecap="round"
 											stroke-linejoin="round"
-											class="text-ink-soft"
+											class="text-[#BBA8E0]"
 											aria-hidden="true"
 										>
 											<polygon points="23 7 16 12 23 17 23 7"></polygon>
@@ -595,11 +611,11 @@
 									{/if}
 								</div>
 								<p
-									class="mt-2 truncate font-display text-base font-bold text-ink group-hover:text-accent"
+									class="mt-2 truncate font-display text-base font-bold text-white group-hover:text-gold"
 								>
 									{post.title}
 								</p>
-								<p class="mt-1 font-ui text-xs text-ink-soft">{post.date}</p>
+								<p class="mt-1 font-ui text-xs text-[#BBA8E0]">{post.date}</p>
 							</button>
 						{/each}
 					</div>
@@ -608,12 +624,12 @@
 		</div>
 	{:else if nav.profileTab === 'portfolio'}
 		<div
-			class="mt-6 rounded-[26px] border border-[#E6D9B8] bg-paper p-6 text-ink shadow-[0_18px_44px_rgba(0,0,0,.38)]"
+			class="mt-6 rounded-[26px] border border-[#E6D9B8] bg-desk-2 p-6 text-white shadow-[0_18px_44px_rgba(0,0,0,.38)]"
 		>
 			<div class="flex flex-wrap items-center justify-between gap-2">
 				<div>
 					<h2 class="font-display text-xl font-bold">My posts portfolio</h2>
-					<p class="mt-1 font-ui text-sm text-ink-soft">
+					<p class="mt-1 font-ui text-sm text-[#BBA8E0]">
 						Every page you've shared with friends or a community.
 					</p>
 				</div>
@@ -623,9 +639,9 @@
 			</div>
 
 			{#if myPosts.length === 0}
-				<div class="bg-paper-2 mt-4 rounded-2xl border border-line p-10 text-center">
+				<div class="rounded-2xl border border-[#4D366D] bg-white/5 p-10 text-center">
 					<p class="font-display text-lg font-bold">No shared posts yet</p>
-					<p class="mt-1 font-ui text-sm text-ink-soft">
+					<p class="mt-1 font-ui text-sm text-[#BBA8E0]">
 						Choose Friends or Community in the privacy picker on any page.
 					</p>
 					<button
@@ -641,12 +657,12 @@
 					{#each myPosts as post (post.date)}
 						<button
 							type="button"
-							class="group rounded-2xl border border-line bg-white/80 p-4 text-left transition-all hover:-translate-y-0.5 hover:shadow-md"
+							class="group rounded-2xl border border-line bg-white/10 p-4 text-left text-white transition-all hover:-translate-y-0.5 hover:shadow-md"
 							onclick={() => nav.jump(post.date)}
 						>
 							<div class="flex items-center justify-between gap-2">
 								<span
-									class="rounded-full bg-accent/10 px-2 py-0.5 font-ui text-[10px] font-bold text-accent uppercase"
+									class="rounded-full bg-accent/10 px-2 py-0.5 font-ui text-[10px] font-bold text-gold uppercase"
 								>
 									{post.communityTag || post.privacy}
 								</span>
@@ -660,7 +676,7 @@
 										stroke-width="2"
 										stroke-linecap="round"
 										stroke-linejoin="round"
-										class="text-ink-soft"
+										class="text-[#BBA8E0]"
 										aria-hidden="true"
 									>
 										<polygon points="23 7 16 12 23 17 23 7"></polygon>
@@ -669,11 +685,11 @@
 								{/if}
 							</div>
 							<p
-								class="mt-2 truncate font-display text-base font-bold text-ink group-hover:text-accent"
+								class="mt-2 truncate font-display text-base font-bold text-white group-hover:text-gold"
 							>
 								{post.title}
 							</p>
-							<p class="mt-1 font-ui text-xs text-ink-soft">{post.date}</p>
+							<p class="mt-1 font-ui text-xs text-[#BBA8E0]">{post.date}</p>
 						</button>
 					{/each}
 				</div>
@@ -932,6 +948,42 @@
 							placeholder="https://…"
 							class="h-11 rounded-xl border border-white/15 bg-[#24143D] px-3.5 font-ui text-sm text-white placeholder:text-[#9B8CB5] focus:border-gold/60 focus:outline-none"
 						/>
+						<label class="flex cursor-pointer items-center gap-2 rounded-xl border border-white/15 bg-[#24143D] px-3.5 py-2 font-ui text-xs text-[#D6CBEC] hover:bg-[#3A2A55]">
+							Upload photo
+							<input
+								type="file"
+								accept="image/*"
+								class="hidden"
+								onchange={(event) => {
+									const file = (event.currentTarget as HTMLInputElement).files?.[0];
+									if (file) avatarFile = file;
+								}}
+							/>
+						</label>
+					</label>
+
+					<label class="grid gap-1.5">
+						<span class="font-ui text-xs font-bold tracking-wider text-gold uppercase"
+							>Profile banner URL</span
+						>
+						<input
+							bind:value={editBanner}
+							type="url"
+							placeholder="https://…"
+							class="h-11 rounded-xl border border-white/15 bg-[#24143D] px-3.5 font-ui text-sm text-white placeholder:text-[#9B8CB5] focus:border-gold/60 focus:outline-none"
+						/>
+						<label class="flex cursor-pointer items-center gap-2 rounded-xl border border-white/15 bg-[#24143D] px-3.5 py-2 font-ui text-xs text-[#D6CBEC] hover:bg-[#3A2A55]">
+							Upload banner
+							<input
+								type="file"
+								accept="image/*"
+								class="hidden"
+								onchange={(event) => {
+									const file = (event.currentTarget as HTMLInputElement).files?.[0];
+									if (file) bannerFile = file;
+								}}
+							/>
+						</label>
 					</label>
 				</div>
 

@@ -1,5 +1,5 @@
 import { isSupabaseConfigured, supabase } from '#lib/supabase';
-import type { Privacy, Profile } from '#lib/types';
+import type { MoodKey, Privacy, Profile } from '#lib/types';
 import { auth } from '#lib/state/auth.svelte';
 
 export function generateFriendCode(userId: string): string {
@@ -42,6 +42,9 @@ const DEFAULT_PREFERENCES: Preferences = {
 
 class ProfileState {
 	profile = $state<Profile | null>(null);
+	viewedProfile = $state<Profile | null>(null);
+	viewedProfilePosts = $state<{ date: string; title: string; mood: MoodKey | ''; hasVideo: boolean; privacy: string; communityTag: string }[]>([]);
+	viewedProfileLoading = $state(false);
 	loading = $state(false);
 	saving = $state(false);
 	error = $state('');
@@ -70,6 +73,10 @@ class ProfileState {
 
 	get avatarUrl() {
 		return this.profile?.avatar_url || auth.avatarUrl || null;
+	}
+
+	get bannerUrl() {
+		return this.profile?.banner_url || null;
 	}
 
 	get initials() {
@@ -150,6 +157,8 @@ class ProfileState {
 						display_name: initialName,
 						bio: '',
 						avatar_url: auth.avatarUrl || null,
+						banner_url: null,
+						user_role: 'user',
 						friend_code: cached?.friend_code || generateFriendCode(userId),
 						accent_color: this.accentColor,
 						theme: this.theme,
@@ -188,6 +197,8 @@ class ProfileState {
 			display_name: cached?.display_name || auth.displayName || 'Guest Student',
 			bio: cached?.bio || '',
 			avatar_url: cached?.avatar_url || auth.avatarUrl || null,
+			banner_url: cached?.banner_url || null,
+			user_role: cached?.user_role || 'user',
 			friend_code: cached?.friend_code || generateFriendCode(userId),
 			accent_color: this.accentColor,
 			theme: this.theme,
@@ -284,10 +295,33 @@ class ProfileState {
 				if (queryError) return { available: true };
 				return { available: !existing };
 			}
-			return { available: Boolean(data) };
-		} catch {
-			return { available: true };
+		return { available: Boolean(data) };
+	} catch {
+		return { available: true };
+	}
+	}
+
+	async uploadImage(file: File, type: 'avatar' | 'banner'): Promise<{ url: string | null; error: string | null }> {
+		if (!isSupabaseConfigured) return { url: null, error: 'Supabase is not configured.' };
+		const userId = this.profile?.user_id || auth.ownerId;
+		if (!userId) return { url: null, error: 'No user ID available.' };
+
+		const fileExt = file.name.split('.').pop() ?? 'jpg';
+		const fileName = `${userId}/${Date.now()}.${fileExt}`;
+		const folder = type === 'avatar' ? 'avatars' : 'banners';
+		const path = `${folder}/${fileName}`;
+
+		const { error: uploadError } = await supabase.storage.from('vidjo-images').upload(path, file, {
+			cacheControl: '3600',
+			upsert: false
+		});
+
+		if (uploadError) {
+			return { url: null, error: uploadError.message };
 		}
+
+		const { data: urlData } = supabase.storage.from('vidjo-images').getPublicUrl(path);
+		return { url: urlData.publicUrl ?? null, error: null };
 	}
 
 	async saveProfile(patch: {
@@ -295,6 +329,7 @@ class ProfileState {
 		display_name: string;
 		bio: string;
 		avatar_url: string | null;
+		banner_url: string | null;
 	}): Promise<{ error: string }> {
 		const cleanUsername = patch.username.trim();
 		const cleanDisplayName = patch.display_name.trim();
@@ -332,6 +367,8 @@ class ProfileState {
 			display_name: cleanDisplayName,
 			bio: cleanBio,
 			avatar_url: patch.avatar_url,
+			banner_url: patch.banner_url,
+			user_role: this.profile?.user_role || 'user',
 			friend_code: this.profile?.friend_code || generateFriendCode(userId),
 			accent_color: this.accentColor,
 			theme: this.theme,
@@ -358,7 +395,8 @@ class ProfileState {
 						full_name: cleanDisplayName,
 						display_name: cleanDisplayName,
 						bio: cleanBio,
-						avatar_url: patch.avatar_url
+						avatar_url: patch.avatar_url,
+						banner_url: patch.banner_url
 					}
 				});
 			} catch (err) {
@@ -405,8 +443,63 @@ class ProfileState {
 		return { error: '' };
 	}
 
+	async loadViewedProfile(userId: string) {
+		if (!userId || userId === auth.ownerId) {
+			this.viewedProfile = null;
+			this.viewedProfilePosts = [];
+			return;
+		}
+		this.viewedProfileLoading = true;
+		this.viewedProfile = null;
+		this.viewedProfilePosts = [];
+
+		if (isSupabaseConfigured) {
+			try {
+				const [{ data: profileData, error: profileError }, { data: entries, error: entriesError }] =
+					await Promise.all([
+						supabase
+							.from('vidjo_profiles')
+							.select('*')
+							.eq('user_id', userId)
+							.maybeSingle(),
+						supabase
+							.from('vidjo_entries')
+							.select('*')
+							.eq('owner_id', userId)
+							.eq('privacy', 'community')
+							.order('entry_date', { ascending: false })
+							.limit(50)
+					]);
+
+				if (profileError) throw profileError;
+				if (entriesError) throw entriesError;
+
+				if (profileData) {
+					this.viewedProfile = profileData as Profile;
+				}
+
+				this.viewedProfilePosts = ((entries ?? []) as { entry_date: string; title: string | null; mood: MoodKey | null; privacy: string | null; community_slug: string | null; video_path: string | null }[]).map(
+					(row) => ({
+						date: row.entry_date,
+						title: row.title || 'Community entry',
+						mood: (row.mood as MoodKey | '') || '',
+						hasVideo: Boolean(row.video_path),
+						privacy: row.privacy || 'community',
+						communityTag: row.community_slug ? '#Community' : ''
+					})
+				);
+			} catch (err) {
+				console.warn('[VidJo] Could not load viewed profile.', err);
+			}
+		}
+
+		this.viewedProfileLoading = false;
+	}
+
 	reset() {
 		this.profile = null;
+		this.viewedProfile = null;
+		this.viewedProfilePosts = [];
 		this.loading = false;
 		this.saving = false;
 		this.error = '';

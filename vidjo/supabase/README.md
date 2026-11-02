@@ -99,6 +99,7 @@ when Supabase is configured.
 
 Communities are subreddit-style groups seeded by the schema:
 
+`#LSPUStudents`, `#MusicLovers`, `#AnimeLovers`, `#BookClub`, `#GamersGuild`,
 `#SmallWins`, `#CampusSunset`, `#CreativeFlow`, `#MidtermSurvivals`,
 `#MentalHealth`, `#StudyTogether`, and `#GreenCampus`.
 

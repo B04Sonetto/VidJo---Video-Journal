@@ -32,7 +32,7 @@ auth/persistence and an offline `localStorage` fallback.
   cache controls.
 - **Friends** — search by friend code, send/accept/decline/cancel requests, remove
   friends, and see a friend-only feed backed by Supabase.
-- **Communities** — subreddit-style discovery with seven seeded communities. Join
+- **Communities** — subreddit-style discovery with seeded communities including LSPU Students, Music Lovers, Anime Lovers, Book Club, Gamers Guild, and more. Join
   or leave, filter by community, switch between Trending and For You, and react or
   comment on community posts. Community membership and social activity persist in
   Supabase rather than only in the browser.
@@ -85,7 +85,7 @@ Then run `supabase/schema.sql` in the Supabase SQL editor. It creates:
   `allow_friend_requests`).
 - `public.vidjo_friends` and `public.vidjo_friend_requests`, plus RPCs for sending,
   accepting, declining, and cancelling requests and removing friends.
-- `public.vidjo_communities` (seeded with `#SmallWins`, `#CampusSunset`,
+- `public.vidjo_communities` (seeded with `#LSPUStudents`, `#MusicLovers`, `#AnimeLovers`, `#BookClub`, `#GamersGuild`, `#SmallWins`, `#CampusSunset`,
   `#CreativeFlow`, `#MidtermSurvivals`, `#MentalHealth`, `#StudyTogether`, and
   `#GreenCampus`) and `public.vidjo_community_members`.
 - `public.vidjo_reactions` and `public.vidjo_comments` for the friends/community feeds.

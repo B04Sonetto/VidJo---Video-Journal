@@ -6,7 +6,14 @@
 	import { onMount } from 'svelte';
 	import { SvelteDate } from 'svelte/reactivity';
 
-	let { open, onClose }: { open: boolean; onClose: () => void } = $props();
+	const themes = [
+		{ id: 'classic', label: 'Classic Scrapbook', swatch: '#51397A' },
+		{ id: 'sunset', label: 'Sunset Warmth', swatch: '#B85C43' },
+		{ id: 'midnight', label: 'Midnight Study', swatch: '#1F3557' }
+	] as const;
+
+	let { open, onClose, userId }: { open: boolean; onClose: () => void; userId?: string | null } =
+		$props();
 
 	let mode = $state<'view' | 'edit'>('view');
 	let editUsername = $state('');
@@ -22,6 +29,29 @@
 	let saveError = $state('');
 	let checkTimer: ReturnType<typeof setTimeout> | null = null;
 	let clearCacheConfirm = $state(false);
+
+	const isViewingOther = $derived(Boolean(userId) && userId !== auth.ownerId);
+	const viewedUser = $derived(isViewingOther ? profile.viewedProfile : (profile.profile ?? null));
+	const isOwnProfile = $derived(!isViewingOther);
+
+	$effect(() => {
+		if (open && isViewingOther && userId) {
+			void profile.loadViewedProfile(userId);
+		} else if (!isViewingOther) {
+			profile.viewedProfile = null;
+			profile.viewedProfilePosts = [];
+		}
+	});
+
+	const modalName = $derived(isViewingOther ? viewedUser?.display_name : profile.displayName);
+	const modalUsername = $derived(isViewingOther ? viewedUser?.username : profile.username);
+	const modalAvatar = $derived(isViewingOther ? viewedUser?.avatar_url : profile.avatarUrl);
+	const modalInitials = $derived(
+		(isViewingOther ? viewedUser?.display_name : profile.displayName)?.trim()[0]?.toUpperCase() ||
+			'V'
+	);
+	const modalFriendCode = $derived(isViewingOther ? viewedUser?.friend_code : profile.friendCode);
+	const modalBio = $derived(isViewingOther ? viewedUser?.bio : profile.bio);
 
 	const PRESET_AVATARS = [
 		{ label: 'Sparkle', emoji: '✨', bg: 'from-amber-400 to-orange-500' },
@@ -80,7 +110,8 @@
 			username: editUsername,
 			display_name: editDisplayName,
 			bio: editBio,
-			avatar_url: editAvatar
+			avatar_url: editAvatar,
+			banner_url: null
 		});
 
 		if (result.error) {
@@ -217,17 +248,17 @@
 						>
 							<!-- Avatar -->
 							<div class="relative shrink-0">
-								{#if profile.avatarUrl}
+								{#if modalAvatar}
 									<img
-										src={profile.avatarUrl}
-										alt={profile.displayName}
+										src={modalAvatar}
+										alt={modalName}
 										class="size-24 rounded-full border-4 border-gold/60 object-cover shadow-lg"
 									/>
 								{:else}
 									<div
 										class="flex size-24 items-center justify-center rounded-full border-4 border-gold/60 bg-[linear-gradient(135deg,#C9B8E8,#7D58C2)] font-display text-4xl font-bold text-white shadow-lg"
 									>
-										{profile.initials}
+										{modalInitials}
 									</div>
 								{/if}
 								<span
@@ -242,152 +273,165 @@
 							<div class="mt-3 flex-1 sm:mt-0">
 								<div class="flex flex-wrap items-center justify-center gap-2 sm:justify-start">
 									<h3 class="font-display text-2xl font-bold text-ink">
-										{profile.displayName}
+										{modalName}
 									</h3>
 									<span
 										class="rounded-full bg-lav/30 px-2.5 py-0.5 font-ui text-xs font-semibold text-accent"
 									>
-										@{profile.username}
+										@{modalUsername}
 									</span>
 								</div>
 
-								{#if auth.email}
+								{#if isOwnProfile && auth.email}
 									<p class="mt-0.5 font-ui text-xs text-ink-soft">
 										{auth.email}
 									</p>
 								{/if}
 
 								<!-- Friend Code -->
-								<div class="mt-2 flex items-center justify-center gap-2 sm:justify-start">
-									<span class="font-ui text-xs text-ink-soft">Friend Code:</span>
-									<code
-										class="rounded-md bg-accent/10 px-2 py-0.5 font-mono text-xs font-bold text-accent select-all"
-									>
-										{profile.friendCode}
-									</code>
-									<button
-										type="button"
-										class="font-ui text-xs font-semibold text-accent hover:underline"
-										onclick={() => {
-											navigator.clipboard?.writeText(profile.friendCode);
-											journal.toast(`Friend Code ${profile.friendCode} copied!`);
-										}}
-									>
-										Copy
-									</button>
-								</div>
+								{#if isOwnProfile}
+									<div class="mt-2 flex items-center justify-center gap-2 sm:justify-start">
+										<span class="font-ui text-xs text-ink-soft">Friend Code:</span>
+										<code
+											class="rounded-md bg-accent/10 px-2 py-0.5 font-mono text-xs font-bold text-accent select-all"
+										>
+											{modalFriendCode}
+										</code>
+										<button
+											type="button"
+											class="font-ui text-xs font-semibold text-accent hover:underline"
+											onclick={() => {
+												const code = modalFriendCode;
+												if (!code) return;
+												void navigator.clipboard?.writeText(code);
+												journal.toast(`Friend Code ${code} copied!`);
+											}}
+										>
+											Copy
+										</button>
+									</div>
+								{/if}
 
 								<!-- Bio -->
 								<div class="mt-3 rounded-2xl border border-line bg-light/60 p-3 text-left">
-									{#if profile.bio}
+									{#if modalBio}
 										<p class="font-hand text-lg leading-relaxed text-ink">
-											“{profile.bio}”
+											“{modalBio}”
 										</p>
 									{:else}
 										<p class="font-ui text-xs text-ink-soft italic">
-											No bio yet. Click "Edit Profile" below to share a few words with your
-											classmates and community!
+											{#if isOwnProfile}
+												No bio yet. Click "Edit Profile" below to share a few words with your
+												classmates and community!
+											{:else}
+												No bio set yet.
+											{/if}
 										</p>
 									{/if}
 								</div>
 							</div>
 						</div>
 
-						<!-- Quick Stats Strip -->
-						<div class="grid grid-cols-4 gap-2 min-[480px]:gap-3">
-							<div
-								class="bg-paper-2 flex flex-col items-center rounded-2xl border border-line p-3 text-center"
-							>
-								<span class="font-display text-xl font-bold text-accent">{totalPages}</span>
-								<span class="font-ui text-[10px] text-ink-soft min-[480px]:text-[11px]">Pages</span>
-							</div>
-							<div
-								class="flex flex-col items-center rounded-2xl border border-[#E6D9B8] bg-[linear-gradient(135deg,#FFF8E7,#F7F2FD)] p-3 text-center"
-							>
-								<span class="flex items-center gap-1 font-display text-xl font-bold text-gold">
-									🔥 {streak}
-								</span>
-								<span class="font-ui text-[10px] text-ink-soft min-[480px]:text-[11px]"
-									>Day Streak</span
+						{#if isOwnProfile}
+							<!-- Quick Stats Strip -->
+							<div class="grid grid-cols-4 gap-2 min-[480px]:gap-3">
+								<div
+									class="bg-paper-2 flex flex-col items-center rounded-2xl border border-line p-3 text-center"
 								>
-							</div>
-							<div
-								class="bg-paper-2 flex flex-col items-center rounded-2xl border border-line p-3 text-center"
-							>
-								<span class="font-display text-xl font-bold text-[#3F7A4F]"
-									>{friends.friendCount}</span
+									<span class="font-display text-xl font-bold text-accent">{totalPages}</span>
+									<span class="font-ui text-[10px] text-ink-soft min-[480px]:text-[11px]"
+										>Pages</span
+									>
+								</div>
+								<div
+									class="flex flex-col items-center rounded-2xl border border-[#E6D9B8] bg-[linear-gradient(135deg,#FFF8E7,#F7F2FD)] p-3 text-center"
 								>
-								<span class="font-ui text-[10px] text-ink-soft min-[480px]:text-[11px]"
-									>Friends</span
+									<span class="flex items-center gap-1 font-display text-xl font-bold text-gold">
+										🔥 {streak}
+									</span>
+									<span class="font-ui text-[10px] text-ink-soft min-[480px]:text-[11px]"
+										>Day Streak</span
+									>
+								</div>
+								<div
+									class="bg-paper-2 flex flex-col items-center rounded-2xl border border-line p-3 text-center"
 								>
-							</div>
-							<div
-								class="bg-paper-2 flex flex-col items-center rounded-2xl border border-line p-3 text-center"
-							>
-								<span class="font-display text-xl font-bold text-lav">{badges.length}</span>
-								<span class="font-ui text-[10px] text-ink-soft min-[480px]:text-[11px]">Badges</span
+									<span class="font-display text-xl font-bold text-[#3F7A4F]"
+										>{friends.friendCount}</span
+									>
+									<span class="font-ui text-[10px] text-ink-soft min-[480px]:text-[11px]"
+										>Friends</span
+									>
+								</div>
+								<div
+									class="bg-paper-2 flex flex-col items-center rounded-2xl border border-line p-3 text-center"
 								>
+									<span class="font-display text-xl font-bold text-lav">{badges.length}</span>
+									<span class="font-ui text-[10px] text-ink-soft min-[480px]:text-[11px]"
+										>Badges</span
+									>
+								</div>
 							</div>
-						</div>
 
-						<!-- Badges -->
-						<div class="bg-paper-2 rounded-2xl border border-line p-4">
-							<div class="flex items-center justify-between">
-								<span class="font-ui text-xs font-bold tracking-wide text-accent uppercase"
-									>Achievements</span
-								>
-								<span class="font-ui text-[11px] text-ink-soft">{badges.length} earned</span>
+							<!-- Badges -->
+							<div class="bg-paper-2 rounded-2xl border border-line p-4">
+								<div class="flex items-center justify-between">
+									<span class="font-ui text-xs font-bold tracking-wide text-accent uppercase"
+										>Achievements</span
+									>
+									<span class="font-ui text-[11px] text-ink-soft">{badges.length} earned</span>
+								</div>
+								<div class="mt-3 flex flex-wrap gap-2">
+									{#if badges.includes('first-post')}
+										<span
+											class="inline-flex items-center gap-1.5 rounded-full border border-[#D5C6E8] bg-light px-3 py-1 font-ui text-xs font-semibold text-accent"
+											>✨ First Page</span
+										>
+									{/if}
+									{#if badges.includes('five-pages')}
+										<span
+											class="inline-flex items-center gap-1.5 rounded-full border border-[#D5C6E8] bg-light px-3 py-1 font-ui text-xs font-semibold text-accent"
+											>📓 Scribbler</span
+										>
+									{/if}
+									{#if badges.includes('ten-pages')}
+										<span
+											class="inline-flex items-center gap-1.5 rounded-full border border-[#D5C6E8] bg-light px-3 py-1 font-ui text-xs font-semibold text-accent"
+											>📚 Storyteller</span
+										>
+									{/if}
+									{#if badges.includes('three-day-streak')}
+										<span
+											class="inline-flex items-center gap-1.5 rounded-full border border-[#F0D9A8] bg-[#FFF8E7] px-3 py-1 font-ui text-xs font-semibold text-[#7A5618]"
+											>🔥 3-Day Streak</span
+										>
+									{/if}
+									{#if badges.includes('week-streak')}
+										<span
+											class="inline-flex items-center gap-1.5 rounded-full border border-[#F0D9A8] bg-[#FFF8E7] px-3 py-1 font-ui text-xs font-semibold text-[#7A5618]"
+											>🔥 Week Streak</span
+										>
+									{/if}
+									{#if badges.includes('made-friend')}
+										<span
+											class="inline-flex items-center gap-1.5 rounded-full border border-[#C9E6D1] bg-[#EDF6EF] px-3 py-1 font-ui text-xs font-semibold text-[#2F6B45]"
+											>🤝 Friendly</span
+										>
+									{/if}
+									{#if badges.includes('social-circle')}
+										<span
+											class="inline-flex items-center gap-1.5 rounded-full border border-[#C9E6D1] bg-[#EDF6EF] px-3 py-1 font-ui text-xs font-semibold text-[#2F6B45]"
+											>👥 Social Circle</span
+										>
+									{/if}
+									{#if badges.length === 0}
+										<p class="font-ui text-xs text-ink-soft">
+											Start writing pages and making friends to earn badges!
+										</p>
+									{/if}
+								</div>
 							</div>
-							<div class="mt-3 flex flex-wrap gap-2">
-								{#if badges.includes('first-post')}
-									<span
-										class="inline-flex items-center gap-1.5 rounded-full border border-[#D5C6E8] bg-light px-3 py-1 font-ui text-xs font-semibold text-accent"
-										>✨ First Page</span
-									>
-								{/if}
-								{#if badges.includes('five-pages')}
-									<span
-										class="inline-flex items-center gap-1.5 rounded-full border border-[#D5C6E8] bg-light px-3 py-1 font-ui text-xs font-semibold text-accent"
-										>📓 Scribbler</span
-									>
-								{/if}
-								{#if badges.includes('ten-pages')}
-									<span
-										class="inline-flex items-center gap-1.5 rounded-full border border-[#D5C6E8] bg-light px-3 py-1 font-ui text-xs font-semibold text-accent"
-										>📚 Storyteller</span
-									>
-								{/if}
-								{#if badges.includes('three-day-streak')}
-									<span
-										class="inline-flex items-center gap-1.5 rounded-full border border-[#F0D9A8] bg-[#FFF8E7] px-3 py-1 font-ui text-xs font-semibold text-[#7A5618]"
-										>🔥 3-Day Streak</span
-									>
-								{/if}
-								{#if badges.includes('week-streak')}
-									<span
-										class="inline-flex items-center gap-1.5 rounded-full border border-[#F0D9A8] bg-[#FFF8E7] px-3 py-1 font-ui text-xs font-semibold text-[#7A5618]"
-										>🔥 Week Streak</span
-									>
-								{/if}
-								{#if badges.includes('made-friend')}
-									<span
-										class="inline-flex items-center gap-1.5 rounded-full border border-[#C9E6D1] bg-[#EDF6EF] px-3 py-1 font-ui text-xs font-semibold text-[#2F6B45]"
-										>🤝 Friendly</span
-									>
-								{/if}
-								{#if badges.includes('social-circle')}
-									<span
-										class="inline-flex items-center gap-1.5 rounded-full border border-[#C9E6D1] bg-[#EDF6EF] px-3 py-1 font-ui text-xs font-semibold text-[#2F6B45]"
-										>👥 Social Circle</span
-									>
-								{/if}
-								{#if badges.length === 0}
-									<p class="font-ui text-xs text-ink-soft">
-										Start writing pages and making friends to earn badges!
-									</p>
-								{/if}
-							</div>
-						</div>
+						{/if}
 
 						<!-- Friends & Community Preview Card -->
 						<div class="bg-paper-2 rounded-2xl border border-line p-4">
@@ -410,9 +454,9 @@
 							<div
 								class="mt-3 flex items-center gap-3 rounded-xl border border-line bg-paper p-3 shadow-sm"
 							>
-								{#if profile.avatarUrl}
+								{#if modalAvatar}
 									<img
-										src={profile.avatarUrl}
+										src={modalAvatar}
 										alt=""
 										class="size-11 rounded-full object-cover ring-2 ring-gold/40"
 									/>
@@ -420,18 +464,16 @@
 									<div
 										class="flex size-11 items-center justify-center rounded-full bg-[linear-gradient(135deg,#C9B8E8,#7D58C2)] font-display text-lg font-bold text-white ring-2 ring-gold/40"
 									>
-										{profile.initials}
+										{modalInitials}
 									</div>
 								{/if}
 								<div class="min-w-0 flex-1">
 									<div class="flex items-center gap-1.5">
-										<b class="truncate font-display text-sm font-bold text-ink"
-											>{profile.displayName}</b
-										>
-										<span class="text-xs text-ink-soft">@{profile.username}</span>
+										<b class="truncate font-display text-sm font-bold text-ink">{modalName}</b>
+										<span class="text-xs text-ink-soft">@{modalUsername}</span>
 									</div>
 									<p class="truncate font-hand text-sm text-ink-soft">
-										{profile.bio || 'Small videos, big thoughts.'}
+										{modalBio || 'Small videos, big thoughts.'}
 									</p>
 								</div>
 								<span
@@ -442,45 +484,84 @@
 							</div>
 						</div>
 
-						<!-- Device & Shared Browser Security notice -->
-						<div class="rounded-2xl border border-[#E4D7F5] bg-[#F7F2FD] p-4 text-xs text-ink-soft">
-							<div class="flex items-start gap-2.5">
-								<span class="text-base">🛡️</span>
-								<div class="flex-1">
-									<b class="font-ui text-ink">Shared Computer Security</b>
-									<p class="mt-0.5 font-ui leading-normal">
-										On shared computers, you can clear cached journal pages from this browser so
-										other visitors cannot view them.
-									</p>
-									{#if clearCacheConfirm}
-										<div class="mt-2.5 flex items-center gap-2">
+						{#if isOwnProfile}
+							<!-- Device & Shared Browser Security notice -->
+							<div
+								class="rounded-2xl border border-[#E4D7F5] bg-[#F7F2FD] p-4 text-xs text-ink-soft"
+							>
+								<div class="flex items-start gap-2.5">
+									<span class="text-base">🛡️</span>
+									<div class="flex-1">
+										<b class="font-ui text-ink">Shared Computer Security</b>
+										<p class="mt-0.5 font-ui leading-normal">
+											On shared computers, you can clear cached journal pages from this browser so
+											other visitors cannot view them.
+										</p>
+										{#if clearCacheConfirm}
+											<div class="mt-2.5 flex items-center gap-2">
+												<button
+													type="button"
+													class="rounded-lg bg-red-600 px-3 py-1 font-ui text-xs font-semibold text-white hover:bg-red-700"
+													onclick={clearDeviceCache}
+												>
+													Confirm: Clear local cache now
+												</button>
+												<button
+													type="button"
+													class="rounded-lg border border-line bg-white px-2.5 py-1 font-ui text-xs hover:bg-gray-100"
+													onclick={() => (clearCacheConfirm = false)}
+												>
+													Cancel
+												</button>
+											</div>
+										{:else}
 											<button
 												type="button"
-												class="rounded-lg bg-red-600 px-3 py-1 font-ui text-xs font-semibold text-white hover:bg-red-700"
-												onclick={clearDeviceCache}
+												class="mt-2 text-xs font-medium text-accent underline hover:text-ink"
+												onclick={() => (clearCacheConfirm = true)}
 											>
-												Confirm: Clear local cache now
+												Clear local journal pages from this browser
 											</button>
-											<button
-												type="button"
-												class="rounded-lg border border-line bg-white px-2.5 py-1 font-ui text-xs hover:bg-gray-100"
-												onclick={() => (clearCacheConfirm = false)}
-											>
-												Cancel
-											</button>
-										</div>
-									{:else}
-										<button
-											type="button"
-											class="mt-2 text-xs font-medium text-accent underline hover:text-ink"
-											onclick={() => (clearCacheConfirm = true)}
-										>
-											Clear local journal pages from this browser
-										</button>
-									{/if}
+										{/if}
+									</div>
 								</div>
 							</div>
-						</div>
+						{/if}
+
+						{#if isOwnProfile}
+							<!-- Journal theme -->
+							<div class="rounded-2xl border border-line bg-light/60 p-4">
+								<div class="mb-3 flex items-center justify-between">
+									<span class="font-ui text-xs font-bold tracking-wide text-accent uppercase">
+										Journal theme
+									</span>
+									<span class="font-ui text-[11px] text-ink-soft">
+										{profile.theme.charAt(0).toUpperCase() + profile.theme.slice(1)}
+									</span>
+								</div>
+								<div class="flex flex-wrap gap-2">
+									{#each themes as theme (theme.id)}
+										<button
+											type="button"
+											class="flex items-center justify-center rounded-xl border p-3 transition-all {profile.theme ===
+											theme.id
+												? 'border-accent bg-accent/20 ring-2 ring-accent'
+												: 'border-white/10 text-ink-soft hover:border-white/20'}"
+											onclick={() => (profile.theme = theme.id)}
+										>
+											<span
+												class="size-6 rounded-full"
+												style="background: {theme.swatch}"
+												aria-hidden="true"
+											></span>
+											<span class="font-ui text-[11px] font-semibold text-ink">
+												{theme.label}
+											</span>
+										</button>
+									{/each}
+								</div>
+							</div>
+						{/if}
 					</div>
 				{:else}
 					<!-- EDIT MODE -->
@@ -616,26 +697,28 @@
 					>
 						Close
 					</button>
-					<button
-						type="button"
-						class="flex items-center gap-2 rounded-xl bg-accent px-5 py-2.5 font-ui text-sm font-bold text-white shadow transition-all hover:bg-[#624690] active:scale-95"
-						onclick={startEdit}
-					>
-						<svg
-							width="16"
-							height="16"
-							viewBox="0 0 24 24"
-							fill="none"
-							stroke="currentColor"
-							stroke-width="2"
-							stroke-linecap="round"
-							stroke-linejoin="round"
-							aria-hidden="true"
+					{#if isOwnProfile}
+						<button
+							type="button"
+							class="flex items-center gap-2 rounded-xl bg-accent px-5 py-2.5 font-ui text-sm font-bold text-white shadow transition-all hover:bg-[#624690] active:scale-95"
+							onclick={startEdit}
 						>
-							<path d="M12 20h9M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4L16.5 3.5z"></path>
-						</svg>
-						Edit Profile
-					</button>
+							<svg
+								width="16"
+								height="16"
+								viewBox="0 0 24 24"
+								fill="none"
+								stroke="currentColor"
+								stroke-width="2"
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								aria-hidden="true"
+							>
+								<path d="M12 20h9M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4L16.5 3.5z"></path>
+							</svg>
+							Edit Profile
+						</button>
+					{/if}
 				{:else}
 					<button
 						type="button"

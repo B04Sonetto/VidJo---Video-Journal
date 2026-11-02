@@ -6,6 +6,8 @@
 	import { TODAY } from '#lib/dates';
 	import { untrack } from 'svelte';
 	import type { MoodKey } from '#lib/types';
+	import ProfileModal from '#lib/components/ProfileModal.svelte';
+	import { censor } from '#lib/censor';
 
 	let activeSubTab = $state<'feed' | 'requests' | 'list'>('feed');
 	let addCodeInput = $state('');
@@ -16,6 +18,8 @@
 	let copyTimer: ReturnType<typeof setTimeout> | null = null;
 	let commentInputs = $state<Record<string, string>>({});
 	let openCommentPost = $state<string | null>(null);
+	let profileModalOpen = $state(false);
+	let viewedUserId = $state<string | null>(null);
 
 	const MOOD_ICONS: Record<MoodKey, { label: string; icon: string }> = {
 		happy: { label: 'Happy', icon: 'smile' },
@@ -146,7 +150,7 @@
 					</code>
 					<button
 						type="button"
-						class="flex h-9 items-center gap-1.5 rounded-lg border border-gold/50 bg-gold/20 px-3 font-ui text-xs font-bold text-[#FFF5DE] transition-all hover:bg-gold/30 active:scale-95"
+						class="flex h-9 items-center gap-1.5 rounded-lg border border-gold/50 bg-gold/20 px-3 font-ui text-xs font-bold text-white transition-all hover:bg-gold/30 active:scale-95"
 						onclick={copyMyCode}
 						title="Copy your friend code to share with friends"
 					>
@@ -347,7 +351,7 @@
 					type="text"
 					placeholder="Enter Friend Code (e.g. VJ-7K9M2P)"
 					maxlength="16"
-					class="h-11 w-full rounded-xl border border-line/40 bg-[#FFFDF6] px-3.5 font-ui text-sm font-medium text-ink uppercase placeholder:text-[#9B8CB5] focus:border-accent focus:outline-none"
+					class="h-11 w-full rounded-xl border border-[#4D366D]/40 bg-[#24143D] px-3.5 font-ui text-sm font-medium text-ink uppercase placeholder:text-[#9B8CB5] focus:border-accent focus:outline-none"
 					disabled={addBusy}
 				/>
 			</div>
@@ -553,7 +557,7 @@
 
 			{#each friends.filteredPosts as post (post.id)}
 				<article
-					class="relative overflow-hidden rounded-[28px] border border-[#E6D9B8] bg-paper p-6 text-ink shadow-[0_20px_50px_rgba(0,0,0,.4)] transition-all hover:-translate-y-0.5 hover:shadow-[0_24px_56px_rgba(0,0,0,.44)] min-[720px]:p-9"
+					class="relative overflow-hidden rounded-[28px] border border-[#4D366D] bg-desk-2 p-6 text-white shadow-[0_20px_50px_rgba(125,88,194,.35)] transition-all hover:-translate-y-0.5 hover:shadow-[0_24px_56px_rgba(125,88,194,.45)] min-[720px]:p-9"
 				>
 					<!-- Scrapbook Washi Tape Strip -->
 					<span
@@ -562,7 +566,7 @@
 					></span>
 
 					<!-- Post Header: Author info, timestamp, mood badge -->
-					<div class="flex flex-wrap items-center justify-between gap-3 border-b border-line pb-4">
+					<div class="flex flex-wrap items-center justify-between gap-3 border-b border-[#4D366D]/40 pb-4">
 						<div class="flex items-center gap-3">
 							{#if post.authorAvatar && post.authorAvatar.length > 2}
 								<img
@@ -575,13 +579,13 @@
 									class="flex size-11 items-center justify-center rounded-full bg-[linear-gradient(135deg,#C9B8E8,#8B6FD0)] font-display text-xl font-bold text-white shadow-sm ring-2 ring-gold/40"
 									aria-hidden="true"
 								>
-									{post.authorAvatar || post.authorName[0]}
+									{post.authorName[0]}
 								</span>
 							{/if}
 
 							<div>
 								<div class="flex items-center gap-2">
-									<h2 class="font-display text-lg leading-tight font-bold text-ink">
+									<h2 class="font-display text-lg leading-tight font-bold text-white">
 										{post.authorName}
 									</h2>
 									{#if post.isOwner}
@@ -592,7 +596,7 @@
 										</span>
 									{/if}
 								</div>
-								<div class="flex items-center gap-2 font-ui text-xs text-ink-soft">
+								<div class="flex items-center gap-2 font-ui text-xs text-[#BBA8E0]">
 									<span>@{post.authorUsername}</span>
 									<span>•</span>
 									<time>{post.dateFormatted}</time>
@@ -645,7 +649,7 @@
 							{/if}
 
 							<span
-								class="inline-flex items-center gap-1.5 rounded-full bg-paper px-2.5 py-1 font-ui text-[11px] font-semibold text-ink-soft"
+								class="inline-flex items-center gap-1.5 rounded-full bg-white/10 px-2.5 py-1 font-ui text-[11px] text-white font-semibold text-ink-soft"
 								title="Shared with friends"
 							>
 								<svg
@@ -671,7 +675,7 @@
 
 					<!-- Post Title -->
 					{#if post.title}
-						<h3 class="mt-4 font-display text-2xl font-bold tracking-tight text-ink">
+						<h3 class="mt-4 font-display text-2xl font-bold tracking-tight text-white">
 							{post.title}
 						</h3>
 					{/if}
@@ -737,8 +741,8 @@
 
 					<!-- Written Journal Content (Gaegu Cursive) -->
 					{#if post.mind}
-						<div class="my-4 rounded-xl border-l-4 border-accent/40 bg-white/40 p-4">
-							<p class="font-hand text-[22px] leading-relaxed whitespace-pre-wrap text-ink">
+						<div class="my-4 rounded-xl border-l-4 border-accent/40 bg-white/10 p-4">
+							<p class="font-hand text-[22px] leading-relaxed whitespace-pre-wrap text-white">
 								{post.mind}
 							</p>
 						</div>
@@ -747,14 +751,14 @@
 					<!-- Reflection Card -->
 					{#if post.refl}
 						<div
-							class="my-3 flex items-start gap-2.5 rounded-xl border border-[#DECFA4] bg-[#FFF8E7] p-3 shadow-xs"
+							class="my-3 flex items-start gap-2.5 rounded-xl border border-[#4D366D]/40 bg-white/10 p-3 shadow-xs"
 						>
 							<span class="text-base font-bold text-gold">★</span>
 							<div>
 								<span class="block font-ui text-xs font-bold tracking-wider text-accent uppercase">
 									Reflection
 								</span>
-								<p class="mt-0.5 font-hand text-lg font-semibold text-ink">
+								<p class="mt-0.5 font-hand text-lg font-semibold text-white">
 									{post.refl}
 								</p>
 							</div>
@@ -763,7 +767,7 @@
 
 					<!-- Social Stamp Reactions -->
 					<div
-						class="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-line pt-4"
+						class="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-[#4D366D]/40 pt-4"
 					>
 						<div class="flex flex-wrap items-center gap-1.5">
 							<!-- Love Reaction -->
@@ -772,8 +776,8 @@
 								class="flex items-center gap-1.5 rounded-full border px-3 py-1.5 font-ui text-xs font-bold transition-all active:scale-95 {post.userReactions.includes(
 									'love'
 								)
-									? 'border-pink-400 bg-pink-100/80 text-pink-700 shadow-xs'
-									: 'border-line bg-white/70 text-ink hover:bg-light'}"
+									? 'border-pink-400 bg-pink-100/20 text-pink-400 shadow-xs'
+									: 'border-white/20 text-white/70 hover:bg-white/10'}"
 								onclick={() => friends.toggleReaction(post.id, 'love')}
 								aria-label="React with love"
 							>
@@ -801,8 +805,8 @@
 								class="flex items-center gap-1.5 rounded-full border px-3 py-1.5 font-ui text-xs font-bold transition-all active:scale-95 {post.userReactions.includes(
 									'spark'
 								)
-									? 'border-amber-400 bg-amber-100/80 text-amber-800 shadow-xs'
-									: 'border-line bg-white/70 text-ink hover:bg-light'}"
+									? 'border-amber-400 bg-amber-100/20 text-amber-400 shadow-xs'
+									: 'border-white/20 text-white/70 hover:bg-white/10'}"
 								onclick={() => friends.toggleReaction(post.id, 'spark')}
 								aria-label="React with inspiration"
 							>
@@ -828,8 +832,8 @@
 								class="flex items-center gap-1.5 rounded-full border px-3 py-1.5 font-ui text-xs font-bold transition-all active:scale-95 {post.userReactions.includes(
 									'warm'
 								)
-									? 'border-orange-400 bg-orange-100/80 text-orange-800 shadow-xs'
-									: 'border-line bg-white/70 text-ink hover:bg-light'}"
+									? 'border-orange-400 bg-orange-100/20 text-orange-400 shadow-xs'
+									: 'border-white/20 text-white/70 hover:bg-white/10'}"
 								onclick={() => friends.toggleReaction(post.id, 'warm')}
 								aria-label="React with warm vibes"
 							>
@@ -859,8 +863,8 @@
 								class="flex items-center gap-1.5 rounded-full border px-3 py-1.5 font-ui text-xs font-bold transition-all active:scale-95 {post.userReactions.includes(
 									'proud'
 								)
-									? 'border-purple-400 bg-purple-100/80 text-purple-800 shadow-xs'
-									: 'border-line bg-white/70 text-ink hover:bg-light'}"
+									? 'border-purple-400 bg-purple-100/20 text-purple-400 shadow-xs'
+									: 'border-white/20 text-white/70 hover:bg-white/10'}"
 								onclick={() => friends.toggleReaction(post.id, 'proud')}
 								aria-label="React with proud of you"
 							>
@@ -885,7 +889,7 @@
 
 						<button
 							type="button"
-							class="flex items-center gap-1.5 rounded-full border border-line bg-white/80 px-3.5 py-1.5 font-ui text-xs font-bold text-accent transition-colors hover:bg-light"
+							class="flex items-center gap-1.5 rounded-full border border-[#4D366D] bg-white/10 px-3.5 py-1.5 font-ui text-xs font-bold text-gold transition-colors hover:bg-white/10"
 							onclick={() => toggleNoteBox(post.id)}
 						>
 							<svg
@@ -907,9 +911,9 @@
 
 					<!-- Comments / Notes Drawer -->
 					{#if openCommentPost === post.id || post.comments.length > 0}
-						<div class="mt-4 rounded-xl border border-line/60 bg-[#FAF4E6]/60 p-3.5">
+						<div class="mt-4 rounded-xl border border-[#4D366D]/40 bg-white/10 p-3.5">
 							<span
-								class="mb-2.5 block font-ui text-[11px] font-bold tracking-wider text-ink-soft uppercase"
+								class="mb-2.5 block font-ui text-[11px] font-bold tracking-wider text-[#BBA8E0] uppercase"
 							>
 								Friend Notes
 							</span>
@@ -917,19 +921,36 @@
 							{#if post.comments.length > 0}
 								<div class="mb-3 space-y-2">
 									{#each post.comments as comment (comment.id)}
-										<div class="flex items-start gap-2.5 rounded-lg bg-white/80 p-2.5 shadow-2xs">
-											<span
-												class="flex size-7 shrink-0 items-center justify-center rounded-full bg-lav/40 font-display text-sm font-bold text-accent"
-											>
-												{comment.authorAvatar || comment.authorName[0]}
-											</span>
+										<div class="flex items-start gap-2.5 rounded-lg bg-white/10 p-2.5 shadow-2xs">
+											{#if comment.authorAvatar}
+												<img
+													src={comment.authorAvatar}
+													alt=""
+													class="size-7 shrink-0 rounded-full object-cover"
+												/>
+											{:else}
+												<span
+													class="flex size-7 shrink-0 items-center justify-center rounded-full bg-lav/40 font-display text-sm font-bold text-accent"
+												>
+													{comment.authorName[0]}
+												</span>
+											{/if}
 											<div class="min-w-0 flex-1">
 												<div class="flex items-baseline justify-between gap-2">
-													<b class="font-ui text-xs text-ink">{comment.authorName}</b>
-													<time class="font-ui text-[10px] text-ink-soft">{comment.time}</time>
+													<button
+														type="button"
+														class="font-ui text-xs text-white hover:underline"
+														onclick={() => {
+															viewedUserId = comment.authorId;
+															profileModalOpen = true;
+														}}
+													>
+														{comment.authorName}
+													</button>
+													<time class="font-ui text-[10px] text-[#BBA8E0]">{comment.time}</time>
 												</div>
-												<p class="mt-0.5 font-hand text-base leading-tight text-ink">
-													{comment.text}
+												<p class="mt-0.5 font-hand text-base leading-tight text-white">
+													{censor(comment.text)}
 												</p>
 											</div>
 										</div>
@@ -950,7 +971,7 @@
 									type="text"
 									placeholder="Write an encouraging note for {post.authorName}…"
 									maxlength="140"
-									class="h-9 flex-1 rounded-lg border border-line bg-white px-3 font-ui text-xs text-ink placeholder:text-[#9B8CB5] focus:border-accent focus:outline-none"
+									class="h-9 flex-1 rounded-lg border border-[#4D366D]/40 bg-white/10 px-3 font-ui text-xs text-white placeholder:text-[#9B8CB5] focus:border-accent focus:outline-none"
 								/>
 								<button
 									type="submit"
@@ -1210,4 +1231,13 @@
 			</div>
 		</div>
 	{/if}
+
+	<ProfileModal
+		open={profileModalOpen}
+		onClose={() => {
+			profileModalOpen = false;
+			viewedUserId = null;
+		}}
+		userId={viewedUserId}
+	/>
 </div>

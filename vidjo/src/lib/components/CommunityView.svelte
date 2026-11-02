@@ -6,6 +6,8 @@
 	import { journal } from '#lib/state/journal.svelte';
 	import { TODAY } from '#lib/dates';
 	import CommunityIcon from '#lib/components/CommunityIcon.svelte';
+	import ProfileModal from '#lib/components/ProfileModal.svelte';
+	import { censor } from '#lib/censor';
 	import type { CommunityPost, FriendPostReaction } from '#lib/types';
 
 	let searchQuery = $state('');
@@ -13,6 +15,8 @@
 	let feedMode = $state<'trending' | 'foryou'>('trending');
 	let commentInput = $state<Record<string, string>>({});
 	let openComments = $state<string | null>(null);
+	let profileModalOpen = $state(false);
+	let viewedUserId = $state<string | null>(null);
 	let showDiscovery = $state(false);
 
 	const MOODS: Record<string, string> = {
@@ -479,7 +483,7 @@
 
 			{#each filteredPosts as post (post.id)}
 				<article
-					class="group relative overflow-hidden rounded-[28px] border border-[#E6D9B8] bg-paper text-ink shadow-[0_20px_50px_rgba(0,0,0,.4)] transition-all hover:-translate-y-1 hover:shadow-[0_24px_56px_rgba(0,0,0,.44)]"
+					class="group relative overflow-hidden rounded-[28px] border border-[#4D366D] bg-desk-2 text-white shadow-[0_20px_50px_rgba(0,0,0,.4)] transition-all hover:-translate-y-1 hover:shadow-[0_24px_56px_rgba(0,0,0,.44)]"
 				>
 					<span
 						class="absolute -top-3 left-10 h-7 w-28 rotate-[-3deg] bg-gold/90 [background-image:repeating-linear-gradient(90deg,rgba(255,255,255,.4)_0_6px,transparent_6px_12px)] shadow-[0_1px_3px_rgba(0,0,0,.15)]"
@@ -505,7 +509,7 @@
 								{/if}
 								<div>
 									<div class="flex flex-wrap items-center gap-2">
-										<h2 class="font-display text-lg font-bold text-ink">{post.authorName}</h2>
+										<h2 class="font-display text-lg font-bold text-white">{post.authorName}</h2>
 										<span
 											class="rounded-full bg-accent/10 px-2 py-0.5 font-ui text-[10px] font-bold text-accent"
 											>@{post.authorUsername}</span
@@ -521,7 +525,7 @@
 											>{post.tag}</span
 										>
 									</div>
-									<div class="flex items-center gap-2 font-ui text-xs text-ink-soft">
+									<div class="flex items-center gap-2 font-ui text-xs text-[#BBA8E0]">
 										<time>{post.dateFormatted}</time>
 										<span>•</span>
 										<span>{community.nameFor(post.communitySlug)}</span>
@@ -530,7 +534,7 @@
 							</div>
 							{#if post.mood && MOODS[post.mood]}
 								<span
-									class="inline-flex items-center gap-1.5 rounded-full border border-[#D5C6E8] bg-light px-3 py-1 font-ui text-xs font-bold text-accent"
+									class="inline-flex items-center gap-1.5 rounded-full border border-[#523A7A]/40 bg-white/10 px-3 py-1 font-ui text-xs font-bold text-accent"
 								>
 									{MOODS[post.mood]}
 								</span>
@@ -538,7 +542,7 @@
 						</div>
 
 						{#if post.title}
-							<h3 class="mt-4 font-display text-2xl font-bold tracking-tight text-ink">
+							<h3 class="mt-4 font-display text-2xl font-bold tracking-tight text-white">
 								{post.title}
 							</h3>
 						{/if}
@@ -589,8 +593,8 @@
 						{/if}
 
 						{#if post.mind}
-							<div class="my-4 rounded-xl border-l-4 border-gold/60 bg-white/50 p-4">
-								<p class="font-hand text-[22px] leading-relaxed whitespace-pre-wrap text-ink">
+							<div class="my-4 rounded-xl border-l-4 border-gold/60 bg-white/10 p-4">
+								<p class="font-hand text-[22px] leading-relaxed whitespace-pre-wrap text-white">
 									{post.mind}
 								</p>
 							</div>
@@ -598,20 +602,22 @@
 
 						{#if post.refl}
 							<div
-								class="my-3 flex items-start gap-2.5 rounded-xl border border-[#DECFA4] bg-[#FFF8E7] p-3"
+								class="my-3 flex items-start gap-2.5 rounded-xl border border-[#4D366D]/40 bg-white/10 p-3"
 							>
 								<span class="text-base font-bold text-gold">★</span>
 								<div>
 									<span class="block font-ui text-xs font-bold tracking-wider text-accent uppercase"
 										>Reflection</span
 									>
-									<p class="mt-0.5 font-hand text-lg font-semibold text-ink">{post.refl}</p>
+									<p class="mt-0.5 font-hand text-lg font-semibold text-white">
+										{post.refl}
+									</p>
 								</div>
 							</div>
 						{/if}
 
 						<div
-							class="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-line pt-4"
+							class="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-[#4D366D]/40 pt-4"
 						>
 							<div class="flex flex-wrap items-center gap-1.5">
 								{#each REACTIONS as reaction (reaction.key)}
@@ -621,7 +627,7 @@
 											reaction.key
 										)
 											? reaction.active
-											: 'border-line bg-white/70 text-ink hover:bg-light'}"
+											: 'border-white/20 text-white/70 hover:bg-white/10'}"
 										onclick={() => community.toggleReaction(post, reaction.key)}
 										aria-label={reaction.label}
 										aria-pressed={post.userReactions.includes(reaction.key)}
@@ -654,27 +660,45 @@
 						</div>
 
 						{#if openComments === post.id}
-							<div class="mt-4 rounded-xl border border-line/60 bg-[#FAF4E6]/60 p-3.5">
+							<div class="mt-4 rounded-xl border border-[#4D366D]/40 bg-white/10 p-3.5">
 								<span
-									class="mb-2.5 block font-ui text-[11px] font-bold tracking-wider text-ink-soft uppercase"
-									>Community notes</span
+									class="mb-2.5 block font-ui text-[11px] font-bold tracking-wider text-[#BBA8E0] uppercase"
 								>
+									Community notes
+								</span>
 								{#if post.comments.length > 0}
 									<div class="mb-3 space-y-2">
 										{#each post.comments as comment (comment.id)}
-											<div class="flex items-start gap-2.5 rounded-lg bg-white/80 p-2.5">
-												<span
-													class="flex size-7 shrink-0 items-center justify-center rounded-full bg-lav/40 font-display text-sm font-bold text-accent"
-												>
-													{comment.authorName[0]}
-												</span>
+											<div class="flex items-start gap-2.5 rounded-lg bg-white/10 p-2.5 shadow-2xs">
+												{#if comment.authorAvatar}
+											<img
+												src={comment.authorAvatar}
+												alt=""
+												class="size-7 shrink-0 rounded-full object-cover"
+											/>
+										{:else}
+											<span
+												class="flex size-7 shrink-0 items-center justify-center rounded-full bg-lav/40 font-display text-sm font-bold text-accent"
+											>
+												{comment.authorName[0]}
+											</span>
+										{/if}
 												<div class="min-w-0 flex-1">
 													<div class="flex items-baseline justify-between gap-2">
-														<b class="font-ui text-xs text-ink">{comment.authorName}</b>
-														<time class="font-ui text-[10px] text-ink-soft">{comment.time}</time>
+														<button
+															type="button"
+															class="font-ui text-xs text-white hover:underline"
+															onclick={() => {
+																viewedUserId = comment.authorId;
+																profileModalOpen = true;
+															}}
+														>
+															{comment.authorName}
+														</button>
+														<time class="font-ui text-[10px] text-[#BBA8E0]">{comment.time}</time>
 													</div>
-													<p class="mt-0.5 font-hand text-base leading-tight text-ink">
-														{comment.text}
+													<p class="mt-0.5 font-hand text-base leading-tight text-white">
+														{censor(comment.text)}
 													</p>
 												</div>
 											</div>
@@ -690,7 +714,7 @@
 										type="text"
 										placeholder="Cheer them on…"
 										maxlength="140"
-										class="h-9 flex-1 rounded-lg border border-line bg-white px-3 font-ui text-xs text-ink placeholder:text-[#9B8CB5] focus:border-accent focus:outline-none"
+										class="h-9 flex-1 rounded-lg border border-[#4D366D]/40 bg-white/10 px-3 font-ui text-xs text-white placeholder:text-[#9B8CB5] focus:border-accent focus:outline-none"
 									/>
 									<button
 										type="submit"
@@ -724,4 +748,13 @@
 			</button>
 		</div>
 	{/if}
+
+	<ProfileModal
+		open={profileModalOpen}
+		onClose={() => {
+			profileModalOpen = false;
+			viewedUserId = null;
+		}}
+		userId={viewedUserId}
+	/>
 </div>

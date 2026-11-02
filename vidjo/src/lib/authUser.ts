@@ -1,21 +1,26 @@
 import type { User } from '@supabase/supabase-js';
 
 export const UNREGISTERED_ACCOUNT_MESSAGE =
-	'No VidJo account is linked to that sign-in. Create an account with your email and password first, then use Google with the same email.';
+	'No VidJo account is linked to that sign-in. Create an account with your email and password first.';
 
 /**
- * A VidJo member is an account created through the email/password signup flow.
- * Supabase sets `app_metadata.provider` when the account is created and does not
- * let a signed-in user change `app_metadata`, so OAuth-only accounts (including
- * ones that later add an email identity or password) stay locked out.
+ * A VidJo member is an account created through the email/password signup flow
+ * or an OAuth account that has completed profile setup.
  *
- * The database uses a `vidjo_registered` marker stamped at signup time instead
- * of re-deriving membership, which is even stricter. Both checks agree for
- * normal accounts; see `public.vidjo_is_member()` in `supabase/schema.sql`.
+ * `app_metadata` is server-controlled (stamped by the `vidjo_mark_registered_user`
+ * trigger on `auth.users` insert). `user_metadata` is client-writable via
+ * `auth.updateUser()`, so we check it as a fallback for accounts marked
+ * registered after signup (e.g. OAuth users who just completed their profile).
  */
 export function isRegisteredUser(user: User | null | undefined) {
 	if (!user) return false;
 
-	const metadata = user.app_metadata ?? {};
-	return metadata.provider === 'email' || metadata.vidjo_registered === true;
+	const appMeta = user.app_metadata ?? {};
+	const userMeta = user.user_metadata ?? {};
+
+	return (
+		appMeta.provider === 'email' ||
+		appMeta.vidjo_registered === true ||
+		userMeta.vidjo_registered === true
+	);
 }

@@ -18,10 +18,19 @@
 	import { community } from '#lib/state/community.svelte';
 	import { nav } from '#lib/state/navigation.svelte';
 	import { viewport } from '#lib/state/viewport.svelte';
+	import { supabase } from '#lib/supabase';
 
 	let calendarOpen = $state(false);
 	let activeOwner = $state('');
 	let initSeq = 0;
+
+	// Profile completion after OAuth sign-in (e.g. Google new-user flow).
+	let profileCompletion = $state(false);
+	let completionEmail = $state('');
+	let completionUsername = $state('');
+	let completionNickname = $state('');
+	let completionBusy = $state(false);
+	let completionError = $state('');
 
 	onMount(() => {
 		const cleanupViewport = viewport.init();
@@ -65,6 +74,65 @@
 		})();
 	});
 
+	// After the profile loads, detect auto-generated OAuth usernames and
+	// prompt the user to complete their profile before entering the app.
+	$effect(() => {
+		if (!auth.active || !profile.profile || profileCompletion) return;
+		const username = (profile.profile.username || '').trim();
+		if (username.startsWith('user_')) {
+			profileCompletion = true;
+			completionEmail = auth.email || '';
+			completionUsername = username;
+			completionNickname = profile.profile.display_name || '';
+		}
+	});
+
+	async function completeProfile() {
+		completionError = '';
+		if (!completionUsername || !/^[a-zA-Z0-9_.-]{2,24}$/.test(completionUsername.trim())) {
+			completionError = 'Username must be 2–24 letters, numbers, dots, dashes, or underscores.';
+			return;
+		}
+		if (!completionNickname.trim()) {
+			completionError = 'Nickname cannot be empty.';
+			return;
+		}
+		if (completionNickname.trim().length > 32) {
+			completionError = 'Nickname must be 32 characters or fewer.';
+			return;
+		}
+
+		completionBusy = true;
+		try {
+			const result = await profile.saveProfile({
+				username: completionUsername.trim(),
+				display_name: completionNickname.trim(),
+				bio: profile.profile?.bio ?? '',
+				avatar_url: profile.profile?.avatar_url ?? null,
+				banner_url: null
+			});
+			if (result.error) {
+				completionError = result.error;
+				return;
+			}
+			// Mark as registered in user_metadata so isRegisteredUser() and
+			// vidjo_is_member() see it on the next auth state change.
+			await supabaseAuthUpdateUser();
+			profileCompletion = false;
+			void goto(resolve('/'), { replaceState: true });
+		} catch {
+			completionError = 'Could not complete your profile. Try again.';
+		} finally {
+			completionBusy = false;
+		}
+	}
+
+	async function supabaseAuthUpdateUser() {
+		await supabase.auth.updateUser({
+			data: { vidjo_registered: true }
+		});
+	}
+
 	// Saved appearance preferences apply globally.
 	$effect(() => {
 		document.documentElement.style.setProperty('--color-accent', profile.accentColor);
@@ -96,6 +164,83 @@
 	</main>
 {:else if !auth.active}
 	<LoginScreen />
+{:else if profileCompletion}
+	<main class="mx-auto flex min-h-[100dvh] w-full max-w-[620px] items-center justify-center px-4 py-10 min-[420px]:px-6">
+		<div class="w-full rounded-[26px] border border-[#4A3670] bg-paper px-7 py-10 text-center text-ink shadow-[0_30px_80px_rgba(0,0,0,.55)] min-[420px]:px-10">
+			<h1 class="font-display text-3xl font-bold">Finish setting up VidJo</h1>
+			<p class="mt-2 font-hand text-xl leading-snug text-ink-soft">
+				Almost there — tell us how you'd like to appear to friends.
+			</p>
+
+			{#if completionError}
+				<p class="mt-4 rounded-xl border-[1.5px] border-[#D19A9A] bg-[#FBEAEA] px-3 py-2 font-ui text-sm text-[#8A2F2F]">
+					{completionError}
+				</p>
+			{/if}
+
+			<form onsubmit={(e) => { e.preventDefault(); void completeProfile(); }} class="mt-6 space-y-4" novalidate>
+				<label for="completion-email" class="block font-ui text-[13px] font-bold text-ink text-left">
+					Email address
+				</label>
+				<input
+					id="completion-email"
+					type="email"
+					value={completionEmail}
+					disabled
+					class="mt-1.5 h-12 w-full rounded-xl border-2 border-line bg-[#FFFDF6] px-3.5 font-ui text-base text-ink transition-colors"
+					readonly
+				/>
+
+				<label for="completion-username" class="mt-4 block font-ui text-[13px] font-bold text-ink text-left">
+					Username
+				</label>
+				<input
+					id="completion-username"
+					bind:value={completionUsername}
+					type="text"
+					placeholder="e.g. mara"
+					maxlength="24"
+					class="mt-1.5 h-12 w-full rounded-xl border-2 border-line bg-[#FFFDF6] px-3.5 font-ui text-base text-ink transition-colors placeholder:text-[#9B8CB5] focus:border-accent focus:outline-none"
+					autocomplete="username"
+				/>
+				<p class="mt-1 font-ui text-[11px] text-ink-soft">
+					Unique name for your journal, friends, and community.
+				</p>
+
+				<label for="completion-nickname" class="mt-4 block font-ui text-[13px] font-bold text-ink text-left">
+					Nickname <span class="text-xs font-normal text-ink-soft">(shown to friends)</span>
+				</label>
+				<input
+					id="completion-nickname"
+					bind:value={completionNickname}
+					type="text"
+					placeholder="e.g. Rice Shower"
+					maxlength="32"
+					class="mt-1.5 h-12 w-full rounded-xl border-2 border-line bg-[#FFFDF6] px-3.5 font-ui text-base text-ink transition-colors placeholder:text-[#9B8CB5] focus:border-accent focus:outline-none"
+					autocomplete="nickname"
+				/>
+				<p class="mt-1 font-ui text-[11px] text-ink-soft">
+					Your nickname can be anything. Your @username stays unique.
+				</p>
+
+				<button
+					type="submit"
+					class="mt-6 flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-accent font-ui text-[15px] font-bold text-white shadow-[0_4px_12px_rgba(42,27,61,.3)] transition-colors hover:bg-[#624690] disabled:cursor-wait disabled:opacity-70"
+					disabled={completionBusy}
+				>
+					{#if completionBusy}
+						Creating account…
+					{:else}
+						Create account
+					{/if}
+				</button>
+			</form>
+
+			<p class="mt-6 font-ui text-[12px] leading-relaxed text-ink-soft">
+				Your email ({completionEmail}) was used from your Google account.
+			</p>
+		</div>
+	</main>
 {:else}
 	<Header onCalendar={() => (calendarOpen = true)} />
 

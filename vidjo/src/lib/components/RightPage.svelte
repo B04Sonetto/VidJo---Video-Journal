@@ -1,8 +1,9 @@
-<script lang="ts">
+﻿<script lang="ts">
 	import PrivacyPicker from '#lib/components/PrivacyPicker.svelte';
 	import StickerLayer from '#lib/components/StickerLayer.svelte';
 	import { PROMPTS } from '#lib/data/prompts';
 	import { journal } from '#lib/state/journal.svelte';
+	import { friends } from '#lib/state/friends.svelte';
 	import { community } from '#lib/state/community.svelte';
 	import { nav } from '#lib/state/navigation.svelte';
 	import { viewport } from '#lib/state/viewport.svelte';
@@ -48,6 +49,29 @@
 	function selectPrivacy(privacy: Privacy) {
 		if (!preview) journal.setPrivacy(privacy);
 	}
+
+	function isExcluded(friendId: string) {
+		return entry.excludedFriendIds.includes(friendId);
+	}
+
+	function isIncluded(friendId: string) {
+		return entry.includedFriendIds.includes(friendId);
+	}
+
+	function toggleFriend(friendId: string) {
+		if (preview) return;
+		const excluded = [...entry.excludedFriendIds];
+		const included = [...entry.includedFriendIds];
+		if (isExcluded(friendId)) {
+			excluded.splice(excluded.indexOf(friendId), 1);
+			included.push(friendId);
+		} else if (isIncluded(friendId)) {
+			included.splice(included.indexOf(friendId), 1);
+		} else {
+			excluded.push(friendId);
+		}
+		journal.updateCurrent({ excludedFriendIds: excluded, includedFriendIds: included });
+	}
 </script>
 
 <section
@@ -73,7 +97,7 @@
 		class="h-[54px] w-full border-0 border-b-2 border-line bg-transparent px-1 pb-1 font-hand text-[32px] font-bold text-ink placeholder:text-[#8E7FAA] focus:border-line focus:ring-0 focus:outline-offset-4"
 		type="text"
 		maxlength="80"
-		placeholder="Title (optional): just a random day…"
+		placeholder="Title (optional): just a random dayâ€¦"
 		autocomplete="off"
 		value={entry.title}
 		readonly={preview}
@@ -94,19 +118,19 @@
 			disabled={preview}
 			onclick={needPrompt}
 		>
-			✦ Need a prompt?
+			âœ¦ Need a prompt?
 		</button>
 	</div>
 
 	{#if prompt}
-		<p
-			class="m-0 rotate-[-.6deg] rounded-md bg-[#FFF3D6] px-2.5 py-1 font-hand text-lg text-accent"
+		<div
+			class="mt-2 rounded-xl border-2 border-[#D4A24C] bg-[#FFF3D6] px-3 py-2 font-hand text-lg text-accent shadow-sm"
 		>
 			{prompt}
-		</p>
+		</div>
 	{/if}
 
-	<div class="relative flex min-h-0 flex-1">
+	<div class="relative mt-3 flex min-h-0 flex-1">
 		<textarea
 			bind:this={mindEl}
 			id={`${id}-mind`}
@@ -129,7 +153,7 @@
 		class="m-0 flex items-center gap-2 font-display text-[22px] font-bold text-ink"
 		for={`${id}-refl`}
 	>
-		★ Reflection
+		Reflection
 		<small class="font-hand text-base font-normal text-ink-soft">(optional)</small>
 	</label>
 
@@ -152,6 +176,54 @@
 	</div>
 
 	<PrivacyPicker value={entry.privacy} readonly={preview} onSelect={selectPrivacy} />
+
+
+
+	{#if (entry.privacy === 'private' || entry.privacy === 'friends') && !preview && friends.friends.length > 0}
+		<span class="mt-2 block font-ui text-xs font-bold tracking-wider text-ink-soft uppercase">
+			<svg
+				class="size-4 shrink-0 text-accent"
+				width="16"
+				height="16"
+				viewBox="0 0 24 24"
+				fill="none"
+				stroke="currentColor"
+				stroke-width="2"
+				stroke-linecap="round"
+				stroke-linejoin="round"
+				aria-hidden="true"
+				><circle cx="12" cy="12" r="10"></circle><path
+					d="M9.09 9a3 3 0 00-4.1 4.1l-2.4 2.4a3 3 0 004.1 4.1l2.4-2.4a3 3 0 004.1-4.1l-2.4-2.4a3 3 0 00-4.1-4.1z"
+				></path></svg
+			>
+			Friend exceptions
+		</span>
+		<p class="mt-0.5 font-ui text-xs text-ink-soft">
+			Tap a classmate to exclude them from this page, or tap again to grant an exception.
+		</p>
+		<div class="mt-1.5 flex flex-wrap gap-2">
+			{#each friends.friends as friend (friend.id)}
+				<button
+					type="button"
+					class="rounded-full border px-2.5 py-0.5 font-ui text-xs font-semibold transition-all {isExcluded(
+						friend.id
+					)
+						? 'border-red-500 bg-red-500/20 text-red-400'
+						: isIncluded(friend.id)
+							? 'border-[#3F7A4F] bg-[#3F7A4F]/20 text-[#8BE2A4]'
+							: 'border-white/20 text-white/70 hover:bg-white/10'}"
+					onclick={() => toggleFriend(friend.id)}
+					title={isExcluded(friend.id)
+						? 'Excluded'
+						: isIncluded(friend.id)
+							? 'Exception (can see)'
+							: 'Default'}
+				>
+					{friend.displayName.split(' ')[0]}
+				</button>
+			{/each}
+		</div>
+	{/if}
 
 	{#if entry.privacy === 'community' && !preview}
 		<div class="rounded-xl border-2 border-line bg-[#FFFDF6] p-3">
@@ -183,9 +255,9 @@
 					value={entry.communitySlug}
 					onchange={(event) => journal.setCommunity(event.currentTarget.value)}
 				>
-					<option value="">Choose a community…</option>
+					<option value="">Choose a communityâ€¦</option>
 					{#each community.joinedCommunities as item (item.slug)}
-						<option value={item.slug}>{item.tag} — {item.name}</option>
+						<option value={item.slug}>{item.tag} â€” {item.name}</option>
 					{/each}
 				</select>
 			{/if}
@@ -198,18 +270,10 @@
 		disabled={preview}
 		onclick={() => !preview && journal.markSaved()}
 	>
-		<span class="text-gold">✦</span>
+		<span class="text-gold">âœ¦</span>
 		Save VidJo
-		<span class="text-gold">✦</span>
+		<span class="text-gold">âœ¦</span>
 	</button>
-
-	{#if entry.saved}
-		<div
-			class="pointer-events-none absolute right-11 bottom-1.5 z-[4] rotate-[-4deg] rounded-[10px] border-[3px] border-double border-[#3F7A4F] px-2.5 font-display text-[17px] font-bold text-[#3F7A4F] opacity-85"
-		>
-			Saved ✦
-		</div>
-	{/if}
 
 	<div class="absolute right-0 bottom-3.5 left-0 text-center font-hand text-base text-ink-soft">
 		{pageNumber}
@@ -243,3 +307,5 @@
 		}
 	}
 </style>
+
+

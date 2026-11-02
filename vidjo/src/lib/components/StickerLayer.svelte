@@ -20,7 +20,7 @@
 	function pointerDown(event: PointerEvent, sticker: Sticker) {
 		if (preview || event.button > 0) return;
 
-		journal.selectSticker(sticker.id);
+		journal.selectSticker(sticker.id, event.ctrlKey || event.metaKey);
 		journal.lastPage = side;
 
 		const pageEl = layer?.closest('.page') as HTMLElement | null;
@@ -125,7 +125,11 @@
 			moved = true;
 		} else if (key === 'Delete' || key === 'Backspace') {
 			event.preventDefault();
-			journal.deleteSticker(sticker.id);
+			if (journal.selected.length > 1) {
+				journal.deleteSelected();
+			} else if (journal.selected.length === 1) {
+				journal.deleteSticker(journal.selected[0]);
+			}
 			return;
 		}
 
@@ -144,7 +148,7 @@
 			class="stk absolute cursor-grab touch-none select-none active:cursor-grabbing"
 			class:sticker-flat={definition?.flat}
 			class:sticker-shadow={!definition?.flat}
-			class:sel={journal.selected === sticker.id}
+			class:sel={journal.selected.includes(sticker.id)}
 			class:pointer-events-auto={!preview}
 			style:left={`${sticker.x}%`}
 			style:top={`${sticker.y}%`}
@@ -162,6 +166,21 @@
 			onkeydown={(event) => keyDown(event, sticker)}
 			onfocus={() => !preview && journal.selectSticker(sticker.id)}
 		>
+			<button
+				type="button"
+				class="absolute -top-3 -right-3 size-6 rounded-full bg-[#1B102B]/80 border border-[#4D366D]/60 text-white text-[10px] font-bold hover:bg-[#51397A] hover:border-[#D4A24C] transition-colors active:scale-95"
+				onclick={(event) => {
+					event.stopPropagation();
+					journal.deleteSticker(sticker.id);
+					journal.commit();
+				}}
+				aria-label="Remove sticker"
+			>
+				<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+					<polyline points="3 6 5 6 21 6"></polyline>
+					<path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"></path>
+				</svg>
+			</button>
 			{#if sticker.type === 'img' && sticker.src}
 				<img src={sticker.src} alt="" class="block h-auto w-full" draggable="false" />
 			{:else}

@@ -22,6 +22,7 @@
 	let hostWidth = $state(0);
 	let flip = $state<Flip | null>(null);
 	let flipTimer: ReturnType<typeof setTimeout> | undefined;
+	let deleteConfirm = $state<string | null>(null);
 
 	const bookWidth = $derived(viewport.single ? 600 : 1160);
 	const scale = $derived(hostWidth > 0 ? Math.min(1, hostWidth / bookWidth) : 1);
@@ -53,7 +54,7 @@
 		const fromRight = index * 2 + 2;
 
 		journal.leaveCurrentIfBlank();
-		journal.selected = null;
+		journal.selected = [];
 
 		const targetIndex = dates.indexOf(target);
 		if (targetIndex < 0) return;
@@ -65,6 +66,7 @@
 		if (viewport.single || viewport.reduced) {
 			journal.current = target;
 			journal.side = dir > 0 ? 'L' : 'R';
+			journal.selected = [];
 			return;
 		}
 
@@ -90,12 +92,12 @@
 		if (viewport.single) {
 			if (dir > 0 && journal.side === 'L') {
 				journal.side = 'R';
-				journal.selected = null;
+				journal.selected = [];
 				return;
 			}
 			if (dir < 0 && journal.side === 'R') {
 				journal.side = 'L';
-				journal.selected = null;
+				journal.selected = [];
 				return;
 			}
 		}
@@ -103,6 +105,21 @@
 		const target = dates[index + dir];
 		if (!target) return;
 		moveTo(target, dir);
+	}
+
+	async function deletePage() {
+		if (!journal.current) return;
+		deleteConfirm = journal.current;
+	}
+
+	async function confirmDelete() {
+		if (!deleteConfirm) return;
+		await journal.deleteEntry(deleteConfirm);
+		deleteConfirm = null;
+	}
+
+	async function cancelDelete() {
+		deleteConfirm = null;
 	}
 
 	$effect(() => {
@@ -147,9 +164,13 @@
 				go(1);
 			} else if (event.key === 'ArrowLeft') {
 				go(-1);
-			} else if ((event.key === 'Delete' || event.key === 'Backspace') && journal.selected) {
+			} else if ((event.key === 'Delete' || event.key === 'Backspace') && journal.selected.length > 0) {
 				event.preventDefault();
-				journal.deleteSticker(journal.selected);
+				if (journal.selected.length > 1) {
+					journal.deleteSelected();
+				} else {
+					journal.deleteSticker(journal.selected[0]);
+				}
 			}
 		}
 
@@ -340,7 +361,72 @@
 			<path d="M9 5l7 7-7 7"></path>
 		</svg>
 	</button>
+
+	<button
+		type="button"
+		class="flex size-12 items-center justify-center rounded-full border-[1.5px] border-[#D19A9A] bg-desk-2 shadow-[0_4px_14px_rgba(0,0,0,.35)] transition-all hover:scale-105 hover:bg-[#3A222B] active:scale-95 disabled:cursor-default disabled:opacity-35 disabled:hover:scale-100 disabled:hover:bg-desk-2"
+		aria-label="Delete this page"
+		onclick={deletePage}
+	>
+		<svg
+			width="22"
+			height="22"
+			viewBox="0 0 24 24"
+			fill="none"
+			stroke="#fff"
+			stroke-width="2"
+			stroke-linecap="round"
+			stroke-linejoin="round"
+			aria-hidden="true"
+		>
+			<polyline points="3 6 5 6 21 6"></polyline>
+			<path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"></path>
+		</svg>
+	</button>
 </div>
+
+{#if deleteConfirm}
+	<div
+		class="fixed inset-0 z-[60] flex items-center justify-center"
+		aria-modal="true"
+		role="dialog"
+		aria-label="Delete page"
+	>
+	<button
+		type="button"
+		class="absolute inset-0 bg-black/60 backdrop-blur-sm"
+		onclick={cancelDelete}
+		onkeydown={(event) => {
+			if (event.key === 'Escape') cancelDelete();
+		}}
+		aria-hidden="true"
+	></button>
+		<div
+			class="relative rounded-[24px] border border-[#5A4580] bg-desk-2 p-8 shadow-[0_30px_80px_rgba(0,0,0,.6)] text-center text-white max-w-[320px] mx-4"
+		>
+			<h2 class="font-display text-xl font-bold">Delete this page?</h2>
+			<p class="mt-3 font-ui text-sm text-[#D6CBEC] leading-relaxed">
+				This will permanently remove this journal entry. It cannot be undone.
+			</p>
+			<div class="mt-6 flex gap-3 justify-center">
+				<button
+					type="button"
+					class="flex size-11 items-center justify-center rounded-xl border border-[#5A4580] bg-[#33224D] px-4 font-ui text-sm text-[#D6CBEC] hover:bg-[#43306A]"
+					onclick={cancelDelete}
+				>
+					Cancel
+				</button>
+				<button
+					type="button"
+					class="flex size-11 items-center justify-center rounded-xl border border-[#D19A9A] bg-[#3A222B] px-4 font-ui text-sm text-white hover:bg-[#4A2A32]"
+					onclick={confirmDelete}
+				>
+					Delete
+				</button>
+			</div>
+		</div>
+	</div>
+{/if}
 
 <style>
 	.leaf {

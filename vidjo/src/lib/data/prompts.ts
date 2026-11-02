@@ -8,5 +8,14 @@ export const PROMPTS = [
 	'What did you learn today that surprised you?',
 	'What would you tell yourself from this morning?',
 	'Which small moment today was the best one?',
-	'What are you grateful for right now?'
+	'What are you grateful for right now?',
+	'If today had a soundtrack, what song would it be?',
+	'What is one thing you would do differently if you lived today again?',
+	'Who made your day better, even just a bit?',
+	'What is a small win you had today?',
+	'What did your body need today that you gave it?',
+	'What is one thing you noticed today that you usually miss?',
+	'What made you feel calm today?',
+	'If you could freeze one moment from today, which would it be?',
+	'What are you looking forward to tomorrow?'
 ];

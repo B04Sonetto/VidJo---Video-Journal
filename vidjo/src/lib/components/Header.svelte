@@ -12,6 +12,10 @@
 
 	let menuOpen = $state(false);
 
+	$effect(() => {
+		document.documentElement.setAttribute('data-theme', profile.theme);
+	});
+
 	async function signOut() {
 		menuOpen = false;
 		const owner = auth.ownerId;
@@ -334,6 +338,59 @@
 							</svg>
 							Settings
 						</button>
+					</div>
+
+					<div class="mt-3">
+						<p class="mb-2 block font-ui text-[11px] font-bold tracking-wider text-[#9B8CB5] uppercase">
+							Theme
+						</p>
+						<div class="flex flex-wrap gap-2">
+							<button
+								type="button"
+								class={`px-3 py-1.5 rounded-lg text-[11px] font-display font-bold transition-all ${
+									profile.theme === 'classic'
+										? 'bg-[#51397A] text-white shadow-xs'
+										: 'bg-white/10 text-[#D6CBEC] border border-[#4D366D]/40 hover:bg-white/20'
+								}`}
+								onclick={() => {
+									profile.theme = 'classic';
+									menuOpen = false;
+								}}
+								aria-pressed={profile.theme === 'classic'}
+							>
+								Classic
+							</button>
+							<button
+								type="button"
+								class={`px-3 py-1.5 rounded-lg text-[11px] font-display font-bold transition-all ${
+									profile.theme === 'sunset'
+										? 'bg-[#B85C43] text-white shadow-xs'
+										: 'bg-white/10 text-[#D6CBEC] border border-[#4D366D]/40 hover:bg-white/20'
+								}`}
+								onclick={() => {
+									profile.theme = 'sunset';
+									menuOpen = false;
+								}}
+								aria-pressed={profile.theme === 'sunset'}
+							>
+								Sunset
+							</button>
+							<button
+								type="button"
+								class={`px-3 py-1.5 rounded-lg text-[11px] font-display font-bold transition-all ${
+									profile.theme === 'midnight'
+										? 'bg-[#1F3557] text-white shadow-xs'
+										: 'bg-white/10 text-[#D6CBEC] border border-[#4D366D]/40 hover:bg-white/20'
+								}`}
+								onclick={() => {
+									profile.theme = 'midnight';
+									menuOpen = false;
+								}}
+								aria-pressed={profile.theme === 'midnight'}
+							>
+								Midnight
+							</button>
+						</div>
 					</div>
 
 					<button

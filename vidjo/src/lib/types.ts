@@ -26,6 +26,11 @@ export interface Entry {
 	privacy: Privacy;
 	/** Community slug (e.g. `creativeflow`) when privacy is `community`. */
 	communitySlug: string;
+	/**
+	 * When privacy is `community`, also surface this post in the friends feed so
+	 * it reaches both audiences instead of only one.
+	 */
+	shareWithFriends: boolean;
 	stickers: Sticker[];
 	saved: boolean;
 	sample: boolean;
@@ -35,6 +40,15 @@ export interface Entry {
 	 */
 	videoPath: string;
 	videoName: string;
+	/**
+	 * Friend IDs excluded from seeing this post, even when privacy allows friends.
+	 */
+	excludedFriendIds: string[];
+	/**
+	 * Friend IDs granted an exception to see this post, even when privacy is more
+	 * restrictive (e.g. a friend listed here can view a 'private' page).
+	 */
+	includedFriendIds: string[];
 }
 
 export interface EntryRow {
@@ -50,6 +64,9 @@ export interface EntryRow {
 	saved: boolean | null;
 	sample: boolean | null;
 	video_path: string | null;
+	excluded_friend_ids: string[] | null;
+	included_friend_ids: string[] | null;
+	share_with_friends: boolean | null;
 	/** Legacy public URL, read only so old rows can be migrated to `video_path`. */
 	video_url: string | null;
 	video_name: string | null;
@@ -62,6 +79,8 @@ export interface Profile {
 	display_name: string;
 	bio: string;
 	avatar_url: string | null;
+	banner_url: string | null;
+	user_role: 'user' | 'admin';
 	friend_code?: string;
 	accent_color?: string;
 	theme?: 'classic' | 'sunset' | 'midnight';
@@ -133,6 +152,7 @@ export interface FriendRequest {
 
 export interface FriendComment {
 	id: string;
+	authorId: string;
 	authorName: string;
 	authorUsername: string;
 	authorAvatar: string | null;

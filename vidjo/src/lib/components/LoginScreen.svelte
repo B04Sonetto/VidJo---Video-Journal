@@ -543,32 +543,21 @@
 				</p>
 			</div>
 
-			<ul class="relative mt-9 flex list-none flex-col gap-3 p-0 font-ui text-sm text-[#D6CBEC]">
-				<li class="flex items-center gap-3">
+			<div class="relative mt-9 max-w-[360px] rounded-[24px] border border-white/10 bg-white/[.08] p-6 backdrop-blur-sm">
+				<p class="font-hand text-[18px] leading-snug text-[#F3EDF9]">
+					“Some days are loud. Some days are quiet. Both deserve a page.”
+				</p>
+				<div class="mt-4 flex items-center gap-3">
 					<span
-						class="flex size-8 flex-none items-center justify-center rounded-full border border-[#6A528F] bg-white/[.08] text-gold"
+						class="flex size-9 items-center justify-center rounded-full bg-gold/20 text-gold"
 					>
 						✦
 					</span>
-					Record or upload a video for every page
-				</li>
-				<li class="flex items-center gap-3">
-					<span
-						class="flex size-8 flex-none items-center justify-center rounded-full border border-[#6A528F] bg-white/[.08] text-gold"
-					>
-						✦
-					</span>
-					Your entries stay private to your account
-				</li>
-				<li class="flex items-center gap-3">
-					<span
-						class="flex size-8 flex-none items-center justify-center rounded-full border border-[#6A528F] bg-white/[.08] text-gold"
-					>
-						✦
-					</span>
-					Come back on any device and pick up where you left off
-				</li>
-			</ul>
+					<p class="font-ui text-sm text-[#D6CBEC]">
+						Your private video journal, one page at a time.
+					</p>
+				</div>
+			</div>
 
 			<div
 				class="relative mt-auto rotate-[-2deg] self-start rounded-lg border border-[#E6D9B8] bg-paper px-4 py-2 font-hand text-lg text-ink shadow-[0_6px_16px_rgba(0,0,0,.28)]"

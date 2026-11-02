@@ -66,6 +66,7 @@ class Auth {
 	emailConfirmRequired = $state(true);
 	redirectError = $state('');
 	passwordRecovery = $state(false);
+	needsProfileCompletion = $state(false);
 
 	private started = false;
 	private unsubscribe: (() => void) | null = null;
@@ -209,10 +210,12 @@ class Auth {
 			return 'Too many attempts. Wait a minute, then try again.';
 		}
 
-		// Obfuscate non-existent account errors so an observer cannot tell
-		// if an email exists from the application's response.
-		if (/signups not allowed|user not found|signup disabled/i.test(error.message)) {
-			return '';
+		if (/signups not allowed|signup disabled/i.test(error.message)) {
+			return 'Sign-ups are paused in Supabase. Try an existing email, or enable sign-ups.';
+		}
+
+		if (/user not found|email not found/i.test(error.message)) {
+			return 'No account found with that email address. Create an account first.';
 		}
 
 		return friendlyAuthError(error.message);

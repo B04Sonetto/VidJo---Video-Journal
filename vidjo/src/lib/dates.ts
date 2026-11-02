@@ -22,3 +22,8 @@ export function offsetDate(days: number) {
 	date.setDate(date.getDate() + days);
 	return dateKey(date);
 }
+
+export function formatPostDate(date: string) {
+	const parsed = /^\d{4}-\d{2}-\d{2}$/.test(date) ? parseDate(date) : new Date(date);
+	return parsed.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+}

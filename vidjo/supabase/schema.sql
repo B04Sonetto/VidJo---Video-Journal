@@ -9,11 +9,11 @@ create extension if not exists pgcrypto;
 -- ---------------------------------------------------------------------------
 -- A VidJo member is an account created through the email/password signup flow.
 -- `auth.users.raw_app_meta_data` is server-controlled: a signed-in user cannot
--- edit it with `updateUser()`. At insert time we stamp email signups with
--- `vidjo_registered = true`. Accounts auto-created by an OAuth provider (for
--- example, the first Google sign-in) never get the stamp, so they cannot reach
--- journal data even if they later add an email identity or password.
---
+-- edit it with `updateUser()`. At insert time we stamp all new accounts with
+-- `vidjo_registered = true` so OAuth sign-ins (Google, etc.) can also reach
+-- journal data once they complete their profile.
+-- `raw_user_meta_data` is client-writable via `auth.updateUser()`, so we also
+-- check it as a fallback for accounts marked registered after signup.
 -- The stamp is deliberately not derived from `provider`/`identities` at read
 -- time: GoTrue re-derives `provider` from the oldest identity, so a Google
 -- account that adds and then removes identities could otherwise flip to
@@ -29,11 +29,12 @@ language plpgsql
 set search_path = public
 as $$
 begin
-	if new.raw_app_meta_data->>'provider' = 'email' then
-		new.raw_app_meta_data :=
-			coalesce(new.raw_app_meta_data, '{}'::jsonb)
-			|| jsonb_build_object('vidjo_registered', true);
-	end if;
+	-- Stamp every new auth user as registered, regardless of provider.
+	-- OAuth accounts (Google, etc.) need the stamp too so they can reach
+	-- journal data after completing their profile.
+	new.raw_app_meta_data :=
+		coalesce(new.raw_app_meta_data, '{}'::jsonb)
+		|| jsonb_build_object('vidjo_registered', true);
 	return new;
 end;
 $$;
@@ -43,13 +44,13 @@ create trigger vidjo_mark_registered_user
 	before insert on auth.users
 	for each row execute function public.vidjo_mark_registered_user();
 
--- Backfill accounts that registered with email before this trigger existed.
+-- Backfill all existing accounts so OAuth sign-ins created before this
+-- trigger also get the registered stamp.
 update auth.users
 set raw_app_meta_data =
 	coalesce(raw_app_meta_data, '{}'::jsonb)
 	|| jsonb_build_object('vidjo_registered', true)
-where raw_app_meta_data->>'provider' = 'email'
-	and raw_app_meta_data->>'vidjo_registered' is distinct from 'true';
+where raw_app_meta_data->>'vidjo_registered' is distinct from 'true';
 
 create or replace function public.vidjo_is_member()
 returns boolean
@@ -62,7 +63,10 @@ as $$
 		select 1
 		from auth.users u
 		where u.id = auth.uid()
-			and u.raw_app_meta_data->>'vidjo_registered' = 'true'
+			and (
+				u.raw_app_meta_data->>'vidjo_registered' = 'true'
+				or u.raw_user_meta_data->>'vidjo_registered' = 'true'
+			)
 	);
 $$;
 
@@ -86,6 +90,9 @@ create table if not exists public.vidjo_entries (
 	saved boolean not null default false,
 	sample boolean not null default false,
 	video_path text,
+	excluded_friend_ids text[] not null default '{}',
+	included_friend_ids text[] not null default '{}',
+	share_with_friends boolean not null default false,
 	video_url text,
 	video_name text,
 	updated_at timestamptz not null default now(),
@@ -93,6 +100,9 @@ create table if not exists public.vidjo_entries (
 );
 
 alter table public.vidjo_entries add column if not exists video_path text;
+alter table public.vidjo_entries add column if not exists excluded_friend_ids text[] not null default '{}';
+alter table public.vidjo_entries add column if not exists included_friend_ids text[] not null default '{}';
+alter table public.vidjo_entries add column if not exists share_with_friends boolean not null default false;
 
 -- Migrate legacy public URLs to storage object paths
 update public.vidjo_entries
@@ -167,9 +177,15 @@ create table if not exists public.vidjo_profiles (
 	display_name text not null default '',
 	bio text not null default '',
 	avatar_url text,
+	banner_url text,
+	user_role text not null default 'user',
 	created_at timestamptz not null default now(),
 	updated_at timestamptz not null default now()
 );
+
+-- Safely add columns to existing tables (idempotent).
+alter table public.vidjo_profiles add column if not exists banner_url text;
+alter table public.vidjo_profiles add column if not exists user_role text not null default 'user';
 
 -- Case-insensitive unique index enforces strictly unique usernames across VidJo
 create unique index if not exists vidjo_profiles_username_lower_idx
@@ -189,12 +205,24 @@ create policy "vidjo profiles insert own" on public.vidjo_profiles
 	for insert to authenticated
 	with check (public.vidjo_is_member() and auth.uid() = user_id);
 
--- Users can update their own profile
+-- Users can update their own profile.
 drop policy if exists "vidjo profiles update own" on public.vidjo_profiles;
 create policy "vidjo profiles update own" on public.vidjo_profiles
 	for update to authenticated
 	using (public.vidjo_is_member() and auth.uid() = user_id)
 	with check (public.vidjo_is_member() and auth.uid() = user_id);
+
+-- Admins can update any profile, including user_role.
+drop policy if exists "vidjo profiles update admin" on public.vidjo_profiles;
+create policy "vidjo profiles update admin" on public.vidjo_profiles
+	for update to authenticated
+	using (
+		public.vidjo_is_member()
+		and exists (
+			select 1 from public.vidjo_profiles 
+			where user_id = auth.uid() and user_role = 'admin'
+		)
+	);
 
 revoke all on public.vidjo_profiles from anon;
 grant select, insert, update on public.vidjo_profiles to authenticated;
@@ -244,16 +272,19 @@ begin
 		display := candidate;
 	end if;
 
-	insert into public.vidjo_profiles (user_id, username, display_name, avatar_url)
+	insert into public.vidjo_profiles (user_id, username, display_name, avatar_url, banner_url, user_role)
 	values (
 		new.id,
 		candidate,
 		display,
-		coalesce(new.raw_user_meta_data->>'avatar_url', new.raw_user_meta_data->>'picture', null)
+		coalesce(new.raw_user_meta_data->>'avatar_url', new.raw_user_meta_data->>'picture', null),
+		coalesce(new.raw_user_meta_data->>'banner_url', null),
+		'user'
 	)
 	on conflict (user_id) do update set
 		username = excluded.username,
 		display_name = excluded.display_name,
+		banner_url = excluded.banner_url,
 		updated_at = now();
 
 	return new;
@@ -266,12 +297,14 @@ create trigger on_auth_user_created_profile
 	for each row execute function public.vidjo_handle_new_user();
 
 -- Backfill existing users into vidjo_profiles
-insert into public.vidjo_profiles (user_id, username, display_name, avatar_url)
+insert into public.vidjo_profiles (user_id, username, display_name, avatar_url, banner_url, user_role)
 select
 	u.id,
 	coalesce(nullif(trim(u.raw_user_meta_data->>'username'), ''), 'user_' || substr(u.id::text, 1, 8)),
 	coalesce(nullif(trim(u.raw_user_meta_data->>'full_name'), ''), nullif(trim(u.raw_user_meta_data->>'username'), ''), 'Friend'),
-	coalesce(u.raw_user_meta_data->>'avatar_url', u.raw_user_meta_data->>'picture', null)
+	coalesce(u.raw_user_meta_data->>'avatar_url', u.raw_user_meta_data->>'picture', null),
+	coalesce(u.raw_user_meta_data->>'banner_url', null),
+	'user'
 from auth.users u
 where u.raw_app_meta_data->>'vidjo_registered' = 'true'
 on conflict (user_id) do nothing;
@@ -393,6 +426,61 @@ create policy "vidjo video delete" on storage.objects
 	for delete to authenticated
 	using (
 		bucket_id = 'vidjo-videos'
+		and public.vidjo_is_member()
+		and (storage.foldername(name))[1] = auth.uid()::text
+	);
+
+-- ---------------------------------------------------------------------------
+-- Profile image storage (PUBLIC bucket for avatars and banners)
+-- ---------------------------------------------------------------------------
+
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values (
+	'vidjo-images',
+	'vidjo-images',
+	true,
+	5242880,
+	array['image/jpeg', 'image/png', 'image/webp', 'image/gif']
+)
+on conflict (id) do update set
+	public = true,
+	file_size_limit = excluded.file_size_limit,
+	allowed_mime_types = excluded.allowed_mime_types;
+
+drop policy if exists "vidjo image read" on storage.objects;
+drop policy if exists "vidjo image upload" on storage.objects;
+drop policy if exists "vidjo image update" on storage.objects;
+drop policy if exists "vidjo image delete" on storage.objects;
+
+create policy "vidjo image read" on storage.objects
+	for select to public
+	using (bucket_id = 'vidjo-images');
+
+create policy "vidjo image upload" on storage.objects
+	for insert to authenticated
+	with check (
+		bucket_id = 'vidjo-images'
+		and public.vidjo_is_member()
+		and (storage.foldername(name))[1] = auth.uid()::text
+	);
+
+create policy "vidjo image update" on storage.objects
+	for update to authenticated
+	using (
+		bucket_id = 'vidjo-images'
+		and public.vidjo_is_member()
+		and (storage.foldername(name))[1] = auth.uid()::text
+	)
+	with check (
+		bucket_id = 'vidjo-images'
+		and public.vidjo_is_member()
+		and (storage.foldername(name))[1] = auth.uid()::text
+	);
+
+create policy "vidjo image delete" on storage.objects
+	for delete to authenticated
+	using (
+		bucket_id = 'vidjo-images'
 		and public.vidjo_is_member()
 		and (storage.foldername(name))[1] = auth.uid()::text
 	);
@@ -627,7 +715,12 @@ values
 	('midtermsurvivals', 'Midterm Survivors', '#MidtermSurvivals', 'Study plans, exam memes, and surviving the middle of the semester together.', 'book', '#5D8CE8', 4),
 	('mentalhealth', 'Mental Health', '#MentalHealth', 'Gentle check-ins, coping tips, and a soft place to land.', 'heart', '#E46A8A', 5),
 	('studytogether', 'Study Together', '#StudyTogether', 'Find study buddies, share focus playlists, and stay accountable.', 'users', '#3FA37A', 6),
-	('greencampus', 'Green Campus', '#GreenCampus', 'Sustainability projects, plants, and little ways to care for the planet.', 'leaf', '#5CA84F', 7)
+	('greencampus', 'Green Campus', '#GreenCampus', 'Sustainability projects, plants, and little ways to care for the planet.', 'leaf', '#5CA84F', 7),
+	('lspustudents', 'LSPU Students', '#LSPUStudents', 'Students at Laguna State Polytechnic University sharing campus life.', 'users', '#5D8CE8', 8),
+	('musiclovers', 'Music Lovers', '#MusicLovers', 'Share tracks, playlists, and jam sessions with fellow musicians.', 'music', '#A77BE8', 9),
+	('animelovers', 'Anime Lovers', '#AnimeLovers', 'Discuss your favorite shows, movies, and manga.', 'spark', '#E46A8A', 10),
+	('bookclub', 'Book Club', '#BookClub', 'Reading lists, literary discussions, and book recommendations.', 'book', '#3FA37A', 11),
+	('gaming', 'Gamers Guild', '#GamersGuild', 'Co-op sessions, high scores, and gaming hangouts.', 'spark', '#D4A24C', 12)
 on conflict (slug) do update set
 	name = excluded.name,
 	tag = excluded.tag,
@@ -1056,12 +1149,13 @@ create table if not exists public.vidjo_comments (
 	post_owner_id uuid not null references auth.users(id) on delete cascade,
 	post_date date not null,
 	author_id uuid not null references auth.users(id) on delete cascade,
+	context text not null default 'friends' check (context in ('friends', 'community')),
 	body text not null check (char_length(body) between 1 and 500),
 	created_at timestamptz not null default now()
 );
 
 create index if not exists vidjo_comments_post_idx
-	on public.vidjo_comments (post_owner_id, post_date, created_at);
+	on public.vidjo_comments (post_owner_id, post_date, context, created_at);
 
 alter table public.vidjo_comments enable row level security;
 
@@ -1082,10 +1176,53 @@ create policy "vidjo comments insert own" on public.vidjo_comments
 drop policy if exists "vidjo comments delete own" on public.vidjo_comments;
 create policy "vidjo comments delete own" on public.vidjo_comments
 	for delete to authenticated
-	using (public.vidjo_is_member() and auth.uid() = author_id);
+	using (
+		public.vidjo_is_member()
+		and auth.uid() = author_id
+	);
+
+alter table public.vidjo_comments add column if not exists context text not null default 'friends';
 
 revoke all on public.vidjo_comments from anon;
 grant select, insert, delete on public.vidjo_comments to authenticated;
+
+-- ---------------------------------------------------------------------------
+-- Comment reports (flag others' comments to admins)
+-- ---------------------------------------------------------------------------
+
+create table if not exists public.vidjo_comment_reports (
+	id uuid primary key default gen_random_uuid(),
+	comment_id uuid not null references public.vidjo_comments(id) on delete cascade,
+	reporter_id uuid not null references auth.users(id) on delete cascade,
+	reason text not null default 'other',
+	created_at timestamptz not null default now()
+);
+
+alter table public.vidjo_comment_reports enable row level security;
+
+drop policy if exists "vidjo comment reports insert own" on public.vidjo_comment_reports;
+create policy "vidjo comment reports insert own"
+	on public.vidjo_comment_reports
+	for insert to authenticated
+	with check (public.vidjo_is_member() and auth.uid() = reporter_id);
+
+drop policy if exists "vidjo comment reports select" on public.vidjo_comment_reports;
+create policy "vidjo comment reports select"
+	on public.vidjo_comment_reports
+	for select to authenticated
+	using (
+		public.vidjo_is_member()
+		and (
+			exists (
+				select 1 from public.vidjo_profiles 
+				where user_id = auth.uid() and user_role = 'admin'
+			)
+			or auth.uid() = reporter_id
+		)
+	);
+
+revoke all on public.vidjo_comment_reports from anon;
+grant select, insert on public.vidjo_comment_reports to authenticated;
 
 -- ---------------------------------------------------------------------------
 -- Tighten video playback to match entry visibility

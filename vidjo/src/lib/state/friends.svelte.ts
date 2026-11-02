@@ -1,4 +1,5 @@
 import { isSupabaseConfigured, supabase, VIDEO_BUCKET } from '#lib/supabase';
+import { censor } from '#lib/censor';
 import type {
 	EntryRow,
 	Friend,
@@ -239,20 +240,27 @@ class FriendsState {
 
 	private async loadFriendPosts(friendIds: string[]): Promise<FriendPost[]> {
 		if (friendIds.length === 0) return [];
+		const viewerId = this.currentUserId || auth.ownerId;
 
 		const { data, error } = await supabase
 			.from('vidjo_entries')
 			.select('*')
-			.eq('privacy', 'friends')
+			.in('privacy', ['friends', 'community'])
 			.in('owner_id', friendIds)
 			.order('entry_date', { ascending: false })
 			.limit(100);
 
 		if (error) throw error;
 
-		const rows = ((data ?? []) as EntryRow[]).filter(
-			(row) => row.title || row.mind || row.refl || row.video_path
-		);
+		const rows = ((data ?? []) as EntryRow[]).filter((row) => {
+			const excluded = Array.isArray(row.excluded_friend_ids) ? row.excluded_friend_ids : [];
+			const included = Array.isArray(row.included_friend_ids) ? row.included_friend_ids : [];
+			if (excluded.includes(viewerId)) return false;
+			if (row.privacy === 'private' && !included.includes(viewerId)) return false;
+			// Community posts only cross into the friends feed when share_with_friends is set.
+			if (row.privacy === 'community' && !(row.share_with_friends ?? false)) return false;
+			return row.title || row.mind || row.refl || row.video_path;
+		});
 		const friendMap = new Map(this.friends.map((friend) => [friend.id, friend]));
 
 		return Promise.all(
@@ -370,7 +378,12 @@ class FriendsState {
 
 		const [{ data: reactionRows }, { data: commentRows }] = await Promise.all([
 			supabase.from('vidjo_reactions').select('*').in('post_owner_id', ids),
-			supabase.from('vidjo_comments').select('*').in('post_owner_id', ids).order('created_at')
+			supabase
+				.from('vidjo_comments')
+				.select('*')
+				.in('post_owner_id', ids)
+				.eq('context', 'friends')
+				.order('created_at')
 		]);
 
 		const reactions: Record<string, { counts: FriendPostReaction; mine: ReactionKey[] }> = {};
@@ -412,12 +425,16 @@ class FriendsState {
 			if (!comments[key]) comments[key] = [];
 			comments[key].push({
 				id: row.id as string,
+				authorId: row.author_id as string,
 				authorName:
 					(row.author_id as string) === this.currentUserId
-						? 'You'
+						? profile.displayName || 'You'
 						: (author?.display_name as string) || (author?.username as string) || 'VidJo student',
 				authorUsername: (author?.username as string) || 'student',
-				authorAvatar: (author?.avatar_url as string) || null,
+				authorAvatar:
+					(row.author_id as string) === this.currentUserId
+						? profile.avatarUrl
+						: (author?.avatar_url as string) || null,
 				text: (row.body as string) || '',
 				time: Number.isNaN(created.getTime())
 					? 'Recently'
@@ -691,7 +708,7 @@ class FriendsState {
 	}
 
 	async addComment(postId: string, text: string) {
-		const clean = text.trim();
+		const clean = censor(text.trim());
 		if (!clean) return;
 
 		const post = this.posts.find((item) => item.id === postId);
@@ -700,6 +717,7 @@ class FriendsState {
 		const key = postKey(post.authorId, post.date);
 		const temp: FriendComment = {
 			id: `local-${Date.now()}`,
+			authorId: auth.ownerId,
 			authorName: 'You',
 			authorUsername: profile.username,
 			authorAvatar: profile.avatarUrl,
@@ -719,6 +737,7 @@ class FriendsState {
 			.insert({
 				post_owner_id: post.authorId,
 				post_date: post.date,
+				context: 'friends',
 				author_id: auth.user.id,
 				body: clean
 			})
@@ -748,6 +767,45 @@ class FriendsState {
 					}
 				: item
 		);
+	}
+
+	async deleteComment(postId: string, commentId: string) {
+		const post = this.posts.find((item) => item.id === postId);
+		if (!post) return;
+
+		const key = postKey(post.authorId, post.date);
+		this.commentMap = {
+			...this.commentMap,
+			[key]: (this.commentMap[key] ?? []).filter((c) => c.id !== commentId)
+		};
+		this.posts = this.posts.map((item) =>
+			item.id === postId
+				? { ...item, comments: item.comments.filter((c) => c.id !== commentId) }
+				: item
+		);
+
+		if (isSupabaseConfigured && auth.user && isUuid(post.authorId)) {
+			try {
+				await supabase.from('vidjo_comments').delete().eq('id', commentId).eq('context', 'friends');
+			} catch {
+				// Optimistic update already applied; server failure is non-fatal for UI.
+			}
+		}
+	}
+
+	async reportComment(postId: string, commentId: string, reason: string) {
+		if (!isSupabaseConfigured || !auth.user) return;
+
+		try {
+			const { error } = await supabase.from('vidjo_comment_reports').insert({
+				comment_id: commentId,
+				reporter_id: auth.user.id,
+				reason
+			});
+			if (error) throw error;
+		} catch {
+			// Report failure is non-fatal for UI.
+		}
 	}
 
 	setFilter(filter: 'all' | 'video' | 'written') {

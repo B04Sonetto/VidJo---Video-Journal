@@ -2,6 +2,7 @@ import { auth } from '#lib/state/auth.svelte';
 import { journal } from '#lib/state/journal.svelte';
 import { profile } from '#lib/state/profile.svelte';
 import { isSupabaseConfigured, supabase, VIDEO_BUCKET } from '#lib/supabase';
+import { censor } from '#lib/censor';
 import type {
 	Community,
 	CommunityPost,
@@ -72,6 +73,46 @@ export const COMMUNITY_CATALOG: Omit<Community, 'memberCount' | 'joined'>[] = [
 		description: 'Sustainability projects, plants, and little ways to care for the planet.',
 		icon: 'leaf',
 		color: '#5CA84F'
+	},
+	{
+		slug: 'lspustudents',
+		name: 'LSPU Students',
+		tag: '#LSPUStudents',
+		description: 'Students at Laguna State Polytechnic University sharing campus life.',
+		icon: 'users',
+		color: '#5D8CE8'
+	},
+	{
+		slug: 'musiclovers',
+		name: 'Music Lovers',
+		tag: '#MusicLovers',
+		description: 'Share tracks, playlists, and jam sessions with fellow musicians.',
+		icon: 'music',
+		color: '#A77BE8'
+	},
+	{
+		slug: 'animelovers',
+		name: 'Anime Lovers',
+		tag: '#AnimeLovers',
+		description: 'Discuss your favorite shows, movies, and manga.',
+		icon: 'spark',
+		color: '#E46A8A'
+	},
+	{
+		slug: 'bookclub',
+		name: 'Book Club',
+		tag: '#BookClub',
+		description: 'Reading lists, literary discussions, and book recommendations.',
+		icon: 'book',
+		color: '#3FA37A'
+	},
+	{
+		slug: 'gaming',
+		name: 'Gamers Guild',
+		tag: '#GamersGuild',
+		description: 'Co-op sessions, high scores, and gaming hangouts.',
+		icon: 'spark',
+		color: '#D4A24C'
 	}
 ];
 
@@ -363,7 +404,12 @@ class CommunityState {
 
 		const [{ data: reactionRows }, { data: commentRows }] = await Promise.all([
 			supabase.from('vidjo_reactions').select('*').in('post_owner_id', ids),
-			supabase.from('vidjo_comments').select('*').in('post_owner_id', ids).order('created_at')
+			supabase
+				.from('vidjo_comments')
+				.select('*')
+				.in('post_owner_id', ids)
+				.eq('context', 'community')
+				.order('created_at')
 		]);
 
 		const reactions: Record<
@@ -407,12 +453,16 @@ class CommunityState {
 			if (!comments[key]) comments[key] = [];
 			comments[key].push({
 				id: row.id as string,
+				authorId: row.author_id as string,
 				authorName:
 					(row.author_id as string) === this.currentUserId
-						? 'You'
+						? profile.nickname || profile.username || 'You'
 						: (author?.display_name as string) || (author?.username as string) || 'VidJo student',
 				authorUsername: (author?.username as string) || 'student',
-				authorAvatar: (author?.avatar_url as string) || null,
+				authorAvatar:
+					(row.author_id as string) === this.currentUserId
+						? profile.avatarUrl
+						: (author?.avatar_url as string) || null,
 				text: row.body as string,
 				time: Number.isNaN(created.getTime())
 					? 'Recently'
@@ -466,13 +516,14 @@ class CommunityState {
 	}
 
 	async addComment(post: FriendPost, text: string) {
-		const clean = text.trim();
+		const clean = censor(text.trim());
 		if (!clean) return;
 
 		const key = postKey(post.authorId, post.date);
 		const temp: FriendComment = {
 			id: `local-${Date.now()}`,
-			authorName: 'You',
+			authorId: auth.user?.id ?? '',
+			authorName: profile.nickname || profile.username || 'You',
 			authorUsername: profile.username || 'student',
 			authorAvatar: profile.avatarUrl,
 			text: clean,
@@ -491,6 +542,7 @@ class CommunityState {
 					.insert({
 						post_owner_id: post.authorId,
 						post_date: post.date,
+						context: 'community',
 						author_id: auth.user.id,
 						body: clean
 					})
@@ -509,6 +561,44 @@ class CommunityState {
 			} catch (error) {
 				console.warn('[VidJo] Could not save the comment.', error);
 			}
+		}
+	}
+
+	async deleteComment(post: FriendPost, commentId: string) {
+		const key = postKey(post.authorId, post.date);
+		this.commentMap = {
+			...this.commentMap,
+			[key]: (this.commentMap[key] ?? []).filter((c) => c.id !== commentId)
+		};
+		this.posts = this.posts.map((p) =>
+			p.id === post.id ? { ...p, comments: p.comments.filter((c) => c.id !== commentId) } : p
+		);
+
+		if (isSupabaseConfigured && auth.user && isUuid(post.authorId)) {
+			try {
+				await supabase
+					.from('vidjo_comments')
+					.delete()
+					.eq('id', commentId)
+					.eq('context', 'community');
+			} catch {
+				// Optimistic update already applied; server failure is non-fatal for UI.
+			}
+		}
+	}
+
+	async reportComment(post: FriendPost, commentId: string, reason: string) {
+		if (!isSupabaseConfigured || !auth.user || !isUuid(post.authorId)) return;
+
+		try {
+			const { error } = await supabase.from('vidjo_comment_reports').insert({
+				comment_id: commentId,
+				reporter_id: auth.user.id,
+				reason
+			});
+			if (error) throw error;
+		} catch {
+			// Report failure is non-fatal for UI.
 		}
 	}
 
