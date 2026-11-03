@@ -1,12 +1,14 @@
 <script lang="ts">
 	import { friends } from '#lib/state/friends.svelte';
 	import { profile } from '#lib/state/profile.svelte';
+	import { auth } from '#lib/state/auth.svelte';
 	import { journal } from '#lib/state/journal.svelte';
 	import { nav } from '#lib/state/navigation.svelte';
 	import { TODAY } from '#lib/dates';
 	import { untrack } from 'svelte';
 	import type { MoodKey } from '#lib/types';
 	import ProfileModal from '#lib/components/ProfileModal.svelte';
+	import Avatar from '#lib/components/Avatar.svelte';
 	import { censor } from '#lib/censor';
 
 	let activeSubTab = $state<'feed' | 'requests' | 'list'>('feed');
@@ -96,12 +98,25 @@
 		friends.addComment(postId, text);
 		commentInputs[postId] = '';
 	}
+
+	function deleteComment(postId: string, commentId: string) {
+		if (!confirm('Delete this note?')) return;
+		void friends.deleteComment(postId, commentId);
+		journal.toast('Note deleted');
+	}
+
+	function reportComment(postId: string, commentId: string) {
+		const reason = prompt('Why are you reporting this note?')?.trim();
+		if (!reason) return;
+		void friends.reportComment(postId, commentId, reason);
+		journal.toast('Report sent to moderators. Thank you.');
+	}
 </script>
 
 <div class="mx-auto w-full max-w-[1100px] px-4 py-6 min-[900px]:px-6">
 	<!-- ── Top Hero Bar ── -->
 	<header
-		class="relative overflow-hidden rounded-[28px] border border-[#523A7A] bg-[radial-gradient(ellipse_at_top,#4A2F7A_0%,#24143D_70%)] p-6 text-white shadow-[0_24px_60px_rgba(0,0,0,.5)] min-[720px]:p-8"
+		class="relative overflow-hidden rounded-[28px] border border-cover-edge bg-[radial-gradient(ellipse_at_top,var(--color-cover)_0%,var(--color-desk)_70%)] p-6 text-white shadow-[0_24px_60px_rgba(0,0,0,.5)] min-[720px]:p-8"
 	>
 		<!-- Background sparkles -->
 		<span
@@ -351,7 +366,7 @@
 					type="text"
 					placeholder="Enter Friend Code (e.g. VJ-7K9M2P)"
 					maxlength="16"
-					class="h-11 w-full rounded-xl border border-[#4D366D]/40 bg-[#24143D] px-3.5 font-ui text-sm font-medium text-ink uppercase placeholder:text-[#9B8CB5] focus:border-accent focus:outline-none"
+					class="h-11 w-full rounded-xl border border-[#4D366D]/60 bg-desk/70 px-3.5 font-ui text-sm font-medium tracking-wide text-white uppercase placeholder:text-[#9B8CB5] focus:border-accent focus:outline-none"
 					disabled={addBusy}
 				/>
 			</div>
@@ -480,15 +495,13 @@
 							<div class="relative">
 								<div class="rounded-full bg-[linear-gradient(135deg,#D4A24C,#8B6FD0)] p-[2px]">
 									<div class="rounded-full bg-[#1C142B] p-[2px]">
-										{#if story.avatarUrl && story.avatarUrl.length > 2}
-											<img src={story.avatarUrl} alt="" class="size-16 rounded-full object-cover" />
-										{:else}
-											<span
-												class="flex size-16 items-center justify-center rounded-full bg-[linear-gradient(135deg,#C9B8E8,#8B6FD0)] font-display text-xl font-bold text-white"
-											>
-												{story.avatarUrl || story.displayName[0]}
-											</span>
-										{/if}
+										<Avatar
+											src={story.avatarUrl}
+											name={story.displayName}
+											className="size-16"
+											textClass="text-xl"
+											ring=""
+										/>
 									</div>
 								</div>
 								{#if story.isOnline}
@@ -568,20 +581,12 @@
 					<!-- Post Header: Author info, timestamp, mood badge -->
 					<div class="flex flex-wrap items-center justify-between gap-3 border-b border-[#4D366D]/40 pb-4">
 						<div class="flex items-center gap-3">
-							{#if post.authorAvatar && post.authorAvatar.length > 2}
-								<img
-									src={post.authorAvatar}
-									alt=""
-									class="size-11 rounded-full object-cover ring-2 ring-gold/50"
-								/>
-							{:else}
-								<span
-									class="flex size-11 items-center justify-center rounded-full bg-[linear-gradient(135deg,#C9B8E8,#8B6FD0)] font-display text-xl font-bold text-white shadow-sm ring-2 ring-gold/40"
-									aria-hidden="true"
-								>
-									{post.authorName[0]}
-								</span>
-							{/if}
+							<Avatar
+								src={post.authorAvatar}
+								name={post.authorName}
+								className="size-11"
+								textClass="text-xl"
+							/>
 
 							<div>
 								<div class="flex items-center gap-2">
@@ -590,7 +595,7 @@
 									</h2>
 									{#if post.isOwner}
 										<span
-											class="py-0.2 rounded bg-accent/10 px-1.5 font-ui text-[10px] font-bold text-accent"
+											class="py-0.2 rounded bg-white/10 px-1.5 font-ui text-[10px] font-bold text-lav"
 										>
 											You
 										</span>
@@ -607,7 +612,7 @@
 						<div class="flex items-center gap-2">
 							{#if post.mood && MOOD_ICONS[post.mood]}
 								<span
-									class="inline-flex items-center gap-1.5 rounded-full border border-[#D5C6E8] bg-light px-3 py-1 font-ui text-xs font-bold text-accent"
+									class="inline-flex items-center gap-1.5 rounded-full border border-gold/30 bg-gold/15 px-3 py-1 font-ui text-xs font-bold text-gold"
 								>
 									<svg
 										width="14"
@@ -649,7 +654,7 @@
 							{/if}
 
 							<span
-								class="inline-flex items-center gap-1.5 rounded-full bg-white/10 px-2.5 py-1 font-ui text-[11px] text-white font-semibold text-ink-soft"
+								class="inline-flex items-center gap-1.5 rounded-full bg-white/10 px-2.5 py-1 font-ui text-[11px] font-semibold text-white/80"
 								title="Shared with friends"
 							>
 								<svg
@@ -922,36 +927,59 @@
 								<div class="mb-3 space-y-2">
 									{#each post.comments as comment (comment.id)}
 										<div class="flex items-start gap-2.5 rounded-lg bg-white/10 p-2.5 shadow-2xs">
-											{#if comment.authorAvatar}
-												<img
-													src={comment.authorAvatar}
-													alt=""
-													class="size-7 shrink-0 rounded-full object-cover"
-												/>
-											{:else}
-												<span
-													class="flex size-7 shrink-0 items-center justify-center rounded-full bg-lav/40 font-display text-sm font-bold text-accent"
-												>
-													{comment.authorName[0]}
-												</span>
-											{/if}
+											<Avatar
+												src={comment.authorAvatar}
+												name={comment.authorName}
+												className="size-7"
+												textClass="text-sm"
+												ring=""
+											/>
 											<div class="min-w-0 flex-1">
 												<div class="flex items-baseline justify-between gap-2">
-													<button
-														type="button"
-														class="font-ui text-xs text-white hover:underline"
-														onclick={() => {
-															viewedUserId = comment.authorId;
-															profileModalOpen = true;
-														}}
-													>
-														{comment.authorName}
-													</button>
-													<time class="font-ui text-[10px] text-[#BBA8E0]">{comment.time}</time>
+													<div class="flex min-w-0 items-baseline gap-1.5">
+														<button
+															type="button"
+															class="truncate font-ui text-xs text-white hover:underline"
+															onclick={() => {
+																viewedUserId = comment.authorId;
+																profileModalOpen = true;
+															}}
+														>
+															{comment.authorName}
+														</button>
+														{#if comment.authorId === auth.ownerId}
+															<span
+																class="rounded-full bg-accent/30 px-1.5 py-0.5 font-ui text-[9px] font-bold text-white"
+																>You</span
+															>
+														{/if}
+													</div>
+													<time class="shrink-0 font-ui text-[10px] text-[#BBA8E0]">{comment.time}</time>
 												</div>
 												<p class="mt-0.5 font-hand text-base leading-tight text-white">
 													{censor(comment.text)}
 												</p>
+												{#if comment.id.startsWith('local-') === false}
+													<div class="mt-1 flex items-center gap-3">
+														{#if comment.authorId === auth.ownerId}
+															<button
+																type="button"
+																class="font-ui text-[10px] text-[#BBA8E0] hover:text-[#FF9B9B]"
+																onclick={() => deleteComment(post.id, comment.id)}
+															>
+																Delete
+															</button>
+														{:else}
+															<button
+																type="button"
+																class="font-ui text-[10px] text-[#BBA8E0] hover:text-gold"
+																onclick={() => reportComment(post.id, comment.id)}
+															>
+																Report
+															</button>
+														{/if}
+													</div>
+												{/if}
 											</div>
 										</div>
 									{/each}
@@ -1006,19 +1034,12 @@
 							>
 								<div>
 									<div class="flex items-start gap-3">
-										{#if request.fromAvatarUrl && request.fromAvatarUrl.length > 2}
-											<img
-												src={request.fromAvatarUrl}
-												alt=""
-												class="size-12 rounded-full object-cover ring-2 ring-gold/50"
-											/>
-										{:else}
-											<span
-												class="flex size-12 items-center justify-center rounded-full bg-[linear-gradient(135deg,#C9B8E8,#8B6FD0)] font-display text-xl font-bold text-white ring-2 ring-gold/50"
-											>
-												{request.fromDisplayName[0]}
-											</span>
-										{/if}
+										<Avatar
+											src={request.fromAvatarUrl}
+											name={request.fromDisplayName}
+											className="size-12"
+											textClass="text-xl"
+										/>
 										<div>
 											<b class="block font-display text-lg leading-tight text-white"
 												>{request.fromDisplayName}</b
@@ -1071,19 +1092,13 @@
 							>
 								<div>
 									<div class="flex items-start gap-3">
-										{#if request.toAvatarUrl && request.toAvatarUrl.length > 2}
-											<img
-												src={request.toAvatarUrl}
-												alt=""
-												class="size-12 rounded-full object-cover ring-2 ring-lav/40"
-											/>
-										{:else}
-											<span
-												class="flex size-12 items-center justify-center rounded-full bg-white/10 font-display text-xl text-lav"
-											>
-												{request.toDisplayName?.[0] || '?'}
-											</span>
-										{/if}
+										<Avatar
+											src={request.toAvatarUrl}
+											name={request.toDisplayName || 'VidJo student'}
+											className="size-12"
+											textClass="text-xl"
+											ring="ring-2 ring-lav/40"
+										/>
 										<div class="min-w-0">
 											<b class="block font-display text-lg leading-tight text-white">
 												{request.toDisplayName || 'Request sent'}
@@ -1150,19 +1165,13 @@
 							<div class="flex items-start justify-between gap-3">
 								<div class="flex items-center gap-3">
 									<div class="relative">
-										{#if friend.avatarUrl && friend.avatarUrl.length > 2}
-											<img
-												src={friend.avatarUrl}
-												alt=""
-												class="size-12 rounded-full object-cover ring-2 ring-gold/40"
-											/>
-										{:else}
-											<span
-												class="flex size-12 items-center justify-center rounded-full bg-[linear-gradient(135deg,#C9B8E8,#8B6FD0)] font-display text-xl font-bold text-white ring-2 ring-gold/40"
-											>
-												{friend.avatarUrl || friend.displayName[0]}
-											</span>
-										{/if}
+										<Avatar
+											src={friend.avatarUrl}
+											name={friend.displayName}
+											className="size-12"
+											textClass="text-xl"
+											ring="ring-2 ring-gold/40"
+										/>
 										{#if friend.isOnline}
 											<span
 												class="absolute right-0 bottom-0 size-3 rounded-full bg-[#3F7A4F] ring-2 ring-[#1C142B]"

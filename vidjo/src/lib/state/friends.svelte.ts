@@ -11,6 +11,7 @@ import type {
 import { profile } from '#lib/state/profile.svelte';
 import { journal } from '#lib/state/journal.svelte';
 import { auth } from '#lib/state/auth.svelte';
+import { cleanDisplayName, normalizeImageUrl } from '#lib/avatar';
 
 const FRIENDS_CACHE_KEY = 'vidjo-friends-cache';
 const SIGNED_URL_TTL = 60 * 60 * 2;
@@ -153,8 +154,11 @@ class FriendsState {
 			friendProfiles = (profiles ?? []).map((row) => ({
 				id: row.user_id as string,
 				username: (row.username as string) || 'student',
-				displayName: (row.display_name as string) || (row.username as string) || 'VidJo student',
-				avatarUrl: (row.avatar_url as string) || null,
+				displayName: cleanDisplayName(
+					(row.display_name as string) || (row.username as string),
+					'VidJo student'
+				),
+				avatarUrl: normalizeImageUrl((row.avatar_url as string) || null),
 				bio: (row.bio as string) || '',
 				friendCode: (row.friend_code as string) || '',
 				status: 'accepted'
@@ -213,8 +217,9 @@ class FriendsState {
 			const incoming = (row.to_user as string) === userId;
 			const otherId = incoming ? (row.from_user as string) : (row.to_user as string);
 			const other = profileMap[otherId];
-			const otherName =
-				(other?.display_name as string) || (other?.username as string) || 'VidJo student';
+			const otherName = cleanDisplayName(
+				(other?.display_name as string) || (other?.username as string)
+			);
 
 			return {
 				id: row.id as string,
@@ -222,7 +227,7 @@ class FriendsState {
 				toUserId: row.to_user as string,
 				fromUsername: (other?.username as string) || '',
 				fromDisplayName: otherName,
-				fromAvatarUrl: (other?.avatar_url as string) || null,
+				fromAvatarUrl: normalizeImageUrl((other?.avatar_url as string) || null),
 				fromBio: (other?.bio as string) || '',
 				fromFriendCode: (other?.friend_code as string) || undefined,
 				toFriendCode: incoming
@@ -230,7 +235,7 @@ class FriendsState {
 					: (other?.friend_code as string) || undefined,
 				toUsername: (other?.username as string) || '',
 				toDisplayName: otherName,
-				toAvatarUrl: (other?.avatar_url as string) || null,
+				toAvatarUrl: normalizeImageUrl((other?.avatar_url as string) || null),
 				status: 'pending' as const,
 				direction: incoming ? ('incoming' as const) : ('outgoing' as const),
 				createdAt: row.created_at as string
@@ -283,9 +288,9 @@ class FriendsState {
 				return {
 					id: `friend-${row.owner_id}-${row.entry_date}`,
 					authorId: row.owner_id,
-					authorName: author?.displayName || author?.username || 'VidJo student',
+					authorName: cleanDisplayName(author?.displayName || author?.username),
 					authorUsername: author?.username || 'student',
-					authorAvatar: author?.avatarUrl || null,
+					authorAvatar: normalizeImageUrl(author?.avatarUrl) || null,
 					friendCode: author?.friendCode || undefined,
 					date: row.entry_date,
 					dateFormatted: formatPostDate(row.entry_date),
@@ -308,9 +313,9 @@ class FriendsState {
 
 	private getMyFriendsEntries(): FriendPost[] {
 		const out: FriendPost[] = [];
-		const myName = profile.displayName;
+		const myName = cleanDisplayName(profile.displayName, 'Friend');
 		const myUsername = profile.username;
-		const myAvatar = profile.avatarUrl;
+		const myAvatar = normalizeImageUrl(profile.avatarUrl);
 		const myCode = profile.friendCode;
 		const authorId = this.currentUserId || auth.ownerId;
 
@@ -422,19 +427,22 @@ class FriendsState {
 			const key = postKey(row.post_owner_id as string, row.post_date as string);
 			const author = authorMap.get(row.author_id as string);
 			const created = new Date(row.created_at as string);
+			const own = (row.author_id as string) === this.currentUserId;
 			if (!comments[key]) comments[key] = [];
 			comments[key].push({
 				id: row.id as string,
 				authorId: row.author_id as string,
-				authorName:
-					(row.author_id as string) === this.currentUserId
-						? profile.displayName || 'You'
-						: (author?.display_name as string) || (author?.username as string) || 'VidJo student',
-				authorUsername: (author?.username as string) || 'student',
-				authorAvatar:
-					(row.author_id as string) === this.currentUserId
-						? profile.avatarUrl
-						: (author?.avatar_url as string) || null,
+				authorName: own
+					? profile.nickname || profile.username || 'You'
+					: cleanDisplayName(
+							(author?.display_name as string) || (author?.username as string)
+						),
+				authorUsername: own
+					? profile.username
+					: (author?.username as string) || 'student',
+				authorAvatar: own
+					? normalizeImageUrl(profile.avatarUrl)
+					: normalizeImageUrl((author?.avatar_url as string) || null),
 				text: (row.body as string) || '',
 				time: Number.isNaN(created.getTime())
 					? 'Recently'
@@ -718,9 +726,9 @@ class FriendsState {
 		const temp: FriendComment = {
 			id: `local-${Date.now()}`,
 			authorId: auth.ownerId,
-			authorName: 'You',
+			authorName: profile.nickname || profile.username || 'You',
 			authorUsername: profile.username,
-			authorAvatar: profile.avatarUrl,
+			authorAvatar: normalizeImageUrl(profile.avatarUrl),
 			text: clean,
 			time: 'Just now'
 		};

@@ -7,7 +7,9 @@
 	import { community } from '#lib/state/community.svelte';
 	import { nav, type ProfileTab } from '#lib/state/navigation.svelte';
 	import { isSupabaseConfigured } from '#lib/supabase';
+	import { normalizeImageUrl } from '#lib/avatar';
 	import CommunityIcon from '#lib/components/CommunityIcon.svelte';
+	import Avatar from '#lib/components/Avatar.svelte';
 
 	const tabs: { id: ProfileTab; label: string }[] = [
 		{ id: 'overview', label: 'Overview' },
@@ -174,6 +176,8 @@
 
 	let recentlyShared = $derived(myPosts.slice(0, 4));
 
+	let bannerSrc = $derived(normalizeImageUrl(profile.bannerUrl));
+
 	$effect(() => {
 		const key = [
 			nav.profileTab,
@@ -181,7 +185,8 @@
 			profile.username,
 			profile.nickname,
 			profile.bio,
-			profile.avatarUrl ?? ''
+			profile.avatarUrl ?? '',
+			profile.bannerUrl ?? ''
 		].join('|');
 
 		if (nav.profileTab === 'edit' && key !== editSeed) {
@@ -216,15 +221,43 @@
 
 	async function saveEdits(event: SubmitEvent) {
 		event.preventDefault();
+		if (editSaving) return;
 		editSaving = true;
 		editError = '';
+
+		let avatarUrl = editAvatar.trim() || null;
+		let bannerUrl = editBanner.trim() || null;
+
+		if (avatarFile) {
+			const upload = await profile.uploadImage(avatarFile, 'avatar');
+			if (upload.error || !upload.url) {
+				editSaving = false;
+				editError = upload.error || 'Could not upload your avatar.';
+				return;
+			}
+			avatarUrl = upload.url;
+			editAvatar = upload.url;
+			avatarFile = null;
+		}
+
+		if (bannerFile) {
+			const upload = await profile.uploadImage(bannerFile, 'banner');
+			if (upload.error || !upload.url) {
+				editSaving = false;
+				editError = upload.error || 'Could not upload your banner.';
+				return;
+			}
+			bannerUrl = upload.url;
+			editBanner = upload.url;
+			bannerFile = null;
+		}
 
 		const result = await profile.saveProfile({
 			username: editUsername,
 			display_name: editNickname,
 			bio: editBio,
-			avatar_url: editAvatar.trim() || null,
-			banner_url: editBanner.trim() || profile.bannerUrl
+			avatar_url: avatarUrl,
+			banner_url: bannerUrl
 		});
 
 		editSaving = false;
@@ -271,11 +304,12 @@
 		<div
 			class="relative h-44 min-[720px]:h-52"
 		>
-			{#if profile.bannerUrl}
+			{#if bannerSrc}
 				<img
-					src={profile.bannerUrl}
+					src={bannerSrc}
 					alt=""
 					class="absolute inset-0 h-full w-full object-cover"
+					referrerpolicy="no-referrer"
 				/>
 			{:else}
 				<div
@@ -332,19 +366,13 @@
 			</div>
 			<div class="absolute -bottom-16 left-1/2 flex -translate-x-1/2 flex-col items-center">
 				<div class="relative">
-					{#if profile.avatarUrl}
-						<img
-							src={profile.avatarUrl}
-							alt=""
-							class="size-32 rounded-full border-4 border-gold/60 object-cover shadow-[0_20px_40px_rgba(0,0,0,.45)]"
-						/>
-					{:else}
-						<div
-							class="flex size-32 items-center justify-center rounded-full border-4 border-gold/60 bg-[linear-gradient(135deg,#C9B8E8,#7D58C2)] font-display text-5xl font-bold text-white shadow-[0_20px_40px_rgba(0,0,0,.45)]"
-						>
-							{profile.initials}
-						</div>
-					{/if}
+					<Avatar
+						src={profile.avatarUrl}
+						name={profile.displayName}
+						className="size-32"
+						textClass="text-5xl"
+						ring="border-4 border-gold/60 shadow-[0_20px_40px_rgba(0,0,0,.45)]"
+					/>
 					<span
 						class="absolute right-2 bottom-2 flex size-8 items-center justify-center rounded-full bg-[#3F7A4F] text-white ring-4 ring-[#24143D]"
 					>
@@ -413,7 +441,7 @@
 					<p class="font-ui text-xs text-[#BBA8E0]">Pages written</p>
 				</div>
 				<div
-					class="rounded-2xl border border-[#F0D9A8] bg-[linear-gradient(135deg,rgba(212,162,76,.18),transparent)] p-4"
+					class="rounded-2xl border border-gold/40 bg-[linear-gradient(135deg,rgba(212,162,76,.18),transparent)] p-4"
 				>
 					<p
 						class="flex items-center justify-center gap-1.5 font-display text-2xl font-bold text-gold"
@@ -552,7 +580,7 @@
 			</div>
 
 			<div
-				class="rounded-[26px] border border-[#E6D9B8] bg-desk-2 p-6 text-white shadow-[0_18px_44px_rgba(0,0,0,.38)] lg:col-span-2"
+				class="rounded-[26px] border border-[#4D366D] bg-desk-2 p-6 text-white shadow-[0_18px_44px_rgba(0,0,0,.38)] lg:col-span-2"
 			>
 				<div class="flex items-center justify-between">
 					<h2 class="font-display text-xl font-bold">Recently shared</h2>
@@ -583,7 +611,7 @@
 						{#each recentlyShared as post (post.date)}
 							<button
 								type="button"
-								class="group rounded-2xl border border-line bg-white/10 p-4 text-left text-white transition-all hover:-translate-y-0.5 hover:shadow-md"
+								class="group rounded-2xl border border-white/10 bg-white/10 p-4 text-left text-white transition-all hover:-translate-y-0.5 hover:shadow-md"
 								onclick={() => nav.jump(post.date)}
 							>
 								<div class="flex items-center justify-between gap-2">
@@ -624,7 +652,7 @@
 		</div>
 	{:else if nav.profileTab === 'portfolio'}
 		<div
-			class="mt-6 rounded-[26px] border border-[#E6D9B8] bg-desk-2 p-6 text-white shadow-[0_18px_44px_rgba(0,0,0,.38)]"
+			class="mt-6 rounded-[26px] border border-[#4D366D] bg-desk-2 p-6 text-white shadow-[0_18px_44px_rgba(0,0,0,.38)]"
 		>
 			<div class="flex flex-wrap items-center justify-between gap-2">
 				<div>
@@ -657,7 +685,7 @@
 					{#each myPosts as post (post.date)}
 						<button
 							type="button"
-							class="group rounded-2xl border border-line bg-white/10 p-4 text-left text-white transition-all hover:-translate-y-0.5 hover:shadow-md"
+							class="group rounded-2xl border border-white/10 bg-white/10 p-4 text-left text-white transition-all hover:-translate-y-0.5 hover:shadow-md"
 							onclick={() => nav.jump(post.date)}
 						>
 							<div class="flex items-center justify-between gap-2">
@@ -938,13 +966,14 @@
 						<span class="text-right font-ui text-[11px] text-[#BBA8E0]">{editBio.length}/200</span>
 					</label>
 
-					<label class="grid gap-1.5">
+					<div class="grid gap-1.5">
 						<span class="font-ui text-xs font-bold tracking-wider text-gold uppercase"
 							>Avatar image URL</span
 						>
 						<input
 							bind:value={editAvatar}
 							type="url"
+							aria-label="Avatar image URL"
 							placeholder="https://…"
 							class="h-11 rounded-xl border border-white/15 bg-[#24143D] px-3.5 font-ui text-sm text-white placeholder:text-[#9B8CB5] focus:border-gold/60 focus:outline-none"
 						/>
@@ -960,15 +989,19 @@
 								}}
 							/>
 						</label>
-					</label>
+						{#if avatarFile}
+							<span class="font-ui text-[11px] text-lav">Selected: {avatarFile.name}</span>
+						{/if}
+					</div>
 
-					<label class="grid gap-1.5">
+					<div class="grid gap-1.5">
 						<span class="font-ui text-xs font-bold tracking-wider text-gold uppercase"
 							>Profile banner URL</span
 						>
 						<input
 							bind:value={editBanner}
 							type="url"
+							aria-label="Profile banner URL"
 							placeholder="https://…"
 							class="h-11 rounded-xl border border-white/15 bg-[#24143D] px-3.5 font-ui text-sm text-white placeholder:text-[#9B8CB5] focus:border-gold/60 focus:outline-none"
 						/>
@@ -984,7 +1017,22 @@
 								}}
 							/>
 						</label>
-					</label>
+						{#if bannerFile}
+							<span class="font-ui text-[11px] text-lav">Selected: {bannerFile.name}</span>
+						{/if}
+						{#if editBanner || bannerFile}
+							<button
+								type="button"
+								class="justify-self-start font-ui text-[11px] font-semibold text-[#FF9B9B] hover:underline"
+								onclick={() => {
+									editBanner = '';
+									bannerFile = null;
+								}}
+							>
+								Remove banner
+							</button>
+						{/if}
+					</div>
 				</div>
 
 				{#if editError}

@@ -3,6 +3,8 @@
 	import { profile } from '#lib/state/profile.svelte';
 	import { journal } from '#lib/state/journal.svelte';
 	import { friends } from '#lib/state/friends.svelte';
+	import { cleanDisplayName } from '#lib/avatar';
+	import Avatar from '#lib/components/Avatar.svelte';
 	import { onMount } from 'svelte';
 	import { SvelteDate } from 'svelte/reactivity';
 
@@ -43,13 +45,11 @@
 		}
 	});
 
-	const modalName = $derived(isViewingOther ? viewedUser?.display_name : profile.displayName);
+	const modalName = $derived(
+		cleanDisplayName(isViewingOther ? viewedUser?.display_name : profile.displayName)
+	);
 	const modalUsername = $derived(isViewingOther ? viewedUser?.username : profile.username);
 	const modalAvatar = $derived(isViewingOther ? viewedUser?.avatar_url : profile.avatarUrl);
-	const modalInitials = $derived(
-		(isViewingOther ? viewedUser?.display_name : profile.displayName)?.trim()[0]?.toUpperCase() ||
-			'V'
-	);
 	const modalFriendCode = $derived(isViewingOther ? viewedUser?.friend_code : profile.friendCode);
 	const modalBio = $derived(isViewingOther ? viewedUser?.bio : profile.bio);
 
@@ -111,7 +111,7 @@
 			display_name: editDisplayName,
 			bio: editBio,
 			avatar_url: editAvatar,
-			banner_url: null
+			banner_url: profile.bannerUrl
 		});
 
 		if (result.error) {
@@ -248,19 +248,13 @@
 						>
 							<!-- Avatar -->
 							<div class="relative shrink-0">
-								{#if modalAvatar}
-									<img
-										src={modalAvatar}
-										alt={modalName}
-										class="size-24 rounded-full border-4 border-gold/60 object-cover shadow-lg"
-									/>
-								{:else}
-									<div
-										class="flex size-24 items-center justify-center rounded-full border-4 border-gold/60 bg-[linear-gradient(135deg,#C9B8E8,#7D58C2)] font-display text-4xl font-bold text-white shadow-lg"
-									>
-										{modalInitials}
-									</div>
-								{/if}
+								<Avatar
+									src={modalAvatar}
+									name={modalName}
+									className="size-24"
+									textClass="text-4xl"
+									ring="border-4 border-gold/60 shadow-lg"
+								/>
 								<span
 									class="absolute right-0 bottom-0 flex size-6 items-center justify-center rounded-full bg-[#3F7A4F] text-xs text-white ring-2 ring-paper"
 									title="Active student"
@@ -454,19 +448,13 @@
 							<div
 								class="mt-3 flex items-center gap-3 rounded-xl border border-line bg-paper p-3 shadow-sm"
 							>
-								{#if modalAvatar}
-									<img
-										src={modalAvatar}
-										alt=""
-										class="size-11 rounded-full object-cover ring-2 ring-gold/40"
-									/>
-								{:else}
-									<div
-										class="flex size-11 items-center justify-center rounded-full bg-[linear-gradient(135deg,#C9B8E8,#7D58C2)] font-display text-lg font-bold text-white ring-2 ring-gold/40"
-									>
-										{modalInitials}
-									</div>
-								{/if}
+								<Avatar
+									src={modalAvatar}
+									name={modalName}
+									className="size-11"
+									textClass="text-lg"
+									ring="ring-2 ring-gold/40"
+								/>
 								<div class="min-w-0 flex-1">
 									<div class="flex items-center gap-1.5">
 										<b class="truncate font-display text-sm font-bold text-ink">{modalName}</b>
@@ -547,7 +535,10 @@
 											theme.id
 												? 'border-accent bg-accent/20 ring-2 ring-accent'
 												: 'border-white/10 text-ink-soft hover:border-white/20'}"
-											onclick={() => (profile.theme = theme.id)}
+											onclick={() => {
+												profile.theme = theme.id;
+												void profile.savePreferences();
+											}}
 										>
 											<span
 												class="size-6 rounded-full"

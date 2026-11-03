@@ -3,6 +3,7 @@ import { journal } from '#lib/state/journal.svelte';
 import { profile } from '#lib/state/profile.svelte';
 import { isSupabaseConfigured, supabase, VIDEO_BUCKET } from '#lib/supabase';
 import { censor } from '#lib/censor';
+import { cleanDisplayName, normalizeImageUrl } from '#lib/avatar';
 import type {
 	Community,
 	CommunityPost,
@@ -369,10 +370,11 @@ class CommunityState {
 				return {
 					id: `community-${row.owner_id}-${row.entry_date}`,
 					authorId: row.owner_id as string,
-					authorName:
-						(author?.display_name as string) || (author?.username as string) || 'VidJo student',
+					authorName: cleanDisplayName(
+						(author?.display_name as string) || (author?.username as string)
+					),
 					authorUsername: (author?.username as string) || 'student',
-					authorAvatar: (author?.avatar_url as string) || null,
+					authorAvatar: normalizeImageUrl((author?.avatar_url as string) || null),
 					friendCode: (author?.friend_code as string) || undefined,
 					date: row.entry_date as string,
 					dateFormatted: formatPostDate(row.entry_date as string),
@@ -450,19 +452,22 @@ class CommunityState {
 			const key = postKey(row.post_owner_id as string, row.post_date as string);
 			const author = authorMap.get(row.author_id as string);
 			const created = new Date(row.created_at as string);
+			const own = (row.author_id as string) === this.currentUserId;
 			if (!comments[key]) comments[key] = [];
 			comments[key].push({
 				id: row.id as string,
 				authorId: row.author_id as string,
-				authorName:
-					(row.author_id as string) === this.currentUserId
-						? profile.nickname || profile.username || 'You'
-						: (author?.display_name as string) || (author?.username as string) || 'VidJo student',
-				authorUsername: (author?.username as string) || 'student',
-				authorAvatar:
-					(row.author_id as string) === this.currentUserId
-						? profile.avatarUrl
-						: (author?.avatar_url as string) || null,
+				authorName: own
+					? profile.nickname || profile.username || 'You'
+					: cleanDisplayName(
+							(author?.display_name as string) || (author?.username as string)
+						),
+				authorUsername: own
+					? profile.username
+					: (author?.username as string) || 'student',
+				authorAvatar: own
+					? normalizeImageUrl(profile.avatarUrl)
+					: normalizeImageUrl((author?.avatar_url as string) || null),
 				text: row.body as string,
 				time: Number.isNaN(created.getTime())
 					? 'Recently'
@@ -522,10 +527,10 @@ class CommunityState {
 		const key = postKey(post.authorId, post.date);
 		const temp: FriendComment = {
 			id: `local-${Date.now()}`,
-			authorId: auth.user?.id ?? '',
+			authorId: auth.ownerId,
 			authorName: profile.nickname || profile.username || 'You',
 			authorUsername: profile.username || 'student',
-			authorAvatar: profile.avatarUrl,
+			authorAvatar: normalizeImageUrl(profile.avatarUrl),
 			text: clean,
 			time: 'Just now'
 		};

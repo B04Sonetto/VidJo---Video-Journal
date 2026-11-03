@@ -7,6 +7,7 @@
 	import { community } from '#lib/state/community.svelte';
 	import { TODAY } from '#lib/dates';
 	import { isSupabaseConfigured } from '#lib/supabase';
+	import Avatar from '#lib/components/Avatar.svelte';
 
 	let { onCalendar }: { onCalendar: () => void } = $props();
 
@@ -209,20 +210,13 @@
 				aria-label={`Account menu for ${profile.displayName}`}
 				onclick={() => (menuOpen = !menuOpen)}
 			>
-				{#if profile.avatarUrl}
-					<img
-						src={profile.avatarUrl}
-						alt=""
-						class="size-[38px] rounded-full object-cover shadow-[0_0_0_2px_var(--color-gold)]"
-					/>
-				{:else}
-					<span
-						class="flex size-[38px] items-center justify-center rounded-full bg-[linear-gradient(135deg,#C9B8E8,#8B6FD0)] font-display text-lg font-bold text-white shadow-[0_0_0_2px_var(--color-gold)]"
-						aria-hidden="true"
-					>
-						{profile.initials}
-					</span>
-				{/if}
+				<Avatar
+					src={profile.avatarUrl}
+					name={profile.displayName}
+					className="size-[38px]"
+					textClass="text-lg"
+					ring="shadow-[0_0_0_2px_var(--color-gold)]"
+				/>
 				<div class="hidden max-w-[130px] flex-col min-[1080px]:flex">
 					<span class="truncate font-ui text-sm leading-tight font-semibold text-white">
 						{profile.displayName}
@@ -262,20 +256,13 @@
 							nav.openProfile('overview');
 						}}
 					>
-						{#if profile.avatarUrl}
-							<img
-								src={profile.avatarUrl}
-								alt=""
-								class="size-11 rounded-full object-cover ring-2 ring-gold/50"
-							/>
-						{:else}
-							<span
-								class="flex size-11 flex-none items-center justify-center rounded-full bg-[linear-gradient(135deg,#C9B8E8,#8B6FD0)] font-display text-xl font-bold text-white ring-2 ring-gold/50"
-								aria-hidden="true"
-							>
-								{profile.initials}
-							</span>
-						{/if}
+						<Avatar
+							src={profile.avatarUrl}
+							name={profile.displayName}
+							className="size-11"
+							textClass="text-xl"
+							ring="ring-2 ring-gold/50"
+						/>
 						<div class="min-w-0 flex-1">
 							<b class="block truncate font-display text-base leading-tight"
 								>{profile.displayName}</b

@@ -1,6 +1,7 @@
 import { isSupabaseConfigured, supabase } from '#lib/supabase';
 import type { MoodKey, Privacy, Profile } from '#lib/types';
 import { auth } from '#lib/state/auth.svelte';
+import { cleanDisplayName, normalizeImageUrl } from '#lib/avatar';
 
 export function generateFriendCode(userId: string): string {
 	if (!userId) return 'VJ-DEMO01';
@@ -60,7 +61,7 @@ class ProfileState {
 	}
 
 	get displayName() {
-		return this.profile?.display_name || auth.displayName || 'Friend';
+		return cleanDisplayName(this.profile?.display_name || auth.displayName, 'Friend');
 	}
 
 	get nickname() {
@@ -303,13 +304,31 @@ class ProfileState {
 
 	async uploadImage(file: File, type: 'avatar' | 'banner'): Promise<{ url: string | null; error: string | null }> {
 		if (!isSupabaseConfigured) return { url: null, error: 'Supabase is not configured.' };
+
+		const allowedTypes: Record<string, string> = {
+			'image/jpeg': 'jpg',
+			'image/png': 'png',
+			'image/webp': 'webp',
+			'image/gif': 'gif'
+		};
+
+		if (!allowedTypes[file.type]) {
+			return { url: null, error: 'Choose a PNG, JPG, GIF, or WebP image.' };
+		}
+
+		if (file.size > 5 * 1024 * 1024) {
+			return { url: null, error: 'Images must be 5 MB or smaller.' };
+		}
+
 		const userId = this.profile?.user_id || auth.ownerId;
 		if (!userId) return { url: null, error: 'No user ID available.' };
 
-		const fileExt = file.name.split('.').pop() ?? 'jpg';
-		const fileName = `${userId}/${Date.now()}.${fileExt}`;
+		const fileExt = allowedTypes[file.type];
+		const fileName = `${Date.now()}.${fileExt}`;
 		const folder = type === 'avatar' ? 'avatars' : 'banners';
-		const path = `${folder}/${fileName}`;
+		// Storage policies require the first path segment to be the owner's user
+		// id (`(storage.foldername(name))[1] = auth.uid()::text`).
+		const path = `${userId}/${folder}/${fileName}`;
 
 		const { error: uploadError } = await supabase.storage.from('vidjo-images').upload(path, file, {
 			cacheControl: '3600',
@@ -334,6 +353,8 @@ class ProfileState {
 		const cleanUsername = patch.username.trim();
 		const cleanDisplayName = patch.display_name.trim();
 		const cleanBio = patch.bio.trim();
+		const cleanAvatar = normalizeImageUrl(patch.avatar_url);
+		const cleanBanner = normalizeImageUrl(patch.banner_url);
 
 		if (!/^[a-zA-Z0-9_.-]{2,24}$/.test(cleanUsername)) {
 			return { error: 'Username must be 2–24 letters, numbers, dots, dashes, or underscores.' };
@@ -366,8 +387,8 @@ class ProfileState {
 			username: cleanUsername,
 			display_name: cleanDisplayName,
 			bio: cleanBio,
-			avatar_url: patch.avatar_url,
-			banner_url: patch.banner_url,
+			avatar_url: cleanAvatar,
+			banner_url: cleanBanner,
 			user_role: this.profile?.user_role || 'user',
 			friend_code: this.profile?.friend_code || generateFriendCode(userId),
 			accent_color: this.accentColor,
@@ -395,8 +416,8 @@ class ProfileState {
 						full_name: cleanDisplayName,
 						display_name: cleanDisplayName,
 						bio: cleanBio,
-						avatar_url: patch.avatar_url,
-						banner_url: patch.banner_url
+						avatar_url: cleanAvatar,
+						banner_url: cleanBanner
 					}
 				});
 			} catch (err) {

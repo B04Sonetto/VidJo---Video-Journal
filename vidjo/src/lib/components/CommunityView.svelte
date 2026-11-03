@@ -7,6 +7,7 @@
 	import { TODAY } from '#lib/dates';
 	import CommunityIcon from '#lib/components/CommunityIcon.svelte';
 	import ProfileModal from '#lib/components/ProfileModal.svelte';
+	import Avatar from '#lib/components/Avatar.svelte';
 	import { censor } from '#lib/censor';
 	import type { CommunityPost, FriendPostReaction } from '#lib/types';
 
@@ -178,12 +179,25 @@
 		if (activeSlug === slug) activeSlug = 'all';
 		void community.toggleJoin(slug);
 	}
+
+	function deleteComment(post: CommunityPost, commentId: string) {
+		if (!confirm('Delete this note?')) return;
+		void community.deleteComment(post, commentId);
+		journal.toast('Note deleted');
+	}
+
+	function reportComment(post: CommunityPost, commentId: string) {
+		const reason = prompt('Why are you reporting this note?')?.trim();
+		if (!reason) return;
+		void community.reportComment(post, commentId, reason);
+		journal.toast('Report sent to moderators. Thank you.');
+	}
 </script>
 
 <div class="mx-auto w-full max-w-[1180px] px-4 py-6 min-[900px]:px-6">
 	<!-- Hero -->
 	<header
-		class="relative overflow-hidden rounded-[28px] border border-[#523A7A] bg-[radial-gradient(ellipse_at_top,#4A2F7A_0%,#24143D_70%)] p-6 text-white shadow-[0_24px_60px_rgba(0,0,0,.5)] min-[720px]:p-8"
+		class="relative overflow-hidden rounded-[28px] border border-cover-edge bg-[radial-gradient(ellipse_at_top,var(--color-cover)_0%,var(--color-desk)_70%)] p-6 text-white shadow-[0_24px_60px_rgba(0,0,0,.5)] min-[720px]:p-8"
 	>
 		<span
 			class="pointer-events-none absolute -top-10 right-20 h-40 w-40 rounded-full bg-gold/10 blur-3xl"
@@ -230,19 +244,13 @@
 					>Your Profile</span
 				>
 				<div class="flex items-center gap-3">
-					{#if profile.avatarUrl}
-						<img
-							src={profile.avatarUrl}
-							alt=""
-							class="size-11 rounded-full object-cover ring-2 ring-gold/50"
-						/>
-					{:else}
-						<span
-							class="flex size-11 items-center justify-center rounded-full bg-[linear-gradient(135deg,#C9B8E8,#8B6FD0)] font-display text-lg font-bold text-white ring-2 ring-gold/50"
-						>
-							{profile.initials}
-						</span>
-					{/if}
+					<Avatar
+						src={profile.avatarUrl}
+						name={profile.nickname}
+						className="size-11"
+						textClass="text-lg"
+						ring="ring-2 ring-gold/50"
+					/>
 					<div class="min-[900px]:text-right">
 						<p class="font-display font-bold text-white">{profile.nickname}</p>
 						<p class="font-ui text-xs text-lav">@{profile.username}</p>
@@ -376,7 +384,7 @@
 
 		<!-- Joined community switcher -->
 		<div
-			class="sticky top-4 z-10 -mx-4 mt-4 flex flex-wrap items-center gap-2 overflow-x-auto bg-[#1C142B]/95 px-4 py-2 backdrop-blur-sm min-[900px]:mx-0 min-[900px]:rounded-2xl min-[900px]:border min-[900px]:border-[#4D366D] min-[900px]:px-3"
+			class="sticky top-4 z-10 -mx-4 mt-4 flex flex-wrap items-center gap-2 overflow-x-auto bg-desk/95 px-4 py-2 backdrop-blur-sm min-[900px]:mx-0 min-[900px]:rounded-2xl min-[900px]:border min-[900px]:border-[#4D366D] min-[900px]:px-3"
 		>
 			<button
 				type="button"
@@ -493,35 +501,28 @@
 					<div class="p-6 min-[720px]:p-8">
 						<div class="flex flex-wrap items-center justify-between gap-3">
 							<div class="flex items-center gap-3">
-								{#if post.authorAvatar}
-									<img
-										src={post.authorAvatar}
-										alt=""
-										class="size-11 rounded-full object-cover ring-2 ring-gold/50"
-									/>
-								{:else}
-									<span
-										class="flex size-11 items-center justify-center rounded-full bg-[linear-gradient(135deg,#C9B8E8,#8B6FD0)] font-display text-xl text-white ring-2 ring-gold/40"
-										aria-hidden="true"
-									>
-										{post.authorName[0]}
-									</span>
-								{/if}
+								<Avatar
+									src={post.authorAvatar}
+									name={post.authorName}
+									className="size-11"
+									textClass="text-xl"
+									ring="ring-2 ring-gold/40"
+								/>
 								<div>
 									<div class="flex flex-wrap items-center gap-2">
 										<h2 class="font-display text-lg font-bold text-white">{post.authorName}</h2>
 										<span
-											class="rounded-full bg-accent/10 px-2 py-0.5 font-ui text-[10px] font-bold text-accent"
+											class="rounded-full bg-white/10 px-2 py-0.5 font-ui text-[10px] font-bold text-lav"
 											>@{post.authorUsername}</span
 										>
 										{#if post.isOwner}
 											<span
-												class="rounded-full bg-[#3F7A4F]/15 px-2 py-0.5 font-ui text-[10px] font-bold text-[#3F7A4F]"
+												class="rounded-full bg-[#3F7A4F]/20 px-2 py-0.5 font-ui text-[10px] font-bold text-[#8BE2A4]"
 												>You</span
 											>
 										{/if}
 										<span
-											class="rounded-full bg-gold/20 px-2 py-0.5 font-ui text-[10px] font-bold text-[#7A5618]"
+											class="rounded-full bg-gold/20 px-2 py-0.5 font-ui text-[10px] font-bold text-gold"
 											>{post.tag}</span
 										>
 									</div>
@@ -534,7 +535,7 @@
 							</div>
 							{#if post.mood && MOODS[post.mood]}
 								<span
-									class="inline-flex items-center gap-1.5 rounded-full border border-[#523A7A]/40 bg-white/10 px-3 py-1 font-ui text-xs font-bold text-accent"
+									class="inline-flex items-center gap-1.5 rounded-full border border-[#523A7A]/40 bg-white/10 px-3 py-1 font-ui text-xs font-bold text-lav"
 								>
 									{MOODS[post.mood]}
 								</span>
@@ -606,7 +607,7 @@
 							>
 								<span class="text-base font-bold text-gold">★</span>
 								<div>
-									<span class="block font-ui text-xs font-bold tracking-wider text-accent uppercase"
+									<span class="block font-ui text-xs font-bold tracking-wider text-gold uppercase"
 										>Reflection</span
 									>
 									<p class="mt-0.5 font-hand text-lg font-semibold text-white">
@@ -639,7 +640,7 @@
 							</div>
 							<button
 								type="button"
-								class="flex items-center gap-1.5 rounded-full bg-accent/10 px-4 py-2 font-ui text-xs font-bold text-accent transition-all hover:bg-accent/20"
+								class="flex items-center gap-1.5 rounded-full bg-white/10 px-4 py-2 font-ui text-xs font-bold text-lav transition-all hover:bg-white/20"
 								onclick={() => toggleComments(post.id)}
 							>
 								<svg
@@ -670,36 +671,59 @@
 									<div class="mb-3 space-y-2">
 										{#each post.comments as comment (comment.id)}
 											<div class="flex items-start gap-2.5 rounded-lg bg-white/10 p-2.5 shadow-2xs">
-												{#if comment.authorAvatar}
-											<img
-												src={comment.authorAvatar}
-												alt=""
-												class="size-7 shrink-0 rounded-full object-cover"
-											/>
-										{:else}
-											<span
-												class="flex size-7 shrink-0 items-center justify-center rounded-full bg-lav/40 font-display text-sm font-bold text-accent"
-											>
-												{comment.authorName[0]}
-											</span>
-										{/if}
+												<Avatar
+													src={comment.authorAvatar}
+													name={comment.authorName}
+													className="size-7"
+													textClass="text-sm"
+													ring=""
+												/>
 												<div class="min-w-0 flex-1">
 													<div class="flex items-baseline justify-between gap-2">
-														<button
-															type="button"
-															class="font-ui text-xs text-white hover:underline"
-															onclick={() => {
-																viewedUserId = comment.authorId;
-																profileModalOpen = true;
-															}}
-														>
-															{comment.authorName}
-														</button>
-														<time class="font-ui text-[10px] text-[#BBA8E0]">{comment.time}</time>
+														<div class="flex min-w-0 items-baseline gap-1.5">
+															<button
+																type="button"
+																class="truncate font-ui text-xs text-white hover:underline"
+																onclick={() => {
+																	viewedUserId = comment.authorId;
+																	profileModalOpen = true;
+																}}
+															>
+																{comment.authorName}
+															</button>
+															{#if comment.authorId === auth.ownerId}
+																<span
+																	class="rounded-full bg-accent/30 px-1.5 py-0.5 font-ui text-[9px] font-bold text-white"
+																	>You</span
+																>
+															{/if}
+														</div>
+														<time class="shrink-0 font-ui text-[10px] text-[#BBA8E0]">{comment.time}</time>
 													</div>
 													<p class="mt-0.5 font-hand text-base leading-tight text-white">
 														{censor(comment.text)}
 													</p>
+													{#if comment.id.startsWith('local-') === false}
+														<div class="mt-1 flex items-center gap-3">
+															{#if comment.authorId === auth.ownerId}
+																<button
+																	type="button"
+																	class="font-ui text-[10px] text-[#BBA8E0] hover:text-[#FF9B9B]"
+																	onclick={() => deleteComment(post, comment.id)}
+																>
+																	Delete
+																</button>
+															{:else}
+																<button
+																	type="button"
+																	class="font-ui text-[10px] text-[#BBA8E0] hover:text-gold"
+																	onclick={() => reportComment(post, comment.id)}
+																>
+																	Report
+																</button>
+															{/if}
+														</div>
+													{/if}
 												</div>
 											</div>
 										{/each}

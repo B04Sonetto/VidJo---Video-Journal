@@ -109,7 +109,7 @@
 				display_name: completionNickname.trim(),
 				bio: profile.profile?.bio ?? '',
 				avatar_url: profile.profile?.avatar_url ?? null,
-				banner_url: null
+				banner_url: profile.bannerUrl
 			});
 			if (result.error) {
 				completionError = result.error;
