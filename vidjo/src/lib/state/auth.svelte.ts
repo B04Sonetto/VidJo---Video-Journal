@@ -176,9 +176,9 @@ class Auth {
 	}
 
 	/**
-	 * Only accounts created through the email signup flow may open the journal.
-	 * OAuth-only accounts are signed out so they cannot reach the app; the RLS
-	 * policies in `supabase/schema.sql` also reject them at the database layer.
+	 * Reject accounts the database has not stamped as registered. The trigger in
+	 * `supabase/schema.sql` stamps every new account, including OAuth, so social
+	 * users can reach the profile-completion screen and then use the journal.
 	 */
 	private acceptUser(user: User | null) {
 		if (user && !isRegisteredUser(user)) {
@@ -210,12 +210,14 @@ class Auth {
 			return 'Too many attempts. Wait a minute, then try again.';
 		}
 
-		if (/signups not allowed|signup disabled/i.test(error.message)) {
-			return 'Sign-ups are paused in Supabase. Try an existing email, or enable sign-ups.';
+		if (/signups not allowed for otp/i.test(error.message)) {
+			// Keep this neutral so the screen cannot be used to enumerate accounts.
+			return '';
 		}
 
-		if (/user not found|email not found/i.test(error.message)) {
-			return 'No account found with that email address. Create an account first.';
+		if (/signups not allowed|signup disabled|user not found|email not found/i.test(error.message)) {
+			// Same reason: do not confirm whether an address has a VidJo account.
+			return '';
 		}
 
 		return friendlyAuthError(error.message);
@@ -239,16 +241,18 @@ class Auth {
 		return friendlyAuthError(error.message);
 	}
 
-	async verifyCode(email: string, token: string) {
+	async verifyCode(email: string, token: string, purpose: 'otp' | 'signup' = 'otp') {
 		if (!isSupabaseConfigured) return 'Sign-in is not configured for this build.';
 
 		// New addresses get the "Confirm signup" email (type `signup`), while
 		// returning addresses get the "Magic Link" email (type `email`). Try the
-		// magic-link type first, then fall back to signup so both templates work
-		// with the same six-digit input.
+		// expected type first, then fall back so both templates work with the
+		// same six-digit input without burning a second verification attempt.
 		let lastMessage = 'That code did not match. Check it, or send a fresh one.';
+		const types =
+			purpose === 'signup' ? (['signup', 'email'] as const) : (['email', 'signup'] as const);
 
-		for (const type of ['email', 'signup'] as const) {
+		for (const type of types) {
 			const { data, error } = await supabase.auth.verifyOtp({
 				email,
 				token,

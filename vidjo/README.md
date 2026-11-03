@@ -15,9 +15,9 @@ auth/persistence and an offline `localStorage` fallback.
 - **Email accounts** — sign up with a username and password, sign in with a
   password, or request a 6-digit email code / magic link. Sessions persist across
   reloads until sign-out.
-- **Optional Google sign-in** — Google is available to accounts that already
-  registered with email. A Before User Created hook stops Google from creating
-  new accounts, and OAuth-only sessions are rejected by the app and by RLS.
+- **Optional Google sign-in** — Google works for new and existing accounts. New
+  Google users are asked to choose a username and nickname on their first visit
+  before the journal opens.
 - **Per-account journals** — entries are scoped to the signed-in user, with a
   one-time claim of pre-account device data.
 - **Video fallback** — recordings are kept in IndexedDB and uploaded to Supabase
@@ -89,12 +89,13 @@ Then run `supabase/schema.sql` in the Supabase SQL editor. It creates:
   `#CreativeFlow`, `#MidtermSurvivals`, `#MentalHealth`, `#StudyTogether`, and
   `#GreenCampus`) and `public.vidjo_community_members`.
 - `public.vidjo_reactions` and `public.vidjo_comments` for the friends/community feeds.
-- Membership checks on journal/storage policies so OAuth-only accounts cannot
-  read or write data.
+- Membership checks on journal/storage policies for every registered account,
+  including OAuth users who have finished profile setup.
 - The public `vidjo-videos` storage bucket and owner-scoped upload policies.
 - A `claim_device_entries()` function for migrating pre-account rows.
-- A `hook_reject_social_signups()` function for the Before User Created hook;
-  enable it under **Authentication → Hooks** to stop Google OAuth signups.
+- A `hook_reject_social_signups()` compatibility function for projects that
+  already use the Before User Created hook. It is now a pass-through; you can
+  remove it from **Authentication → Hooks**.
 
 > **Upgrading an existing project?** Re-run the full `schema.sql`. It is written to
 > be re-run safely and adds the social/community tables, `community_slug`, and the
@@ -115,8 +116,9 @@ The browser client persists the Supabase session and refreshes tokens
 automatically, so users stay signed in across reloads until they sign out from
 the account menu. Journal rows use the auth user id as `owner_id`, and the RLS
 policies only allow that user to read or write their own rows. They also require
-the `vidjo_registered` marker that is stamped onto email signups, so an account
-auto-created by Google cannot access the journal even with a valid session.
+the `vidjo_registered` marker that is stamped onto every new account. New Google
+users are admitted so they can finish their profile, then use the journal like
+any other member.
 
 The video bucket is private, and the player uses short-lived signed URLs.
 Private videos cannot be viewed by anyone other than their owner.

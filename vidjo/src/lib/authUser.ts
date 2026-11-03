@@ -4,13 +4,12 @@ export const UNREGISTERED_ACCOUNT_MESSAGE =
 	'No VidJo account is linked to that sign-in. Create an account with your email and password first.';
 
 /**
- * A VidJo member is an account created through the email/password signup flow
- * or an OAuth account that has completed profile setup.
+ * A VidJo member is any account the database has stamped as registered.
  *
  * `app_metadata` is server-controlled (stamped by the `vidjo_mark_registered_user`
  * trigger on `auth.users` insert). `user_metadata` is client-writable via
- * `auth.updateUser()`, so we check it as a fallback for accounts marked
- * registered after signup (e.g. OAuth users who just completed their profile).
+ * `auth.updateUser()`, so it is only a fallback for accounts marked registered
+ * after signup.
  */
 export function isRegisteredUser(user: User | null | undefined) {
 	if (!user) return false;

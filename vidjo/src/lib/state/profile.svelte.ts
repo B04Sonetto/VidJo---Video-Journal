@@ -44,7 +44,16 @@ const DEFAULT_PREFERENCES: Preferences = {
 class ProfileState {
 	profile = $state<Profile | null>(null);
 	viewedProfile = $state<Profile | null>(null);
-	viewedProfilePosts = $state<{ date: string; title: string; mood: MoodKey | ''; hasVideo: boolean; privacy: string; communityTag: string }[]>([]);
+	viewedProfilePosts = $state<
+		{
+			date: string;
+			title: string;
+			mood: MoodKey | '';
+			hasVideo: boolean;
+			privacy: string;
+			communityTag: string;
+		}[]
+	>([]);
 	viewedProfileLoading = $state(false);
 	loading = $state(false);
 	saving = $state(false);
@@ -293,16 +302,22 @@ class ProfileState {
 					.ilike('username', clean)
 					.maybeSingle();
 
-				if (queryError) return { available: true };
+				if (queryError) {
+					return { available: false, error: 'Could not check that username. Try again.' };
+				}
 				return { available: !existing };
 			}
-		return { available: Boolean(data) };
-	} catch {
-		return { available: true };
-	}
+
+			return { available: Boolean(data) };
+		} catch {
+			return { available: false, error: 'Could not check that username. Try again.' };
+		}
 	}
 
-	async uploadImage(file: File, type: 'avatar' | 'banner'): Promise<{ url: string | null; error: string | null }> {
+	async uploadImage(
+		file: File,
+		type: 'avatar' | 'banner'
+	): Promise<{ url: string | null; error: string | null }> {
 		if (!isSupabaseConfigured) return { url: null, error: 'Supabase is not configured.' };
 
 		const allowedTypes: Record<string, string> = {
@@ -373,9 +388,9 @@ class ProfileState {
 		}
 
 		if (!this.profile || this.profile.username.toLowerCase() !== cleanUsername.toLowerCase()) {
-			const { available } = await this.checkUsernameAvailable(cleanUsername);
-			if (!available) {
-				return { error: 'This username is already taken by another student.' };
+			const check = await this.checkUsernameAvailable(cleanUsername);
+			if (!check.available) {
+				return { error: check.error || 'This username is already taken by another student.' };
 			}
 		}
 
@@ -478,11 +493,7 @@ class ProfileState {
 			try {
 				const [{ data: profileData, error: profileError }, { data: entries, error: entriesError }] =
 					await Promise.all([
-						supabase
-							.from('vidjo_profiles')
-							.select('*')
-							.eq('user_id', userId)
-							.maybeSingle(),
+						supabase.from('vidjo_profiles').select('*').eq('user_id', userId).maybeSingle(),
 						supabase
 							.from('vidjo_entries')
 							.select('*')
@@ -499,16 +510,23 @@ class ProfileState {
 					this.viewedProfile = profileData as Profile;
 				}
 
-				this.viewedProfilePosts = ((entries ?? []) as { entry_date: string; title: string | null; mood: MoodKey | null; privacy: string | null; community_slug: string | null; video_path: string | null }[]).map(
-					(row) => ({
-						date: row.entry_date,
-						title: row.title || 'Community entry',
-						mood: (row.mood as MoodKey | '') || '',
-						hasVideo: Boolean(row.video_path),
-						privacy: row.privacy || 'community',
-						communityTag: row.community_slug ? '#Community' : ''
-					})
-				);
+				this.viewedProfilePosts = (
+					(entries ?? []) as {
+						entry_date: string;
+						title: string | null;
+						mood: MoodKey | null;
+						privacy: string | null;
+						community_slug: string | null;
+						video_path: string | null;
+					}[]
+				).map((row) => ({
+					date: row.entry_date,
+					title: row.title || 'Community entry',
+					mood: (row.mood as MoodKey | '') || '',
+					hasVideo: Boolean(row.video_path),
+					privacy: row.privacy || 'community',
+					communityTag: row.community_slug ? '#Community' : ''
+				}));
 			} catch (err) {
 				console.warn('[VidJo] Could not load viewed profile.', err);
 			}

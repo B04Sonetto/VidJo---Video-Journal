@@ -7,11 +7,12 @@ create extension if not exists pgcrypto;
 -- ---------------------------------------------------------------------------
 -- Registered members
 -- ---------------------------------------------------------------------------
--- A VidJo member is an account created through the email/password signup flow.
--- `auth.users.raw_app_meta_data` is server-controlled: a signed-in user cannot
--- edit it with `updateUser()`. At insert time we stamp all new accounts with
--- `vidjo_registered = true` so OAuth sign-ins (Google, etc.) can also reach
--- journal data once they complete their profile.
+-- A VidJo member is any account that completes the signup flow. `auth.users.
+-- raw_app_meta_data` is server-controlled: a signed-in user cannot edit it with
+-- `updateUser()`. At insert time we stamp all new accounts with
+-- `vidjo_registered = true`, including OAuth accounts (Google, etc.). Social
+-- users get a placeholder profile and the app asks them to choose a username
+-- and nickname on their first visit.
 -- `raw_user_meta_data` is client-writable via `auth.updateUser()`, so we also
 -- check it as a fallback for accounts marked registered after signup.
 -- The stamp is deliberately not derived from `provider`/`identities` at read
@@ -486,25 +487,22 @@ create policy "vidjo image delete" on storage.objects
 	);
 
 -- ---------------------------------------------------------------------------
--- Google/social sign-in is for existing accounts only
+-- Google/social sign-in is allowed
 -- ---------------------------------------------------------------------------
+-- Social accounts are admitted on first sign-in. The app then shows the
+-- "Finish setting up VidJo" screen so the person can choose a username and
+-- nickname before using the journal.
+--
+-- This function used to reject every non-email account. Its name is kept for
+-- backwards compatibility with projects that already wired it into
+-- Authentication → Hooks; re-running this file turns it into a pass-through.
+-- You can also remove the hook from the Supabase dashboard entirely.
 
 create or replace function public.hook_reject_social_signups(event jsonb)
 returns jsonb
 language plpgsql
 as $$
-declare
-	provider text := coalesce(event->'user'->'app_metadata'->>'provider', '');
 begin
-	if provider <> 'email' then
-		return jsonb_build_object(
-			'error', jsonb_build_object(
-				'message', 'Create your VidJo account with email and password first. Google sign-in only works after your account exists.',
-				'http_code', 403
-			)
-		);
-	end if;
-
 	return '{}'::jsonb;
 end;
 $$;

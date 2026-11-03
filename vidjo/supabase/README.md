@@ -30,12 +30,12 @@ Open **Dashboard → SQL → New query**, paste all of
 - `public.vidjo_communities` seeded with the seven default communities, `public.vidjo_community_members`, and a `community_slug` column on entries.
 - `public.vidjo_reactions` and `public.vidjo_comments` for feed reactions and comments.
 - `public.vidjo_is_member()` and membership checks on every journal/storage/profile/social policy.
-- Trigger that stamps `vidjo_registered` onto email signups.
+- Trigger that stamps `vidjo_registered` onto every new account (email and OAuth).
 - Trigger that auto-creates profile rows upon registration.
 - `public.is_username_available(uname)` RPC callable during signup.
 - The **private** `vidjo-videos` storage bucket and owner-scoped signed-URL policies.
 - `claim_device_entries()` for migrating pre-account rows.
-- `hook_reject_social_signups()`, the Before User Created hook that prevents Google from creating new accounts.
+- `hook_reject_social_signups()`, a pass-through kept for projects that still have the legacy Before User Created hook configured.
 
 The script is safe to re-run. Re-running it on an existing project adds new
 columns/tables without deleting entries, and backfills only missing friend codes.
@@ -121,7 +121,7 @@ Google is disabled by default in a new Supabase project. To enable it:
 1. In Google Cloud Console, create an OAuth 2.0 Client ID (Web application).
 2. Add authorized redirect URI: `https://<project-ref>.supabase.co/auth/v1/callback`
 3. In Supabase, enable Google under **Authentication → Providers → Google**.
-4. Enable the **Before User Created** hook (`public.hook_reject_social_signups`) under **Authentication → Hooks** so only existing accounts can link Google.
+4. No Before User Created hook is needed. New Google users are asked to choose a username and nickname on their first sign-in. If your project already has the legacy hook configured, re-run `schema.sql` (it now passes social signups through) or remove it under **Authentication → Hooks**.
 
 ## 7. Private video storage (`vidjo-videos`)
 

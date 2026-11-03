@@ -52,9 +52,9 @@ export function friendlyAuthError(message: string) {
 		return 'Codes only work for existing accounts. Check the address, or use Create an account first.';
 	}
 	if (lower.includes('create your vidjo account with email')) {
-		// Surfaced by the Before User Created hook when Google/social sign-in
-		// tries to create an account that never registered with email.
-		return 'Google sign-in only works for accounts created with email and password. Create an email account first, then use Google with the same address.';
+		// Legacy Before User Created hook message from deployments that have not
+		// re-run schema.sql yet.
+		return 'Google sign-in only works after you create an email account. Re-run the latest schema.sql to allow new Google sign-ups.';
 	}
 	if (lower.includes('database error saving new user')) {
 		return 'Could not create that account. Use the email/password signup form, then try Google again.';

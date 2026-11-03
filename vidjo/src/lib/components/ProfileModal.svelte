@@ -30,6 +30,7 @@
 
 	let saveError = $state('');
 	let checkTimer: ReturnType<typeof setTimeout> | null = null;
+	let usernameCheckSeq = 0;
 	let clearCacheConfirm = $state(false);
 
 	const isViewingOther = $derived(Boolean(userId) && userId !== auth.ownerId);
@@ -70,6 +71,11 @@
 		editBio = profile.bio;
 		editAvatar = profile.avatarUrl;
 		saveError = '';
+		usernameCheckSeq += 1;
+		if (checkTimer) {
+			clearTimeout(checkTimer);
+			checkTimer = null;
+		}
 		usernameStatus = { checking: false, available: true };
 		mode = 'edit';
 	}
@@ -80,16 +86,26 @@
 	}
 
 	function onUsernameInput(val: string) {
-		editUsername = val.trim();
+		const clean = val.trim();
+		editUsername = clean;
 		usernameStatus = { checking: true, available: null };
+		const seq = ++usernameCheckSeq;
 
-		if (checkTimer) clearTimeout(checkTimer);
+		if (checkTimer) {
+			clearTimeout(checkTimer);
+			checkTimer = null;
+		}
+
+		if (!clean) {
+			usernameStatus = { checking: false, available: null };
+			return;
+		}
+
 		checkTimer = setTimeout(async () => {
-			if (!editUsername) {
-				usernameStatus = { checking: false, available: null };
-				return;
-			}
-			const result = await profile.checkUsernameAvailable(editUsername);
+			const result = await profile.checkUsernameAvailable(clean);
+			// Ignore a stale response if the person kept typing.
+			if (seq !== usernameCheckSeq) return;
+			checkTimer = null;
 			usernameStatus = {
 				checking: false,
 				available: result.available,
@@ -100,6 +116,11 @@
 
 	async function save() {
 		saveError = '';
+
+		if (usernameStatus.checking) {
+			saveError = 'Still checking that username — give it a second and try again.';
+			return;
+		}
 
 		if (usernameStatus.available === false) {
 			saveError = usernameStatus.error || 'Please choose an available username.';
@@ -178,6 +199,10 @@
 	onMount(() => {
 		calculateStreak();
 		calculateBadges();
+		return () => {
+			if (checkTimer) clearTimeout(checkTimer);
+			usernameCheckSeq += 1;
+		};
 	});
 </script>
 

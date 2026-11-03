@@ -74,12 +74,13 @@
 		})();
 	});
 
-	// After the profile loads, detect auto-generated OAuth usernames and
-	// prompt the user to complete their profile before entering the app.
+	// After the profile loads, detect the placeholder username created for
+	// OAuth accounts and prompt the user to finish their profile.
 	$effect(() => {
 		if (!auth.active || !profile.profile || profileCompletion) return;
 		const username = (profile.profile.username || '').trim();
-		if (username.startsWith('user_')) {
+		const generated = generatedUsername();
+		if (generated && username.toLowerCase() === generated.toLowerCase()) {
 			profileCompletion = true;
 			completionEmail = auth.email || '';
 			completionUsername = username;
@@ -87,10 +88,22 @@
 		}
 	});
 
+	/** The placeholder username the database trigger assigns to OAuth accounts. */
+	function generatedUsername() {
+		const userId = auth.user?.id ?? '';
+		return userId ? `user_${userId.slice(0, 8)}` : '';
+	}
+
 	async function completeProfile() {
 		completionError = '';
-		if (!completionUsername || !/^[a-zA-Z0-9_.-]{2,24}$/.test(completionUsername.trim())) {
+		const cleanUsername = completionUsername.trim();
+		if (!cleanUsername || !/^[a-zA-Z0-9_.-]{2,24}$/.test(cleanUsername)) {
 			completionError = 'Username must be 2–24 letters, numbers, dots, dashes, or underscores.';
+			return;
+		}
+		const generated = generatedUsername();
+		if (generated && cleanUsername.toLowerCase() === generated.toLowerCase()) {
+			completionError = 'Choose your own username — the automatic one is just a placeholder.';
 			return;
 		}
 		if (!completionNickname.trim()) {
@@ -105,7 +118,7 @@
 		completionBusy = true;
 		try {
 			const result = await profile.saveProfile({
-				username: completionUsername.trim(),
+				username: cleanUsername,
 				display_name: completionNickname.trim(),
 				bio: profile.profile?.bio ?? '',
 				avatar_url: profile.profile?.avatar_url ?? null,
@@ -165,21 +178,37 @@
 {:else if !auth.active}
 	<LoginScreen />
 {:else if profileCompletion}
-	<main class="mx-auto flex min-h-[100dvh] w-full max-w-[620px] items-center justify-center px-4 py-10 min-[420px]:px-6">
-		<div class="w-full rounded-[26px] border border-[#4A3670] bg-paper px-7 py-10 text-center text-ink shadow-[0_30px_80px_rgba(0,0,0,.55)] min-[420px]:px-10">
+	<main
+		class="mx-auto flex min-h-[100dvh] w-full max-w-[620px] items-center justify-center px-4 py-10 min-[420px]:px-6"
+	>
+		<div
+			class="w-full rounded-[26px] border border-[#4A3670] bg-paper px-7 py-10 text-center text-ink shadow-[0_30px_80px_rgba(0,0,0,.55)] min-[420px]:px-10"
+		>
 			<h1 class="font-display text-3xl font-bold">Finish setting up VidJo</h1>
 			<p class="mt-2 font-hand text-xl leading-snug text-ink-soft">
 				Almost there — tell us how you'd like to appear to friends.
 			</p>
 
 			{#if completionError}
-				<p class="mt-4 rounded-xl border-[1.5px] border-[#D19A9A] bg-[#FBEAEA] px-3 py-2 font-ui text-sm text-[#8A2F2F]">
+				<p
+					class="mt-4 rounded-xl border-[1.5px] border-[#D19A9A] bg-[#FBEAEA] px-3 py-2 font-ui text-sm text-[#8A2F2F]"
+				>
 					{completionError}
 				</p>
 			{/if}
 
-			<form onsubmit={(e) => { e.preventDefault(); void completeProfile(); }} class="mt-6 space-y-4" novalidate>
-				<label for="completion-email" class="block font-ui text-[13px] font-bold text-ink text-left">
+			<form
+				onsubmit={(e) => {
+					e.preventDefault();
+					void completeProfile();
+				}}
+				class="mt-6 space-y-4"
+				novalidate
+			>
+				<label
+					for="completion-email"
+					class="block text-left font-ui text-[13px] font-bold text-ink"
+				>
 					Email address
 				</label>
 				<input
@@ -191,7 +220,10 @@
 					readonly
 				/>
 
-				<label for="completion-username" class="mt-4 block font-ui text-[13px] font-bold text-ink text-left">
+				<label
+					for="completion-username"
+					class="mt-4 block text-left font-ui text-[13px] font-bold text-ink"
+				>
 					Username
 				</label>
 				<input
@@ -207,7 +239,10 @@
 					Unique name for your journal, friends, and community.
 				</p>
 
-				<label for="completion-nickname" class="mt-4 block font-ui text-[13px] font-bold text-ink text-left">
+				<label
+					for="completion-nickname"
+					class="mt-4 block text-left font-ui text-[13px] font-bold text-ink"
+				>
 					Nickname <span class="text-xs font-normal text-ink-soft">(shown to friends)</span>
 				</label>
 				<input

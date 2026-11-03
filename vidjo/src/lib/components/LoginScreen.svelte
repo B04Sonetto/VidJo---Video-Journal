@@ -29,25 +29,34 @@
 	let usernameAvailable = $state<boolean | null>(null);
 	let usernameError = $state('');
 	let usernameTimer: ReturnType<typeof setTimeout> | null = null;
+	let usernameCheckSeq = 0;
 
 	function onUsernameChange(val: string) {
-		username = val.trim();
+		const clean = val.trim();
+		username = clean;
 		usernameAvailable = null;
 		usernameError = '';
-		if (!username) {
-			usernameChecking = false;
-			return;
+		usernameChecking = false;
+		const seq = ++usernameCheckSeq;
+
+		if (usernameTimer) {
+			clearTimeout(usernameTimer);
+			usernameTimer = null;
 		}
 
-		if (!validUsername(username)) {
-			usernameError = '2–24 letters, numbers, _, ., -';
+		if (!clean) return;
+
+		if (!validUsername(clean)) {
+			usernameError = '2–24 letters, numbers, dots, dashes, or underscores';
 			return;
 		}
 
 		usernameChecking = true;
-		if (usernameTimer) clearTimeout(usernameTimer);
 		usernameTimer = setTimeout(async () => {
-			const check = await profile.checkUsernameAvailable(username);
+			const check = await profile.checkUsernameAvailable(clean);
+			// Ignore a stale response if the person kept typing.
+			if (seq !== usernameCheckSeq) return;
+			usernameTimer = null;
 			usernameChecking = false;
 			usernameAvailable = check.available;
 			if (!check.available) {
@@ -72,7 +81,9 @@
 	);
 	let subtitle = $derived(
 		view === 'code'
-			? `We sent a ${codePurpose === 'signup' ? 'confirmation' : 'sign-in'} email to ${email.trim()}.`
+			? codePurpose === 'signup'
+				? `We sent a confirmation email to ${email.trim()}.`
+				: `If ${email.trim()} has a VidJo account, we sent it a sign-in code.`
 			: view === 'signup'
 				? 'Step 1 of 2 — enter your email and pick a username.'
 				: view === 'signup-2'
@@ -96,6 +107,8 @@
 		void tick().then(() => emailInput?.focus());
 		return () => {
 			if (cooldownTimer) clearInterval(cooldownTimer);
+			if (usernameTimer) clearTimeout(usernameTimer);
+			usernameCheckSeq += 1;
 		};
 	});
 
@@ -117,18 +130,12 @@
 		}, 1000);
 	}
 
-	function stopCooldown() {
-		if (cooldownTimer) clearInterval(cooldownTimer);
-		cooldownTimer = null;
-		cooldown = 0;
-	}
-
 	function validEmail(value: string) {
 		return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim());
 	}
 
 	function validUsername(value: string) {
-		return /^[a-zA-Z0-9][a-zA-Z0-9 _.-]{1,23}$/.test(value.trim());
+		return /^[a-zA-Z0-9_.-]{2,24}$/.test(value.trim());
 	}
 
 	function switchView(next: View) {
@@ -161,6 +168,10 @@
 		}
 		if (!validUsername(username)) {
 			error = 'Choose a username with 2–24 letters, numbers, dots, dashes, or underscores.';
+			return;
+		}
+		if (usernameChecking) {
+			error = 'Still checking that username — give it a second and try again.';
 			return;
 		}
 		if (usernameAvailable === false) {
@@ -197,7 +208,7 @@
 
 			codePurpose = 'otp';
 			view = 'code';
-			notice = `We sent a sign-in email to ${email.trim()}.`;
+			notice = `If ${email.trim()} has a VidJo account, a sign-in code is on its way.`;
 			startCooldown();
 			await tick();
 			codeInputs[0]?.focus();
@@ -228,7 +239,7 @@
 			notice =
 				codePurpose === 'signup'
 					? `A fresh confirmation code is on its way to ${email.trim()}.`
-					: `A fresh code is on its way to ${email.trim()}.`;
+					: `If ${email.trim()} has a VidJo account, a fresh code is on its way.`;
 			startCooldown();
 		} catch {
 			error = 'Could not reach Supabase. Check your connection and try again.';
@@ -251,7 +262,7 @@
 		error = '';
 
 		try {
-			const message = await auth.verifyCode(email.trim(), token);
+			const message = await auth.verifyCode(email.trim(), token, codePurpose);
 			if (message) {
 				error = message;
 				digits = ['', '', '', '', '', ''];
@@ -319,7 +330,8 @@
 	}
 
 	function useDifferentEmail() {
-		view = 'signin';
+		const wasSignup = codePurpose === 'signup';
+		view = wasSignup ? 'signup' : 'signin';
 		digits = ['', '', '', '', '', ''];
 		error = '';
 		notice = '';
@@ -344,6 +356,8 @@
 	}
 
 	async function signIn() {
+		if (busy) return;
+
 		error = '';
 		notice = '';
 
@@ -374,6 +388,8 @@
 	}
 
 	async function createAccount() {
+		if (busy) return;
+
 		error = '';
 		notice = '';
 
@@ -381,6 +397,11 @@
 		if (!validUsername(username)) {
 			error = 'Choose a username with 2–24 letters, numbers, dots, dashes, or underscores.';
 			view = 'signup';
+			return;
+		}
+
+		if (usernameChecking) {
+			error = 'Still checking that username — give it a second and try again.';
 			return;
 		}
 
@@ -407,16 +428,9 @@
 			return;
 		}
 
+		const pendingInvite = friendInviteCode.trim().toUpperCase();
 		busy = true;
 		try {
-			if (friendInviteCode.trim()) {
-				try {
-					localStorage.setItem('vidjo-pending-friendcode', friendInviteCode.trim().toUpperCase());
-				} catch {
-					// Ignore storage issue
-				}
-			}
-
 			const result = await auth.signUp(
 				email.trim(),
 				password,
@@ -426,6 +440,16 @@
 			if (result.error) {
 				error = result.error;
 				return;
+			}
+
+			// Only remember the invite once the account actually exists, so a
+			// failed signup cannot silently join a friend on a later login.
+			if (pendingInvite) {
+				try {
+					localStorage.setItem('vidjo-pending-friendcode', pendingInvite);
+				} catch {
+					// Ignore storage issue
+				}
 			}
 
 			if (result.needsConfirmation) {
@@ -452,6 +476,8 @@
 	}
 
 	async function sendReset() {
+		if (busy) return;
+
 		error = '';
 		notice = '';
 
@@ -498,7 +524,6 @@
 		forgotPassword = true;
 		error = '';
 		notice = '';
-		stopCooldown();
 	}
 </script>
 
@@ -543,14 +568,14 @@
 				</p>
 			</div>
 
-			<div class="relative mt-9 max-w-[360px] rounded-[24px] border border-white/10 bg-white/[.08] p-6 backdrop-blur-sm">
+			<div
+				class="relative mt-9 max-w-[360px] rounded-[24px] border border-white/10 bg-white/[.08] p-6 backdrop-blur-sm"
+			>
 				<p class="font-hand text-[18px] leading-snug text-[#F3EDF9]">
 					“Some days are loud. Some days are quiet. Both deserve a page.”
 				</p>
 				<div class="mt-4 flex items-center gap-3">
-					<span
-						class="flex size-9 items-center justify-center rounded-full bg-gold/20 text-gold"
-					>
+					<span class="flex size-9 items-center justify-center rounded-full bg-gold/20 text-gold">
 						✦
 					</span>
 					<p class="font-ui text-sm text-[#D6CBEC]">
