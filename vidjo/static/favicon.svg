@@ -1,8 +1,14 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
-  <rect width="512" height="512" rx="120" fill="#1B102B" />
-  <path d="M320 192a158 158 0 100 316 158 158 0 000-316Z" fill="#D4A24C" />
-  <path d="M238 192a136 136 0 11-202 0 136 136 0 00202 0Z" fill="#1B102B" />
-  <circle cx="320" cy="192" r="14" fill="#FFFDF6" opacity=".9" />
-  <circle cx="338" cy="180" r="9" fill="#FFFDF6" opacity=".7" />
-  <circle cx="302" cy="204" r="11" fill="#FFFDF6" opacity=".6" />
+  <rect width="512" height="512" rx="120" fill="#1B102B" stroke="#CDBBE9" stroke-width="12" />
+  <path d="M170 110h172v292H170z" fill="#FFFDF6" />
+  <path d="M342 110h170v292H342z" fill="#F9F5EB" />
+  <path d="M170 402h172v10" fill="#EEE8D5" />
+  <path d="M342 402h170v10" fill="#E7DED5" />
+  <path d="M342 110v292" fill="#E0D7C2" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+  <line x1="170" y1="110" x2="342" y2="402" stroke="#E0D7C2" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+  <circle cx="428" cy="256" r="24" fill="#D4A24C" />
+  <path d="M418 246l20 10-20 10z" fill="#1B102B" />
+  <line x1="206" y1="146" x2="306" y2="146" stroke="#D4A24C" stroke-width="10" stroke-linecap="round" opacity=".4" />
+  <line x1="206" y1="166" x2="276" y2="166" stroke="#D4A24C" stroke-width="10" stroke-linecap="round" opacity=".3" />
+  <line x1="206" y1="186" x2="246" y2="186" stroke="#D4A24C" stroke-width="10" stroke-linecap="round" opacity=".2" />
 </svg>

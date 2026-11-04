@@ -157,7 +157,7 @@
 </script>
 
 <svelte:head>
-	<title>VidJo Journal — small videos, big thoughts</title>
+	<title>VidJo │ Journal</title>
 	<meta
 		name="description"
 		content="A video journal for students: record a small video, write how you feel, and decorate the page."
