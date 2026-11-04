@@ -194,7 +194,7 @@
 								<span class="font-ui text-xs font-bold tracking-wider text-ink-soft uppercase">
 									Friend Entries Preview
 								</span>
-								<span class="font-ui text-xs text-accent"> Privacy: "Friends Only" </span>
+								<span class="font-ui text-xs text-accent"> Sharing: "Friends + Community" </span>
 							</div>
 
 							<div class="mt-3 flex flex-col gap-3">
@@ -245,10 +245,9 @@
 						<div class="bg-paper-2 rounded-2xl border border-line p-4">
 							<b class="font-display text-base font-bold text-ink">Campus Community Reel</b>
 							<p class="mt-1 font-ui text-xs leading-relaxed text-ink-soft">
-								When you set a page's privacy to <span class="font-semibold text-accent"
-									>"Community"</span
-								>, your non-private thoughts and video reflections appear on the campus reel for
-								students to cheer and connect with.
+								Turn on <span class="font-semibold text-accent">"Community"</span> to post a page to
+								the campus reel, and <span class="font-semibold text-accent">"Friends"</span> at the same
+								time to share it with your friends too.
 							</p>
 						</div>
 

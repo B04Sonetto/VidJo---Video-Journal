@@ -8,7 +8,7 @@
 	import { nav } from '#lib/state/navigation.svelte';
 	import { viewport } from '#lib/state/viewport.svelte';
 	import CommunityIcon from '#lib/components/CommunityIcon.svelte';
-	import type { Entry, Privacy } from '#lib/types';
+	import type { Entry } from '#lib/types';
 
 	let {
 		entry,
@@ -28,6 +28,14 @@
 	let promptIndex = 0;
 	let previousDate: string | undefined;
 
+	const sharingWithFriends = $derived(
+		entry.privacy === 'friends' || (entry.privacy === 'community' && entry.shareWithFriends)
+	);
+	const sharingWithCommunity = $derived(entry.privacy === 'community');
+	const selectedCommunity = $derived(
+		community.joinedCommunities.find((item) => item.slug === entry.communitySlug) ?? null
+	);
+
 	$effect(() => {
 		// A fresh page starts with the prompt line tucked away.
 		if (previousDate !== undefined && previousDate !== entry.date) {
@@ -46,8 +54,23 @@
 		requestAnimationFrame(() => mindEl?.focus());
 	}
 
-	function selectPrivacy(privacy: Privacy) {
-		if (!preview) journal.setPrivacy(privacy);
+	function selectPrivate() {
+		if (!preview) journal.setPrivate();
+	}
+
+	function toggleFriendsSharing(enabled: boolean) {
+		if (!preview) journal.setFriendsSharing(enabled);
+	}
+
+	function toggleCommunitySharing(enabled: boolean) {
+		if (preview) return;
+
+		journal.setCommunitySharing(enabled);
+
+		// Pick a sensible default so the page is never posted to an empty slug.
+		if (enabled && !entry.communitySlug && community.joinedCommunities.length > 0) {
+			journal.setCommunity(community.joinedCommunities[0].slug);
+		}
 	}
 
 	function isExcluded(friendId: string) {
@@ -97,7 +120,7 @@
 		class="h-[54px] w-full border-0 border-b-2 border-line bg-transparent px-1 pb-1 font-hand text-[32px] font-bold text-ink placeholder:text-[#8E7FAA] focus:border-line focus:ring-0 focus:outline-offset-4"
 		type="text"
 		maxlength="80"
-		placeholder="Title (optional): just a random dayâ€¦"
+		placeholder="Title (optional): just a random day…"
 		autocomplete="off"
 		value={entry.title}
 		readonly={preview}
@@ -175,49 +198,59 @@
 		</span>
 	</div>
 
-	<PrivacyPicker value={entry.privacy} readonly={preview} onSelect={selectPrivacy} />
+	<PrivacyPicker
+		friendsShared={sharingWithFriends}
+		communityShared={sharingWithCommunity}
+		communityLabel={selectedCommunity?.tag ?? ''}
+		readonly={preview}
+		onToggleFriends={toggleFriendsSharing}
+		onToggleCommunity={toggleCommunitySharing}
+		onSelectPrivate={selectPrivate}
+	/>
 
-
-
-	{#if (entry.privacy === 'private' || entry.privacy === 'friends') && !preview && friends.friends.length > 0}
-		<span class="mt-2 block font-ui text-xs font-bold tracking-wider text-ink-soft uppercase">
-			<svg
-				class="size-4 shrink-0 text-accent"
-				width="16"
-				height="16"
-				viewBox="0 0 24 24"
-				fill="none"
-				stroke="currentColor"
-				stroke-width="2"
-				stroke-linecap="round"
-				stroke-linejoin="round"
-				aria-hidden="true"
-				><circle cx="12" cy="12" r="10"></circle><path
-					d="M9.09 9a3 3 0 00-4.1 4.1l-2.4 2.4a3 3 0 004.1 4.1l2.4-2.4a3 3 0 004.1-4.1l-2.4-2.4a3 3 0 00-4.1-4.1z"
-				></path></svg
+	{#if sharingWithFriends && !preview && friends.friends.length > 0}
+		<div
+			class="mt-2 flex flex-wrap items-center gap-1.5"
+			role="group"
+			aria-label="Friend visibility"
+		>
+			<span class="font-ui text-xs font-bold tracking-wider text-ink-soft uppercase">
+				<svg
+					class="mr-1 inline size-4 shrink-0 align-[-3px] text-accent"
+					width="16"
+					height="16"
+					viewBox="0 0 24 24"
+					fill="none"
+					stroke="currentColor"
+					stroke-width="2"
+					stroke-linecap="round"
+					stroke-linejoin="round"
+					aria-hidden="true"
+					><circle cx="12" cy="12" r="10"></circle><path
+						d="M9.09 9a3 3 0 00-4.1 4.1l-2.4 2.4a3 3 0 004.1 4.1l2.4-2.4a3 3 0 004.1-4.1l-2.4-2.4a3 3 0 00-4.1-4.1z"
+					></path></svg
+				>
+				Friend visibility
+			</span>
+			<span class="sr-only"
+				>Tap a friend to hide this page from them, or tap again to let them see it.</span
 			>
-			Friend exceptions
-		</span>
-		<p class="mt-0.5 font-ui text-xs text-ink-soft">
-			Tap a classmate to exclude them from this page, or tap again to grant an exception.
-		</p>
-		<div class="mt-1.5 flex flex-wrap gap-2">
 			{#each friends.friends as friend (friend.id)}
 				<button
 					type="button"
 					class="rounded-full border px-2.5 py-0.5 font-ui text-xs font-semibold transition-all {isExcluded(
 						friend.id
 					)
-						? 'border-red-500 bg-red-500/20 text-red-400'
+						? 'border-red-500 bg-red-500/10 text-red-700'
 						: isIncluded(friend.id)
-							? 'border-[#3F7A4F] bg-[#3F7A4F]/20 text-[#8BE2A4]'
-							: 'border-white/20 text-white/70 hover:bg-white/10'}"
+							? 'border-[#3F7A4F] bg-[#3F7A4F]/10 text-[#2F6A40]'
+							: 'border-line bg-white/70 text-ink-soft hover:bg-light'}"
 					onclick={() => toggleFriend(friend.id)}
 					title={isExcluded(friend.id)
-						? 'Excluded'
+						? 'Hidden from this friend'
 						: isIncluded(friend.id)
-							? 'Exception (can see)'
-							: 'Default'}
+							? 'Exception: this friend can see it'
+							: 'This friend can see it'}
 				>
 					{friend.displayName.split(' ')[0]}
 				</button>
@@ -225,8 +258,8 @@
 		</div>
 	{/if}
 
-	{#if entry.privacy === 'community' && !preview}
-		<div class="rounded-xl border-2 border-line bg-[#FFFDF6] p-3">
+	{#if sharingWithCommunity && !preview}
+		<div class="rounded-xl border-2 border-line bg-[#FFFDF6] p-2.5">
 			{#if community.joinedCommunities.length === 0}
 				<div class="flex flex-wrap items-center justify-between gap-2">
 					<p class="font-hand text-base text-ink-soft">
@@ -251,13 +284,13 @@
 				</label>
 				<select
 					id={`${id}-community`}
-					class="mt-1.5 h-10 w-full rounded-lg border border-line bg-white px-3 font-ui text-sm text-ink focus:border-accent focus:outline-none"
+					class="mt-1 h-9 w-full rounded-lg border border-line bg-white px-3 font-ui text-sm text-ink focus:border-accent focus:outline-none"
 					value={entry.communitySlug}
 					onchange={(event) => journal.setCommunity(event.currentTarget.value)}
 				>
-					<option value="">Choose a communityâ€¦</option>
+					<option value="">Choose a community…</option>
 					{#each community.joinedCommunities as item (item.slug)}
-						<option value={item.slug}>{item.tag} â€” {item.name}</option>
+						<option value={item.slug}>{item.tag} — {item.name}</option>
 					{/each}
 				</select>
 			{/if}
@@ -270,9 +303,9 @@
 		disabled={preview}
 		onclick={() => !preview && journal.markSaved()}
 	>
-		<span class="text-gold">âœ¦</span>
+		<span class="text-gold">✦</span>
 		Save VidJo
-		<span class="text-gold">âœ¦</span>
+		<span class="text-gold">✦</span>
 	</button>
 
 	<div class="absolute right-0 bottom-3.5 left-0 text-center font-hand text-base text-ink-soft">
@@ -307,5 +340,3 @@
 		}
 	}
 </style>
-
-

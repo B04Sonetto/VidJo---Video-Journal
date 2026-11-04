@@ -5,30 +5,49 @@
 	import { nav } from '#lib/state/navigation.svelte';
 	import { journal } from '#lib/state/journal.svelte';
 	import { TODAY } from '#lib/dates';
+	import { MOODS, MOOD_BY_KEY } from '#lib/data/moods';
+	import { STICKER_BY_KEY } from '#lib/data/stickers';
 	import CommunityIcon from '#lib/components/CommunityIcon.svelte';
 	import ProfileModal from '#lib/components/ProfileModal.svelte';
 	import Avatar from '#lib/components/Avatar.svelte';
 	import { censor } from '#lib/censor';
-	import type { CommunityPost, FriendPostReaction } from '#lib/types';
+	import type { CommunityPost, FriendPostReaction, MoodKey } from '#lib/types';
 
 	let searchQuery = $state('');
 	let activeSlug = $state('all');
-	let feedMode = $state<'trending' | 'foryou'>('trending');
+	let activeMood = $state<MoodKey | 'all'>('all');
+	let feedMode = $state<'trending' | 'newest'>('trending');
 	let commentInput = $state<Record<string, string>>({});
 	let openComments = $state<string | null>(null);
 	let profileModalOpen = $state(false);
 	let viewedUserId = $state<string | null>(null);
 	let showDiscovery = $state(false);
+	let focusPostId = $state<string | null>(null);
 
-	const MOODS: Record<string, string> = {
-		happy: 'Happy',
-		calm: 'Calm',
-		tired: 'Tired',
-		sad: 'Sad',
-		stressed: 'Stressed',
-		angry: 'Fired Up',
-		excited: 'Excited'
-	};
+	const PROMPTS = [
+		'Describe today as a weather forecast.',
+		'What is one small thing that made today easier?',
+		'Write a note to your future self about this week.',
+		'What song would play in the background of today?',
+		'Name one thing you are proud of this week.',
+		'Describe a corner of campus you love in three lines.',
+		'What is something you are looking forward to?',
+		'Leave a tiny reminder for someone having a hard day.'
+	];
+
+	const CARD_TILTS = [
+		'rotate-[-1.4deg]',
+		'rotate-[1.2deg]',
+		'rotate-[-0.7deg]',
+		'rotate-[0.9deg]'
+	] as const;
+
+	const DISCOVERY_TILTS = [
+		'rotate-[-0.6deg]',
+		'rotate-[0.5deg]',
+		'rotate-[-0.3deg]',
+		'rotate-[0.7deg]'
+	] as const;
 
 	const REACTIONS: {
 		key: keyof FriendPostReaction;
@@ -40,25 +59,25 @@
 			key: 'love',
 			icon: 'heart',
 			label: 'Love this',
-			active: 'border-pink-400 bg-pink-100/80 text-pink-700'
+			active: 'border-pink-400 bg-pink-100 text-pink-700'
 		},
 		{
 			key: 'spark',
 			icon: 'sparkles',
 			label: 'Inspired',
-			active: 'border-amber-400 bg-amber-100/80 text-amber-800'
+			active: 'border-amber-400 bg-amber-100 text-amber-800'
 		},
 		{
 			key: 'warm',
 			icon: 'sun',
 			label: 'Warm hug',
-			active: 'border-orange-400 bg-orange-100/80 text-orange-800'
+			active: 'border-orange-400 bg-orange-100 text-orange-800'
 		},
 		{
 			key: 'proud',
 			icon: 'star',
 			label: 'Proud of you',
-			active: 'border-purple-400 bg-purple-100/80 text-purple-800'
+			active: 'border-purple-400 bg-purple-100 text-purple-800'
 		}
 	];
 
@@ -68,6 +87,25 @@
 		if (Number.isNaN(parsed.getTime())) return date;
 		return parsed.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
 	}
+
+	function firstName(name: string) {
+		return name.trim().split(/\s+/)[0] || 'Friend';
+	}
+
+	function stickerTilt(rot: number, index: number) {
+		const base = Number.isFinite(rot) ? rot * 0.4 : 0;
+		return Math.max(-14, Math.min(14, base + (index % 2 === 0 ? -2 : 2)));
+	}
+
+	let promptIndex = $derived.by(() => {
+		let hash = 0;
+		for (const char of `${TODAY}-community`) {
+			hash = (hash * 31 + char.charCodeAt(0)) >>> 0;
+		}
+		return hash % PROMPTS.length;
+	});
+
+	let todaysPrompt = $derived(PROMPTS[promptIndex]);
 
 	let myCommunityPosts = $derived.by<CommunityPost[]>(() => {
 		const authorId = profile.profile?.user_id || auth.ownerId;
@@ -117,28 +155,43 @@
 
 	let allPosts = $derived([...myCommunityPosts, ...community.posts].map(enrich));
 
-	let filteredPosts = $derived.by(() => {
+	let memberPosts = $derived.by(() => {
 		const joined = community.joinedSlugs;
-		let posts = allPosts.filter((post) => {
+		return allPosts.filter((post) => {
 			if (!post.communitySlug) return post.isOwner;
 			return post.isOwner || joined.has(post.communitySlug);
 		});
+	});
 
-		if (activeSlug !== 'all') {
-			posts = posts.filter((post) => post.communitySlug === activeSlug);
+	let basePosts = $derived(
+		activeSlug === 'all'
+			? memberPosts
+			: memberPosts.filter((post) => post.communitySlug === activeSlug)
+	);
+
+	let moodCounts = $derived.by(() => {
+		const counts: Partial<Record<MoodKey, number>> = {};
+		for (const post of basePosts) {
+			if (!post.mood) continue;
+			counts[post.mood] = (counts[post.mood] ?? 0) + 1;
 		}
+		return counts;
+	});
 
-		if (feedMode === 'trending') {
-			posts = [...posts].sort((a, b) => {
-				const score = (value: CommunityPost) =>
-					value.reactions.love +
-					value.reactions.spark +
-					value.reactions.warm +
-					value.reactions.proud;
-				return score(b) - score(a) || b.date.localeCompare(a.date);
-			});
-		} else {
-			posts = [...posts].sort((a, b) => b.date.localeCompare(a.date));
+	let slugCounts = $derived.by(() => {
+		const counts: Record<string, number> = {};
+		for (const post of memberPosts) {
+			if (!post.communitySlug) continue;
+			counts[post.communitySlug] = (counts[post.communitySlug] ?? 0) + 1;
+		}
+		return counts;
+	});
+
+	let filteredPosts = $derived.by(() => {
+		let posts = basePosts;
+
+		if (activeMood !== 'all') {
+			posts = posts.filter((post) => post.mood === activeMood);
 		}
 
 		const query = searchQuery.trim().toLowerCase();
@@ -150,12 +203,25 @@
 					post.refl.toLowerCase().includes(query) ||
 					post.authorName.toLowerCase().includes(query) ||
 					post.authorUsername.toLowerCase().includes(query) ||
-					post.tag.toLowerCase().includes(query)
+					post.tag.toLowerCase().includes(query) ||
+					community.nameFor(post.communitySlug).toLowerCase().includes(query)
 			);
 		}
 
-		return posts;
+		return [...posts].sort((a, b) => {
+			if (feedMode === 'trending') {
+				const score = (value: CommunityPost) =>
+					value.reactions.love +
+					value.reactions.spark +
+					value.reactions.warm +
+					value.reactions.proud;
+				return score(b) - score(a) || b.date.localeCompare(a.date);
+			}
+			return b.date.localeCompare(a.date);
+		});
 	});
+
+	let feedVisible = $derived(community.hasJoined && !showDiscovery);
 
 	function toggleComments(id: string) {
 		openComments = openComments === id ? null : id;
@@ -171,6 +237,11 @@
 
 	function joinAndOpen(slug: string) {
 		void community.toggleJoin(slug);
+		activeSlug = slug;
+		showDiscovery = false;
+	}
+
+	function openCommunity(slug: string) {
 		activeSlug = slug;
 		showDiscovery = false;
 	}
@@ -192,232 +263,106 @@
 		void community.reportComment(post, commentId, reason);
 		journal.toast('Report sent to moderators. Thank you.');
 	}
+
+	function clearFilters() {
+		searchQuery = '';
+		activeMood = 'all';
+		activeSlug = 'all';
+	}
+
+	function openProfile(userId: string) {
+		viewedUserId = userId;
+		profileModalOpen = true;
+	}
+
+	function openRandomPage() {
+		if (filteredPosts.length === 0) {
+			journal.toast('No pages to open yet. Be the first to share one!');
+			return;
+		}
+
+		const pick = filteredPosts[Math.floor(Math.random() * filteredPosts.length)];
+		focusPostId = pick.id;
+		document
+			.getElementById(`community-page-${pick.id}`)
+			?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+		setTimeout(() => {
+			if (focusPostId === pick.id) focusPostId = null;
+		}, 2400);
+	}
+
+	function stickersFor(post: CommunityPost) {
+		const list: { svg: string; flat: boolean; rot: number }[] = [];
+		for (const sticker of post.stickers ?? []) {
+			const def = STICKER_BY_KEY[sticker.type];
+			if (!def) continue;
+			list.push({ svg: def.svg, flat: Boolean(def.flat), rot: sticker.rot ?? 0 });
+			if (list.length >= 6) break;
+		}
+		return list;
+	}
 </script>
 
-<div class="mx-auto w-full max-w-[1180px] px-4 py-6 min-[900px]:px-6">
-	<!-- Hero -->
-	<header
-		class="relative overflow-hidden rounded-[28px] border border-cover-edge bg-[radial-gradient(ellipse_at_top,var(--color-cover)_0%,var(--color-desk)_70%)] p-6 text-white shadow-[0_24px_60px_rgba(0,0,0,.5)] min-[720px]:p-8"
-	>
-		<span
-			class="pointer-events-none absolute -top-10 right-20 h-40 w-40 rounded-full bg-gold/10 blur-3xl"
-		></span>
-		<span
-			class="pointer-events-none absolute bottom-0 left-10 h-32 w-32 rounded-full bg-lav/10 blur-3xl"
-		></span>
-
-		<div
-			class="relative flex flex-col gap-5 min-[900px]:flex-row min-[900px]:items-center min-[900px]:justify-between"
-		>
-			<div>
-				<div class="flex items-center gap-2">
-					<span
-						class="inline-flex items-center gap-1.5 rounded-full bg-gold/20 px-3 py-1 font-ui text-xs font-semibold text-gold"
-					>
-						<span class="size-2 animate-pulse rounded-full bg-gold"></span>
-						Campus Communities
-					</span>
-					<span class="font-ui text-xs text-[#BBA8E0]">
-						• {community.joinedCommunities.length} joined
-					</span>
-				</div>
-				<h1
-					class="mt-2 font-display text-3xl font-bold tracking-tight text-white min-[720px]:text-5xl"
+<div class="mx-auto w-full max-w-[1240px] px-4 py-6 min-[900px]:px-6">
+	<!-- Header -->
+	<header class="flex flex-wrap items-end justify-between gap-4">
+		<div class="min-w-0">
+			<div class="flex flex-wrap items-center gap-2">
+				<span
+					class="inline-flex items-center gap-1.5 rounded-full border border-gold/30 bg-gold/10 px-3 py-1 font-ui text-[11px] font-bold tracking-wide text-gold uppercase"
 				>
-					{community.hasJoined ? 'Your Community Feed' : 'Find Your People'}
-				</h1>
-				<p class="mt-2 max-w-[620px] font-ui text-sm text-[#D6CBEC] min-[720px]:text-base">
-					{#if community.hasJoined}
-						Posts from the communities you've joined. Cheer people on, share small wins, and find a
-						little inspiration.
-					{:else}
-						Communities are tiny corners of campus built around a shared feeling. Join one to see
-						its feed and share your own pages.
-					{/if}
-				</p>
+					<span class="size-1.5 rounded-full bg-gold" aria-hidden="true"></span>
+					Campus communities
+				</span>
+				<span class="font-ui text-xs text-[#BBA8E0]">
+					{community.joinedCommunities.length}
+					{community.joinedCommunities.length === 1 ? 'community' : 'communities'} joined
+				</span>
 			</div>
-
-			<div
-				class="flex flex-col items-start gap-2 rounded-2xl border border-gold/40 bg-white/[.08] p-4 backdrop-blur-sm min-[900px]:items-end"
+			<h1
+				class="mt-2 font-display text-4xl font-bold tracking-tight text-white min-[720px]:text-5xl"
 			>
-				<span class="font-ui text-[11px] font-bold tracking-wider text-gold uppercase"
-					>Your Profile</span
-				>
-				<div class="flex items-center gap-3">
-					<Avatar
-						src={profile.avatarUrl}
-						name={profile.nickname}
-						className="size-11"
-						textClass="text-lg"
-						ring="ring-2 ring-gold/50"
-					/>
-					<div class="min-[900px]:text-right">
-						<p class="font-display font-bold text-white">{profile.nickname}</p>
-						<p class="font-ui text-xs text-lav">@{profile.username}</p>
-					</div>
-				</div>
+				Community
+			</h1>
+			<p
+				class="mt-2 max-w-[640px] font-ui text-sm leading-relaxed text-[#CFC3E6] min-[720px]:text-base"
+			>
+				Small corners of campus built around a shared feeling. Read what people chose to share,
+				cheer them on, and leave a kind note.
+			</p>
+		</div>
+
+		<div class="flex flex-wrap items-center gap-3">
+			{#if feedVisible}
 				<button
 					type="button"
-					class="font-ui text-xs font-semibold text-gold hover:underline"
-					onclick={() => nav.jump(TODAY)}
+					class="inline-flex min-h-11 items-center gap-2 rounded-[14px] border border-[#5A4580] bg-desk-2 px-4 font-ui text-sm font-semibold text-[#EDE6F7] transition-colors hover:border-lav/70 hover:bg-[#34214E]"
+					onclick={openRandomPage}
 				>
-					Share a page from your journal →
-				</button>
-			</div>
-		</div>
-	</header>
-
-	{#if community.loading && community.communities.length === 0}
-		<div class="mt-6 rounded-3xl border border-[#4D366D] bg-desk-2 p-12 text-center text-white">
-			<div
-				class="mx-auto size-8 animate-spin rounded-full border-2 border-gold border-t-transparent"
-			></div>
-			<p class="mt-4 font-ui text-sm text-[#D6CBEC]">Finding communities…</p>
-		</div>
-	{:else if !community.hasJoined || showDiscovery}
-		<!-- Discovery / join view -->
-		<div class="mt-6">
-			<div class="flex flex-wrap items-end justify-between gap-2">
-				<div>
-					<h2 class="font-display text-2xl font-bold text-white">Communities to join</h2>
-					<p class="mt-1 font-ui text-sm text-[#D6CBEC]">
-						Pick as many as you like. You can leave any time.
-					</p>
-				</div>
-				<div class="flex items-center gap-3">
-					<span class="font-ui text-xs text-[#BBA8E0]"
-						>{community.communities.length} available</span
+					<svg
+						class="size-[18px] shrink-0 text-gold"
+						viewBox="0 0 24 24"
+						fill="none"
+						stroke="currentColor"
+						stroke-width="1.9"
+						stroke-linecap="round"
+						stroke-linejoin="round"
+						aria-hidden="true"
 					>
-					{#if community.hasJoined}
-						<button
-							type="button"
-							class="rounded-full border border-white/20 px-3 py-1.5 font-ui text-xs font-semibold text-white hover:bg-white/10"
-							onclick={() => (showDiscovery = false)}
-						>
-							Back to feed
-						</button>
-					{/if}
-				</div>
-			</div>
-
-			<div class="mt-4 grid gap-4 min-[640px]:grid-cols-2 min-[980px]:grid-cols-3">
-				{#each community.communities as item (item.slug)}
-					<article
-						class="group relative overflow-hidden rounded-[24px] border border-[#4D366D] bg-desk-2 p-5 text-left text-white shadow-[0_14px_36px_rgba(0,0,0,.32)] transition-all hover:-translate-y-1 hover:border-gold/50"
-					>
-						<span
-							class="pointer-events-none absolute -top-8 -right-8 size-24 rounded-full opacity-20 blur-2xl"
-							style="background: {item.color}"
-							aria-hidden="true"
-						></span>
-						<div class="relative flex items-start justify-between gap-3">
-							<span
-								class="flex size-11 items-center justify-center rounded-2xl border border-white/10 bg-white/10"
-								style="color: {item.color}"
-							>
-								<CommunityIcon name={item.icon} size={22} />
-							</span>
-							<span
-								class="rounded-full bg-white/10 px-2.5 py-1 font-ui text-[11px] font-semibold text-[#D6CBEC]"
-							>
-								{item.memberCount}
-								{item.memberCount === 1 ? 'member' : 'members'}
-							</span>
-						</div>
-						<h3 class="relative mt-3 font-display text-xl font-bold">{item.tag}</h3>
-						<p class="relative mt-1 font-ui text-xs font-semibold text-lav">{item.name}</p>
-						<p class="relative mt-2 min-h-[42px] font-ui text-sm text-[#D6CBEC]">
-							{item.description}
-						</p>
-						{#if item.joined}
-							<button
-								type="button"
-								class="relative mt-4 flex w-full items-center justify-center gap-2 rounded-xl border border-[#3F7A4F]/50 bg-[#3F7A4F]/20 px-4 py-2.5 font-ui text-sm font-bold text-[#8BE2A4] transition-colors hover:bg-[#3F7A4F]/30"
-								onclick={() => leaveCommunity(item.slug)}
-							>
-								<CommunityIcon name="check" size={15} />
-								Joined · tap to leave
-							</button>
-						{:else}
-							<button
-								type="button"
-								class="relative mt-4 flex w-full items-center justify-center gap-2 rounded-xl border border-gold/50 bg-gold/20 px-4 py-2.5 font-ui text-sm font-bold text-[#FFF5DE] transition-colors hover:bg-gold/30"
-								onclick={() => joinAndOpen(item.slug)}
-							>
-								<CommunityIcon name="check" size={15} />
-								Join {item.tag}
-							</button>
-						{/if}
-					</article>
-				{/each}
-			</div>
-		</div>
-	{:else}
-		<!-- Joined feed -->
-		<div class="mt-6 flex flex-wrap items-center justify-between gap-3">
-			<div class="flex items-center gap-1 rounded-full border border-[#4D366D] bg-desk-2 p-1">
-				<button
-					type="button"
-					class="inline-flex items-center gap-1.5 rounded-full px-4 py-2 font-ui text-sm font-semibold transition-all {feedMode ===
-					'trending'
-						? 'bg-accent text-white shadow-sm'
-						: 'text-[#D6CBEC] hover:text-white'}"
-					onclick={() => (feedMode = 'trending')}
-				>
-					<CommunityIcon name="trending" size={15} />
-					Trending
+						<rect x="4" y="4" width="16" height="16" rx="3"></rect>
+						<path d="M8.5 8.5h.01M15.5 8.5h.01M12 12h.01M8.5 15.5h.01M15.5 15.5h.01"></path>
+					</svg>
+					Open a random page
 				</button>
-				<button
-					type="button"
-					class="inline-flex items-center gap-1.5 rounded-full px-4 py-2 font-ui text-sm font-semibold transition-all {feedMode ===
-					'foryou'
-						? 'bg-accent text-white shadow-sm'
-						: 'text-[#D6CBEC] hover:text-white'}"
-					onclick={() => (feedMode = 'foryou')}
-				>
-					<CommunityIcon name="sparkles" size={15} />
-					For You
-				</button>
-			</div>
-			<span class="font-ui text-xs text-[#BBA8E0]">{filteredPosts.length} posts</span>
-		</div>
-
-		<!-- Joined community switcher -->
-		<div
-			class="sticky top-4 z-10 -mx-4 mt-4 flex flex-wrap items-center gap-2 overflow-x-auto bg-desk/95 px-4 py-2 backdrop-blur-sm min-[900px]:mx-0 min-[900px]:rounded-2xl min-[900px]:border min-[900px]:border-[#4D366D] min-[900px]:px-3"
-		>
+			{/if}
 			<button
 				type="button"
-				class="flex shrink-0 items-center gap-2 rounded-full px-4 py-2 font-ui text-sm font-semibold transition-all {activeSlug ===
-				'all'
-					? 'bg-accent text-white shadow-md'
-					: 'border border-[#4D366D] bg-desk-2 text-[#D6CBEC] hover:bg-[#3A275A] hover:text-white'}"
-				onclick={() => (activeSlug = 'all')}
-			>
-				<CommunityIcon name="globe" size={14} />
-				All joined
-			</button>
-			{#each community.joinedCommunities as item (item.slug)}
-				<button
-					type="button"
-					class="flex shrink-0 items-center gap-2 rounded-full px-4 py-2 font-ui text-sm font-semibold transition-all {activeSlug ===
-					item.slug
-						? 'bg-accent text-white shadow-md'
-						: 'border border-[#4D366D] bg-desk-2 text-[#D6CBEC] hover:bg-[#3A275A] hover:text-white'}"
-					onclick={() => (activeSlug = item.slug)}
-				>
-					<CommunityIcon name={item.icon} size={14} />
-					{item.tag}
-				</button>
-			{/each}
-			<button
-				type="button"
-				class="ml-auto flex shrink-0 items-center gap-1.5 rounded-full border border-dashed border-[#6A5490] px-3 py-2 font-ui text-xs font-semibold text-[#C9B8E8] hover:border-gold/60 hover:text-white"
-				onclick={() => (showDiscovery = true)}
+				class="inline-flex min-h-12 items-center gap-2.5 rounded-[14px] border-[1.5px] border-gold bg-gold/10 px-5 font-ui text-sm font-semibold text-[#F3DDAE] transition-colors hover:bg-gold/20"
+				onclick={() => nav.jump(TODAY)}
 			>
 				<svg
-					width="13"
-					height="13"
+					class="size-[18px] shrink-0"
 					viewBox="0 0 24 24"
 					fill="none"
 					stroke="currentColor"
@@ -426,176 +371,578 @@
 					stroke-linejoin="round"
 					aria-hidden="true"
 				>
-					<line x1="12" y1="5" x2="12" y2="19"></line>
-					<line x1="5" y1="12" x2="19" y2="12"></line>
+					<path d="M12 20h9"></path>
+					<path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"></path>
 				</svg>
-				Join more
+				Share a page
 			</button>
 		</div>
+	</header>
 
-		<!-- Search -->
-		<div class="relative mt-4">
-			<svg
-				class="absolute top-1/2 left-4 -translate-y-1/2 text-[#9B8CB5]"
-				width="18"
-				height="18"
-				viewBox="0 0 24 24"
-				fill="none"
-				stroke="currentColor"
-				stroke-width="2"
-				stroke-linecap="round"
-				stroke-linejoin="round"
+	{#if community.loading && community.communities.length === 0}
+		<div
+			class="relative mt-7 overflow-hidden rounded-[10px] bg-paper px-6 py-14 text-center text-ink shadow-[0_16px_34px_rgba(0,0,0,.4)]"
+		>
+			<span
+				class="absolute -top-3 left-1/2 h-[26px] w-[92px] -translate-x-1/2 rotate-[3deg] bg-lav/90"
 				aria-hidden="true"
-			>
-				<circle cx="11" cy="11" r="8"></circle>
-				<path d="m21 21-4.3-4.3"></path>
-			</svg>
-			<input
-				bind:value={searchQuery}
-				type="text"
-				placeholder="Search posts in your communities…"
-				class="h-12 w-full rounded-2xl border border-[#4D366D] bg-desk-2 pr-4 pl-11 font-ui text-sm text-white placeholder:text-[#9B8CB5] focus:border-gold/60 focus:outline-none"
-			/>
+			></span>
+			<div
+				class="mx-auto size-9 animate-spin rounded-full border-2 border-accent border-t-transparent"
+			></div>
+			<p class="mt-4 font-hand text-xl text-ink-soft">Finding communities…</p>
 		</div>
-
-		<!-- Posts -->
-		<div class="mt-6 grid gap-6 lg:grid-cols-2">
-			{#if filteredPosts.length === 0}
-				<div
-					class="rounded-[24px] border border-[#4D366D] bg-desk-2 p-10 text-center text-white lg:col-span-2"
-				>
-					<span
-						class="mx-auto flex size-14 items-center justify-center rounded-full bg-white/10 text-lav"
-					>
-						<CommunityIcon name="sparkles" size={26} />
-					</span>
-					<p class="mt-4 font-display text-2xl font-bold">No posts here yet</p>
-					<p class="mt-2 font-ui text-sm text-[#D6CBEC]">
-						{#if searchQuery.trim()}
-							Nothing matched “{searchQuery}”. Try a different search.
-						{:else}
-							Be the first to share a page in {activeSlug === 'all'
-								? 'your communities'
-								: community.tagFor(activeSlug)}.
-						{/if}
+	{:else if !community.hasJoined || showDiscovery}
+		<!-- Discovery / join view -->
+		<section class="mt-7">
+			<div class="flex flex-wrap items-end justify-between gap-3">
+				<div>
+					<h2 class="font-display text-3xl font-bold text-white min-[720px]:text-4xl">
+						Communities to join
+					</h2>
+					<p class="mt-1 max-w-[640px] font-ui text-sm leading-relaxed text-[#CFC3E6]">
+						Pick as many as you like. You can leave any time. Your journal pages stay private until
+						you choose to share one with a community.
 					</p>
+				</div>
+				<div class="flex items-center gap-3">
+					<span class="font-ui text-xs text-[#BBA8E0]">
+						{community.communities.length} available
+					</span>
+					{#if community.hasJoined}
+						<button
+							type="button"
+							class="min-h-10 rounded-full border border-[#5A4580] bg-desk-2 px-4 font-ui text-xs font-semibold text-[#EDE6F7] transition-colors hover:border-lav/70 hover:bg-[#34214E]"
+							onclick={() => (showDiscovery = false)}
+						>
+							← Back to feed
+						</button>
+					{/if}
+				</div>
+			</div>
+
+			<div class="mt-6 grid gap-x-5 gap-y-8 min-[640px]:grid-cols-2 min-[1000px]:grid-cols-3">
+				{#each community.communities as item, index (item.slug)}
+					{@const tilt = DISCOVERY_TILTS[index % DISCOVERY_TILTS.length]}
+					<article
+						class="group relative flex min-w-0 flex-col overflow-hidden rounded-[8px] bg-paper text-ink shadow-[0_12px_26px_rgba(0,0,0,.42)] transition-all duration-200 hover:-translate-y-1 hover:rotate-0 hover:shadow-[0_18px_34px_rgba(0,0,0,.5)] {tilt}"
+					>
+						<div class="h-2 w-full" style="background: {item.color}" aria-hidden="true"></div>
+						<div class="flex flex-1 flex-col p-5">
+							<div class="flex items-start justify-between gap-3">
+								<span
+									class="flex size-12 shrink-0 items-center justify-center rounded-2xl border"
+									style="background: {item.color}1f; color: {item.color}; border-color: {item.color}55"
+								>
+									<CommunityIcon name={item.icon} size={24} />
+								</span>
+								<span
+									class="rounded-full bg-light px-2.5 py-1 font-ui text-[10px] font-bold text-ink-soft"
+								>
+									{item.memberCount}
+									{item.memberCount === 1 ? 'member' : 'members'}
+								</span>
+							</div>
+
+							<div class="mt-3 flex flex-wrap items-center gap-2">
+								<h3 class="font-display text-xl leading-tight font-bold">{item.tag}</h3>
+								{#if item.joined}
+									<span
+										class="inline-flex items-center gap-1 rounded-full bg-[#E3F1E5] px-2 py-0.5 font-ui text-[9px] font-bold text-[#2F6B45]"
+									>
+										<CommunityIcon name="check" size={10} />
+										Joined
+									</span>
+								{/if}
+							</div>
+							<p class="font-ui text-xs font-semibold text-ink-soft">{item.name}</p>
+							<p class="mt-2 flex-1 font-ui text-sm leading-relaxed text-ink-soft">
+								{item.description}
+							</p>
+
+							<div class="mt-3 flex items-center gap-1.5 font-hand text-base text-ink-soft">
+								<span class="text-gold" aria-hidden="true">✦</span>
+								{slugCounts[item.slug] ?? 0}
+								{(slugCounts[item.slug] ?? 0) === 1 ? 'shared page' : 'shared pages'}
+								visible to you
+							</div>
+
+							{#if item.joined}
+								<div class="mt-4 grid grid-cols-2 gap-2">
+									<button
+										type="button"
+										class="min-h-10 rounded-xl bg-accent px-3 font-ui text-xs font-bold text-white transition-colors hover:bg-[#624690]"
+										onclick={() => openCommunity(item.slug)}
+									>
+										Open feed
+									</button>
+									<button
+										type="button"
+										class="min-h-10 rounded-xl border-[1.5px] border-[#CDBBE9] px-3 font-ui text-xs font-semibold text-accent transition-colors hover:bg-light"
+										onclick={() => leaveCommunity(item.slug)}
+									>
+										Leave
+									</button>
+								</div>
+							{:else}
+								<button
+									type="button"
+									class="mt-4 flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-accent px-4 font-ui text-sm font-bold text-white transition-colors hover:bg-[#624690]"
+									onclick={() => joinAndOpen(item.slug)}
+								>
+									<CommunityIcon name="check" size={15} />
+									Join {item.tag}
+								</button>
+							{/if}
+						</div>
+					</article>
+				{/each}
+			</div>
+		</section>
+	{:else}
+		<!-- Prompt + mood browser -->
+		<div class="mt-7 grid gap-6 min-[940px]:grid-cols-[minmax(0,380px)_minmax(0,1fr)]">
+			<section
+				class="relative mx-auto w-full max-w-[470px] rotate-[-1deg] rounded-[6px] bg-paper px-6 pt-7 pb-6 text-ink shadow-[0_12px_24px_rgba(0,0,0,.4)] min-[940px]:mx-0"
+			>
+				<span
+					class="absolute -top-3 left-1/2 -ml-[46px] h-[26px] w-[92px] rotate-[3deg] bg-lav/90"
+					aria-hidden="true"
+				></span>
+				<p class="font-ui text-[11px] font-bold tracking-[.14em] text-[#8A5A12] uppercase">
+					Today's prompt
+				</p>
+				<p class="mt-2 font-hand text-[28px] leading-[1.2] font-bold text-ink">{todaysPrompt}</p>
+				<button
+					type="button"
+					class="mt-4 min-h-11 rounded-xl bg-accent px-5 font-ui text-sm font-semibold text-white transition-colors hover:bg-[#624690]"
+					onclick={() => nav.jump(TODAY)}
+				>
+					Answer with a VidJo
+				</button>
+			</section>
+
+			<section class="min-w-0">
+				<div class="flex flex-wrap items-end justify-between gap-2">
+					<div>
+						<h2
+							class="font-display text-2xl leading-tight font-bold text-white min-[720px]:text-[28px]"
+						>
+							Browse by mood
+						</h2>
+						<p class="mt-0.5 font-ui text-sm text-[#CFC3E6]">
+							Showing {activeMood === 'all' ? 'every mood' : MOOD_BY_KEY[activeMood].l} ·
+							{feedMode === 'trending' ? 'trending first' : 'newest first'}
+						</p>
+					</div>
+					{#if activeMood !== 'all'}
+						<button
+							type="button"
+							class="font-ui text-xs font-semibold text-gold hover:underline"
+							onclick={() => (activeMood = 'all')}
+						>
+							Clear mood
+						</button>
+					{/if}
+				</div>
+
+				<div class="mt-4 flex flex-wrap gap-2.5">
 					<button
 						type="button"
-						class="mt-4 rounded-xl bg-accent px-5 py-2.5 font-ui text-sm font-bold text-white hover:bg-[#624690]"
+						class="flex min-h-11 items-center gap-2 rounded-full border-2 px-3.5 font-hand text-[18px] leading-none font-bold transition-colors {activeMood ===
+						'all'
+							? 'border-gold bg-paper text-ink'
+							: 'border-[#5A4580] text-[#EDE6F7] hover:border-lav hover:text-white'}"
+						onclick={() => (activeMood = 'all')}
+						aria-pressed={activeMood === 'all'}
+					>
+						<CommunityIcon name="sparkles" size={17} class="text-gold" />
+						All moods
+						<span class="font-ui text-[10px] opacity-60">{basePosts.length}</span>
+					</button>
+
+					{#each MOODS as mood (mood.k)}
+						<button
+							type="button"
+							class="flex min-h-11 items-center gap-1.5 rounded-full border-2 py-1 pr-3 pl-2 font-hand text-[18px] leading-none font-bold transition-colors {activeMood ===
+							mood.k
+								? 'border-gold bg-paper text-ink'
+								: 'border-[#5A4580] text-[#EDE6F7] hover:border-lav hover:text-white'}"
+							onclick={() => (activeMood = activeMood === mood.k ? 'all' : mood.k)}
+							aria-pressed={activeMood === mood.k}
+						>
+							<span class="size-[26px] shrink-0 [&>svg]:size-full" aria-hidden="true">
+								<!-- eslint-disable-next-line svelte/no-at-html-tags -- trusted static mood SVG from app data -->
+								{@html mood.svg}
+							</span>
+							{mood.l}
+							<span class="font-ui text-[10px] opacity-60">{moodCounts[mood.k] ?? 0}</span>
+						</button>
+					{/each}
+				</div>
+			</section>
+		</div>
+
+		<!-- Joined community rail -->
+		<div
+			class="sticky top-2 z-20 -mx-4 mt-6 overflow-x-auto border-y border-[#4A3670] bg-desk/90 px-4 py-2 backdrop-blur-sm min-[900px]:mx-0 min-[900px]:rounded-[18px] min-[900px]:border min-[900px]:px-2.5"
+		>
+			<div class="flex items-center gap-2">
+				<span
+					class="hidden shrink-0 pr-1 font-ui text-[10px] font-bold tracking-[.14em] text-[#9B8CB5] uppercase min-[900px]:block"
+				>
+					Your communities
+				</span>
+				<button
+					type="button"
+					class="flex shrink-0 items-center gap-2 rounded-full border px-3.5 py-2 font-ui text-xs font-bold transition-colors {activeSlug ===
+					'all'
+						? 'border-gold bg-paper text-ink'
+						: 'border-[#4D366D] bg-desk-2 text-[#D6CBEC] hover:bg-[#3A275A] hover:text-white'}"
+					onclick={() => (activeSlug = 'all')}
+					aria-pressed={activeSlug === 'all'}
+				>
+					<CommunityIcon name="globe" size={14} />
+					All joined
+					<span class="text-[10px] opacity-60">{memberPosts.length}</span>
+				</button>
+
+				{#each community.joinedCommunities as item (item.slug)}
+					<button
+						type="button"
+						class="flex shrink-0 items-center gap-2 rounded-full border px-3.5 py-2 font-ui text-xs font-bold transition-colors {activeSlug ===
+						item.slug
+							? 'border-gold bg-paper text-ink'
+							: 'border-[#4D366D] bg-desk-2 text-[#D6CBEC] hover:bg-[#3A275A] hover:text-white'}"
+						onclick={() => (activeSlug = item.slug)}
+						aria-pressed={activeSlug === item.slug}
+					>
+						<CommunityIcon name={item.icon} size={14} />
+						{item.tag}
+						<span class="text-[10px] opacity-60">{slugCounts[item.slug] ?? 0}</span>
+					</button>
+				{/each}
+
+				<button
+					type="button"
+					class="ml-auto flex shrink-0 items-center gap-1.5 rounded-full border border-dashed border-[#6A5490] px-3 py-2 font-ui text-xs font-semibold text-[#C9B8E8] transition-colors hover:border-gold/60 hover:text-white"
+					onclick={() => (showDiscovery = true)}
+				>
+					<svg
+						class="size-[13px]"
+						viewBox="0 0 24 24"
+						fill="none"
+						stroke="currentColor"
+						stroke-width="2"
+						stroke-linecap="round"
+						aria-hidden="true"
+					>
+						<line x1="12" y1="5" x2="12" y2="19"></line>
+						<line x1="5" y1="12" x2="19" y2="12"></line>
+					</svg>
+					Discover
+				</button>
+			</div>
+		</div>
+
+		<!-- Sort + search -->
+		<div class="mt-5 flex flex-wrap items-center justify-between gap-3">
+			<div class="flex flex-wrap items-center gap-3">
+				<div
+					class="inline-flex items-center gap-1 rounded-full border border-[#4D366D] bg-desk-2 p-1"
+					role="group"
+					aria-label="Sort community pages"
+				>
+					<button
+						type="button"
+						class="inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 font-ui text-xs font-bold transition-colors {feedMode ===
+						'trending'
+							? 'bg-accent text-white shadow-sm'
+							: 'text-[#D6CBEC] hover:text-white'}"
+						onclick={() => (feedMode = 'trending')}
+						aria-pressed={feedMode === 'trending'}
+					>
+						<CommunityIcon name="trending" size={14} />
+						Trending
+					</button>
+					<button
+						type="button"
+						class="inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 font-ui text-xs font-bold transition-colors {feedMode ===
+						'newest'
+							? 'bg-accent text-white shadow-sm'
+							: 'text-[#D6CBEC] hover:text-white'}"
+						onclick={() => (feedMode = 'newest')}
+						aria-pressed={feedMode === 'newest'}
+					>
+						<svg
+							class="size-[14px]"
+							viewBox="0 0 24 24"
+							fill="none"
+							stroke="currentColor"
+							stroke-width="2"
+							stroke-linecap="round"
+							stroke-linejoin="round"
+							aria-hidden="true"
+						>
+							<circle cx="12" cy="12" r="9"></circle>
+							<path d="M12 7v5l3 2"></path>
+						</svg>
+						Newest
+					</button>
+				</div>
+				<span class="font-ui text-xs text-[#BBA8E0]">
+					{filteredPosts.length}
+					{filteredPosts.length === 1 ? 'page' : 'pages'}
+				</span>
+			</div>
+
+			<div class="relative w-full min-[520px]:w-[300px]">
+				<svg
+					class="pointer-events-none absolute top-1/2 left-3.5 size-[17px] -translate-y-1/2 text-[#9B8CB5]"
+					viewBox="0 0 24 24"
+					fill="none"
+					stroke="currentColor"
+					stroke-width="2"
+					stroke-linecap="round"
+					stroke-linejoin="round"
+					aria-hidden="true"
+				>
+					<circle cx="11" cy="11" r="8"></circle>
+					<path d="m21 21-4.3-4.3"></path>
+				</svg>
+				<input
+					bind:value={searchQuery}
+					type="text"
+					aria-label="Search shared community pages"
+					placeholder="Search shared pages…"
+					class="h-11 w-full rounded-full border border-[#4D366D] bg-desk-2 pr-4 pl-10 font-ui text-sm text-white placeholder:text-[#9B8CB5] focus:border-gold/60 focus:outline-none"
+				/>
+			</div>
+		</div>
+
+		<!-- Feed -->
+		{#if filteredPosts.length === 0}
+			<div
+				class="relative mx-auto mt-8 max-w-[620px] overflow-hidden rounded-[10px] bg-paper px-6 py-10 text-center text-ink shadow-[0_16px_34px_rgba(0,0,0,.4)]"
+			>
+				<span
+					class="absolute -top-3 left-1/2 h-[26px] w-[92px] -translate-x-1/2 rotate-[3deg] bg-lav/90"
+					aria-hidden="true"
+				></span>
+				<span
+					class="mx-auto flex size-16 items-center justify-center rounded-full bg-light"
+					style={activeMood !== 'all' ? `background: ${MOOD_BY_KEY[activeMood].c}80` : ''}
+				>
+					{#if activeMood !== 'all'}
+						<span class="size-11 [&>svg]:size-full" aria-hidden="true">
+							<!-- eslint-disable-next-line svelte/no-at-html-tags -- trusted static mood SVG from app data -->
+							{@html MOOD_BY_KEY[activeMood].svg}
+						</span>
+					{:else}
+						<CommunityIcon name="sparkles" size={28} class="text-accent" />
+					{/if}
+				</span>
+				<p class="mt-4 font-display text-2xl font-bold">No pages here yet</p>
+				<p class="mx-auto mt-2 max-w-[420px] font-hand text-lg leading-snug text-ink-soft">
+					{#if searchQuery.trim()}
+						Nothing matched “{searchQuery}”. Try a different search or clear your filters.
+					{:else if activeMood !== 'all'}
+						No one has shared a {MOOD_BY_KEY[activeMood].l.toLowerCase()} page here yet. Try another mood.
+					{:else}
+						Be the first to share a page in {activeSlug === 'all'
+							? 'your communities'
+							: community.tagFor(activeSlug)}.
+					{/if}
+				</p>
+				<div class="mt-5 flex flex-wrap justify-center gap-2.5">
+					{#if searchQuery.trim() || activeMood !== 'all' || activeSlug !== 'all'}
+						<button
+							type="button"
+							class="min-h-10 rounded-xl border border-line px-4 font-ui text-xs font-semibold text-ink-soft transition-colors hover:bg-light hover:text-ink"
+							onclick={clearFilters}
+						>
+							Clear filters
+						</button>
+					{/if}
+					<button
+						type="button"
+						class="min-h-10 rounded-xl bg-accent px-5 font-ui text-xs font-bold text-white transition-colors hover:bg-[#624690]"
 						onclick={() => nav.jump(TODAY)}
 					>
 						Write today's page
 					</button>
 				</div>
-			{/if}
+			</div>
+		{:else}
+			<div
+				class="mt-8 grid items-start gap-x-6 gap-y-10 min-[640px]:grid-cols-2 min-[1180px]:grid-cols-3"
+			>
+				{#each filteredPosts as post, index (post.id)}
+					{@const tilt = CARD_TILTS[index % CARD_TILTS.length]}
+					{@const mood = post.mood && MOOD_BY_KEY[post.mood] ? MOOD_BY_KEY[post.mood] : null}
+					{@const stickers = stickersFor(post)}
+					<article
+						id="community-page-{post.id}"
+						class="group relative min-w-0 rounded-[5px] bg-paper p-3 pb-3.5 text-ink shadow-[0_12px_24px_rgba(0,0,0,.45)] transition-all duration-200 hover:-translate-y-1 hover:rotate-0 hover:shadow-[0_18px_34px_rgba(0,0,0,.5)] {tilt} {focusPostId ===
+						post.id
+							? 'ring-4 ring-gold ring-offset-2 ring-offset-desk'
+							: ''}"
+					>
+						<span
+							class="absolute top-[-9px] left-1/2 z-10 size-[18px] -translate-x-1/2 rounded-full bg-[radial-gradient(circle_at_35%_30%,#F6DFA8,#D4A24C_60%,#8A5F1A)] shadow-[0_2px_3px_rgba(0,0,0,.5)]"
+							aria-hidden="true"
+						></span>
 
-			{#each filteredPosts as post (post.id)}
-				<article
-					class="group relative overflow-hidden rounded-[28px] border border-[#4D366D] bg-desk-2 text-white shadow-[0_20px_50px_rgba(0,0,0,.4)] transition-all hover:-translate-y-1 hover:shadow-[0_24px_56px_rgba(0,0,0,.44)]"
-				>
-					<span
-						class="absolute -top-3 left-10 h-7 w-28 rotate-[-3deg] bg-gold/90 [background-image:repeating-linear-gradient(90deg,rgba(255,255,255,.4)_0_6px,transparent_6px_12px)] shadow-[0_1px_3px_rgba(0,0,0,.15)]"
-						aria-hidden="true"
-					></span>
-
-					<div class="p-6 min-[720px]:p-8">
-						<div class="flex flex-wrap items-center justify-between gap-3">
-							<div class="flex items-center gap-3">
-								<Avatar
-									src={post.authorAvatar}
-									name={post.authorName}
-									className="size-11"
-									textClass="text-xl"
-									ring="ring-2 ring-gold/40"
-								/>
-								<div>
-									<div class="flex flex-wrap items-center gap-2">
-										<h2 class="font-display text-lg font-bold text-white">{post.authorName}</h2>
-										<span
-											class="rounded-full bg-white/10 px-2 py-0.5 font-ui text-[10px] font-bold text-lav"
-											>@{post.authorUsername}</span
-										>
-										{#if post.isOwner}
-											<span
-												class="rounded-full bg-[#3F7A4F]/20 px-2 py-0.5 font-ui text-[10px] font-bold text-[#8BE2A4]"
-												>You</span
-											>
-										{/if}
-										<span
-											class="rounded-full bg-gold/20 px-2 py-0.5 font-ui text-[10px] font-bold text-gold"
-											>{post.tag}</span
-										>
-									</div>
-									<div class="flex items-center gap-2 font-ui text-xs text-[#BBA8E0]">
-										<time>{post.dateFormatted}</time>
-										<span>•</span>
-										<span>{community.nameFor(post.communitySlug)}</span>
-									</div>
-								</div>
-							</div>
-							{#if post.mood && MOODS[post.mood]}
-								<span
-									class="inline-flex items-center gap-1.5 rounded-full border border-[#523A7A]/40 bg-white/10 px-3 py-1 font-ui text-xs font-bold text-lav"
-								>
-									{MOODS[post.mood]}
-								</span>
-							{/if}
-						</div>
-
-						{#if post.title}
-							<h3 class="mt-4 font-display text-2xl font-bold tracking-tight text-white">
-								{post.title}
-							</h3>
-						{/if}
-
+						<!-- Media / cover -->
 						{#if post.videoUrl}
-							<div class="my-4 overflow-hidden rounded-2xl border-2 border-[#D8C8A2] bg-[#120A20]">
+							<div class="relative overflow-hidden rounded-[2px] border border-line bg-[#120A20]">
 								<!-- svelte-ignore a11y_media_has_caption -->
 								<video
 									src={post.videoUrl}
 									controls
 									playsinline
-									class="max-h-[340px] w-full bg-black object-contain"
+									class="max-h-[290px] w-full bg-black object-contain"
 								></video>
+								<span
+									class="pointer-events-none absolute top-2 left-2 rounded-full bg-[#2A1B3D]/80 px-2 py-0.5 font-ui text-[9px] font-bold text-white backdrop-blur-sm"
+								>
+									{post.tag}
+								</span>
 							</div>
 						{:else if post.videoPath || post.videoName}
-							<div class="my-4 overflow-hidden rounded-2xl border-2 border-[#D8C8A2] bg-[#120A20]">
-								<div
-									class="relative flex flex-col items-center justify-center bg-[radial-gradient(ellipse_at_center,#4A2F7A_0%,#190E2B_85%)] p-8 text-center text-white"
+							<div
+								class="relative flex aspect-[4/3] flex-col items-center justify-center overflow-hidden rounded-[2px] border border-line bg-[radial-gradient(ellipse_at_center,#4A2F7A_0%,#190E2B_85%)] text-center text-white"
+							>
+								<span
+									class="absolute top-2 left-2 rounded-full bg-white/15 px-2 py-0.5 font-ui text-[9px] font-bold text-white backdrop-blur-sm"
 								>
-									<span
-										class="absolute top-3 left-4 flex items-center gap-1.5 font-mono text-xs text-red-400"
+									{post.tag}
+								</span>
+								<span
+									class="flex size-12 items-center justify-center rounded-full bg-white/95 text-accent shadow-lg"
+								>
+									<svg
+										class="size-[22px]"
+										viewBox="0 0 24 24"
+										fill="currentColor"
+										aria-hidden="true"
 									>
-										<span class="size-2 animate-pulse rounded-full bg-red-500"></span>
-										VIDJO • REC
-									</span>
-									<span class="absolute top-3 right-4 font-mono text-xs text-gold">COMMUNITY</span>
-									<span
-										class="flex size-14 items-center justify-center rounded-full bg-white/10 text-white shadow-lg backdrop-blur-md"
-									>
-										<svg
-											width="26"
-											height="26"
-											viewBox="0 0 24 24"
-											fill="currentColor"
-											aria-hidden="true"
-										>
-											<path d="M8 5v14l11-7z"></path>
-										</svg>
-									</span>
-									<p class="mt-3 font-display text-lg font-bold">
-										{post.videoName || 'Community video moment'}
-									</p>
-									<p class="mt-0.5 font-hand text-base text-[#D6CBEC]">
-										Shared with {community.tagFor(post.communitySlug)}
-									</p>
-								</div>
+										<path d="M8 5v14l11-7z"></path>
+									</svg>
+								</span>
+								<p class="mt-2.5 max-w-[82%] font-hand text-lg leading-tight font-bold">
+									{post.videoName || 'A shared video moment'}
+								</p>
+								<span class="absolute bottom-2 left-2 font-mono text-[9px] tracking-wider text-gold"
+									>VIDJO</span
+								>
+								<span class="absolute right-2 bottom-2 font-mono text-[9px] text-white/55"
+									>VIDEO</span
+								>
+							</div>
+						{:else if mood}
+							<div
+								class="relative flex aspect-[4/3] flex-col items-center justify-center overflow-hidden rounded-[2px] border border-line"
+								style="background: radial-gradient(circle at 50% 32%, {mood.c} 0%, #FBF4E4 80%)"
+							>
+								<span
+									class="absolute top-2 left-2 rounded-full bg-[#2A1B3D]/75 px-2 py-0.5 font-ui text-[9px] font-bold text-white backdrop-blur-sm"
+								>
+									{post.tag}
+								</span>
+								<span
+									class="size-24 drop-shadow-[0_6px_10px_rgba(0,0,0,.18)] [&>svg]:size-full"
+									aria-hidden="true"
+								>
+									<!-- eslint-disable-next-line svelte/no-at-html-tags -- trusted static mood SVG from app data -->
+									{@html mood.svg}
+								</span>
+								<span class="mt-2 font-hand text-xl leading-none font-bold text-ink">
+									feeling {mood.l.toLowerCase()}
+								</span>
+							</div>
+						{:else}
+							<div
+								class="relative flex aspect-[4/3] flex-col items-center justify-center overflow-hidden rounded-[2px] border border-line bg-[linear-gradient(135deg,#F3ECFA,#E4D8F2)]"
+							>
+								<span
+									class="absolute top-2 left-2 rounded-full bg-[#2A1B3D]/75 px-2 py-0.5 font-ui text-[9px] font-bold text-white backdrop-blur-sm"
+								>
+									{post.tag}
+								</span>
+								<span
+									class="flex size-16 items-center justify-center rounded-full bg-paper/80 text-accent shadow-sm"
+								>
+									<CommunityIcon name={community.iconFor(post.communitySlug)} size={30} />
+								</span>
+								<span class="mt-2 font-hand text-xl font-bold text-ink">
+									{community.nameFor(post.communitySlug)}
+								</span>
 							</div>
 						{/if}
 
+						{#if post.title}
+							<h3 class="mt-3 font-hand text-[24px] leading-[1.1] font-bold text-ink">
+								{post.title}
+							</h3>
+						{/if}
+
+						<!-- Author -->
+						<div class="mt-2 flex items-center gap-2.5">
+							<button
+								type="button"
+								class="shrink-0 rounded-full"
+								onclick={() => openProfile(post.authorId)}
+								aria-label="View {post.authorName}'s profile"
+							>
+								<Avatar
+									src={post.authorAvatar}
+									name={post.authorName}
+									className="size-9"
+									textClass="text-base"
+									ring="ring-2 ring-gold/40"
+								/>
+							</button>
+							<div class="min-w-0 flex-1">
+								<div class="flex min-w-0 items-center gap-1.5">
+									<button
+										type="button"
+										class="truncate font-hand text-lg leading-tight font-bold text-ink hover:text-accent"
+										onclick={() => openProfile(post.authorId)}
+									>
+										{post.authorName}
+									</button>
+									{#if post.isOwner}
+										<span
+											class="shrink-0 rounded-full bg-[#3F7A4F]/15 px-1.5 py-0.5 font-ui text-[9px] font-bold text-[#2F6B45]"
+										>
+											You
+										</span>
+									{/if}
+								</div>
+								<p class="truncate font-ui text-[10px] text-ink-soft">
+									@{post.authorUsername} · {post.dateFormatted}
+								</p>
+							</div>
+							{#if mood}
+								<span
+									class="inline-flex shrink-0 items-center gap-1 rounded-full border px-2 py-1 font-ui text-[9px] font-bold text-ink"
+									style="background: {mood.c}66; border-color: {mood.c}"
+								>
+									<span class="size-4 [&>svg]:size-full" aria-hidden="true">
+										<!-- eslint-disable-next-line svelte/no-at-html-tags -- trusted static mood SVG from app data -->
+										{@html mood.svg}
+									</span>
+									{mood.l}
+								</span>
+							{/if}
+						</div>
+
 						{#if post.mind}
-							<div class="my-4 rounded-xl border-l-4 border-gold/60 bg-white/10 p-4">
-								<p class="font-hand text-[22px] leading-relaxed whitespace-pre-wrap text-white">
+							<div
+								class="mt-2.5 rounded border border-line/70 bg-[#FFFDF6] paper-lined px-2.5 py-1.5"
+							>
+								<p class="font-hand text-[17px] leading-[31px] whitespace-pre-wrap text-ink">
 									{post.mind}
 								</p>
 							</div>
@@ -603,49 +950,68 @@
 
 						{#if post.refl}
 							<div
-								class="my-3 flex items-start gap-2.5 rounded-xl border border-[#4D366D]/40 bg-white/10 p-3"
+								class="mt-2 flex items-start gap-2 rounded border border-line bg-light/80 px-2.5 py-2"
 							>
-								<span class="text-base font-bold text-gold">★</span>
-								<div>
-									<span class="block font-ui text-xs font-bold tracking-wider text-gold uppercase"
+								<span class="text-sm font-bold text-gold" aria-hidden="true">★</span>
+								<div class="min-w-0">
+									<span
+										class="block font-ui text-[9px] font-bold tracking-[.14em] text-accent uppercase"
 										>Reflection</span
 									>
-									<p class="mt-0.5 font-hand text-lg font-semibold text-white">
+									<p class="mt-0.5 font-hand text-base leading-snug font-semibold text-ink">
 										{post.refl}
 									</p>
 								</div>
 							</div>
 						{/if}
 
+						{#if stickers.length > 0}
+							<div class="mt-2.5 flex items-center gap-1 border-t border-line/60 pt-2.5">
+								{#each stickers as sticker, i (i)}
+									<span
+										class="inline-block w-8 {sticker.flat
+											? 'sticker-flat'
+											: 'sticker-shadow'} [&>svg]:block [&>svg]:h-auto [&>svg]:w-full"
+										style="transform: rotate({stickerTilt(sticker.rot, i)}deg)"
+										aria-hidden="true"
+									>
+										<!-- eslint-disable-next-line svelte/no-at-html-tags -- trusted static sticker SVG from app data -->
+										{@html sticker.svg}
+									</span>
+								{/each}
+							</div>
+						{/if}
+
+						<!-- Reactions + notes -->
 						<div
-							class="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-[#4D366D]/40 pt-4"
+							class="mt-2.5 flex flex-wrap items-center justify-between gap-2 border-t border-line/70 pt-2.5"
 						>
-							<div class="flex flex-wrap items-center gap-1.5">
+							<div class="flex flex-wrap items-center gap-1">
 								{#each REACTIONS as reaction (reaction.key)}
 									<button
 										type="button"
-										class="flex items-center gap-1.5 rounded-full border px-3 py-1.5 font-ui text-xs font-bold transition-all active:scale-95 {post.userReactions.includes(
+										class="inline-flex items-center gap-1 rounded-full border px-2 py-1 font-ui text-[10px] font-bold transition-all active:scale-95 {post.userReactions.includes(
 											reaction.key
 										)
 											? reaction.active
-											: 'border-white/20 text-white/70 hover:bg-white/10'}"
+											: 'border-line bg-[#FFFDF6] text-ink-soft hover:bg-light'}"
 										onclick={() => community.toggleReaction(post, reaction.key)}
 										aria-label={reaction.label}
 										aria-pressed={post.userReactions.includes(reaction.key)}
 									>
-										<CommunityIcon name={reaction.icon} size={14} />
+										<CommunityIcon name={reaction.icon} size={12} />
 										<span>{post.reactions[reaction.key]}</span>
 									</button>
 								{/each}
 							</div>
 							<button
 								type="button"
-								class="flex items-center gap-1.5 rounded-full bg-white/10 px-4 py-2 font-ui text-xs font-bold text-lav transition-all hover:bg-white/20"
+								class="inline-flex items-center gap-1.5 rounded-full border border-line bg-[#FFFDF6] px-2.5 py-1 font-ui text-[10px] font-bold text-accent transition-colors hover:bg-light"
 								onclick={() => toggleComments(post.id)}
+								aria-expanded={openComments === post.id}
 							>
 								<svg
-									width="14"
-									height="14"
+									class="size-3.5"
 									viewBox="0 0 24 24"
 									fill="none"
 									stroke="currentColor"
@@ -661,21 +1027,22 @@
 						</div>
 
 						{#if openComments === post.id}
-							<div class="mt-4 rounded-xl border border-[#4D366D]/40 bg-white/10 p-3.5">
+							<div class="mt-2.5 rounded-xl border border-line bg-[#FFFDF6] p-2.5">
 								<span
-									class="mb-2.5 block font-ui text-[11px] font-bold tracking-wider text-[#BBA8E0] uppercase"
+									class="mb-2 block font-ui text-[9px] font-bold tracking-[.14em] text-ink-soft uppercase"
 								>
 									Community notes
 								</span>
+
 								{#if post.comments.length > 0}
-									<div class="mb-3 space-y-2">
+									<div class="mb-2.5 space-y-2">
 										{#each post.comments as comment (comment.id)}
-											<div class="flex items-start gap-2.5 rounded-lg bg-white/10 p-2.5 shadow-2xs">
+											<div class="flex items-start gap-2 rounded-lg bg-light/80 p-2">
 												<Avatar
 													src={comment.authorAvatar}
 													name={comment.authorName}
-													className="size-7"
-													textClass="text-sm"
+													className="size-6"
+													textClass="text-xs"
 													ring=""
 												/>
 												<div class="min-w-0 flex-1">
@@ -683,32 +1050,31 @@
 														<div class="flex min-w-0 items-baseline gap-1.5">
 															<button
 																type="button"
-																class="truncate font-ui text-xs text-white hover:underline"
-																onclick={() => {
-																	viewedUserId = comment.authorId;
-																	profileModalOpen = true;
-																}}
+																class="truncate font-ui text-[11px] font-semibold text-ink hover:underline"
+																onclick={() => openProfile(comment.authorId)}
 															>
 																{comment.authorName}
 															</button>
 															{#if comment.authorId === auth.ownerId}
 																<span
-																	class="rounded-full bg-accent/30 px-1.5 py-0.5 font-ui text-[9px] font-bold text-white"
+																	class="rounded-full bg-accent/15 px-1.5 py-0.5 font-ui text-[8px] font-bold text-accent"
 																	>You</span
 																>
 															{/if}
 														</div>
-														<time class="shrink-0 font-ui text-[10px] text-[#BBA8E0]">{comment.time}</time>
+														<time class="shrink-0 font-ui text-[9px] text-ink-soft"
+															>{comment.time}</time
+														>
 													</div>
-													<p class="mt-0.5 font-hand text-base leading-tight text-white">
+													<p class="mt-0.5 font-hand text-base leading-tight text-ink">
 														{censor(comment.text)}
 													</p>
-													{#if comment.id.startsWith('local-') === false}
-														<div class="mt-1 flex items-center gap-3">
+													{#if !comment.id.startsWith('local-')}
+														<div class="mt-1">
 															{#if comment.authorId === auth.ownerId}
 																<button
 																	type="button"
-																	class="font-ui text-[10px] text-[#BBA8E0] hover:text-[#FF9B9B]"
+																	class="font-ui text-[9px] text-ink-soft hover:text-red-600"
 																	onclick={() => deleteComment(post, comment.id)}
 																>
 																	Delete
@@ -716,7 +1082,7 @@
 															{:else}
 																<button
 																	type="button"
-																	class="font-ui text-[10px] text-[#BBA8E0] hover:text-gold"
+																	class="font-ui text-[9px] text-ink-soft hover:text-accent"
 																	onclick={() => reportComment(post, comment.id)}
 																>
 																	Report
@@ -728,7 +1094,12 @@
 											</div>
 										{/each}
 									</div>
+								{:else}
+									<p class="mb-2.5 font-hand text-base leading-snug text-ink-soft">
+										No notes yet. Be the first to cheer them on.
+									</p>
 								{/if}
+
 								<form
 									class="flex items-center gap-2"
 									onsubmit={(event) => submitComment(post, event)}
@@ -736,13 +1107,14 @@
 									<input
 										bind:value={commentInput[post.id]}
 										type="text"
+										aria-label="Leave a note on {firstName(post.authorName)}'s page"
 										placeholder="Cheer them on…"
 										maxlength="140"
-										class="h-9 flex-1 rounded-lg border border-[#4D366D]/40 bg-white/10 px-3 font-ui text-xs text-white placeholder:text-[#9B8CB5] focus:border-accent focus:outline-none"
+										class="h-9 min-w-0 flex-1 rounded-lg border border-line bg-paper px-2.5 font-ui text-[11px] text-ink placeholder:text-ink-soft/70 focus:border-accent focus:outline-none"
 									/>
 									<button
 										type="submit"
-										class="h-9 rounded-lg bg-accent px-3.5 font-ui text-xs font-bold text-white hover:bg-[#624690] disabled:opacity-50"
+										class="h-9 rounded-lg bg-accent px-3 font-ui text-[11px] font-bold text-white transition-colors hover:bg-[#624690] disabled:opacity-50"
 										disabled={!commentInput[post.id]?.trim()}
 									>
 										Send
@@ -750,22 +1122,27 @@
 								</form>
 							</div>
 						{/if}
-					</div>
-				</article>
-			{/each}
-		</div>
+					</article>
+				{/each}
+			</div>
+		{/if}
 
+		<!-- Share callout -->
 		<div
-			class="mt-10 rounded-[24px] border border-[#4D366D] bg-desk-2 p-6 text-center text-white shadow-[0_16px_40px_rgba(0,0,0,.35)]"
+			class="relative mx-auto mt-12 max-w-[760px] rotate-[0.4deg] rounded-[8px] bg-paper px-6 py-7 text-center text-ink shadow-[0_14px_30px_rgba(0,0,0,.4)]"
 		>
+			<span
+				class="absolute -top-3 left-1/2 h-[24px] w-[86px] -translate-x-1/2 rotate-[-2deg] bg-gold/70"
+				aria-hidden="true"
+			></span>
 			<h2 class="font-display text-2xl font-bold">Want your page in the feed?</h2>
-			<p class="mt-2 font-ui text-sm text-[#D6CBEC]">
-				Set a journal page to <span class="font-semibold text-gold">Community</span>, then pick one
-				of your joined communities.
+			<p class="mx-auto mt-2 max-w-[520px] font-ui text-sm leading-relaxed text-ink-soft">
+				Set a journal page to <span class="font-bold text-accent">Community</span>, then pick one of
+				your joined communities. You choose what gets shared.
 			</p>
 			<button
 				type="button"
-				class="mt-4 rounded-xl bg-accent px-6 py-2.5 font-ui text-sm font-bold text-white shadow hover:bg-[#624690]"
+				class="mt-4 min-h-11 rounded-xl bg-accent px-6 font-ui text-sm font-bold text-white shadow transition-colors hover:bg-[#624690]"
 				onclick={() => nav.jump(TODAY)}
 			>
 				Go to today's page
@@ -773,12 +1150,34 @@
 		</div>
 	{/if}
 
-	<ProfileModal
-		open={profileModalOpen}
-		onClose={() => {
-			profileModalOpen = false;
-			viewedUserId = null;
-		}}
-		userId={viewedUserId}
-	/>
+	<!-- Safety note -->
+	<p
+		class="mx-auto mt-10 flex max-w-[760px] items-start gap-2.5 font-ui text-xs leading-relaxed text-[#CFC3E6]"
+	>
+		<svg
+			class="mt-0.5 size-[18px] shrink-0 text-gold"
+			viewBox="0 0 24 24"
+			fill="none"
+			stroke="currentColor"
+			stroke-width="1.9"
+			stroke-linecap="round"
+			stroke-linejoin="round"
+			aria-hidden="true"
+		>
+			<path d="M5 21V4M5 4h11l-2 4 2 4H5"></path>
+		</svg>
+		<span>
+			Be kind. If a note feels unsafe, use its Report link. Community pages are only visible to
+			members of the communities they were shared with.
+		</span>
+	</p>
 </div>
+
+<ProfileModal
+	open={profileModalOpen}
+	onClose={() => {
+		profileModalOpen = false;
+		viewedUserId = null;
+	}}
+	userId={viewedUserId}
+/>

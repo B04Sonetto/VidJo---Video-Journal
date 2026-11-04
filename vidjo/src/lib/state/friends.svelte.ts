@@ -320,7 +320,10 @@ class FriendsState {
 		const authorId = this.currentUserId || auth.ownerId;
 
 		for (const [date, entry] of Object.entries(journal.entries)) {
-			if (entry.privacy === 'friends' && (entry.title || entry.mind || entry.videoPath)) {
+			const sharedWithFriends =
+				entry.privacy === 'friends' || (entry.privacy === 'community' && entry.shareWithFriends);
+
+			if (sharedWithFriends && (entry.title || entry.mind || entry.videoPath)) {
 				out.push({
 					id: `my-${date}`,
 					authorId,
@@ -434,12 +437,8 @@ class FriendsState {
 				authorId: row.author_id as string,
 				authorName: own
 					? profile.nickname || profile.username || 'You'
-					: cleanDisplayName(
-							(author?.display_name as string) || (author?.username as string)
-						),
-				authorUsername: own
-					? profile.username
-					: (author?.username as string) || 'student',
+					: cleanDisplayName((author?.display_name as string) || (author?.username as string)),
+				authorUsername: own ? profile.username : (author?.username as string) || 'student',
 				authorAvatar: own
 					? normalizeImageUrl(profile.avatarUrl)
 					: normalizeImageUrl((author?.avatar_url as string) || null),

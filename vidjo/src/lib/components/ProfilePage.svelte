@@ -301,9 +301,7 @@
 	<div
 		class="relative overflow-hidden rounded-[32px] border border-[#523A7A] shadow-[0_28px_70px_rgba(0,0,0,.5)]"
 	>
-		<div
-			class="relative h-44 min-[720px]:h-52"
-		>
+		<div class="relative h-44 min-[720px]:h-52">
 			{#if bannerSrc}
 				<img
 					src={bannerSrc}
@@ -670,7 +668,7 @@
 				<div class="rounded-2xl border border-[#4D366D] bg-white/5 p-10 text-center">
 					<p class="font-display text-lg font-bold">No shared posts yet</p>
 					<p class="mt-1 font-ui text-sm text-[#BBA8E0]">
-						Choose Friends or Community in the privacy picker on any page.
+						Turn on Friends, Community, or both in the sharing picker on any page.
 					</p>
 					<button
 						type="button"
@@ -841,14 +839,16 @@
 				<div class="mt-5 space-y-3">
 					<div class="flex items-center justify-between gap-3 rounded-xl bg-white/5 p-4">
 						<div>
-							<p class="font-ui text-sm font-semibold">Default privacy</p>
-							<p class="font-ui text-xs text-[#BBA8E0]">Applied to new pages</p>
+							<p class="font-ui text-sm font-semibold">New page default</p>
+							<p class="font-ui text-xs text-[#BBA8E0]">
+								A starting point — each page can still go to friends and a community together
+							</p>
 						</div>
 						<select
 							bind:value={profile.defaultPrivacy}
 							class="rounded-lg border border-white/15 bg-[#2A1B3F] px-3 py-2 font-ui text-sm text-white"
 						>
-							<option value="private">Private</option>
+							<option value="private">Only me</option>
 							<option value="friends">Friends</option>
 							<option value="community">Community</option>
 						</select>
@@ -977,7 +977,9 @@
 							placeholder="https://…"
 							class="h-11 rounded-xl border border-white/15 bg-[#24143D] px-3.5 font-ui text-sm text-white placeholder:text-[#9B8CB5] focus:border-gold/60 focus:outline-none"
 						/>
-						<label class="flex cursor-pointer items-center gap-2 rounded-xl border border-white/15 bg-[#24143D] px-3.5 py-2 font-ui text-xs text-[#D6CBEC] hover:bg-[#3A2A55]">
+						<label
+							class="flex cursor-pointer items-center gap-2 rounded-xl border border-white/15 bg-[#24143D] px-3.5 py-2 font-ui text-xs text-[#D6CBEC] hover:bg-[#3A2A55]"
+						>
 							Upload photo
 							<input
 								type="file"
@@ -1005,7 +1007,9 @@
 							placeholder="https://…"
 							class="h-11 rounded-xl border border-white/15 bg-[#24143D] px-3.5 font-ui text-sm text-white placeholder:text-[#9B8CB5] focus:border-gold/60 focus:outline-none"
 						/>
-						<label class="flex cursor-pointer items-center gap-2 rounded-xl border border-white/15 bg-[#24143D] px-3.5 py-2 font-ui text-xs text-[#D6CBEC] hover:bg-[#3A2A55]">
+						<label
+							class="flex cursor-pointer items-center gap-2 rounded-xl border border-white/15 bg-[#24143D] px-3.5 py-2 font-ui text-xs text-[#D6CBEC] hover:bg-[#3A2A55]"
+						>
 							Upload banner
 							<input
 								type="file"

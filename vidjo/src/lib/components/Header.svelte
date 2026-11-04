@@ -62,7 +62,7 @@
 	</button>
 
 	<nav
-		class="flex items-center gap-1 rounded-full border border-[#5A4580]/60 bg-[#2A1B3F]/80 p-1 shadow-[0_8px_24px_rgba(0,0,0,.25)] backdrop-blur-sm"
+		class="hidden items-center gap-1 rounded-full border border-[#5A4580]/60 bg-[#2A1B3F]/80 p-1 shadow-[0_8px_24px_rgba(0,0,0,.25)] backdrop-blur-sm min-[900px]:flex"
 		aria-label="Main"
 	>
 		<button
@@ -328,16 +328,18 @@
 					</div>
 
 					<div class="mt-3">
-						<p class="mb-2 block font-ui text-[11px] font-bold tracking-wider text-[#9B8CB5] uppercase">
+						<p
+							class="mb-2 block font-ui text-[11px] font-bold tracking-wider text-[#9B8CB5] uppercase"
+						>
 							Theme
 						</p>
 						<div class="flex flex-wrap gap-2">
 							<button
 								type="button"
-								class={`px-3 py-1.5 rounded-lg text-[11px] font-display font-bold transition-all ${
+								class={`rounded-lg px-3 py-1.5 font-display text-[11px] font-bold transition-all ${
 									profile.theme === 'classic'
 										? 'bg-[#51397A] text-white shadow-xs'
-										: 'bg-white/10 text-[#D6CBEC] border border-[#4D366D]/40 hover:bg-white/20'
+										: 'border border-[#4D366D]/40 bg-white/10 text-[#D6CBEC] hover:bg-white/20'
 								}`}
 								onclick={() => {
 									profile.theme = 'classic';
@@ -349,10 +351,10 @@
 							</button>
 							<button
 								type="button"
-								class={`px-3 py-1.5 rounded-lg text-[11px] font-display font-bold transition-all ${
+								class={`rounded-lg px-3 py-1.5 font-display text-[11px] font-bold transition-all ${
 									profile.theme === 'sunset'
 										? 'bg-[#B85C43] text-white shadow-xs'
-										: 'bg-white/10 text-[#D6CBEC] border border-[#4D366D]/40 hover:bg-white/20'
+										: 'border border-[#4D366D]/40 bg-white/10 text-[#D6CBEC] hover:bg-white/20'
 								}`}
 								onclick={() => {
 									profile.theme = 'sunset';
@@ -364,10 +366,10 @@
 							</button>
 							<button
 								type="button"
-								class={`px-3 py-1.5 rounded-lg text-[11px] font-display font-bold transition-all ${
+								class={`rounded-lg px-3 py-1.5 font-display text-[11px] font-bold transition-all ${
 									profile.theme === 'midnight'
 										? 'bg-[#1F3557] text-white shadow-xs'
-										: 'bg-white/10 text-[#D6CBEC] border border-[#4D366D]/40 hover:bg-white/20'
+										: 'border border-[#4D366D]/40 bg-white/10 text-[#D6CBEC] hover:bg-white/20'
 								}`}
 								onclick={() => {
 									profile.theme = 'midnight';

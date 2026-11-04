@@ -9,7 +9,7 @@ import {
 	getStoredVideo,
 	putStoredVideo
 } from '#lib/videoStore';
-import type { Entry, EntryRow, MoodKey, PaperStyle, Privacy, Side, Sticker } from '#lib/types';
+import type { Entry, EntryRow, MoodKey, PaperStyle, Side, Sticker } from '#lib/types';
 
 const STORAGE_PREFIX = 'vidjo-journal-v3';
 const LEGACY_STORAGE_KEY = 'vidjo-journal-v2';
@@ -503,14 +503,54 @@ class Journal {
 		this.queueSave(this.current);
 	}
 
-	setPrivacy(privacy: Privacy) {
+	/**
+	 * Friends and Community are independent sharing destinations. A page in a
+	 * community can also be shared with friends through `shareWithFriends`, while
+	 * a friends-only page keeps `privacy` as `friends`. Private is its own choice
+	 * and turns off both destinations.
+	 */
+	setFriendsSharing(enabled: boolean) {
 		const entry = this.entries[this.current];
 		if (!entry) return;
-		entry.privacy = privacy;
-		if (privacy !== 'community') {
-			entry.communitySlug = '';
+
+		if (entry.privacy === 'community') {
+			entry.shareWithFriends = enabled;
+		} else {
+			entry.privacy = enabled ? 'friends' : 'private';
 			entry.shareWithFriends = false;
 		}
+
+		entry.sample = false;
+		this.queueSave(this.current);
+	}
+
+	setCommunitySharing(enabled: boolean) {
+		const entry = this.entries[this.current];
+		if (!entry) return;
+
+		const friendsOn =
+			entry.privacy === 'friends' || (entry.privacy === 'community' && entry.shareWithFriends);
+
+		if (enabled) {
+			entry.privacy = 'community';
+			entry.shareWithFriends = friendsOn;
+		} else {
+			entry.privacy = friendsOn ? 'friends' : 'private';
+			entry.shareWithFriends = false;
+			entry.communitySlug = '';
+		}
+
+		entry.sample = false;
+		this.queueSave(this.current);
+	}
+
+	setPrivate() {
+		const entry = this.entries[this.current];
+		if (!entry) return;
+
+		entry.privacy = 'private';
+		entry.communitySlug = '';
+		entry.shareWithFriends = false;
 		entry.sample = false;
 		this.queueSave(this.current);
 	}
@@ -519,14 +559,6 @@ class Journal {
 		const entry = this.entries[this.current];
 		if (!entry) return;
 		entry.communitySlug = communitySlug;
-		entry.sample = false;
-		this.queueSave(this.current);
-	}
-
-	setShareWithFriends(enabled: boolean) {
-		const entry = this.entries[this.current];
-		if (!entry) return;
-		entry.shareWithFriends = enabled;
 		entry.sample = false;
 		this.queueSave(this.current);
 	}

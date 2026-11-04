@@ -86,6 +86,13 @@
 		}, 1050);
 	}
 
+	function setSide(side: 'L' | 'R') {
+		if (!journal.ready) return;
+		journal.side = side;
+		journal.lastPage = side;
+		journal.selected = [];
+	}
+
 	function go(dir: 1 | -1) {
 		if (journal.busy || !journal.ready) return;
 
@@ -164,7 +171,10 @@
 				go(1);
 			} else if (event.key === 'ArrowLeft') {
 				go(-1);
-			} else if ((event.key === 'Delete' || event.key === 'Backspace') && journal.selected.length > 0) {
+			} else if (
+				(event.key === 'Delete' || event.key === 'Backspace') &&
+				journal.selected.length > 0
+			) {
 				event.preventDefault();
 				if (journal.selected.length > 1) {
 					journal.deleteSelected();
@@ -197,6 +207,84 @@
 		};
 	});
 </script>
+
+{#if viewport.single}
+	<div
+		class="mx-auto mb-2.5 flex w-full max-w-[600px] items-center gap-1.5 rounded-2xl border border-[#5A4580]/60 bg-desk-2/95 p-1.5 shadow-[0_6px_18px_rgba(0,0,0,.3)]"
+		aria-label="Journal page"
+	>
+		<button
+			type="button"
+			class="flex min-h-10 flex-1 items-center justify-center gap-1.5 rounded-xl px-3 font-ui text-[13px] font-bold transition-colors {journal.side ===
+			'L'
+				? 'bg-paper text-ink shadow-sm'
+				: 'text-[#D6CBEC] hover:bg-white/[.08] hover:text-white'}"
+			aria-pressed={journal.side === 'L'}
+			onclick={() => setSide('L')}
+		>
+			<svg
+				width="15"
+				height="15"
+				viewBox="0 0 24 24"
+				fill="none"
+				stroke="currentColor"
+				stroke-width="2"
+				stroke-linecap="round"
+				stroke-linejoin="round"
+				aria-hidden="true"
+			>
+				<rect x="2.5" y="6" width="13" height="12" rx="2.5"></rect>
+				<path d="M15.5 10.5l6-3.5v10l-6-3.5z"></path>
+			</svg>
+			Video
+		</button>
+		<button
+			type="button"
+			class="flex min-h-10 flex-1 items-center justify-center gap-1.5 rounded-xl px-3 font-ui text-[13px] font-bold transition-colors {journal.side ===
+			'R'
+				? 'bg-paper text-ink shadow-sm'
+				: 'text-[#D6CBEC] hover:bg-white/[.08] hover:text-white'}"
+			aria-pressed={journal.side === 'R'}
+			onclick={() => setSide('R')}
+		>
+			<svg
+				width="15"
+				height="15"
+				viewBox="0 0 24 24"
+				fill="none"
+				stroke="currentColor"
+				stroke-width="2"
+				stroke-linecap="round"
+				stroke-linejoin="round"
+				aria-hidden="true"
+			>
+				<path d="M12 20h9"></path>
+				<path d="M16.5 3.5a2.1 2.1 0 013 3L7 19l-4 1 1-4z"></path>
+			</svg>
+			Write
+		</button>
+		<button
+			type="button"
+			class="flex min-h-10 items-center justify-center gap-1.5 rounded-xl bg-accent px-3.5 font-ui text-[13px] font-bold text-white shadow-[0_3px_10px_rgba(42,27,61,.35)] transition-all hover:bg-[#624690] active:scale-95"
+			onclick={() => journal.markSaved()}
+		>
+			<svg
+				width="15"
+				height="15"
+				viewBox="0 0 24 24"
+				fill="none"
+				stroke="currentColor"
+				stroke-width="2.2"
+				stroke-linecap="round"
+				stroke-linejoin="round"
+				aria-hidden="true"
+			>
+				<path d="M20 6L9 17l-5-5"></path>
+			</svg>
+			Save
+		</button>
+	</div>
+{/if}
 
 <div
 	bind:this={host}
@@ -392,23 +480,23 @@
 		role="dialog"
 		aria-label="Delete page"
 	>
-	<button
-		type="button"
-		class="absolute inset-0 bg-black/60 backdrop-blur-sm"
-		onclick={cancelDelete}
-		onkeydown={(event) => {
-			if (event.key === 'Escape') cancelDelete();
-		}}
-		aria-hidden="true"
-	></button>
+		<button
+			type="button"
+			class="absolute inset-0 bg-black/60 backdrop-blur-sm"
+			onclick={cancelDelete}
+			onkeydown={(event) => {
+				if (event.key === 'Escape') cancelDelete();
+			}}
+			aria-hidden="true"
+		></button>
 		<div
-			class="relative rounded-[24px] border border-[#5A4580] bg-desk-2 p-8 shadow-[0_30px_80px_rgba(0,0,0,.6)] text-center text-white max-w-[320px] mx-4"
+			class="relative mx-4 max-w-[320px] rounded-[24px] border border-[#5A4580] bg-desk-2 p-8 text-center text-white shadow-[0_30px_80px_rgba(0,0,0,.6)]"
 		>
 			<h2 class="font-display text-xl font-bold">Delete this page?</h2>
-			<p class="mt-3 font-ui text-sm text-[#D6CBEC] leading-relaxed">
+			<p class="mt-3 font-ui text-sm leading-relaxed text-[#D6CBEC]">
 				This will permanently remove this journal entry. It cannot be undone.
 			</p>
-			<div class="mt-6 flex gap-3 justify-center">
+			<div class="mt-6 flex justify-center gap-3">
 				<button
 					type="button"
 					class="flex size-11 items-center justify-center rounded-xl border border-[#5A4580] bg-[#33224D] px-4 font-ui text-sm text-[#D6CBEC] hover:bg-[#43306A]"
