@@ -16,6 +16,13 @@
 	--color-accent: #51397a;
 	--color-light: #f3ecfa;
 
+	/* Book / journal page theme variables */
+	--color-book-bg: #fbf4e4;
+	--color-book-ink: #2a1b3d;
+	--color-book-accent: #d4a24c;
+	--color-book-shadow: #dccfaf;
+	--color-book-edge: #e9dfc6;
+
 	--font-display: 'Almendra', Georgia, serif;
 	--font-hand: 'Gaegu', 'Segoe Print', 'Comic Sans MS', cursive;
 	--font-ui: 'DM Sans', system-ui, sans-serif;
@@ -30,6 +37,12 @@ html[data-theme='sunset'] {
 	--color-paper: #fdf1df;
 	--color-paper-edge: #ecd5b6;
 	--color-line: #dfc3a0;
+
+	--color-book-bg: #fdf1df;
+	--color-book-ink: #3d2418;
+	--color-book-accent: #d4a24c;
+	--color-book-shadow: #ecd5b6;
+	--color-book-edge: #dfc3a0;
 }
 
 html[data-theme='sunset'] body {
@@ -46,6 +59,12 @@ html[data-theme='midnight'] {
 	--color-paper: #f4f6fb;
 	--color-paper-edge: #d8e0ef;
 	--color-line: #bcc9df;
+
+	--color-book-bg: #f4f6fb;
+	--color-book-ink: #0c1322;
+	--color-book-accent: #7d58c2;
+	--color-book-shadow: #d8e0ef;
+	--color-book-edge: #bcc9df;
 }
 
 html[data-theme='midnight'] body {
@@ -93,15 +112,15 @@ html[data-theme='midnight'] body {
 
 /* Paper textures used by the two journal pages. */
 @utility paper-dotted {
-	background-image: radial-gradient(circle, #c9b68a 1.3px, transparent 1.8px);
+	background-image: radial-gradient(circle, var(--color-book-edge) 1.3px, transparent 1.8px);
 	background-size: 24px 24px;
 	background-position: 12px 12px;
 }
 
 @utility paper-grid {
 	background-image:
-		linear-gradient(#e6d9b8 1px, transparent 1px),
-		linear-gradient(90deg, #e6d9b8 1px, transparent 1px);
+		linear-gradient(var(--color-book-edge) 1px, transparent 1px),
+		linear-gradient(90deg, var(--color-book-edge) 1px, transparent 1px);
 	background-size: 24px 24px;
 	background-position: 8px 8px;
 }

@@ -431,7 +431,7 @@ class CommunityState {
 
 		const authorIds = [
 			...new Set((commentRows ?? []).map((row) => row.author_id as string))
-		].filter((id) => id && !ids.includes(id));
+		].filter(Boolean);
 
 		let authorMap = new Map<string, Record<string, string | null>>();
 		if (authorIds.length > 0) {
@@ -459,12 +459,8 @@ class CommunityState {
 				authorId: row.author_id as string,
 				authorName: own
 					? profile.nickname || profile.username || 'You'
-					: cleanDisplayName(
-							(author?.display_name as string) || (author?.username as string)
-						),
-				authorUsername: own
-					? profile.username
-					: (author?.username as string) || 'student',
+					: cleanDisplayName((author?.display_name as string) || (author?.username as string)),
+				authorUsername: own ? profile.username : (author?.username as string) || 'student',
 				authorAvatar: own
 					? normalizeImageUrl(profile.avatarUrl)
 					: normalizeImageUrl((author?.avatar_url as string) || null),

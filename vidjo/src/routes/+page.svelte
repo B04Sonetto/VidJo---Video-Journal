@@ -186,7 +186,7 @@
 		>
 			<h1 class="font-display text-3xl font-bold">Finish setting up VidJo</h1>
 			<p class="mt-2 font-hand text-xl leading-snug text-ink-soft">
-				Almost there — tell us how you'd like to appear to friends.
+				Almost there - tell us how you'd like to appear to friends.
 			</p>
 
 			{#if completionError}

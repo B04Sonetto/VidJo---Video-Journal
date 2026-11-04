@@ -31,6 +31,8 @@ interface Preferences {
 	defaultPrivacy: Privacy;
 	allowFriendRequests: boolean;
 	clearCacheOnSignOut: boolean;
+	paperStyle: 'lined' | 'dotted' | 'grid' | 'plain';
+	fontSize: 'sm' | 'base' | 'lg';
 }
 
 const DEFAULT_PREFERENCES: Preferences = {
@@ -38,7 +40,9 @@ const DEFAULT_PREFERENCES: Preferences = {
 	theme: 'classic',
 	defaultPrivacy: 'private',
 	allowFriendRequests: true,
-	clearCacheOnSignOut: false
+	clearCacheOnSignOut: false,
+	paperStyle: 'lined',
+	fontSize: 'base'
 };
 
 class ProfileState {
@@ -64,6 +68,8 @@ class ProfileState {
 	defaultPrivacy = $state<Privacy>(DEFAULT_PREFERENCES.defaultPrivacy);
 	allowFriendRequests = $state(DEFAULT_PREFERENCES.allowFriendRequests);
 	clearCacheOnSignOut = $state(DEFAULT_PREFERENCES.clearCacheOnSignOut);
+	paperStyle = $state<Preferences['paperStyle']>(DEFAULT_PREFERENCES.paperStyle);
+	fontSize = $state<Preferences['fontSize']>(DEFAULT_PREFERENCES.fontSize);
 
 	get username() {
 		return this.profile?.username || auth.username || 'friend';
@@ -250,6 +256,17 @@ class ProfileState {
 			if (typeof parsed.clearCacheOnSignOut === 'boolean') {
 				this.clearCacheOnSignOut = parsed.clearCacheOnSignOut;
 			}
+			if (
+				parsed.paperStyle === 'lined' ||
+				parsed.paperStyle === 'dotted' ||
+				parsed.paperStyle === 'grid' ||
+				parsed.paperStyle === 'plain'
+			) {
+				this.paperStyle = parsed.paperStyle;
+			}
+			if (parsed.fontSize === 'sm' || parsed.fontSize === 'base' || parsed.fontSize === 'lg') {
+				this.fontSize = parsed.fontSize;
+			}
 		} catch {
 			// Ignore storage errors
 		}
@@ -265,7 +282,9 @@ class ProfileState {
 				theme: this.theme,
 				defaultPrivacy: this.defaultPrivacy,
 				allowFriendRequests: this.allowFriendRequests,
-				clearCacheOnSignOut: this.clearCacheOnSignOut
+				clearCacheOnSignOut: this.clearCacheOnSignOut,
+				paperStyle: this.paperStyle,
+				fontSize: this.fontSize
 			};
 			localStorage.setItem(`${PREFERENCES_STORAGE_KEY}:${userId}`, JSON.stringify(preferences));
 		} catch {

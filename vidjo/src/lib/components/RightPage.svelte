@@ -98,7 +98,9 @@
 </script>
 
 <section
-	class="page right absolute top-5 z-[1] flex h-[700px] w-[560px] flex-col gap-2.5 bg-paper px-10 pt-[34px] pb-11 font-hand text-ink"
+	class="page right absolute top-5 z-[1] flex h-[700px] w-[560px] flex-col gap-2.5 px-10 pt-[34px] pb-11 font-hand"
+	style:background-color="var(--color-book-bg)"
+	style:color="var(--color-book-ink)"
 	class:left-5={viewport.single && !preview}
 	class:left-[580px]={!viewport.single && !preview}
 	class:left-0={preview}
@@ -106,7 +108,7 @@
 	class:rounded-[14px]={viewport.single}
 	class:rounded-r-[14px]={!viewport.single}
 	class:rounded-l-[3px]={!viewport.single}
-	class:shadow-[3px_2px_0_-1px_var(--color-paper-edge),6px_4px_0_-2px_#DCCFAF]={!preview}
+	class:shadow-[3px_2px_0_-1px_var(--color-book-edge),6px_4px_0_-2px_var(--color-book-shadow)]={!preview}
 	class:shadow-none={preview}
 	class:right-page={!preview && !viewport.single}
 	class:enter

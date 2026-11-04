@@ -268,6 +268,34 @@ class FriendsState {
 		});
 		const friendMap = new Map(this.friends.map((friend) => [friend.id, friend]));
 
+		// Fetch profiles for any post authors not already in the friends list,
+		// so their name/avatar don't fall back to 'VidJo student'.
+		const missingOwnerIds = [...new Set(rows.map((row) => row.owner_id))].filter(
+			(id) => id && !friendMap.has(id)
+		);
+
+		if (missingOwnerIds.length > 0) {
+			const { data: missingProfiles } = await supabase
+				.from('vidjo_profiles')
+				.select('user_id, username, display_name, bio, avatar_url, friend_code')
+				.in('user_id', missingOwnerIds);
+
+			for (const row of missingProfiles ?? []) {
+				friendMap.set(row.user_id as string, {
+					id: row.user_id as string,
+					username: (row.username as string) || 'student',
+					displayName: cleanDisplayName(
+						(row.display_name as string) || (row.username as string),
+						'VidJo student'
+					),
+					avatarUrl: normalizeImageUrl((row.avatar_url as string) || null),
+					bio: (row.bio as string) || '',
+					friendCode: (row.friend_code as string) || '',
+					status: 'accepted'
+				});
+			}
+		}
+
 		return Promise.all(
 			rows.map(async (row) => {
 				const author = friendMap.get(row.owner_id);
@@ -409,7 +437,7 @@ class FriendsState {
 
 		const authorIds = [
 			...new Set((commentRows ?? []).map((row) => row.author_id as string))
-		].filter((id) => id && !ids.includes(id));
+		].filter(Boolean);
 
 		let authorMap = new Map<string, Record<string, string | null>>();
 		if (authorIds.length > 0) {

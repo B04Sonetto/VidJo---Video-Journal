@@ -415,8 +415,9 @@ class Journal {
 
 		if (error) {
 			console.warn('[VidJo] Could not sync to Supabase.', error);
-			this.remote = false;
 			this.toast('Could not sync — your page is saved on this device');
+			// Keep remote = true so the next save can retry instead of
+			// silently giving up on sync for the rest of the session.
 		}
 	}
 

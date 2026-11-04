@@ -8,14 +8,20 @@
 	import { TODAY } from '#lib/dates';
 	import { isSupabaseConfigured } from '#lib/supabase';
 	import Avatar from '#lib/components/Avatar.svelte';
+	import AdminPanel from '#lib/components/AdminPanel.svelte';
 
 	let { onCalendar }: { onCalendar: () => void } = $props();
 
 	let menuOpen = $state(false);
+	let adminOpen = $state(false);
 
 	$effect(() => {
 		document.documentElement.setAttribute('data-theme', profile.theme);
 	});
+
+	function isAdmin() {
+		return profile.profile?.user_role === 'admin';
+	}
 
 	async function signOut() {
 		menuOpen = false;
@@ -325,6 +331,34 @@
 							</svg>
 							Settings
 						</button>
+						{#if isAdmin()}
+							<button
+								type="button"
+								class="flex min-h-10 items-center justify-center gap-2 rounded-xl border-[1.5px] border-[#CDBBE9] bg-light px-4 font-ui text-xs font-bold text-accent transition-colors hover:bg-[#E8DCF8]"
+								onclick={() => {
+									menuOpen = false;
+									adminOpen = true;
+								}}
+							>
+								<svg
+									width="15"
+									height="15"
+									viewBox="0 0 24 24"
+									fill="none"
+									stroke="currentColor"
+									stroke-width="2"
+									stroke-linecap="round"
+									stroke-linejoin="round"
+									aria-hidden="true"
+								>
+									<circle cx="12" cy="12" r="3"></circle>
+									<path
+										d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"
+									></path>
+								</svg>
+								Admin
+							</button>
+						{/if}
 					</div>
 
 					<div class="mt-3">
@@ -404,6 +438,9 @@
 						Sign out
 					</button>
 				</div>
+			{/if}
+			{#if adminOpen}
+				<AdminPanel open={adminOpen} />
 			{/if}
 		</div>
 	{:else}

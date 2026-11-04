@@ -29,6 +29,10 @@
 	let copied = $state(false);
 	let copyTimer: ReturnType<typeof setTimeout> | null = null;
 
+	$effect(() => {
+		journal.paper = profile.paperStyle;
+	});
+
 	let editUsername = $state('');
 	let editNickname = $state('');
 	let editBio = $state('');
@@ -287,6 +291,50 @@
 		const owner = auth.ownerId;
 		journal.clearLocalCache(owner);
 		journal.toast('Local journal cache cleared for this device');
+	}
+
+	async function exportJournal() {
+		const entries = Object.entries(journal.entries)
+			.filter(([, entry]) => entry.saved || entry.title || entry.mind || entry.videoPath)
+			.map(([date, entry]) => ({ ...entry, date }));
+
+		const data = {
+			exportedAt: new Date().toISOString(),
+			username: profile.username,
+			displayName: profile.displayName,
+			entries
+		};
+
+		const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+		const url = URL.createObjectURL(blob);
+		const a = document.createElement('a');
+		a.href = url;
+		a.download = `vidjo-journal-${new Date().toISOString().split('T')[0]}.json`;
+		document.body.appendChild(a);
+		a.click();
+		document.body.removeChild(a);
+		URL.revokeObjectURL(url);
+		journal.toast('Journal data exported');
+	}
+
+	async function deleteAccount() {
+		const confirmText = prompt('Type "DELETE" to confirm permanent account deletion:');
+		if (confirmText !== 'DELETE') return;
+
+		await auth.signOut();
+		journal.reset();
+		friends.reset();
+		community.reset();
+		profile.reset();
+
+		try {
+			localStorage.clear();
+		} catch {
+			// Ignore
+		}
+
+		journal.toast('Account deleted');
+		nav.setView('journal');
 	}
 
 	function toneClasses(tone: Badge['tone']) {
@@ -828,6 +876,50 @@
 						</button>
 					{/each}
 				</div>
+
+				<p class="mt-6 font-ui text-xs font-bold tracking-wider text-gold uppercase">
+					Default paper style
+				</p>
+				<div class="mt-2 grid gap-2">
+					{#each ['lined', 'dotted', 'grid', 'plain'] as const as style}
+						<button
+							type="button"
+							class="flex items-center justify-between rounded-xl px-4 py-3 transition-colors {profile.paperStyle ===
+							style
+								? 'bg-accent'
+								: 'bg-white/5 hover:bg-white/10'}"
+							onclick={() => (profile.paperStyle = style)}
+						>
+							<span class="flex items-center gap-2.5 font-ui text-sm">
+								{style === 'lined'
+									? 'Lined'
+									: style === 'dotted'
+										? 'Dotted'
+										: style === 'grid'
+											? 'Grid'
+											: 'Plain'}
+								<span class="text-xs text-[#BBA8E0]">{style}</span>
+							</span>
+							{#if profile.paperStyle === style}
+								<CommunityIcon name="check" size={16} />
+							{/if}
+						</button>
+					{/each}
+				</div>
+
+				<p class="mt-6 font-ui text-xs font-bold tracking-wider text-gold uppercase">Text size</p>
+				<div class="mt-2 flex items-center gap-4">
+					<span class="font-ui text-xs text-[#BBA8E0]">A</span>
+					<select
+						bind:value={profile.fontSize}
+						class="rounded-lg border border-white/15 bg-[#2A1B3F] px-3 py-2 font-ui text-sm text-white focus:border-accent focus:outline-none"
+					>
+						<option value="sm">Small</option>
+						<option value="base">Default</option>
+						<option value="lg">Large</option>
+					</select>
+					<span class="font-ui text-xs text-[#BBA8E0]">A</span>
+				</div>
 			</div>
 
 			<div
@@ -904,6 +996,23 @@
 				>
 					Clear local journal cache
 				</button>
+
+				<div class="mt-6 border-t border-white/10 pt-6">
+					<button
+						type="button"
+						class="mt-2 w-full rounded-xl border border-white/20 px-4 py-2.5 font-ui text-sm font-semibold text-[#D6CBEC] transition-colors hover:bg-white/10"
+						onclick={exportJournal}
+					>
+						📥 Export journal data
+					</button>
+					<button
+						type="button"
+						class="mt-2 w-full rounded-xl border border-[#D19A9A] px-4 py-2.5 font-ui text-sm font-semibold text-[#FF9B9B] transition-colors hover:bg-[#3A222B]"
+						onclick={deleteAccount}
+					>
+						🗑️ Delete my account
+					</button>
+				</div>
 			</div>
 		</div>
 	{:else if nav.profileTab === 'edit'}
