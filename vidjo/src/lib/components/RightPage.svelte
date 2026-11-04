@@ -118,7 +118,7 @@
 			disabled={preview}
 			onclick={needPrompt}
 		>
-			âœ¦ Need a prompt?
+			Need a prompt?
 		</button>
 	</div>
 
