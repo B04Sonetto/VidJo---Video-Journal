@@ -2,6 +2,7 @@
 	import { onMount, tick } from 'svelte';
 	import { auth } from '#lib/state/auth.svelte';
 	import { profile } from '#lib/state/profile.svelte';
+	import CommunityIcon from '#lib/components/CommunityIcon.svelte';
 
 	type View = 'signin' | 'signup' | 'signup-2' | 'code';
 
@@ -541,9 +542,15 @@
 			<div
 				class="pointer-events-none absolute inset-3 rounded-[18px] border-2 border-dashed border-gold/40"
 			></div>
-			<span class="absolute top-9 right-10 text-2xl text-gold">✦</span>
-			<span class="absolute top-24 left-8 text-base text-gold/80">✦</span>
-			<span class="absolute right-14 bottom-16 text-xl text-gold/70">✦</span>
+			<span class="absolute top-9 right-10 text-2xl text-gold">
+				<CommunityIcon name="spark" size={24} />
+			</span>
+			<span class="absolute top-24 left-8 text-base text-gold/80">
+				<CommunityIcon name="spark" size={16} />
+			</span>
+			<span class="absolute right-14 bottom-16 text-xl text-gold/70">
+				<CommunityIcon name="spark" size={20} />
+			</span>
 
 			<div class="relative mt-3 flex items-center gap-3">
 				<svg width="40" height="48" viewBox="0 0 44 52" aria-hidden="true" class="shrink-0">
@@ -576,7 +583,7 @@
 				</p>
 				<div class="mt-4 flex items-center gap-3">
 					<span class="flex size-9 items-center justify-center rounded-full bg-gold/20 text-gold">
-						✦
+						<CommunityIcon name="spark" size={16} />
 					</span>
 					<p class="font-ui text-sm text-[#D6CBEC]">
 						Your private video journal, one page at a time.
@@ -756,7 +763,10 @@
 						{#if usernameChecking}
 							<span class="font-ui text-[11px] text-accent">Checking availability…</span>
 						{:else if usernameAvailable === true}
-							<span class="font-ui text-[11px] text-[#3F7A4F]">✓ Available</span>
+							<span class="font-ui text-[11px] text-[#3F7A4F] flex items-center gap-1">
+								<CommunityIcon name="check" size={11} />
+								Available
+							</span>
 						{:else if usernameError}
 							<span class="font-ui text-[11px] text-red-600">{usernameError}</span>
 						{/if}

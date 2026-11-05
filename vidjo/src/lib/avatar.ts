@@ -1,6 +1,26 @@
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /**
+ * Older builds stored the preset icon name in `avatar_url` instead of emoji.
+ * Map those names forward so existing profiles render and stay selectable.
+ */
+const LEGACY_PRESET_AVATARS: Record<string, string> = {
+	sparkles: '✨',
+	spark: '🎨',
+	book: '📚',
+	music: '🎵',
+	rocket: '🚀',
+	cat: '🐱',
+	leaf: '🌱',
+	video: '🎬'
+};
+
+export function legacyPresetAvatar(value: string | null | undefined): string | null {
+	if (!value) return null;
+	return LEGACY_PRESET_AVATARS[value.trim().toLowerCase()] ?? null;
+}
+
+/**
  * Avatars can be real image URLs, preset emoji, or nothing at all. Users often
  * paste Pinterest/Google URLs without a protocol, so normalise them before they
  * ever reach an `<img src>`.
@@ -13,6 +33,9 @@ export function normalizeImageUrl(value: string | null | undefined): string | nu
 
 	// Preset emoji avatars are stored in `avatar_url` and must stay as-is.
 	if (isEmojiAvatar(trimmed)) return trimmed;
+
+	const legacyPreset = legacyPresetAvatar(trimmed);
+	if (legacyPreset) return legacyPreset;
 
 	if (trimmed.startsWith('//')) return `https:${trimmed}`;
 

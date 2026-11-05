@@ -1,4 +1,6 @@
 <script lang="ts">
+	import CommunityIcon from '#lib/components/CommunityIcon.svelte';
+
 	const LOCK_ICON =
 		'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 018 0v3"/></svg>';
 
@@ -86,8 +88,10 @@
 			{#if option.active}
 				<span
 					class="absolute top-1 right-1 flex size-4 items-center justify-center rounded-full bg-accent text-[10px] font-bold text-white"
-					aria-hidden="true">✓</span
+					aria-hidden="true"
 				>
+					<CommunityIcon name="check" size={10} />
+				</span>
 			{/if}
 		</button>
 	{/each}

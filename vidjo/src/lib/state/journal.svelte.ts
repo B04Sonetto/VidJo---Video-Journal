@@ -123,13 +123,15 @@ function entryToRow(ownerId: string, entry: Entry): EntryRow {
 		refl: entry.refl,
 		privacy: entry.privacy,
 		community_slug: entry.communitySlug || null,
+		// These columns are NOT NULL in Postgres, so send empty values rather
+		// than null or the whole upsert is rejected.
 		stickers: entry.stickers.map((sticker) => ({ ...sticker })),
-		saved: entry.saved,
-		sample: entry.sample,
+		saved: Boolean(entry.saved),
+		sample: Boolean(entry.sample),
 		video_path: entry.videoPath || null,
-		excluded_friend_ids: entry.excludedFriendIds.length ? entry.excludedFriendIds : null,
-		included_friend_ids: entry.includedFriendIds.length ? entry.includedFriendIds : null,
-		share_with_friends: entry.shareWithFriends || null,
+		excluded_friend_ids: [...entry.excludedFriendIds],
+		included_friend_ids: [...entry.includedFriendIds],
+		share_with_friends: Boolean(entry.shareWithFriends),
 		video_url: null,
 		video_name: entry.videoName || null
 	};
@@ -156,6 +158,7 @@ class Journal {
 
 	private ownerId = '';
 	private pending = new Set<string>();
+	private flushing = false;
 	private saveTimer: ReturnType<typeof setTimeout> | null = null;
 	private toastTimer: ReturnType<typeof setTimeout> | null = null;
 	private initSeq = 0;
@@ -282,6 +285,7 @@ class Journal {
 		this.selected = [];
 		this.lastPage = 'R';
 		this.pending.clear();
+		this.flushing = false;
 		this.signedUrlPending.clear();
 
 		if (this.saveTimer) {
@@ -395,29 +399,42 @@ class Journal {
 	}
 
 	async flush() {
-		if (!this.remote || !this.ownerId || this.pending.size === 0) return;
+		if (!this.remote || !this.ownerId) return;
+		// A second flush while one is in flight would upload the same rows and
+		// could clear pending dates that were just queued. Let the active loop
+		// pick them up instead.
+		if (this.flushing || this.pending.size === 0) return;
 
-		const dates = [...this.pending];
-		this.pending.clear();
-
-		const rows = dates
-			.map((date) => this.entries[date])
-			.filter((entry): entry is Entry => Boolean(entry))
-			.map((entry) => entryToRow(this.ownerId, entry));
-
-		if (rows.length === 0) return;
-
+		this.flushing = true;
 		this.syncing = true;
-		const { error } = await supabase
-			.from('vidjo_entries')
-			.upsert(rows, { onConflict: 'owner_id,entry_date' });
-		this.syncing = false;
+		try {
+			while (this.pending.size > 0) {
+				const dates = [...this.pending];
+				this.pending.clear();
 
-		if (error) {
-			console.warn('[VidJo] Could not sync to Supabase.', error);
-			this.toast('Could not sync — your page is saved on this device');
-			// Keep remote = true so the next save can retry instead of
-			// silently giving up on sync for the rest of the session.
+				const rows = dates
+					.map((date) => this.entries[date])
+					.filter((entry): entry is Entry => Boolean(entry))
+					.map((entry) => entryToRow(this.ownerId, entry));
+
+				if (rows.length === 0) continue;
+
+				const { error } = await supabase
+					.from('vidjo_entries')
+					.upsert(rows, { onConflict: 'owner_id,entry_date' });
+
+				if (error) {
+					console.warn('[VidJo] Could not sync to Supabase.', error);
+					this.toast('Could not sync — your page is saved on this device');
+					// Put the failed dates back so the next save retries them,
+					// then stop this loop rather than spinning on the failure.
+					for (const date of dates) this.pending.add(date);
+					break;
+				}
+			}
+		} finally {
+			this.syncing = false;
+			this.flushing = false;
 		}
 	}
 

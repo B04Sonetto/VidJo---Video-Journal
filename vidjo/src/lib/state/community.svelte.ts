@@ -143,6 +143,8 @@ class CommunityState {
 		Record<string, { counts: FriendPostReaction; mine: (keyof FriendPostReaction)[] }>
 	>({});
 	private commentMap = $state<Record<string, FriendComment[]>>({});
+	private realtimeChannel: ReturnType<typeof supabase.channel> | null = null;
+	private refreshTimer: ReturnType<typeof setTimeout> | null = null;
 
 	get joinedCommunities() {
 		return this.communities.filter((community) => community.joined);
@@ -189,9 +191,11 @@ class CommunityState {
 			joined: this.readLocalMemberships(userId).includes(community.slug)
 		}));
 		await this.refresh();
+		this.subscribeRealtime();
 	}
 
 	async refresh() {
+		if (this.loading) return;
 		this.loading = true;
 
 		if (isSupabaseConfigured && auth.signedIn) {
@@ -277,9 +281,9 @@ class CommunityState {
 		}
 	}
 
-	async toggleJoin(slug: string) {
+	async toggleJoin(slug: string): Promise<boolean> {
 		const community = this.communities.find((item) => item.slug === slug);
-		if (!community) return;
+		if (!community) return false;
 
 		const nextJoined = !community.joined;
 		community.joined = nextJoined;
@@ -310,11 +314,142 @@ class CommunityState {
 				this.persistLocalMemberships();
 				journal.toast('Could not update this community. Try again.');
 				console.warn('[VidJo] Community membership update failed.', error);
-				return;
+				return false;
 			}
 		}
 
 		journal.toast(nextJoined ? `Joined ${community.tag}` : `Left ${community.tag}`);
+		return true;
+	}
+
+	/**
+	 * Remove a page from the community feed without destroying the journal
+	 * entry. The journal copy stays intact and only its sharing settings change.
+	 */
+	async deletePost(postId: string): Promise<boolean> {
+		// Own pages come from the journal as `mine-<date>`; remote rows use
+		// `community-<owner>-<date>`.
+		const mineMatch = postId.match(/^mine-(\d{4}-\d{2}-\d{2})$/);
+		const communityMatch = postId.match(/^community-(.+)-(\d{4}-\d{2}-\d{2})$/);
+
+		const ownerId = mineMatch ? this.currentUserId : communityMatch?.[1];
+		const entryDate = mineMatch?.[1] ?? communityMatch?.[2];
+
+		if (!ownerId || !entryDate) return false;
+		if (ownerId !== this.currentUserId) {
+			journal.toast('You can only remove your own pages.');
+			return false;
+		}
+
+		const entry = journal.entries[entryDate];
+		if (entry) {
+			// Keep the page shared with friends if it was shared both ways;
+			// otherwise it becomes private again.
+			entry.privacy = entry.shareWithFriends ? 'friends' : 'private';
+			entry.shareWithFriends = false;
+			entry.communitySlug = '';
+			entry.sample = false;
+			journal.queueSave(entryDate);
+
+			if (isSupabaseConfigured && auth.signedIn) {
+				await journal.flush();
+			}
+
+			this.posts = this.posts.filter((post) => post.id !== postId);
+			journal.toast('Page removed from the community. Your journal copy is safe.');
+			return true;
+		}
+
+		if (!isSupabaseConfigured || !auth.signedIn) {
+			journal.toast('Community posts need a connection to VidJo.');
+			return false;
+		}
+
+		try {
+			const { error } = await supabase
+				.from('vidjo_entries')
+				.update({
+					privacy: 'private',
+					community_slug: null,
+					share_with_friends: false
+				})
+				.eq('owner_id', ownerId)
+				.eq('entry_date', entryDate);
+
+			if (error) throw error;
+
+			this.posts = this.posts.filter((post) => post.id !== postId);
+			journal.toast('Page removed from the community.');
+			return true;
+		} catch (error) {
+			journal.toast('Could not remove that page. Try again.');
+			console.warn('[VidJo] Community post removal failed.', error);
+			return false;
+		}
+	}
+
+	private subscribeRealtime() {
+		if (!isSupabaseConfigured || !auth.signedIn) return;
+		this.unsubscribeRealtime();
+
+		try {
+			this.realtimeChannel = supabase
+				.channel('vidjo-community-live')
+				.on(
+					'postgres_changes',
+					{ event: '*', schema: 'public', table: 'vidjo_entries' },
+					(payload) => {
+						const row = (payload.new ?? payload.old) as
+							| { privacy?: string | null; owner_id?: string; entry_date?: string }
+							| null;
+						if (row?.owner_id === this.currentUserId) return;
+						if (row?.privacy === 'community') {
+							this.scheduleRefresh();
+							return;
+						}
+
+						// Unsharing (community -> friends/private) or deleting a
+						// page still has to disappear from every other viewer's feed.
+						const owner = row?.owner_id;
+						const date = row?.entry_date;
+						const wasInFeed =
+							Boolean(owner && date) &&
+							this.posts.some((post) => post.authorId === owner && post.date === date);
+						if (wasInFeed) this.scheduleRefresh();
+					}
+				)
+				.on(
+					'postgres_changes',
+					{ event: '*', schema: 'public', table: 'vidjo_community_members' },
+					() => this.scheduleRefresh()
+				)
+				.subscribe();
+		} catch {
+			// Real-time community updates are non-critical.
+		}
+	}
+
+	private scheduleRefresh() {
+		if (this.refreshTimer) clearTimeout(this.refreshTimer);
+		this.refreshTimer = setTimeout(() => {
+			this.refreshTimer = null;
+			void this.refresh();
+		}, 900);
+	}
+
+	private unsubscribeRealtime() {
+		if (this.refreshTimer) {
+			clearTimeout(this.refreshTimer);
+			this.refreshTimer = null;
+		}
+		if (this.realtimeChannel) {
+			try {
+				supabase.removeChannel(this.realtimeChannel);
+			} catch {
+				// Ignore cleanup errors.
+			}
+			this.realtimeChannel = null;
+		}
 	}
 
 	private async loadRemotePosts() {
@@ -604,6 +739,7 @@ class CommunityState {
 	}
 
 	reset() {
+		this.unsubscribeRealtime();
 		this.currentUserId = '';
 		this.communities = [];
 		this.posts = [];

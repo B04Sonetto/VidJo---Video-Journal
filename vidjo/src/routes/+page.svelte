@@ -8,6 +8,7 @@
 	import FriendsView from '#lib/components/FriendsView.svelte';
 	import Header from '#lib/components/Header.svelte';
 	import LoginScreen from '#lib/components/LoginScreen.svelte';
+	import NotificationsView from '#lib/components/NotificationsView.svelte';
 	import ProfilePage from '#lib/components/ProfilePage.svelte';
 	import StickerTray from '#lib/components/StickerTray.svelte';
 	import Toast from '#lib/components/Toast.svelte';
@@ -284,6 +285,8 @@
 			<FriendsView />
 		{:else if nav.view === 'community'}
 			<CommunityView />
+		{:else if nav.view === 'notifications'}
+			<NotificationsView />
 		{:else if nav.view === 'profile'}
 			<ProfilePage />
 		{:else if journal.ready}

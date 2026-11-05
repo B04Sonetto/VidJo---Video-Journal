@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { profile } from '#lib/state/profile.svelte';
+	import CommunityIcon from '#lib/components/CommunityIcon.svelte';
 
 	let {
 		tab = 'friends',
@@ -67,13 +68,13 @@
 	];
 
 	const MOOD_EMOJIS: Record<string, string> = {
-		happy: '😊 Happy',
-		calm: '😌 Calm',
-		tired: '😴 Tired',
-		sad: '🥺 Sad',
-		stressed: '🤯 Stressed',
-		angry: '😤 Fired Up',
-		excited: '✨ Excited'
+		happy: 'Happy',
+		calm: 'Calm',
+		tired: 'Tired',
+		sad: 'Sad',
+		stressed: 'Stressed',
+		angry: 'Fired Up',
+		excited: 'Excited'
 	};
 </script>
 
@@ -107,7 +108,9 @@
 			>
 				<div class="flex items-center justify-between">
 					<div class="flex items-center gap-2.5">
-						<span class="text-xl">✨</span>
+						<span class="text-xl">
+						<CommunityIcon name="sparkles" size={20} />
+					</span>
 						<h2 id="social-modal-title" class="font-display text-xl font-bold tracking-wide">
 							VidJo Social Hub
 						</h2>
@@ -118,7 +121,7 @@
 						onclick={onClose}
 						aria-label="Close"
 					>
-						✕
+						<CommunityIcon name="x" size={16} />
 					</button>
 				</div>
 
@@ -132,7 +135,7 @@
 							: 'bg-white/10 text-[#C9B8E8] hover:bg-white/15'}"
 						onclick={() => (currentTab = 'friends')}
 					>
-						<span>👥</span>
+						<CommunityIcon name="users" size={16} />
 						Friends
 						<span class="rounded-full bg-white/20 px-2 py-0.5 text-[11px]">Next up!</span>
 					</button>
@@ -144,7 +147,7 @@
 							: 'bg-white/10 text-[#C9B8E8] hover:bg-white/15'}"
 						onclick={() => (currentTab = 'community')}
 					>
-						<span>🌍</span>
+						<CommunityIcon name="globe" size={16} />
 						Campus Community
 						<span class="rounded-full bg-white/20 px-2 py-0.5 text-[11px]">Sneak peek</span>
 					</button>
@@ -180,7 +183,9 @@
 
 						<!-- Search bar mockup -->
 						<div class="relative">
-							<span class="absolute inset-y-0 left-3.5 flex items-center text-ink-soft">🔍</span>
+							<span class="absolute inset-y-0 left-3.5 flex items-center text-ink-soft">
+								<CommunityIcon name="search" size={14} />
+							</span>
 							<input
 								type="text"
 								bind:value={searchQuery}
@@ -220,7 +225,8 @@
 													</span>
 													{#if friend.sharedVideo}
 														<span class="flex items-center gap-1 font-medium text-accent">
-															📹 Video shared
+															<CommunityIcon name="video" size={14} />
+															Video shared
 														</span>
 													{/if}
 													<span class="text-ink-soft">• {friend.latestDate}</span>
@@ -281,8 +287,9 @@
 
 			<!-- Footer -->
 			<div class="bg-paper-2 flex items-center justify-between border-t border-line px-6 py-4">
-				<p class="font-ui text-xs text-ink-soft">
-					✨ Friends and Community features are in active development!
+				<p class="font-ui text-xs text-ink-soft flex items-center gap-1">
+					<CommunityIcon name="sparkles" size={12} />
+					Friends and Community features are in active development!
 				</p>
 				<button
 					type="button"

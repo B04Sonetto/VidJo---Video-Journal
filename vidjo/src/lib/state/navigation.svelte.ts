@@ -1,4 +1,4 @@
-export type MainView = 'journal' | 'friends' | 'community' | 'profile';
+export type MainView = 'journal' | 'friends' | 'community' | 'profile' | 'notifications';
 
 export type ProfileTab = 'overview' | 'portfolio' | 'achievements' | 'settings' | 'edit';
 

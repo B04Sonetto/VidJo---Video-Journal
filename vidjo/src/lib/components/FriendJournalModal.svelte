@@ -26,6 +26,12 @@
 	let noteInput = $state('');
 	let profileModalOpen = $state(false);
 	let viewedUserId = $state<string | null>(null);
+	let reportModalOpen = $state(false);
+	let reportReason = $state('');
+	let reportTarget: { postId: string; commentId: string } | null = null;
+	let unfriendOpen = $state(false);
+	let unfriendBusy = $state(false);
+	let noteConfirmId = $state<string | null>(null);
 
 	const REACTIONS: {
 		key: 'love' | 'spark' | 'warm' | 'proud';
@@ -66,11 +72,14 @@
 		if (open) {
 			index = 0;
 			noteInput = '';
+			noteConfirmId = null;
+			unfriendOpen = false;
 		}
 	});
 
 	$effect(() => {
 		if (index >= sorted.length) index = Math.max(0, sorted.length - 1);
+		noteConfirmId = null;
 	});
 
 	function go(delta: number) {
@@ -88,16 +97,35 @@
 	}
 
 	function deleteNote(postId: string, commentId: string) {
-		if (!confirm('Delete this note?')) return;
 		void friends.deleteComment(postId, commentId);
+		noteConfirmId = null;
 		journal.toast('Note deleted');
 	}
 
-	function reportNote(postId: string, commentId: string) {
-		const reason = prompt('Why are you reporting this note?')?.trim();
-		if (!reason) return;
+	function openReport(postId: string, commentId: string) {
+		reportTarget = { postId, commentId };
+		reportReason = '';
+		reportModalOpen = true;
+	}
+
+	function submitReport() {
+		const reason = reportReason.trim();
+		if (!reason || !reportTarget) return;
+		const { postId, commentId } = reportTarget;
+		reportModalOpen = false;
+		reportReason = '';
+		reportTarget = null;
 		void friends.reportComment(postId, commentId, reason);
 		journal.toast('Report sent to moderators. Thank you.');
+	}
+
+	async function confirmUnfriend() {
+		if (!friend || unfriendBusy) return;
+		unfriendBusy = true;
+		await friends.removeFriend(friend.id);
+		unfriendBusy = false;
+		unfriendOpen = false;
+		onClose();
 	}
 
 	function handleKey(event: KeyboardEvent) {
@@ -189,11 +217,23 @@
 
 				<button
 					type="button"
+					class="relative flex size-9 shrink-0 items-center justify-center rounded-full bg-[#D19A9A]/20 text-lg text-[#E7B9B9] transition-colors hover:bg-[#D19A9A]/40 hover:text-white"
+					onclick={(event) => {
+						event.stopPropagation();
+						if (friend) unfriendOpen = true;
+					}}
+					aria-label={`Remove ${friend.displayName} from friends`}
+					title={`Remove ${friend.displayName} from friends`}
+				>
+					<CommunityIcon name="user-minus" size={16} />
+				</button>
+				<button
+					type="button"
 					class="relative flex size-9 shrink-0 items-center justify-center rounded-full bg-white/10 text-lg text-white/80 transition-colors hover:bg-white/20 hover:text-white"
 					onclick={onClose}
 					aria-label="Close notebook"
 				>
-					✕
+					<CommunityIcon name="x" size={16} />
 				</button>
 			</div>
 
@@ -354,7 +394,11 @@
 							<div
 								class="mt-3 flex items-start gap-2.5 rounded-xl border border-line bg-light/70 p-3"
 							>
-								<span class="text-base font-bold text-gold">★</span>
+								<span
+									class="flex size-10 shrink-0 items-center justify-center rounded-full bg-white/10"
+								>
+									<CommunityIcon name="star" size={16} />
+								</span>
 								<div>
 									<span
 										class="block font-ui text-[10px] font-bold tracking-[.14em] text-accent uppercase"
@@ -445,27 +489,49 @@
 															>{comment.time}</time
 														>
 													</div>
-													<p class="mt-0.5 font-hand text-base leading-tight text-ink">
+													<p class="mt-0.5 font-hand text-base leading-tight break-words text-ink">
 														{censor(comment.text)}
 													</p>
 													{#if !comment.id.startsWith('local-')}
 														<div class="mt-1">
 															{#if comment.authorId === auth.ownerId}
-																<button
-																	type="button"
-																	class="font-ui text-[10px] text-ink-soft hover:text-red-600"
-																	onclick={() => deleteNote(page.id, comment.id)}
-																>
-																	Delete
-																</button>
+																{#if noteConfirmId === comment.id}
+																	<div class="flex flex-wrap items-center gap-2">
+																		<span class="font-ui text-[10px] font-semibold text-[#9A5B5B]"
+																			>Delete this note?</span
+																		>
+																		<button
+																			type="button"
+																			class="rounded-md bg-[#9A5B5B] px-1.5 py-0.5 font-ui text-[10px] font-bold text-white hover:bg-[#7E4747]"
+																			onclick={() => deleteNote(page.id, comment.id)}
+																		>
+																			Yes, delete
+																		</button>
+																		<button
+																			type="button"
+																			class="rounded-md border border-line px-1.5 py-0.5 font-ui text-[10px] font-semibold text-ink-soft hover:bg-light"
+																			onclick={() => (noteConfirmId = null)}
+																		>
+																			Cancel
+																		</button>
+																	</div>
+																{:else}
+																	<button
+																		type="button"
+																		class="font-ui text-[10px] text-ink-soft hover:text-red-600"
+																		onclick={() => (noteConfirmId = comment.id)}
+																	>
+																		Delete
+																	</button>
+																{/if}
 															{:else}
-																<button
-																	type="button"
-																	class="font-ui text-[10px] text-ink-soft hover:text-accent"
-																	onclick={() => reportNote(page.id, comment.id)}
-																>
-																	Report
-																</button>
+															<button
+																type="button"
+																class="font-ui text-[10px] text-ink-soft hover:text-accent"
+																onclick={() => openReport(page.id, comment.id)}
+															>
+																Report
+															</button>
 															{/if}
 														</div>
 													{/if}
@@ -495,7 +561,9 @@
 						</div>
 					{:else}
 						<div class="flex h-full flex-col items-center justify-center py-16 text-center">
-							<span class="text-4xl" aria-hidden="true">✿</span>
+							<span class="text-4xl" aria-hidden="true">
+								<CommunityIcon name="sparkles" size={32} />
+							</span>
 							<p class="mt-3 font-display text-2xl font-bold text-ink">No shared pages yet</p>
 							<p class="mt-1 max-w-[320px] font-hand text-lg text-ink-soft">
 								{friend.displayName} has not shared any pages with friends so far.
@@ -545,3 +613,150 @@
 	}}
 	userId={viewedUserId}
 />
+
+<!-- Remove friend confirmation -->
+{#if unfriendOpen && friend}
+	<div
+		class="fixed inset-0 z-[60] flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm"
+		role="dialog"
+		aria-modal="true"
+		aria-labelledby="remove-friend-title"
+	>
+		<button
+			type="button"
+			class="fixed inset-0 h-full w-full cursor-default"
+			onclick={() => (unfriendOpen = false)}
+			aria-label="Close remove friend dialog"
+		></button>
+
+		<div
+			class="relative z-10 w-full max-w-[420px] overflow-hidden rounded-[26px] border border-[#4E396E] bg-paper text-ink shadow-[0_25px_60px_rgba(0,0,0,.6)]"
+		>
+			<div
+				class="relative flex items-center justify-between gap-3 bg-[linear-gradient(135deg,#34214E,#231438)] px-5 py-4 text-white"
+			>
+				<h2 id="remove-friend-title" class="font-display text-xl font-bold">Remove friend?</h2>
+				<button
+					type="button"
+					class="flex size-9 items-center justify-center rounded-full bg-white/10 text-white/80 transition-colors hover:bg-white/20 hover:text-white"
+					onclick={() => (unfriendOpen = false)}
+					aria-label="Close"
+				>
+					<CommunityIcon name="x" size={16} />
+				</button>
+			</div>
+
+			<div class="p-5">
+				<div class="flex items-center gap-3 rounded-xl border border-line bg-[#FFFDF6] p-3">
+					<Avatar
+						src={friend.avatarUrl}
+						name={friend.displayName}
+						className="size-11"
+						textClass="text-lg"
+						ring=""
+					/>
+					<div class="min-w-0">
+						<p class="truncate font-display text-lg leading-tight font-bold text-ink">
+							{friend.displayName}
+						</p>
+						<p class="truncate font-ui text-xs text-ink-soft">@{friend.username}</p>
+					</div>
+				</div>
+
+				<p class="mt-4 font-ui text-sm leading-relaxed text-ink-soft">
+					You will stop seeing each other's shared pages. Their journal is not deleted, and you can
+					add them again later with their friend code.
+				</p>
+
+				<div class="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+					<button
+						type="button"
+						class="min-h-10 rounded-xl border border-line px-4 font-ui text-sm font-semibold text-ink-soft transition-colors hover:bg-light hover:text-ink"
+						onclick={() => (unfriendOpen = false)}
+					>
+						Keep friend
+					</button>
+					<button
+						type="button"
+						class="flex min-h-10 items-center justify-center gap-2 rounded-xl bg-[#9A5B5B] px-4 font-ui text-sm font-bold text-white transition-colors hover:bg-[#7E4747] disabled:cursor-wait disabled:opacity-60"
+						onclick={confirmUnfriend}
+						disabled={unfriendBusy}
+					>
+						{#if unfriendBusy}
+							<span
+								class="size-4 animate-spin rounded-full border-2 border-white border-t-transparent"
+								aria-hidden="true"
+							></span>
+							Removing…
+						{:else}
+							Remove friend
+						{/if}
+					</button>
+				</div>
+			</div>
+		</div>
+	</div>
+{/if}
+
+<!-- Report reason modal -->
+{#if reportModalOpen}
+	<div
+		class="fixed inset-0 z-50 flex items-center justify-center bg-black/65 p-4 backdrop-blur-sm"
+		role="dialog"
+		aria-modal="true"
+		aria-label="Report note"
+	>
+		<button
+			type="button"
+			class="fixed inset-0 h-full w-full cursor-default"
+			onclick={() => (reportModalOpen = false)}
+			aria-label="Close"
+		></button>
+
+		<div
+			class="relative z-10 w-full max-w-[400px] overflow-hidden rounded-[26px] border border-[#4E396E] bg-paper text-ink shadow-[0_25px_60px_rgba(0,0,0,.55)]"
+		>
+			<div
+				class="relative flex items-center justify-between gap-3 bg-[linear-gradient(135deg,#34214E,#231438)] px-5 py-4 text-white"
+			>
+				<h2 class="font-display text-xl font-bold">Report note</h2>
+				<button
+					type="button"
+					class="flex size-9 items-center justify-center rounded-full bg-white/10 text-white/80 transition-colors hover:bg-white/20 hover:text-white"
+					onclick={() => (reportModalOpen = false)}
+					aria-label="Close"
+				>
+					<CommunityIcon name="x" size={16} />
+				</button>
+			</div>
+
+			<div class="p-6">
+				<p class="mb-4 font-ui text-sm text-ink-soft">
+					Why are you reporting this note?
+				</p>
+				<textarea
+					bind:value={reportReason}
+					rows="4"
+					class="w-full rounded-xl border border-line bg-[#FFFDF6] px-3.5 py-2.5 font-ui text-sm text-ink focus:border-accent focus:outline-none"
+					placeholder="Describe why this note feels unsafe…"
+				></textarea>
+				<div class="mt-5 flex flex-col gap-3 sm:flex-row sm:justify-end">
+					<button
+						type="button"
+						class="min-h-10 rounded-xl border border-line px-4 font-ui text-sm font-semibold text-ink-soft transition-colors hover:bg-light"
+						onclick={() => (reportModalOpen = false)}
+					>
+						Cancel
+					</button>
+					<button
+						type="button"
+						class="min-h-10 rounded-xl border border-[#D19A9A] px-4 font-ui text-sm font-semibold text-[#9A5B5B] transition-colors hover:bg-[#FBEAEA]"
+						onclick={submitReport}
+					>
+						Send report
+					</button>
+				</div>
+			</div>
+		</div>
+	</div>
+{/if}

@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { slide } from 'svelte/transition';
+	import CommunityIcon from '#lib/components/CommunityIcon.svelte';
 	import { STICKERS } from '#lib/data/stickers';
 	import { journal } from '#lib/state/journal.svelte';
 	import type { PaperStyle } from '#lib/types';
@@ -103,7 +104,9 @@
 	{#if sidebar}
 		<div class="flex flex-col items-center gap-2">
 			<h2 class="mr-auto flex items-center gap-2 font-display text-xl font-bold text-white">
-				<i class="text-gold not-italic">✦</i>
+				<i class="text-gold not-italic">
+					<CommunityIcon name="spark" size={14} />
+				</i>
 				Sticker tray
 			</h2>
 			<button
@@ -299,7 +302,9 @@
 	{:else}
 		<div class="flex flex-wrap items-center gap-[18px]">
 			<h2 class="mr-auto flex items-center gap-2 font-display text-xl font-bold text-white">
-				<i class="text-gold not-italic">✦</i>
+				<i class="text-gold not-italic">
+					<CommunityIcon name="spark" size={14} />
+				</i>
 				Sticker tray
 			</h2>
 

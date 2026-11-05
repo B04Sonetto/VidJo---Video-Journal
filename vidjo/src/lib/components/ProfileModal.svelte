@@ -5,6 +5,7 @@
 	import { friends } from '#lib/state/friends.svelte';
 	import { cleanDisplayName } from '#lib/avatar';
 	import Avatar from '#lib/components/Avatar.svelte';
+	import CommunityIcon from '#lib/components/CommunityIcon.svelte';
 	import { onMount } from 'svelte';
 	import { SvelteDate } from 'svelte/reactivity';
 
@@ -54,16 +55,22 @@
 	const modalFriendCode = $derived(isViewingOther ? viewedUser?.friend_code : profile.friendCode);
 	const modalBio = $derived(isViewingOther ? viewedUser?.bio : profile.bio);
 
+	// Presets are stored in `avatar_url` as emoji. The legacy names are kept so
+	// profiles saved by older builds still highlight the right choice.
 	const PRESET_AVATARS = [
-		{ label: 'Sparkle', emoji: '✨', bg: 'from-amber-400 to-orange-500' },
-		{ label: 'Artist', emoji: '🎨', bg: 'from-purple-500 to-indigo-600' },
-		{ label: 'Reader', emoji: '📚', bg: 'from-emerald-400 to-teal-600' },
-		{ label: 'Music', emoji: '🎧', bg: 'from-pink-500 to-rose-600' },
-		{ label: 'Rocket', emoji: '🚀', bg: 'from-blue-500 to-cyan-600' },
-		{ label: 'Cat', emoji: '🐱', bg: 'from-amber-500 to-yellow-600' },
-		{ label: 'Plant', emoji: '🌱', bg: 'from-lime-500 to-green-600' },
-		{ label: 'Camera', emoji: '🎬', bg: 'from-fuchsia-500 to-purple-700' }
+		{ label: 'Sparkle', emoji: '✨', legacy: 'sparkles' },
+		{ label: 'Artist', emoji: '🎨', legacy: 'spark' },
+		{ label: 'Reader', emoji: '📚', legacy: 'book' },
+		{ label: 'Music', emoji: '🎧', legacy: 'music' },
+		{ label: 'Rocket', emoji: '🚀', legacy: 'rocket' },
+		{ label: 'Cat', emoji: '🐱', legacy: 'cat' },
+		{ label: 'Plant', emoji: '🌱', legacy: 'leaf' },
+		{ label: 'Camera', emoji: '🎬', legacy: 'video' }
 	];
+
+	function isPresetSelected(preset: (typeof PRESET_AVATARS)[number]) {
+		return editAvatar === preset.emoji || editAvatar === preset.legacy;
+	}
 
 	function startEdit() {
 		editUsername = profile.username;
@@ -238,7 +245,7 @@
 					<div
 						class="flex size-9 items-center justify-center rounded-xl bg-lav/20 text-gold shadow-inner"
 					>
-						✦
+						<CommunityIcon name="sparkles" size={18} />
 					</div>
 					<div>
 						<h2 id="profile-title" class="font-display text-xl font-bold tracking-wide">
@@ -258,7 +265,7 @@
 					onclick={onClose}
 					aria-label="Close"
 				>
-					✕
+					<CommunityIcon name="x" size={16} />
 				</button>
 			</div>
 
@@ -284,7 +291,7 @@
 									class="absolute right-0 bottom-0 flex size-6 items-center justify-center rounded-full bg-[#3F7A4F] text-xs text-white ring-2 ring-paper"
 									title="Active student"
 								>
-									✓
+									<CommunityIcon name="check" size={10} />
 								</span>
 							</div>
 
@@ -404,8 +411,10 @@
 									{#if badges.includes('first-post')}
 										<span
 											class="inline-flex items-center gap-1.5 rounded-full border border-[#D5C6E8] bg-light px-3 py-1 font-ui text-xs font-semibold text-accent"
-											>✨ First Page</span
 										>
+											<CommunityIcon name="sparkles" size={13} />
+											First Page
+										</span>
 									{/if}
 									{#if badges.includes('five-pages')}
 										<span
@@ -440,8 +449,10 @@
 									{#if badges.includes('social-circle')}
 										<span
 											class="inline-flex items-center gap-1.5 rounded-full border border-[#C9E6D1] bg-[#EDF6EF] px-3 py-1 font-ui text-xs font-semibold text-[#2F6B45]"
-											>👥 Social Circle</span
 										>
+											<CommunityIcon name="users" size={13} />
+											Social Circle
+										</span>
 									{/if}
 									{#if badges.length === 0}
 										<p class="font-ui text-xs text-ink-soft">
@@ -599,14 +610,17 @@
 								{#each PRESET_AVATARS as preset (preset.label)}
 									<button
 										type="button"
-										class="flex size-11 items-center justify-center rounded-full text-xl shadow-sm transition-transform hover:scale-110 active:scale-95 {editAvatar ===
-										preset.emoji
+										class="flex size-11 items-center justify-center rounded-full text-xl shadow-sm transition-transform hover:scale-110 active:scale-95 {isPresetSelected(
+											preset
+										)
 											? 'scale-105 ring-3 ring-accent'
 											: 'border border-line'}"
 										onclick={() => (editAvatar = preset.emoji)}
 										title={preset.label}
+										aria-label={`Use ${preset.label} avatar`}
+										aria-pressed={isPresetSelected(preset)}
 									>
-										{preset.emoji}
+										<span aria-hidden="true">{preset.emoji}</span>
 									</button>
 								{/each}
 								<button
@@ -650,7 +664,10 @@
 								{#if usernameStatus.checking}
 									<span class="text-accent">Checking availability…</span>
 								{:else if usernameStatus.available === true}
-									<span class="text-[#3F7A4F]">✓ Available</span>
+									<span class="text-[#3F7A4F] flex items-center gap-1">
+										<CommunityIcon name="check" size={11} />
+										Available
+									</span>
 								{:else if usernameStatus.available === false}
 									<span class="text-red-600">{usernameStatus.error || 'Taken'}</span>
 								{/if}

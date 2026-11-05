@@ -6,7 +6,8 @@ import type {
 	FriendComment,
 	FriendPost,
 	FriendPostReaction,
-	FriendRequest
+	FriendRequest,
+	NotificationItem
 } from '#lib/types';
 import { profile } from '#lib/state/profile.svelte';
 import { journal } from '#lib/state/journal.svelte';
@@ -44,15 +45,47 @@ class FriendsState {
 	activeFilter = $state<'all' | 'video' | 'written'>('all');
 	currentUserId = $state<string>('');
 	stories = $state<Friend[]>([]);
+	notifications = $state<NotificationItem[]>([]);
+	notificationsLastSeen = $state(0);
 
 	private reactionMap = $state<Record<string, { counts: FriendPostReaction; mine: ReactionKey[] }>>(
 		{}
 	);
 	private commentMap = $state<Record<string, FriendComment[]>>({});
 	private initializedFor = '';
+	private realtimeChannel: ReturnType<typeof supabase.channel> | null = null;
+	private refreshTimer: ReturnType<typeof setTimeout> | null = null;
 
 	get myFriendCode() {
 		return profile.friendCode;
+	}
+
+	get unreadCount() {
+		return this.notifications.filter(
+			(item) => new Date(item.createdAt).getTime() > this.notificationsLastSeen
+		).length;
+	}
+
+	markNotificationsRead() {
+		const now = Date.now();
+		this.notificationsLastSeen = now;
+		if (!this.currentUserId) return;
+		try {
+			localStorage.setItem(`vidjo-notifications-seen:${this.currentUserId}`, String(now));
+		} catch {
+			// Read state is a convenience; storage may be blocked.
+		}
+	}
+
+	private readNotificationsSeen(): number {
+		if (!this.currentUserId) return 0;
+		try {
+			const raw = localStorage.getItem(`vidjo-notifications-seen:${this.currentUserId}`);
+			const parsed = Number(raw);
+			return Number.isFinite(parsed) ? parsed : 0;
+		} catch {
+			return 0;
+		}
 	}
 
 	get incomingRequests() {
@@ -89,6 +122,7 @@ class FriendsState {
 
 		this.initializedFor = userId;
 		this.currentUserId = userId;
+		this.notificationsLastSeen = this.readNotificationsSeen();
 		this.loading = true;
 		this.remote = false;
 		this.friends = [];
@@ -101,6 +135,7 @@ class FriendsState {
 		if (isSupabaseConfigured && auth.signedIn) {
 			try {
 				await this.refreshRemote();
+				this.syncNotificationsFromFriendRequests();
 				this.remote = true;
 			} catch (error) {
 				console.warn('[VidJo] Could not load friends from Supabase.', error);
@@ -115,6 +150,9 @@ class FriendsState {
 
 		this.loading = false;
 
+		await this.loadCommentNotifications();
+		this.subscribeToFriendRequests();
+
 		try {
 			const pending = localStorage.getItem('vidjo-pending-friendcode');
 			if (pending) {
@@ -123,6 +161,29 @@ class FriendsState {
 			}
 		} catch {
 			// Ignore local storage restrictions.
+		}
+	}
+
+	/** Re-fetch friends, shared pages, and notifications from Supabase. */
+	async refresh() {
+		if (!this.currentUserId || this.loading) return;
+		this.loading = true;
+
+		if (!isSupabaseConfigured || !auth.signedIn) {
+			this.posts = this.getMyFriendsEntries();
+			this.loading = false;
+			return;
+		}
+
+		try {
+			await this.refreshRemote();
+			this.syncNotificationsFromFriendRequests();
+			await this.loadCommentNotifications();
+			this.remote = true;
+		} catch (error) {
+			console.warn('[VidJo] Could not refresh friends from Supabase.', error);
+		} finally {
+			this.loading = false;
 		}
 	}
 
@@ -247,7 +308,7 @@ class FriendsState {
 		if (friendIds.length === 0) return [];
 		const viewerId = this.currentUserId || auth.ownerId;
 
-		const { data, error } = await supabase
+		const sharedRequest = supabase
 			.from('vidjo_entries')
 			.select('*')
 			.in('privacy', ['friends', 'community'])
@@ -255,16 +316,41 @@ class FriendsState {
 			.order('entry_date', { ascending: false })
 			.limit(100);
 
-		if (error) throw error;
+		// Private pages can still be opened to friends who were explicitly
+		// included in the page's audience.
+		const includedRequest = isUuid(viewerId)
+			? supabase
+					.from('vidjo_entries')
+					.select('*')
+					.eq('privacy', 'private')
+					.contains('included_friend_ids', [viewerId])
+					.in('owner_id', friendIds)
+					.order('entry_date', { ascending: false })
+					.limit(100)
+			: Promise.resolve({ data: [] as EntryRow[], error: null });
 
-		const rows = ((data ?? []) as EntryRow[]).filter((row) => {
+		const [{ data: sharedData, error }, { data: includedData, error: includedError }] =
+			await Promise.all([sharedRequest, includedRequest]);
+
+		if (error) throw error;
+		if (includedError) throw includedError;
+
+		const seen = new Set<string>();
+		const data = [...(sharedData ?? []), ...(includedData ?? [])].filter((row) => {
+			const key = `${row.owner_id}:${row.entry_date}`;
+			if (seen.has(key)) return false;
+			seen.add(key);
+			return true;
+		});
+
+		const rows = (data as EntryRow[]).filter((row) => {
 			const excluded = Array.isArray(row.excluded_friend_ids) ? row.excluded_friend_ids : [];
 			const included = Array.isArray(row.included_friend_ids) ? row.included_friend_ids : [];
 			if (excluded.includes(viewerId)) return false;
 			if (row.privacy === 'private' && !included.includes(viewerId)) return false;
 			// Community posts only cross into the friends feed when share_with_friends is set.
 			if (row.privacy === 'community' && !(row.share_with_friends ?? false)) return false;
-			return row.title || row.mind || row.refl || row.video_path;
+			return row.title || row.mind || row.refl || row.video_path || row.mood;
 		});
 		const friendMap = new Map(this.friends.map((friend) => [friend.id, friend]));
 
@@ -351,7 +437,7 @@ class FriendsState {
 			const sharedWithFriends =
 				entry.privacy === 'friends' || (entry.privacy === 'community' && entry.shareWithFriends);
 
-			if (sharedWithFriends && (entry.title || entry.mind || entry.videoPath)) {
+			if (sharedWithFriends && (entry.title || entry.mind || entry.videoPath || entry.mood)) {
 				out.push({
 					id: `my-${date}`,
 					authorId,
@@ -622,6 +708,7 @@ class FriendsState {
 		}
 
 		await this.refreshRemote();
+		this.syncNotificationsFromFriendRequests();
 		journal.toast(result.message || 'You are now friends!');
 	}
 
@@ -647,6 +734,7 @@ class FriendsState {
 		}
 
 		await this.refreshRemote();
+		this.syncNotificationsFromFriendRequests();
 		journal.toast('Friend request declined.');
 	}
 
@@ -672,6 +760,7 @@ class FriendsState {
 		}
 
 		await this.refreshRemote();
+		this.syncNotificationsFromFriendRequests();
 		journal.toast('Friend request canceled.');
 	}
 
@@ -694,6 +783,245 @@ class FriendsState {
 		}
 
 		if (target) journal.toast(`Removed ${target.displayName} from friends.`);
+	}
+
+	async loadCommentNotifications() {
+		if (!isSupabaseConfigured || !auth.user || !this.currentUserId) return;
+
+		try {
+			const { data: commentRows, error } = await supabase
+				.from('vidjo_comments')
+				.select('*')
+				.eq('post_owner_id', this.currentUserId)
+				.neq('author_id', auth.user.id)
+				.order('created_at', { ascending: false })
+				.limit(50);
+
+			if (error) throw error;
+
+			const rows = commentRows ?? [];
+			const dates = [...new Set(rows.map((row) => row.post_date as string).filter(Boolean))];
+
+			// `vidjo_comments` has no foreign key to `vidjo_entries`, so fetch the
+			// matching page metadata separately instead of relying on an embed.
+			const entryMap = new Map<
+				string,
+				{ title: string | null; owner_id: string; entry_date: string }
+			>();
+			if (dates.length > 0) {
+				const { data: entries } = await supabase
+					.from('vidjo_entries')
+					.select('entry_date, title, owner_id')
+					.eq('owner_id', this.currentUserId)
+					.in('entry_date', dates);
+
+				for (const entry of entries ?? []) {
+					entryMap.set(entry.entry_date as string, {
+						title: (entry.title as string) || null,
+						owner_id: entry.owner_id as string,
+						entry_date: entry.entry_date as string
+					});
+				}
+			}
+
+			const authorIds = [...new Set(rows.map((row) => row.author_id as string).filter(Boolean))];
+
+			let authorMap = new Map<string, Record<string, string | null>>();
+			if (authorIds.length > 0) {
+				const { data: authors } = await supabase
+					.from('vidjo_profiles')
+					.select('user_id, username, display_name, avatar_url')
+					.in('user_id', authorIds);
+				authorMap = new Map(
+					(authors ?? []).map((author) => [
+						author.user_id as string,
+						author as Record<string, string | null>
+					])
+				);
+			}
+
+			const notifications: NotificationItem[] = rows.map((row) => {
+				const date = row.post_date as string;
+				const entry = entryMap.get(date);
+				const author = authorMap.get(row.author_id as string);
+
+				return {
+					id: `comment-${row.id}`,
+					type: 'comment',
+					fromUserId: row.author_id as string,
+					fromUserName: cleanDisplayName(
+						(author?.display_name as string) || (author?.username as string),
+						'VidJo student'
+					),
+					fromUserAvatar: normalizeImageUrl((author?.avatar_url as string) || null),
+					postId: `friend-${this.currentUserId}-${date}`,
+					postTitle: entry?.title || 'Untitled page',
+					postDate: date,
+					text: row.body as string,
+					createdAt: row.created_at as string,
+					read: false
+				};
+			});
+
+			this.notifications = [
+				...notifications,
+				...this.notifications.filter((n) => n.type === 'friend_request')
+			];
+		} catch {
+			// Comment notifications are non-critical.
+		}
+	}
+
+	subscribeToFriendRequests() {
+		if (!isSupabaseConfigured || !auth.user || !this.currentUserId) return;
+		this.unsubscribeRealtime();
+
+		try {
+			this.realtimeChannel = supabase
+				.channel('vidjo-friends-live')
+				.on(
+					'postgres_changes',
+					{
+						event: 'INSERT',
+						schema: 'public',
+						table: 'vidjo_friend_requests',
+						filter: `to_user=eq.${this.currentUserId}`
+					},
+					() => {
+						void this.loadFriendRequestsOnly();
+					}
+				)
+				.on(
+					'postgres_changes',
+					{
+						event: 'UPDATE',
+						schema: 'public',
+						table: 'vidjo_friend_requests',
+						filter: `to_user=eq.${this.currentUserId}`
+					},
+					() => this.scheduleRefresh()
+				)
+				.on(
+					'postgres_changes',
+					{
+						event: 'UPDATE',
+						schema: 'public',
+						table: 'vidjo_friend_requests',
+						filter: `from_user=eq.${this.currentUserId}`
+					},
+					() => this.scheduleRefresh()
+				)
+				.on(
+					'postgres_changes',
+					{
+						event: '*',
+						schema: 'public',
+						table: 'vidjo_friends',
+						filter: `user_id=eq.${this.currentUserId}`
+					},
+					() => this.scheduleRefresh()
+				)
+				.on(
+					'postgres_changes',
+					{
+						event: '*',
+						schema: 'public',
+						table: 'vidjo_friends',
+						filter: `friend_id=eq.${this.currentUserId}`
+					},
+					() => this.scheduleRefresh()
+				)
+				.on(
+					'postgres_changes',
+					{
+						event: 'INSERT',
+						schema: 'public',
+						table: 'vidjo_comments',
+						filter: `post_owner_id=eq.${this.currentUserId}`
+					},
+					(payload) => {
+						const row = payload.new as { author_id?: string } | null;
+						if (row?.author_id && row.author_id !== this.currentUserId) {
+							void this.loadCommentNotifications();
+						}
+					}
+				)
+				.on(
+					'postgres_changes',
+					{
+						event: '*',
+						schema: 'public',
+						table: 'vidjo_entries'
+					},
+					(payload) => {
+						const row = (payload.new ?? payload.old) as { owner_id?: string } | null;
+						if (
+							row?.owner_id &&
+							row.owner_id !== this.currentUserId &&
+							this.friends.some((friend) => friend.id === row.owner_id)
+						) {
+							this.scheduleRefresh();
+						}
+					}
+				)
+				.subscribe();
+		} catch {
+			// Real-time subscriptions are non-critical.
+		}
+	}
+
+	private scheduleRefresh() {
+		if (this.refreshTimer) clearTimeout(this.refreshTimer);
+		this.refreshTimer = setTimeout(() => {
+			this.refreshTimer = null;
+			void this.refresh();
+		}, 900);
+	}
+
+	private async loadFriendRequestsOnly() {
+		if (!isSupabaseConfigured || !auth.user) return;
+		const userId = this.currentUserId || auth.user.id;
+		try {
+			this.friendRequests = await this.loadRequests(userId);
+			this.syncNotificationsFromFriendRequests();
+		} catch {
+			// Ignore errors during real-time refresh.
+		}
+	}
+
+	private syncNotificationsFromFriendRequests() {
+		const requestNotifications: NotificationItem[] = this.friendRequests
+			.filter((req) => req.direction === 'incoming')
+			.map((req) => ({
+				id: `friend-request-${req.id}`,
+				requestId: req.id,
+				type: 'friend_request',
+				fromUserId: req.fromUserId,
+				fromUserName: req.fromDisplayName,
+				fromUserAvatar: req.fromAvatarUrl,
+				createdAt: req.createdAt,
+				read: false
+			}));
+
+		this.notifications = [
+			...requestNotifications,
+			...this.notifications.filter((n) => n.type === 'comment')
+		];
+	}
+
+	unsubscribeRealtime() {
+		if (this.refreshTimer) {
+			clearTimeout(this.refreshTimer);
+			this.refreshTimer = null;
+		}
+		if (this.realtimeChannel) {
+			try {
+				supabase.removeChannel(this.realtimeChannel);
+			} catch {
+				// Ignore cleanup errors.
+			}
+			this.realtimeChannel = null;
+		}
 	}
 
 	toggleReaction(postId: string, reaction: ReactionKey) {
@@ -852,12 +1180,15 @@ class FriendsState {
 		this.friendRequests = [];
 		this.posts = [];
 		this.stories = [];
+		this.notifications = [];
+		this.notificationsLastSeen = 0;
 		this.reactionMap = {};
 		this.commentMap = {};
 		this.currentUserId = '';
 		this.initializedFor = '';
 		this.loading = false;
 		this.remote = false;
+		this.unsubscribeRealtime();
 	}
 }
 

@@ -188,6 +188,29 @@ create table if not exists public.vidjo_profiles (
 alter table public.vidjo_profiles add column if not exists banner_url text;
 alter table public.vidjo_profiles add column if not exists user_role text not null default 'user';
 
+-- Banned accounts must lose every policy that depends on membership. The
+-- function is redefined here (after `vidjo_profiles` exists) so the ban flag is
+-- authoritative on the server instead of only hiding UI.
+create or replace function public.vidjo_is_member()
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+	select exists (
+		select 1
+		from auth.users u
+		left join public.vidjo_profiles p on p.user_id = u.id
+		where u.id = auth.uid()
+			and (
+				u.raw_app_meta_data->>'vidjo_registered' = 'true'
+				or u.raw_user_meta_data->>'vidjo_registered' = 'true'
+			)
+			and coalesce(p.user_role, 'user') <> 'banned'
+	);
+$$;
+
 -- Case-insensitive unique index enforces strictly unique usernames across VidJo
 create unique index if not exists vidjo_profiles_username_lower_idx
 	on public.vidjo_profiles (lower(username));
@@ -224,6 +247,49 @@ create policy "vidjo profiles update admin" on public.vidjo_profiles
 			where user_id = auth.uid() and user_role = 'admin'
 		)
 	);
+
+-- The update-own policy intentionally allows profile edits, but `user_role`
+-- must stay admin-controlled. Without this guard a member could promote
+-- themselves to admin through a direct API call and then moderate others.
+create or replace function public.vidjo_guard_profile_role()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+	if tg_op = 'INSERT' then
+		if new.user_role is distinct from 'user'
+			and auth.uid() is not null
+			and not exists (
+				select 1 from public.vidjo_profiles
+				where user_id = auth.uid() and user_role = 'admin'
+			) then
+			new.user_role := 'user';
+		end if;
+	elsif new.user_role is distinct from old.user_role then
+		if auth.uid() is not null
+			and not exists (
+				select 1 from public.vidjo_profiles
+				where user_id = auth.uid() and user_role = 'admin'
+			) then
+			raise exception 'Only admins can change account roles.'
+				using errcode = 'P0001';
+		end if;
+	end if;
+
+	return new;
+end;
+$$;
+
+drop trigger if exists vidjo_guard_profile_role on public.vidjo_profiles;
+create trigger vidjo_guard_profile_role
+	before insert or update on public.vidjo_profiles
+	for each row execute function public.vidjo_guard_profile_role();
+
+revoke all on function public.vidjo_guard_profile_role() from public;
+revoke all on function public.vidjo_guard_profile_role() from anon;
+revoke all on function public.vidjo_guard_profile_role() from authenticated;
 
 revoke all on public.vidjo_profiles from anon;
 grant select, insert, update on public.vidjo_profiles to authenticated;
@@ -809,20 +875,32 @@ stable
 security definer
 set search_path = public
 as $$
-	select owner is not null and exists (
-		select 1
-		from public.vidjo_entries e
-		where e.owner_id = owner::text
-			and e.entry_date = post_date
-			and (
-				auth.uid()::text = e.owner_id
-				or e.privacy = 'community'
-				or (
-					e.privacy = 'friends'
-					and public.vidjo_are_friends(auth.uid(), owner)
+	select auth.uid() is not null
+		and owner is not null
+		and exists (
+			select 1
+			from public.vidjo_entries e
+			where e.owner_id = owner::text
+				and e.entry_date = post_date
+				and (
+					auth.uid()::text = e.owner_id
+					or (
+						not (auth.uid()::text = any(e.excluded_friend_ids))
+						and (
+							e.privacy = 'community'
+							or (
+								e.privacy = 'friends'
+								and public.vidjo_are_friends(auth.uid(), owner)
+							)
+							or (
+								e.privacy = 'private'
+								and auth.uid()::text = any(e.included_friend_ids)
+								and public.vidjo_are_friends(auth.uid(), owner)
+							)
+						)
+					)
 				)
-			)
-	);
+		);
 $$;
 
 revoke all on function public.vidjo_try_uuid(text) from public;
@@ -841,10 +919,20 @@ create policy "vidjo entries select own" on public.vidjo_entries
 		public.vidjo_is_member()
 		and (
 			auth.uid()::text = owner_id
-			or privacy = 'community'
 			or (
-				privacy = 'friends'
-				and public.vidjo_are_friends(auth.uid(), public.vidjo_try_uuid(owner_id))
+				not (auth.uid()::text = any(excluded_friend_ids))
+				and (
+					privacy = 'community'
+					or (
+						privacy = 'friends'
+						and public.vidjo_are_friends(auth.uid(), public.vidjo_try_uuid(owner_id))
+					)
+					or (
+						privacy = 'private'
+						and auth.uid()::text = any(included_friend_ids)
+						and public.vidjo_are_friends(auth.uid(), public.vidjo_try_uuid(owner_id))
+					)
+				)
 			)
 		)
 	);
@@ -900,6 +988,19 @@ begin
 
 	if not public.vidjo_is_member() then
 		return jsonb_build_object('success', false, 'message', 'Create a VidJo account before adding friends.');
+	end if;
+
+	-- Do not let one account spray requests across the directory.
+	if (
+		select count(*)
+		from public.vidjo_friend_requests
+		where from_user = curr_user
+			and created_at > now() - interval '1 hour'
+	) >= 10 then
+		return jsonb_build_object(
+			'success', false,
+			'message', 'You have sent a lot of requests. Please wait a little before trying again.'
+		);
 	end if;
 
 	select * into target_profile
@@ -1223,6 +1324,65 @@ revoke all on public.vidjo_comment_reports from anon;
 grant select, insert on public.vidjo_comment_reports to authenticated;
 
 -- ---------------------------------------------------------------------------
+-- Write rate limits (spam guard)
+-- ---------------------------------------------------------------------------
+
+create index if not exists vidjo_comments_author_created_idx
+	on public.vidjo_comments (author_id, created_at desc);
+
+create index if not exists vidjo_comment_reports_reporter_created_idx
+	on public.vidjo_comment_reports (reporter_id, created_at desc);
+
+create or replace function public.vidjo_enforce_write_rate_limit()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+	recent int;
+begin
+	if tg_table_name = 'vidjo_comments' then
+		select count(*) into recent
+		from public.vidjo_comments
+		where author_id = new.author_id
+			and created_at > now() - interval '1 minute';
+
+		if recent >= 10 then
+			raise exception 'You are commenting too quickly. Please wait a moment.'
+				using errcode = 'P0001';
+		end if;
+	elsif tg_table_name = 'vidjo_comment_reports' then
+		select count(*) into recent
+		from public.vidjo_comment_reports
+		where reporter_id = new.reporter_id
+			and created_at > now() - interval '1 hour';
+
+		if recent >= 5 then
+			raise exception 'You have sent too many reports. Please wait before reporting again.'
+				using errcode = 'P0001';
+		end if;
+	end if;
+
+	return new;
+end;
+$$;
+
+drop trigger if exists vidjo_comments_rate_limit on public.vidjo_comments;
+create trigger vidjo_comments_rate_limit
+	before insert on public.vidjo_comments
+	for each row execute function public.vidjo_enforce_write_rate_limit();
+
+drop trigger if exists vidjo_comment_reports_rate_limit on public.vidjo_comment_reports;
+create trigger vidjo_comment_reports_rate_limit
+	before insert on public.vidjo_comment_reports
+	for each row execute function public.vidjo_enforce_write_rate_limit();
+
+revoke all on function public.vidjo_enforce_write_rate_limit() from public;
+revoke all on function public.vidjo_enforce_write_rate_limit() from anon;
+revoke all on function public.vidjo_enforce_write_rate_limit() from authenticated;
+
+-- ---------------------------------------------------------------------------
 -- Tighten video playback to match entry visibility
 -- ---------------------------------------------------------------------------
 
@@ -1239,12 +1399,59 @@ create policy "vidjo video read" on storage.objects
 				from public.vidjo_entries e
 				where (e.video_path = storage.objects.name or storage.objects.name like '%' || e.video_path)
 					and (
-						e.privacy = 'community'
+						e.owner_id = auth.uid()::text
 						or (
-							e.privacy = 'friends'
-							and public.vidjo_are_friends(auth.uid(), public.vidjo_try_uuid(e.owner_id))
+							not (auth.uid()::text = any(e.excluded_friend_ids))
+							and (
+								e.privacy = 'community'
+								or (
+									e.privacy = 'friends'
+									and public.vidjo_are_friends(auth.uid(), public.vidjo_try_uuid(e.owner_id))
+								)
+								or (
+									e.privacy = 'private'
+									and auth.uid()::text = any(e.included_friend_ids)
+									and public.vidjo_are_friends(auth.uid(), public.vidjo_try_uuid(e.owner_id))
+								)
+							)
 						)
 					)
 			)
 		)
 	);
+
+-- ---------------------------------------------------------------------------
+-- Realtime publication
+-- ---------------------------------------------------------------------------
+
+-- The app subscribes to these tables for live friend requests, comments, and
+-- shared pages. `alter publication` is not idempotent, so only add a table when
+-- it is not already published.
+do $$
+declare
+	table_name text;
+begin
+	if not exists (select 1 from pg_publication where pubname = 'supabase_realtime') then
+		return;
+	end if;
+
+	foreach table_name in array array[
+		'vidjo_entries',
+		'vidjo_friends',
+		'vidjo_friend_requests',
+		'vidjo_comments',
+		'vidjo_reactions',
+		'vidjo_community_members'
+	] loop
+		if not exists (
+			select 1
+			from pg_publication_tables
+			where pubname = 'supabase_realtime'
+				and schemaname = 'public'
+				and tablename = table_name
+		) then
+			execute format('alter publication supabase_realtime add table public.%I', table_name);
+		end if;
+	end loop;
+end;
+$$;

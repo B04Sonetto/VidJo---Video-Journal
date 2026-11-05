@@ -81,7 +81,7 @@
 		return entry.includedFriendIds.includes(friendId);
 	}
 
-	function toggleFriend(friendId: string) {
+	async function toggleFriend(friendId: string) {
 		if (preview) return;
 		const excluded = [...entry.excludedFriendIds];
 		const included = [...entry.includedFriendIds];
@@ -94,6 +94,7 @@
 			excluded.push(friendId);
 		}
 		journal.updateCurrent({ excludedFriendIds: excluded, includedFriendIds: included });
+		await journal.flush();
 	}
 </script>
 
@@ -305,9 +306,13 @@
 		disabled={preview}
 		onclick={() => !preview && journal.markSaved()}
 	>
-		<span class="text-gold">✦</span>
+		<span class="text-gold">
+			<CommunityIcon name="spark" size={18} />
+		</span>
 		Save VidJo
-		<span class="text-gold">✦</span>
+		<span class="text-gold">
+			<CommunityIcon name="spark" size={18} />
+		</span>
 	</button>
 
 	<div class="absolute right-0 bottom-3.5 left-0 text-center font-hand text-base text-ink-soft">

@@ -184,6 +184,39 @@
 			</svg>
 			<span>Community</span>
 		</button>
+		<button
+			type="button"
+			class="group relative flex min-h-10 items-center gap-2 rounded-full px-4 py-2 font-ui text-[14px] transition-all {nav.view ===
+			'notifications'
+				? 'bg-white/15 font-semibold text-white shadow-[inset_0_1px_0_rgba(255,255,255,.12)]'
+				: 'text-[#D6CBEC] hover:bg-white/[.08] hover:text-white'}"
+			aria-current={nav.view === 'notifications' ? 'page' : undefined}
+			aria-label={`Notifications${friends.unreadCount > 0 ? `, ${friends.unreadCount} unread` : ''}`}
+			onclick={() => nav.setView('notifications')}
+		>
+			<svg
+				width="16"
+				height="16"
+				viewBox="0 0 24 24"
+				fill="none"
+				stroke="currentColor"
+				stroke-width="2"
+				stroke-linecap="round"
+				stroke-linejoin="round"
+				class="transition-transform group-hover:scale-105"
+				aria-hidden="true"
+			>
+				<path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
+				<path d="M13.73 21a2 2 0 01-3.46 0"></path>
+			</svg>
+			{#if friends.unreadCount > 0}
+				<span
+					class="absolute -top-1 -right-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white shadow-[0_0_0_2px_#7F1D1D]"
+				>
+					{friends.unreadCount > 9 ? '9+' : friends.unreadCount}
+				</span>
+			{/if}
+		</button>
 	</nav>
 
 	<button
@@ -566,6 +599,38 @@
 			<path d="M2 12h20"></path>
 		</svg>
 		<span class="font-ui text-[10px] font-semibold">Community</span>
+	</button>
+	<button
+		type="button"
+		class="relative flex flex-col items-center gap-1 rounded-2xl px-3 py-1.5 transition-all {nav.view ===
+		'notifications'
+			? 'text-white'
+			: 'text-[#BBA8E0]'}"
+		aria-label={`Notifications${friends.unreadCount > 0 ? `, ${friends.unreadCount} unread` : ''}`}
+		onclick={() => nav.setView('notifications')}
+	>
+		<svg
+			width="20"
+			height="20"
+			viewBox="0 0 24 24"
+			fill="none"
+			stroke="currentColor"
+			stroke-width="2"
+			stroke-linecap="round"
+			stroke-linejoin="round"
+			aria-hidden="true"
+		>
+			<path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
+			<path d="M13.73 21a2 2 0 01-3.46 0"></path>
+		</svg>
+		<span class="font-ui text-[10px] font-semibold">Alerts</span>
+		{#if friends.unreadCount > 0}
+			<span
+				class="absolute -top-0.5 right-2 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[9px] font-bold text-white"
+			>
+				{friends.unreadCount > 9 ? '9+' : friends.unreadCount}
+			</span>
+		{/if}
 	</button>
 	<button
 		type="button"

@@ -5,6 +5,7 @@
 	import { nav } from '#lib/state/navigation.svelte';
 	import { journal } from '#lib/state/journal.svelte';
 	import { TODAY } from '#lib/dates';
+	import { onMount } from 'svelte';
 	import { MOODS, MOOD_BY_KEY } from '#lib/data/moods';
 	import { STICKER_BY_KEY } from '#lib/data/stickers';
 	import CommunityIcon from '#lib/components/CommunityIcon.svelte';
@@ -23,6 +24,14 @@
 	let viewedUserId = $state<string | null>(null);
 	let showDiscovery = $state(false);
 	let focusPostId = $state<string | null>(null);
+	let lastCommentTime = $state<Record<string, number>>({});
+	let deleteTarget = $state<CommunityPost | null>(null);
+	let deleteBusy = $state(false);
+	let commentConfirmId = $state<string | null>(null);
+
+	onMount(() => {
+		void community.refresh();
+	});
 
 	const PROMPTS = [
 		'Describe today as a weather forecast.',
@@ -115,7 +124,7 @@
 			.filter(
 				([, entry]) =>
 					entry.privacy === 'community' &&
-					(entry.title || entry.mind || entry.refl || entry.videoPath) &&
+					(entry.title || entry.mind || entry.refl || entry.videoPath || entry.mood) &&
 					(!entry.communitySlug || joined.has(entry.communitySlug))
 			)
 			.map(([date, entry]) => ({
@@ -231,14 +240,34 @@
 		event.preventDefault();
 		const text = commentInput[post.id]?.trim();
 		if (!text) return;
+
+		const now = Date.now();
+		const last = lastCommentTime[post.id] ?? 0;
+		if (now - last < 2000) {
+			journal.toast('Please wait a moment before sending another note.');
+			return;
+		}
+		lastCommentTime[post.id] = now;
+
 		void community.addComment(post, text);
 		commentInput[post.id] = '';
 	}
 
-	function joinAndOpen(slug: string) {
-		void community.toggleJoin(slug);
-		activeSlug = slug;
-		showDiscovery = false;
+	async function joinAndOpen(slug: string) {
+		const succeeded = await community.toggleJoin(slug);
+		if (succeeded) {
+			await community.refresh();
+			activeSlug = slug;
+			showDiscovery = false;
+		}
+	}
+
+	async function leaveCommunity(slug: string) {
+		if (activeSlug === slug) activeSlug = 'all';
+		const succeeded = await community.toggleJoin(slug);
+		if (succeeded) {
+			await community.refresh();
+		}
 	}
 
 	function openCommunity(slug: string) {
@@ -246,14 +275,9 @@
 		showDiscovery = false;
 	}
 
-	function leaveCommunity(slug: string) {
-		if (activeSlug === slug) activeSlug = 'all';
-		void community.toggleJoin(slug);
-	}
-
 	function deleteComment(post: CommunityPost, commentId: string) {
-		if (!confirm('Delete this note?')) return;
 		void community.deleteComment(post, commentId);
+		commentConfirmId = null;
 		journal.toast('Note deleted');
 	}
 
@@ -262,6 +286,21 @@
 		if (!reason) return;
 		void community.reportComment(post, commentId, reason);
 		journal.toast('Report sent to moderators. Thank you.');
+	}
+
+	function requestDelete(post: CommunityPost) {
+		deleteTarget = post;
+	}
+
+	async function confirmDelete() {
+		if (!deleteTarget || deleteBusy) return;
+		deleteBusy = true;
+		const removed = await community.deletePost(deleteTarget.id);
+		deleteBusy = false;
+		if (removed) {
+			if (openComments === deleteTarget.id) openComments = null;
+			deleteTarget = null;
+		}
 	}
 
 	function clearFilters() {
@@ -394,8 +433,9 @@
 		</div>
 	{:else if !community.hasJoined || showDiscovery}
 		<!-- Discovery / join view -->
-		<section class="mt-7">
-			<div class="flex flex-wrap items-end justify-between gap-3">
+		<section class="mt-7 relative">
+			<div class="absolute inset-0 bg-gradient-to-br from-[#D4A24C]/10 to-[#51397A]/20 pointer-events-none"></div>
+			<div class="flex flex-wrap items-end justify-between gap-3 relative z-10">
 				<div>
 					<h2 class="font-display text-3xl font-bold text-white min-[720px]:text-4xl">
 						Communities to join
@@ -461,7 +501,9 @@
 							</p>
 
 							<div class="mt-3 flex items-center gap-1.5 font-hand text-base text-ink-soft">
-								<span class="text-gold" aria-hidden="true">✦</span>
+								<span class="text-gold" aria-hidden="true">
+									<CommunityIcon name="spark" size={14} />
+								</span>
 								{slugCounts[item.slug] ?? 0}
 								{(slugCounts[item.slug] ?? 0) === 1 ? 'shared page' : 'shared pages'}
 								visible to you
@@ -952,7 +994,9 @@
 							<div
 								class="mt-2 flex items-start gap-2 rounded border border-line bg-light/80 px-2.5 py-2"
 							>
-								<span class="text-sm font-bold text-gold" aria-hidden="true">★</span>
+								<span class="text-sm font-bold text-gold" aria-hidden="true">
+									<CommunityIcon name="star" size={14} />
+								</span>
 								<div class="min-w-0">
 									<span
 										class="block font-ui text-[9px] font-bold tracking-[.14em] text-accent uppercase"
@@ -1024,18 +1068,31 @@
 								</svg>
 								Notes ({post.comments.length})
 							</button>
+							{#if post.isOwner || post.authorId === auth.ownerId}
+								<button
+									type="button"
+									class="inline-flex items-center gap-1.5 rounded-full border border-[#D19A9A] bg-[#FFFDF6] px-2.5 py-1 font-ui text-[10px] font-bold text-[#9A5B5B] transition-colors hover:bg-[#FBEAEA]"
+									onclick={() => requestDelete(post)}
+									aria-label="Remove page from this community"
+									title="Remove page from this community"
+								>
+									<CommunityIcon name="user-minus" size={12} />
+									Remove
+								</button>
+							{/if}
 						</div>
 
-						{#if openComments === post.id}
-							<div class="mt-2.5 rounded-xl border border-line bg-[#FFFDF6] p-2.5">
-								<span
-									class="mb-2 block font-ui text-[9px] font-bold tracking-[.14em] text-ink-soft uppercase"
-								>
-									Community notes
-								</span>
+	{#if openComments === post.id}
+		<div class="mt-2.5 rounded-xl border border-line bg-[#FFFDF6]">
+			<div class="p-2.5">
+				<span
+					class="mb-2 block font-ui text-[9px] font-bold tracking-[.14em] text-ink-soft uppercase"
+				>
+					Community notes
+				</span>
 
-								{#if post.comments.length > 0}
-									<div class="mb-2.5 space-y-2">
+				{#if post.comments.length > 0}
+					<div class="mb-2.5 space-y-2 max-h-[240px] overflow-y-auto pr-1">
 										{#each post.comments as comment (comment.id)}
 											<div class="flex items-start gap-2 rounded-lg bg-light/80 p-2">
 												<Avatar
@@ -1066,19 +1123,43 @@
 															>{comment.time}</time
 														>
 													</div>
-													<p class="mt-0.5 font-hand text-base leading-tight text-ink">
+													<p
+														class="mt-0.5 font-hand text-base leading-tight break-words text-ink"
+													>
 														{censor(comment.text)}
 													</p>
 													{#if !comment.id.startsWith('local-')}
 														<div class="mt-1">
 															{#if comment.authorId === auth.ownerId}
-																<button
-																	type="button"
-																	class="font-ui text-[9px] text-ink-soft hover:text-red-600"
-																	onclick={() => deleteComment(post, comment.id)}
-																>
-																	Delete
-																</button>
+																{#if commentConfirmId === comment.id}
+																	<div class="flex flex-wrap items-center gap-2">
+																		<span class="font-ui text-[9px] font-semibold text-[#9A5B5B]"
+																			>Delete this note?</span
+																		>
+																		<button
+																			type="button"
+																			class="rounded-md bg-[#9A5B5B] px-1.5 py-0.5 font-ui text-[9px] font-bold text-white hover:bg-[#7E4747]"
+																			onclick={() => deleteComment(post, comment.id)}
+																		>
+																			Yes, delete
+																		</button>
+																		<button
+																			type="button"
+																			class="rounded-md border border-line px-1.5 py-0.5 font-ui text-[9px] font-semibold text-ink-soft hover:bg-light"
+																			onclick={() => (commentConfirmId = null)}
+																		>
+																			Cancel
+																		</button>
+																	</div>
+																{:else}
+																	<button
+																		type="button"
+																		class="font-ui text-[9px] text-ink-soft hover:text-red-600"
+																		onclick={() => (commentConfirmId = comment.id)}
+																	>
+																		Delete
+																	</button>
+																{/if}
 															{:else}
 																<button
 																	type="button"
@@ -1121,7 +1202,8 @@
 									</button>
 								</form>
 							</div>
-						{/if}
+						</div>
+				{/if}
 					</article>
 				{/each}
 			</div>
@@ -1172,6 +1254,89 @@
 		</span>
 	</p>
 </div>
+
+<!-- Remove from community confirmation -->
+{#if deleteTarget}
+	<div
+		class="fixed inset-0 z-50 flex items-center justify-center bg-black/65 p-4 backdrop-blur-sm"
+		role="dialog"
+		aria-modal="true"
+		aria-labelledby="remove-page-title"
+	>
+		<button
+			type="button"
+			class="fixed inset-0 h-full w-full cursor-default"
+			onclick={() => (deleteTarget = null)}
+			aria-label="Close remove page dialog"
+		></button>
+
+		<div
+			class="relative z-10 w-full max-w-[430px] overflow-hidden rounded-[26px] border border-[#4E396E] bg-paper text-ink shadow-[0_25px_60px_rgba(0,0,0,.55)]"
+		>
+			<div
+				class="relative flex items-center justify-between gap-3 bg-[linear-gradient(135deg,#34214E,#231438)] px-5 py-4 text-white"
+			>
+				<div>
+					<h2 id="remove-page-title" class="font-display text-xl font-bold">Remove this page?</h2>
+					<p class="font-ui text-[11px] text-[#C9B8E8]">Only the community copy is removed</p>
+				</div>
+				<button
+					type="button"
+					class="flex size-9 items-center justify-center rounded-full bg-white/10 text-white/80 transition-colors hover:bg-white/20 hover:text-white"
+					onclick={() => (deleteTarget = null)}
+					aria-label="Close"
+				>
+					<CommunityIcon name="x" size={16} />
+				</button>
+			</div>
+
+			<div class="p-5">
+				<div class="rounded-xl border border-line bg-[#FFFDF6] p-3">
+					<p class="font-ui text-[10px] font-bold tracking-wide text-ink-soft uppercase">
+						{deleteTarget.dateFormatted}
+					</p>
+					<p class="mt-1 font-display text-lg leading-tight font-bold text-ink">
+						{deleteTarget.title || 'Untitled page'}
+					</p>
+					{#if deleteTarget.communitySlug}
+						<p class="mt-1 font-ui text-[11px] text-ink-soft">{deleteTarget.tag}</p>
+					{/if}
+				</div>
+
+				<p class="mt-4 font-ui text-sm leading-relaxed text-ink-soft">
+					This page will stop appearing in the community feed. Your journal entry, video, and
+					stickers stay exactly where they are.
+				</p>
+
+				<div class="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+					<button
+						type="button"
+						class="min-h-10 rounded-xl border border-line px-4 font-ui text-sm font-semibold text-ink-soft transition-colors hover:bg-light hover:text-ink"
+						onclick={() => (deleteTarget = null)}
+					>
+						Keep it posted
+					</button>
+					<button
+						type="button"
+						class="flex min-h-10 items-center justify-center gap-2 rounded-xl bg-[#9A5B5B] px-4 font-ui text-sm font-bold text-white transition-colors hover:bg-[#7E4747] disabled:cursor-wait disabled:opacity-60"
+						onclick={confirmDelete}
+						disabled={deleteBusy}
+					>
+						{#if deleteBusy}
+							<span
+								class="size-4 animate-spin rounded-full border-2 border-white border-t-transparent"
+								aria-hidden="true"
+							></span>
+							Removing…
+						{:else}
+							Remove from community
+						{/if}
+					</button>
+				</div>
+			</div>
+		</div>
+	</div>
+{/if}
 
 <ProfileModal
 	open={profileModalOpen}

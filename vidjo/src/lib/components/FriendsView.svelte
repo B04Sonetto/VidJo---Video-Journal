@@ -4,10 +4,11 @@
 	import { journal } from '#lib/state/journal.svelte';
 	import { nav } from '#lib/state/navigation.svelte';
 	import { TODAY } from '#lib/dates';
-	import { untrack } from 'svelte';
+	import { onMount, untrack } from 'svelte';
 	import { MOOD_BY_KEY, type MoodDef } from '#lib/data/moods';
 	import { STICKERS } from '#lib/data/stickers';
 	import Avatar from '#lib/components/Avatar.svelte';
+	import CommunityIcon from '#lib/components/CommunityIcon.svelte';
 	import FriendJournalModal from '#lib/components/FriendJournalModal.svelte';
 	import type { Friend, FriendPost } from '#lib/types';
 
@@ -49,6 +50,10 @@
 	let copyTimer: ReturnType<typeof setTimeout> | null = null;
 	let readerOpen = $state(false);
 	let readerAuthorId = $state<string | null>(null);
+
+	onMount(() => {
+		void friends.refresh();
+	});
 
 	function hashString(value: string) {
 		let hash = 0;
@@ -123,6 +128,8 @@
 
 	$effect(() => {
 		// Refresh the current user's shared pages when a journal page changes.
+		void journal.entries;
+		void Object.keys(journal.entries).length;
 		for (const entry of Object.values(journal.entries)) {
 			void entry.privacy;
 			void entry.title;
@@ -133,6 +140,7 @@
 			void entry.stickers;
 			void entry.shareWithFriends;
 			void entry.communitySlug;
+			void entry.mood;
 		}
 		void profile.nickname;
 		void profile.username;
@@ -674,7 +682,7 @@
 					onclick={() => (addOpen = false)}
 					aria-label="Close"
 				>
-					✕
+					<CommunityIcon name="x" size={16} />
 				</button>
 			</div>
 

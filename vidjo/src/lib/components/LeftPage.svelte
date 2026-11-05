@@ -1,5 +1,6 @@
 <script lang="ts">
 	import MoodPicker from '#lib/components/MoodPicker.svelte';
+	import CommunityIcon from '#lib/components/CommunityIcon.svelte';
 	import RecordVideoModal from '#lib/components/RecordVideoModal.svelte';
 	import StickerLayer from '#lib/components/StickerLayer.svelte';
 	import { parseDate, TODAY } from '#lib/dates';
@@ -113,9 +114,15 @@
 					<span>Loading video…</span>
 				</div>
 			{:else}
-				<span class="absolute top-[14px] left-[18px] text-base text-gold">✦</span>
-				<span class="absolute top-[40px] right-[22px] text-base text-gold">✦</span>
-				<span class="absolute bottom-[18px] left-[30px] text-base text-gold">✦</span>
+				<span class="absolute top-[14px] left-[18px] text-base text-gold">
+					<CommunityIcon name="spark" size={14} />
+				</span>
+				<span class="absolute top-[40px] right-[22px] text-base text-gold">
+					<CommunityIcon name="spark" size={14} />
+				</span>
+				<span class="absolute bottom-[18px] left-[30px] text-base text-gold">
+					<CommunityIcon name="spark" size={14} />
+				</span>
 
 				<div
 					class="flex flex-col items-center gap-3 px-4 text-center font-hand text-xl text-[#EDE6F7]"
@@ -252,8 +259,9 @@
 		onSelect={(mood) => !preview && journal.toggleMood(mood)}
 	/>
 
-	<p class="mt-auto mb-2 text-center font-hand text-lg text-ink-soft">
-		Open the sticker tray below to make this page yours ✦
+	<p class="mt-auto mb-2 text-center font-hand text-lg text-ink-soft flex items-center justify-center gap-1">
+		Open the sticker tray below to make this page yours
+		<CommunityIcon name="spark" size={14} />
 	</p>
 
 	<div class="absolute right-0 bottom-3.5 left-0 text-center font-hand text-base text-ink-soft">

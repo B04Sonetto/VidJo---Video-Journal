@@ -190,3 +190,19 @@ export interface FriendPost {
 	comments: FriendComment[];
 	isOwner?: boolean;
 }
+
+export interface NotificationItem {
+	id: string;
+	type: 'friend_request' | 'comment';
+	/** Supabase row id for friend requests, used by accept/decline actions. */
+	requestId?: string;
+	fromUserId: string;
+	fromUserName: string;
+	fromUserAvatar: string | null;
+	postId?: string;
+	postTitle?: string;
+	postDate?: string;
+	text?: string;
+	createdAt: string;
+	read: boolean;
+}
