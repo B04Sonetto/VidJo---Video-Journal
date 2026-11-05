@@ -8,6 +8,7 @@
 	--color-cover-edge: #2a1748;
 	--color-gold: #d4a24c;
 	--color-paper: #fbf4e4;
+	--color-paper-deep: #f2e3c4;
 	--color-paper-edge: #e9dfc6;
 	--color-line: #d8c8a2;
 	--color-ink: #2a1b3d;
@@ -35,6 +36,7 @@ html[data-theme='sunset'] {
 	--color-cover: #6e3526;
 	--color-cover-edge: #4a2018;
 	--color-paper: #fdf1df;
+	--color-paper-deep: #f4e0c2;
 	--color-paper-edge: #ecd5b6;
 	--color-line: #dfc3a0;
 
@@ -57,6 +59,7 @@ html[data-theme='midnight'] {
 	--color-cover: #1e3358;
 	--color-cover-edge: #132241;
 	--color-paper: #f4f6fb;
+	--color-paper-deep: #e3e9f4;
 	--color-paper-edge: #d8e0ef;
 	--color-line: #bcc9df;
 
