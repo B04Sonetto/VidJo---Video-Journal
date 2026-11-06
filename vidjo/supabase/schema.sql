@@ -268,6 +268,10 @@ begin
 			new.user_role := 'user';
 		end if;
 	elsif new.user_role is distinct from old.user_role then
+		if old.user_role = 'admin' and new.user_role is distinct from 'admin' then
+			raise exception 'Admin accounts cannot be demoted or banned.'
+				using errcode = 'P0001';
+		end if;
 		if auth.uid() is not null
 			and not exists (
 				select 1 from public.vidjo_profiles
@@ -462,7 +466,7 @@ create policy "vidjo video read" on storage.objects
 			(storage.foldername(name))[1] = auth.uid()::text
 			or exists (
 				select 1 from public.vidjo_entries e
-				where (e.video_path = storage.objects.name or storage.objects.name like '%' || e.video_path)
+				where e.video_path = storage.objects.name
 					and e.privacy in ('friends', 'community')
 			)
 		)
@@ -668,70 +672,22 @@ create policy "vidjo friends select" on public.vidjo_friends
 	using (public.vidjo_is_member() and (auth.uid() = user_id or auth.uid() = friend_id));
 
 drop policy if exists "vidjo friends insert" on public.vidjo_friends;
-create policy "vidjo friends insert" on public.vidjo_friends
-	for insert to authenticated
-	with check (public.vidjo_is_member() and auth.uid() = user_id);
-
 drop policy if exists "vidjo friends delete" on public.vidjo_friends;
-create policy "vidjo friends delete" on public.vidjo_friends
-	for delete to authenticated
-	using (public.vidjo_is_member() and auth.uid() = user_id);
 
+-- Friend rows must only be created or removed through the SECURITY DEFINER
+-- RPCs (`accept_friend_request`, `remove_friend`, …). Direct inserts used to be
+-- allowed for the caller's own `user_id`; combined with either-direction
+-- friendship checks that let any authenticated user forge a friendship and read
+-- friends-only pages without a request or consent.
 revoke all on public.vidjo_friends from anon;
-grant select, insert, delete on public.vidjo_friends to authenticated;
+revoke insert, update, delete on public.vidjo_friends from authenticated;
+grant select on public.vidjo_friends to authenticated;
 
-create or replace function public.add_friend_by_code(code text)
-returns jsonb
-language plpgsql
-security definer
-set search_path = public
-as $$
-declare
-	target_profile record;
-	curr_user uuid := auth.uid();
-begin
-	if curr_user is null then
-		return jsonb_build_object('success', false, 'message', 'Sign in to add friends.');
-	end if;
-
-	select * into target_profile
-	from public.vidjo_profiles
-	where upper(friend_code) = upper(trim(code));
-
-	if not found then
-		return jsonb_build_object('success', false, 'message', 'Friend code not found. Check with your friend!');
-	end if;
-
-	if target_profile.user_id = curr_user then
-		return jsonb_build_object('success', false, 'message', 'You cannot add yourself as a friend.');
-	end if;
-
-	-- Mutual friendship
-	insert into public.vidjo_friends (user_id, friend_id, status)
-	values (curr_user, target_profile.user_id, 'accepted')
-	on conflict (user_id, friend_id) do nothing;
-
-	insert into public.vidjo_friends (user_id, friend_id, status)
-	values (target_profile.user_id, curr_user, 'accepted')
-	on conflict (user_id, friend_id) do nothing;
-
-	return jsonb_build_object(
-		'success', true,
-		'message', 'Added ' || target_profile.display_name || ' to your friends!',
-		'friend', jsonb_build_object(
-			'id', target_profile.user_id,
-			'username', target_profile.username,
-			'displayName', target_profile.display_name,
-			'avatarUrl', target_profile.avatar_url,
-			'bio', target_profile.bio,
-			'friendCode', target_profile.friend_code
-		)
-	);
-end;
-$$;
-
-revoke all on function public.add_friend_by_code(text) from public;
-grant execute on function public.add_friend_by_code(text) to authenticated;
+-- Deprecated. `add_friend_by_code` created an instant mutual friendship and
+-- ignored friend requests / `allow_friend_requests`. It is superseded by
+-- `send_friend_request_by_code`; this drop cleans up databases that still have
+-- the old, insecure function installed.
+drop function if exists public.add_friend_by_code(text);
 
 -- ---------------------------------------------------------------------------
 -- Profile preferences
@@ -892,11 +848,6 @@ as $$
 								e.privacy = 'friends'
 								and public.vidjo_are_friends(auth.uid(), owner)
 							)
-							or (
-								e.privacy = 'private'
-								and auth.uid()::text = any(e.included_friend_ids)
-								and public.vidjo_are_friends(auth.uid(), owner)
-							)
 						)
 					)
 				)
@@ -925,11 +876,6 @@ create policy "vidjo entries select own" on public.vidjo_entries
 					privacy = 'community'
 					or (
 						privacy = 'friends'
-						and public.vidjo_are_friends(auth.uid(), public.vidjo_try_uuid(owner_id))
-					)
-					or (
-						privacy = 'private'
-						and auth.uid()::text = any(included_friend_ids)
 						and public.vidjo_are_friends(auth.uid(), public.vidjo_try_uuid(owner_id))
 					)
 				)
@@ -1285,6 +1231,48 @@ alter table public.vidjo_comments add column if not exists context text not null
 revoke all on public.vidjo_comments from anon;
 grant select, insert, delete on public.vidjo_comments to authenticated;
 
+-- Server-side profanity masking. The client also masks display text
+-- (src/lib/censor.ts), but a direct API call could otherwise store unfiltered
+-- content. Keep this word list in sync with OBSCENE_WORDS in censor.ts.
+create or replace function public.vidjo_censor_text(input text)
+returns text
+language plpgsql
+immutable
+set search_path = public
+as $$
+declare
+	result text := coalesce(input, '');
+	word text;
+	words text[] := array[
+		'arse', 'ass', 'asshole', 'bastard', 'bitch', 'bullshit', 'crap', 'cunt',
+		'damn', 'dick', 'dickhead', 'dumbass', 'faggot', 'hell', 'idiot', 'jerk',
+		'moron', 'nigger', 'nigga', 'penis', 'piss', 'prick', 'pussy', 'shit',
+		'slut', 'tard', 'twat', 'wanker'
+	];
+begin
+	foreach word in array words loop
+		result := regexp_replace(result, '\m' || word || '\M', '***', 'gi');
+	end loop;
+	return result;
+end;
+$$;
+
+create or replace function public.vidjo_censor_comment()
+returns trigger
+language plpgsql
+set search_path = public
+as $$
+begin
+	new.body := public.vidjo_censor_text(new.body);
+	return new;
+end;
+$$;
+
+drop trigger if exists vidjo_comments_censor on public.vidjo_comments;
+create trigger vidjo_comments_censor
+	before insert or update of body on public.vidjo_comments
+	for each row execute function public.vidjo_censor_comment();
+
 -- ---------------------------------------------------------------------------
 -- Comment reports (flag others' comments to admins)
 -- ---------------------------------------------------------------------------
@@ -1322,6 +1310,54 @@ create policy "vidjo comment reports select"
 
 revoke all on public.vidjo_comment_reports from anon;
 grant select, insert on public.vidjo_comment_reports to authenticated;
+
+-- Admin report feed. PostgREST cannot embed `auth.users`, and the
+-- `vidjo_comments` SELECT policy is based on post visibility (not admin role),
+-- so the client cannot reliably join reports, reporters, and comment authors.
+-- This SECURITY DEFINER RPC does the join and verifies the caller is an admin.
+create or replace function public.vidjo_admin_list_reports(max_rows int default 50)
+returns table (
+	id uuid,
+	comment_id uuid,
+	reason text,
+	created_at timestamptz,
+	reporter_name text,
+	reported_user text,
+	comment_body text
+)
+language plpgsql
+stable
+security definer
+set search_path = public
+as $$
+begin
+	if not exists (
+		select 1 from public.vidjo_profiles
+		where user_id = auth.uid() and user_role = 'admin'
+	) then
+		raise exception 'Admin access required.' using errcode = '42501';
+	end if;
+
+	return query
+	select
+		r.id,
+		r.comment_id,
+		r.reason,
+		r.created_at,
+		coalesce(nullif(rp.display_name, ''), rp.username, 'Unknown') as reporter_name,
+		coalesce(nullif(ap.display_name, ''), ap.username, 'Unknown') as reported_user,
+		c.body as comment_body
+	from public.vidjo_comment_reports r
+	left join public.vidjo_profiles rp on rp.user_id = r.reporter_id
+	left join public.vidjo_comments c on c.id = r.comment_id
+	left join public.vidjo_profiles ap on ap.user_id = c.author_id
+	order by r.created_at desc
+	limit greatest(1, least(coalesce(max_rows, 50), 200));
+end;
+$$;
+
+revoke all on function public.vidjo_admin_list_reports(int) from public;
+grant execute on function public.vidjo_admin_list_reports(int) to authenticated;
 
 -- ---------------------------------------------------------------------------
 -- Write rate limits (spam guard)
@@ -1397,7 +1433,7 @@ create policy "vidjo video read" on storage.objects
 			or exists (
 				select 1
 				from public.vidjo_entries e
-				where (e.video_path = storage.objects.name or storage.objects.name like '%' || e.video_path)
+				where e.video_path = storage.objects.name
 					and (
 						e.owner_id = auth.uid()::text
 						or (
@@ -1408,17 +1444,44 @@ create policy "vidjo video read" on storage.objects
 									e.privacy = 'friends'
 									and public.vidjo_are_friends(auth.uid(), public.vidjo_try_uuid(e.owner_id))
 								)
-								or (
-									e.privacy = 'private'
-									and auth.uid()::text = any(e.included_friend_ids)
-									and public.vidjo_are_friends(auth.uid(), public.vidjo_try_uuid(e.owner_id))
-								)
 							)
 						)
 					)
 			)
 		)
 	);
+
+-- ---------------------------------------------------------------------------
+-- Account deletion
+-- ---------------------------------------------------------------------------
+
+-- Permanently deletes the signed-in user. Profiles, friends, friend requests,
+-- posts/comments, reactions and reports cascade through their auth.users
+-- foreign keys. Journal entries use a text owner_id with no foreign key, so
+-- they are removed explicitly. SECURITY DEFINER lets the function delete from
+-- auth.users without exposing service-role credentials to the client.
+create or replace function public.vidjo_delete_account()
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+	curr_user uuid := auth.uid();
+begin
+	if curr_user is null then
+		return jsonb_build_object('success', false, 'message', 'Sign in to delete your account.');
+	end if;
+
+	delete from public.vidjo_entries where owner_id = curr_user::text;
+	delete from auth.users where id = curr_user;
+
+	return jsonb_build_object('success', true);
+end;
+$$;
+
+revoke all on function public.vidjo_delete_account() from public;
+grant execute on function public.vidjo_delete_account() to authenticated;
 
 -- ---------------------------------------------------------------------------
 -- Realtime publication

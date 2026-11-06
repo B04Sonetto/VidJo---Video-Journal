@@ -168,15 +168,25 @@
 		>
 			<button
 				type="button"
-				class="absolute -top-3 -right-3 size-6 rounded-full bg-[#1B102B]/80 border border-[#4D366D]/60 text-white text-[10px] font-bold hover:bg-[#51397A] hover:border-[#D4A24C] transition-colors active:scale-95"
+				class="absolute -top-3 -right-3 size-6 rounded-full border border-[#4D366D]/60 bg-[#1B102B]/80 text-[10px] font-bold text-white transition-colors hover:border-[#D4A24C] hover:bg-[#51397A] active:scale-95"
 				onclick={(event) => {
 					event.stopPropagation();
+					// `deleteSticker` already persists the change via `commit()`.
 					journal.deleteSticker(sticker.id);
-					journal.commit();
 				}}
 				aria-label="Remove sticker"
 			>
-				<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+				<svg
+					width="10"
+					height="10"
+					viewBox="0 0 24 24"
+					fill="none"
+					stroke="currentColor"
+					stroke-width="2.5"
+					stroke-linecap="round"
+					stroke-linejoin="round"
+					aria-hidden="true"
+				>
 					<polyline points="3 6 5 6 21 6"></polyline>
 					<path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"></path>
 				</svg>

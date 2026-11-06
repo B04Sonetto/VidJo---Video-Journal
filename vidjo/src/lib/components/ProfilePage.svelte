@@ -1,12 +1,13 @@
 <script lang="ts">
 	import { auth } from '#lib/state/auth.svelte';
 	import { SvelteDate } from 'svelte/reactivity';
+	import { dateKey } from '#lib/dates';
 	import { profile } from '#lib/state/profile.svelte';
 	import { journal } from '#lib/state/journal.svelte';
 	import { friends } from '#lib/state/friends.svelte';
 	import { community } from '#lib/state/community.svelte';
 	import { nav, type ProfileTab } from '#lib/state/navigation.svelte';
-	import { isSupabaseConfigured } from '#lib/supabase';
+	import { isSupabaseConfigured, supabase, VIDEO_BUCKET } from '#lib/supabase';
 	import { normalizeImageUrl } from '#lib/avatar';
 	import CommunityIcon from '#lib/components/CommunityIcon.svelte';
 	import Avatar from '#lib/components/Avatar.svelte';
@@ -61,7 +62,7 @@
 		let count = 0;
 		const current = new SvelteDate();
 		for (let i = 0; i < 365; i++) {
-			const key = current.toISOString().split('T')[0];
+			const key = dateKey(current);
 			const entry = entries[key];
 			if (entry && (entry.saved || entry.title || entry.mind || entry.videoPath)) {
 				count++;
@@ -321,6 +322,56 @@
 		const confirmText = prompt('Type "DELETE" to confirm permanent account deletion:');
 		if (confirmText !== 'DELETE') return;
 
+		const userId = auth.user?.id ?? '';
+
+		if (isSupabaseConfigured) {
+			if (!userId) {
+				journal.toast('You must be signed in to delete your account.');
+				return;
+			}
+
+			try {
+				// Remove storage objects first: the database RPC cannot delete files
+				// from the underlying object store.
+				const { data: videoRows } = await supabase
+					.from('vidjo_entries')
+					.select('video_path')
+					.eq('owner_id', userId)
+					.not('video_path', 'is', null);
+
+				const videoPaths = (videoRows ?? [])
+					.map((row) => row.video_path as string | null)
+					.filter((path): path is string => Boolean(path));
+
+				if (videoPaths.length > 0) {
+					await supabase.storage.from(VIDEO_BUCKET).remove(videoPaths);
+				}
+
+				for (const folder of ['avatars', 'banners']) {
+					const { data: imageFiles } = await supabase.storage
+						.from('vidjo-images')
+						.list(`${userId}/${folder}`);
+					const imagePaths = (imageFiles ?? []).map((file) => `${userId}/${folder}/${file.name}`);
+					if (imagePaths.length > 0) {
+						await supabase.storage.from('vidjo-images').remove(imagePaths);
+					}
+				}
+
+				const { data, error } = await supabase.rpc('vidjo_delete_account');
+				if (error) throw error;
+
+				const result = data as { success?: boolean; message?: string } | null;
+				if (!result?.success) {
+					journal.toast(result?.message || 'Could not delete your account.');
+					return;
+				}
+			} catch (err) {
+				console.error('[VidJo] Could not delete the account.', err);
+				journal.toast('Could not delete your account. Please try again.');
+				return;
+			}
+		}
+
 		await auth.signOut();
 		journal.reset();
 		friends.reset();
@@ -333,7 +384,7 @@
 			// Ignore
 		}
 
-		journal.toast('Account deleted');
+		journal.toast(isSupabaseConfigured ? 'Account deleted' : 'Local data cleared');
 		nav.setView('journal');
 	}
 

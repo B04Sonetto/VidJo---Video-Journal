@@ -48,8 +48,6 @@
 	let addSuccess = $state('');
 	let copied = $state(false);
 	let copyTimer: ReturnType<typeof setTimeout> | null = null;
-	let readerOpen = $state(false);
-	let readerAuthorId = $state<string | null>(null);
 
 	onMount(() => {
 		void friends.refresh();
@@ -82,8 +80,7 @@
 	}
 
 	function openReader(shelf: Shelf) {
-		readerAuthorId = shelf.friend.id;
-		readerOpen = true;
+		friends.openJournal(shelf.friend.id);
 	}
 
 	async function copyMyCode() {
@@ -231,7 +228,9 @@
 		}
 	);
 
-	const readerShelf = $derived(shelves.find((shelf) => shelf.friend.id === readerAuthorId) ?? null);
+	const readerShelf = $derived(
+		shelves.find((shelf) => shelf.friend.id === friends.readerAuthorId) ?? null
+	);
 	const incoming = $derived(friends.incomingRequests.slice(0, 3));
 	const outgoing = $derived(friends.outgoingRequests.slice(0, 2));
 </script>
@@ -769,11 +768,9 @@
 {/if}
 
 <FriendJournalModal
-	open={readerOpen}
+	open={friends.readerAuthorId !== null}
 	friend={readerShelf?.friend ?? null}
 	posts={readerShelf?.posts ?? []}
-	onClose={() => {
-		readerOpen = false;
-		readerAuthorId = null;
-	}}
+	initialDate={friends.readerDate}
+	onClose={() => friends.closeJournal()}
 />

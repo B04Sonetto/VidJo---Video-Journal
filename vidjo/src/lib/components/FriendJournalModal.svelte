@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { untrack } from 'svelte';
 	import { friends } from '#lib/state/friends.svelte';
 	import { auth } from '#lib/state/auth.svelte';
 	import { journal } from '#lib/state/journal.svelte';
@@ -14,11 +15,14 @@
 		open,
 		friend,
 		posts,
+		initialDate = null,
 		onClose
 	}: {
 		open: boolean;
 		friend: Friend | null;
 		posts: FriendPost[];
+		/** Page date to show when the reader opens (used by notifications). */
+		initialDate?: string | null;
 		onClose: () => void;
 	} = $props();
 
@@ -32,6 +36,7 @@
 	let unfriendOpen = $state(false);
 	let unfriendBusy = $state(false);
 	let noteConfirmId = $state<string | null>(null);
+	let openedFor: string | null = null;
 
 	const REACTIONS: {
 		key: 'love' | 'spark' | 'warm' | 'proud';
@@ -69,12 +74,27 @@
 	const page = $derived(sorted[index] ?? null);
 
 	$effect(() => {
-		if (open) {
-			index = 0;
-			noteInput = '';
-			noteConfirmId = null;
-			unfriendOpen = false;
+		if (!open) {
+			openedFor = null;
+			return;
 		}
+
+		// Read `posts.length` so the effect runs again once the friend's shelf
+		// has loaded, then jump to the requested date exactly once.
+		void posts.length;
+		const key = initialDate ?? '';
+		if (openedFor === key) return;
+
+		const at = initialDate
+			? untrack(() => sorted.findIndex((post) => post.date === initialDate))
+			: -1;
+		if (initialDate && at < 0 && posts.length === 0) return;
+
+		openedFor = key;
+		index = at >= 0 ? at : 0;
+		noteInput = '';
+		noteConfirmId = null;
+		unfriendOpen = false;
 	});
 
 	$effect(() => {
@@ -96,10 +116,10 @@
 		noteInput = '';
 	}
 
-	function deleteNote(postId: string, commentId: string) {
-		void friends.deleteComment(postId, commentId);
+	async function deleteNote(postId: string, commentId: string) {
 		noteConfirmId = null;
-		journal.toast('Note deleted');
+		const ok = await friends.deleteComment(postId, commentId);
+		journal.toast(ok ? 'Note deleted' : 'Could not delete the note. Please try again.');
 	}
 
 	function openReport(postId: string, commentId: string) {
@@ -108,15 +128,17 @@
 		reportModalOpen = true;
 	}
 
-	function submitReport() {
+	async function submitReport() {
 		const reason = reportReason.trim();
 		if (!reason || !reportTarget) return;
 		const { postId, commentId } = reportTarget;
 		reportModalOpen = false;
 		reportReason = '';
 		reportTarget = null;
-		void friends.reportComment(postId, commentId, reason);
-		journal.toast('Report sent to moderators. Thank you.');
+		const ok = await friends.reportComment(postId, commentId, reason);
+		journal.toast(
+			ok ? 'Report sent to moderators. Thank you.' : 'Could not send the report. Please try again.'
+		);
 	}
 
 	async function confirmUnfriend() {
@@ -191,12 +213,6 @@
 							<h2 class="truncate font-display text-2xl font-bold text-white">
 								{friend.displayName}'s notebook
 							</h2>
-							{#if friend.friendCode === friends.myFriendCode}
-								<span
-									class="rounded-full bg-gold/20 px-2 py-0.5 font-ui text-[10px] font-bold text-gold"
-									>You</span
-								>
-							{/if}
 						</div>
 						<div
 							class="flex flex-wrap items-center gap-x-2 gap-y-0.5 font-ui text-xs text-[#C9B8E8]"
@@ -525,13 +541,13 @@
 																	</button>
 																{/if}
 															{:else}
-															<button
-																type="button"
-																class="font-ui text-[10px] text-ink-soft hover:text-accent"
-																onclick={() => openReport(page.id, comment.id)}
-															>
-																Report
-															</button>
+																<button
+																	type="button"
+																	class="font-ui text-[10px] text-ink-soft hover:text-accent"
+																	onclick={() => openReport(page.id, comment.id)}
+																>
+																	Report
+																</button>
 															{/if}
 														</div>
 													{/if}
@@ -731,15 +747,12 @@
 			</div>
 
 			<div class="p-6">
-				<p class="mb-4 font-ui text-sm text-ink-soft">
-					Why are you reporting this note?
-				</p>
+				<p class="mb-4 font-ui text-sm text-ink-soft">Why are you reporting this note?</p>
 				<textarea
 					bind:value={reportReason}
 					rows="4"
 					class="w-full rounded-xl border border-line bg-[#FFFDF6] px-3.5 py-2.5 font-ui text-sm text-ink focus:border-accent focus:outline-none"
-					placeholder="Describe why this note feels unsafe…"
-				></textarea>
+					placeholder="Describe why this note feels unsafe…"></textarea>
 				<div class="mt-5 flex flex-col gap-3 sm:flex-row sm:justify-end">
 					<button
 						type="button"

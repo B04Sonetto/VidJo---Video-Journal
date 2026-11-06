@@ -275,17 +275,19 @@
 		showDiscovery = false;
 	}
 
-	function deleteComment(post: CommunityPost, commentId: string) {
-		void community.deleteComment(post, commentId);
+	async function deleteComment(post: CommunityPost, commentId: string) {
 		commentConfirmId = null;
-		journal.toast('Note deleted');
+		const ok = await community.deleteComment(post, commentId);
+		journal.toast(ok ? 'Note deleted' : 'Could not delete the note. Please try again.');
 	}
 
-	function reportComment(post: CommunityPost, commentId: string) {
+	async function reportComment(post: CommunityPost, commentId: string) {
 		const reason = prompt('Why are you reporting this note?')?.trim();
 		if (!reason) return;
-		void community.reportComment(post, commentId, reason);
-		journal.toast('Report sent to moderators. Thank you.');
+		const ok = await community.reportComment(post, commentId, reason);
+		journal.toast(
+			ok ? 'Report sent to moderators. Thank you.' : 'Could not send the report. Please try again.'
+		);
 	}
 
 	function requestDelete(post: CommunityPost) {
@@ -433,9 +435,11 @@
 		</div>
 	{:else if !community.hasJoined || showDiscovery}
 		<!-- Discovery / join view -->
-		<section class="mt-7 relative">
-			<div class="absolute inset-0 bg-gradient-to-br from-[#D4A24C]/10 to-[#51397A]/20 pointer-events-none"></div>
-			<div class="flex flex-wrap items-end justify-between gap-3 relative z-10">
+		<section class="relative mt-7">
+			<div
+				class="pointer-events-none absolute inset-0 bg-gradient-to-br from-[#D4A24C]/10 to-[#51397A]/20"
+			></div>
+			<div class="relative z-10 flex flex-wrap items-end justify-between gap-3">
 				<div>
 					<h2 class="font-display text-3xl font-bold text-white min-[720px]:text-4xl">
 						Communities to join
@@ -1082,128 +1086,128 @@
 							{/if}
 						</div>
 
-	{#if openComments === post.id}
-		<div class="mt-2.5 rounded-xl border border-line bg-[#FFFDF6]">
-			<div class="p-2.5">
-				<span
-					class="mb-2 block font-ui text-[9px] font-bold tracking-[.14em] text-ink-soft uppercase"
-				>
-					Community notes
-				</span>
+						{#if openComments === post.id}
+							<div class="mt-2.5 rounded-xl border border-line bg-[#FFFDF6]">
+								<div class="p-2.5">
+									<span
+										class="mb-2 block font-ui text-[9px] font-bold tracking-[.14em] text-ink-soft uppercase"
+									>
+										Community notes
+									</span>
 
-				{#if post.comments.length > 0}
-					<div class="mb-2.5 space-y-2 max-h-[240px] overflow-y-auto pr-1">
-										{#each post.comments as comment (comment.id)}
-											<div class="flex items-start gap-2 rounded-lg bg-light/80 p-2">
-												<Avatar
-													src={comment.authorAvatar}
-													name={comment.authorName}
-													className="size-6"
-													textClass="text-xs"
-													ring=""
-												/>
-												<div class="min-w-0 flex-1">
-													<div class="flex items-baseline justify-between gap-2">
-														<div class="flex min-w-0 items-baseline gap-1.5">
-															<button
-																type="button"
-																class="truncate font-ui text-[11px] font-semibold text-ink hover:underline"
-																onclick={() => openProfile(comment.authorId)}
-															>
-																{comment.authorName}
-															</button>
-															{#if comment.authorId === auth.ownerId}
-																<span
-																	class="rounded-full bg-accent/15 px-1.5 py-0.5 font-ui text-[8px] font-bold text-accent"
-																	>You</span
+									{#if post.comments.length > 0}
+										<div class="mb-2.5 max-h-[240px] space-y-2 overflow-y-auto pr-1">
+											{#each post.comments as comment (comment.id)}
+												<div class="flex items-start gap-2 rounded-lg bg-light/80 p-2">
+													<Avatar
+														src={comment.authorAvatar}
+														name={comment.authorName}
+														className="size-6"
+														textClass="text-xs"
+														ring=""
+													/>
+													<div class="min-w-0 flex-1">
+														<div class="flex items-baseline justify-between gap-2">
+															<div class="flex min-w-0 items-baseline gap-1.5">
+																<button
+																	type="button"
+																	class="truncate font-ui text-[11px] font-semibold text-ink hover:underline"
+																	onclick={() => openProfile(comment.authorId)}
 																>
-															{/if}
+																	{comment.authorName}
+																</button>
+																{#if comment.authorId === auth.ownerId}
+																	<span
+																		class="rounded-full bg-accent/15 px-1.5 py-0.5 font-ui text-[8px] font-bold text-accent"
+																		>You</span
+																	>
+																{/if}
+															</div>
+															<time class="shrink-0 font-ui text-[9px] text-ink-soft"
+																>{comment.time}</time
+															>
 														</div>
-														<time class="shrink-0 font-ui text-[9px] text-ink-soft"
-															>{comment.time}</time
+														<p
+															class="mt-0.5 font-hand text-base leading-tight break-words text-ink"
 														>
-													</div>
-													<p
-														class="mt-0.5 font-hand text-base leading-tight break-words text-ink"
-													>
-														{censor(comment.text)}
-													</p>
-													{#if !comment.id.startsWith('local-')}
-														<div class="mt-1">
-															{#if comment.authorId === auth.ownerId}
-																{#if commentConfirmId === comment.id}
-																	<div class="flex flex-wrap items-center gap-2">
-																		<span class="font-ui text-[9px] font-semibold text-[#9A5B5B]"
-																			>Delete this note?</span
-																		>
+															{censor(comment.text)}
+														</p>
+														{#if !comment.id.startsWith('local-')}
+															<div class="mt-1">
+																{#if comment.authorId === auth.ownerId}
+																	{#if commentConfirmId === comment.id}
+																		<div class="flex flex-wrap items-center gap-2">
+																			<span class="font-ui text-[9px] font-semibold text-[#9A5B5B]"
+																				>Delete this note?</span
+																			>
+																			<button
+																				type="button"
+																				class="rounded-md bg-[#9A5B5B] px-1.5 py-0.5 font-ui text-[9px] font-bold text-white hover:bg-[#7E4747]"
+																				onclick={() => deleteComment(post, comment.id)}
+																			>
+																				Yes, delete
+																			</button>
+																			<button
+																				type="button"
+																				class="rounded-md border border-line px-1.5 py-0.5 font-ui text-[9px] font-semibold text-ink-soft hover:bg-light"
+																				onclick={() => (commentConfirmId = null)}
+																			>
+																				Cancel
+																			</button>
+																		</div>
+																	{:else}
 																		<button
 																			type="button"
-																			class="rounded-md bg-[#9A5B5B] px-1.5 py-0.5 font-ui text-[9px] font-bold text-white hover:bg-[#7E4747]"
-																			onclick={() => deleteComment(post, comment.id)}
+																			class="font-ui text-[9px] text-ink-soft hover:text-red-600"
+																			onclick={() => (commentConfirmId = comment.id)}
 																		>
-																			Yes, delete
+																			Delete
 																		</button>
-																		<button
-																			type="button"
-																			class="rounded-md border border-line px-1.5 py-0.5 font-ui text-[9px] font-semibold text-ink-soft hover:bg-light"
-																			onclick={() => (commentConfirmId = null)}
-																		>
-																			Cancel
-																		</button>
-																	</div>
+																	{/if}
 																{:else}
 																	<button
 																		type="button"
-																		class="font-ui text-[9px] text-ink-soft hover:text-red-600"
-																		onclick={() => (commentConfirmId = comment.id)}
+																		class="font-ui text-[9px] text-ink-soft hover:text-accent"
+																		onclick={() => reportComment(post, comment.id)}
 																	>
-																		Delete
+																		Report
 																	</button>
 																{/if}
-															{:else}
-																<button
-																	type="button"
-																	class="font-ui text-[9px] text-ink-soft hover:text-accent"
-																	onclick={() => reportComment(post, comment.id)}
-																>
-																	Report
-																</button>
-															{/if}
-														</div>
-													{/if}
+															</div>
+														{/if}
+													</div>
 												</div>
-											</div>
-										{/each}
-									</div>
-								{:else}
-									<p class="mb-2.5 font-hand text-base leading-snug text-ink-soft">
-										No notes yet. Be the first to cheer them on.
-									</p>
-								{/if}
+											{/each}
+										</div>
+									{:else}
+										<p class="mb-2.5 font-hand text-base leading-snug text-ink-soft">
+											No notes yet. Be the first to cheer them on.
+										</p>
+									{/if}
 
-								<form
-									class="flex items-center gap-2"
-									onsubmit={(event) => submitComment(post, event)}
-								>
-									<input
-										bind:value={commentInput[post.id]}
-										type="text"
-										aria-label="Leave a note on {firstName(post.authorName)}'s page"
-										placeholder="Cheer them on…"
-										maxlength="140"
-										class="h-9 min-w-0 flex-1 rounded-lg border border-line bg-paper px-2.5 font-ui text-[11px] text-ink placeholder:text-ink-soft/70 focus:border-accent focus:outline-none"
-									/>
-									<button
-										type="submit"
-										class="h-9 rounded-lg bg-accent px-3 font-ui text-[11px] font-bold text-white transition-colors hover:bg-[#624690] disabled:opacity-50"
-										disabled={!commentInput[post.id]?.trim()}
+									<form
+										class="flex items-center gap-2"
+										onsubmit={(event) => submitComment(post, event)}
 									>
-										Send
-									</button>
-								</form>
+										<input
+											bind:value={commentInput[post.id]}
+											type="text"
+											aria-label="Leave a note on {firstName(post.authorName)}'s page"
+											placeholder="Cheer them on…"
+											maxlength="140"
+											class="h-9 min-w-0 flex-1 rounded-lg border border-line bg-paper px-2.5 font-ui text-[11px] text-ink placeholder:text-ink-soft/70 focus:border-accent focus:outline-none"
+										/>
+										<button
+											type="submit"
+											class="h-9 rounded-lg bg-accent px-3 font-ui text-[11px] font-bold text-white transition-colors hover:bg-[#624690] disabled:opacity-50"
+											disabled={!commentInput[post.id]?.trim()}
+										>
+											Send
+										</button>
+									</form>
+								</div>
 							</div>
-						</div>
-				{/if}
+						{/if}
 					</article>
 				{/each}
 			</div>

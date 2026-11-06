@@ -566,6 +566,8 @@ class ProfileState {
 		this.defaultPrivacy = DEFAULT_PREFERENCES.defaultPrivacy;
 		this.allowFriendRequests = DEFAULT_PREFERENCES.allowFriendRequests;
 		this.clearCacheOnSignOut = DEFAULT_PREFERENCES.clearCacheOnSignOut;
+		this.paperStyle = DEFAULT_PREFERENCES.paperStyle;
+		this.fontSize = DEFAULT_PREFERENCES.fontSize;
 	}
 }
 

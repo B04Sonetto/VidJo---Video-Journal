@@ -3,6 +3,7 @@
 	import { profile } from '#lib/state/profile.svelte';
 	import { journal } from '#lib/state/journal.svelte';
 	import { friends } from '#lib/state/friends.svelte';
+	import { dateKey } from '#lib/dates';
 	import { cleanDisplayName } from '#lib/avatar';
 	import Avatar from '#lib/components/Avatar.svelte';
 	import CommunityIcon from '#lib/components/CommunityIcon.svelte';
@@ -171,7 +172,7 @@
 		let count = 0;
 		let current = new SvelteDate();
 		for (let i = 0; i < 365; i++) {
-			const key = current.toISOString().split('T')[0];
+			const key = dateKey(current);
 			if (dates.includes(key) && journal.entries[key]?.saved) {
 				count++;
 				current.setDate(current.getDate() - 1);
@@ -664,7 +665,7 @@
 								{#if usernameStatus.checking}
 									<span class="text-accent">Checking availability…</span>
 								{:else if usernameStatus.available === true}
-									<span class="text-[#3F7A4F] flex items-center gap-1">
+									<span class="flex items-center gap-1 text-[#3F7A4F]">
 										<CommunityIcon name="check" size={11} />
 										Available
 									</span>

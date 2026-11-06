@@ -77,23 +77,16 @@
 		return entry.excludedFriendIds.includes(friendId);
 	}
 
-	function isIncluded(friendId: string) {
-		return entry.includedFriendIds.includes(friendId);
-	}
-
 	async function toggleFriend(friendId: string) {
 		if (preview) return;
 		const excluded = [...entry.excludedFriendIds];
-		const included = [...entry.includedFriendIds];
-		if (isExcluded(friendId)) {
-			excluded.splice(excluded.indexOf(friendId), 1);
-			included.push(friendId);
-		} else if (isIncluded(friendId)) {
-			included.splice(included.indexOf(friendId), 1);
-		} else {
-			excluded.push(friendId);
-		}
-		journal.updateCurrent({ excludedFriendIds: excluded, includedFriendIds: included });
+		const at = excluded.indexOf(friendId);
+		if (at >= 0) excluded.splice(at, 1);
+		else excluded.push(friendId);
+
+		// Private pages are owner-only in RLS, so included/excluded lists only
+		// control the friends/community audience shown here.
+		journal.updateCurrent({ excludedFriendIds: excluded, includedFriendIds: [] });
 		await journal.flush();
 	}
 </script>
@@ -245,15 +238,9 @@
 						friend.id
 					)
 						? 'border-red-500 bg-red-500/10 text-red-700'
-						: isIncluded(friend.id)
-							? 'border-[#3F7A4F] bg-[#3F7A4F]/10 text-[#2F6A40]'
-							: 'border-line bg-white/70 text-ink-soft hover:bg-light'}"
+						: 'border-line bg-white/70 text-ink-soft hover:bg-light'}"
 					onclick={() => toggleFriend(friend.id)}
-					title={isExcluded(friend.id)
-						? 'Hidden from this friend'
-						: isIncluded(friend.id)
-							? 'Exception: this friend can see it'
-							: 'This friend can see it'}
+					title={isExcluded(friend.id) ? 'Hidden from this friend' : 'This friend can see it'}
 				>
 					{friend.displayName.split(' ')[0]}
 				</button>

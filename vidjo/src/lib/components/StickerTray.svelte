@@ -6,6 +6,11 @@
 	import type { PaperStyle } from '#lib/types';
 
 	const TRAY_KEY = 'vidjo-tray-open';
+	// Stickers live inside the entry JSON (localStorage + `vidjo_entries.stickers`),
+	// so keep every encoded image comfortably small. A 260px WebP is usually far
+	// below this limit; the cap only catches unusually detailed images.
+	const MAX_STICKER_FILE_BYTES = 5 * 1024 * 1024;
+	const MAX_STICKER_DATA_URL_LENGTH = 120_000;
 
 	function readTrayOpen() {
 		try {
@@ -72,6 +77,16 @@
 		input.value = '';
 		if (!file) return;
 
+		if (!file.type.startsWith('image/')) {
+			journal.toast('Choose an image file');
+			return;
+		}
+
+		if (file.size > MAX_STICKER_FILE_BYTES) {
+			journal.toast('Images must be 5 MB or smaller');
+			return;
+		}
+
 		const image = new Image();
 		const url = URL.createObjectURL(file);
 
@@ -84,7 +99,19 @@
 			const context = canvas.getContext('2d');
 			context?.drawImage(image, 0, 0, canvas.width, canvas.height);
 			URL.revokeObjectURL(url);
-			journal.addImageSticker(canvas.toDataURL('image/png'));
+
+			// WebP keeps transparency and is much smaller than PNG. Browsers that
+			// cannot encode WebP fall back to PNG automatically.
+			let dataUrl = canvas.toDataURL('image/webp', 0.85);
+			if (dataUrl.length > MAX_STICKER_DATA_URL_LENGTH) {
+				dataUrl = canvas.toDataURL('image/jpeg', 0.7);
+			}
+			if (dataUrl.length > MAX_STICKER_DATA_URL_LENGTH) {
+				journal.toast('That image is too detailed to use as a sticker. Try a smaller one.');
+				return;
+			}
+
+			journal.addImageSticker(dataUrl);
 			journal.toast('Your image is now a sticker');
 		};
 
@@ -97,10 +124,7 @@
 	}
 </script>
 
-<section
-	class={trayClass}
-	aria-label="Decorate"
->
+<section class={trayClass} aria-label="Decorate">
 	{#if sidebar}
 		<div class="flex flex-col items-center gap-2">
 			<h2 class="mr-auto flex items-center gap-2 font-display text-xl font-bold text-white">
@@ -135,10 +159,14 @@
 		</div>
 
 		{#if open}
-			<div id="sticker-tray-body" class="mt-2 flex-1 overflow-y-auto" transition:slide={{ duration: 180 }}>
+			<div
+				id="sticker-tray-body"
+				class="mt-2 flex-1 overflow-y-auto"
+				transition:slide={{ duration: 180 }}
+			>
 				<div class="flex flex-col items-center gap-2">
 					<div
-						class="flex flex-wrap items-center gap-1.5 w-full"
+						class="flex w-full flex-wrap items-center gap-1.5"
 						class:pointer-events-none={!journal.selected}
 						class:opacity-40={!journal.selected}
 						data-sticker-tools
@@ -245,11 +273,16 @@
 						</button>
 					</div>
 
-					<div class="flex flex-wrap items-center gap-1.5 w-full mt-2" role="group" aria-label="Paper style">
+					<div
+						class="mt-2 flex w-full flex-wrap items-center gap-1.5"
+						role="group"
+						aria-label="Paper style"
+					>
 						{#each papers as paper (paper.k)}
 							<button
 								type="button"
-								class="flex size-10 items-center justify-center rounded-xl border px-3 text-xs {journal.paper === paper.k
+								class="flex size-10 items-center justify-center rounded-xl border px-3 text-xs {journal.paper ===
+								paper.k
 									? 'border-light bg-light font-bold text-ink'
 									: 'border-[#5A4580] bg-[#33224D]'}"
 								aria-pressed={journal.paper === paper.k}
@@ -260,12 +293,12 @@
 						{/each}
 					</div>
 
-					<div class="flex flex-col items-center gap-2 w-full mt-2">
+					<div class="mt-2 flex w-full flex-col items-center gap-2">
 						{#each STICKERS as sticker (sticker.k)}
 							<button
 								type="button"
 								class="flex size-10 flex-none items-center justify-center rounded-2xl border border-[#4A3670] bg-light p-1 hover:bg-white"
-								aria-label={"Add " + sticker.n + " sticker"}
+								aria-label={'Add ' + sticker.n + ' sticker'}
 								onclick={() => journal.addSticker(sticker.k)}
 							>
 								<span class="block size-full [&>svg]:size-8">{@html sticker.svg}</span>
@@ -469,7 +502,7 @@
 						<button
 							type="button"
 							class="flex size-[76px] flex-none items-center justify-center rounded-2xl border border-[#4A3670] bg-light p-2 hover:-translate-y-0.5 hover:bg-white"
-							aria-label={"Add " + sticker.n + " sticker"}
+							aria-label={'Add ' + sticker.n + ' sticker'}
 							onclick={() => journal.addSticker(sticker.k)}
 						>
 							<span class="block size-full [&>svg]:size-full">{@html sticker.svg}</span>
@@ -503,4 +536,13 @@
 			</div>
 		{/if}
 	{/if}
+
+	<input
+		bind:this={imageInput}
+		type="file"
+		accept="image/*"
+		class="hidden"
+		aria-label="Choose an image for a sticker"
+		onchange={pickImage}
+	/>
 </section>

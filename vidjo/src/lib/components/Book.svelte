@@ -31,6 +31,7 @@
 	const dates = $derived(journal.sortedDates);
 	const index = $derived(dates.indexOf(journal.current));
 	const total = $derived(dates.length);
+	const currentEntry = $derived(journal.entries[journal.current]);
 	const atStart = $derived(index === 0 && (!viewport.single || journal.side === 'L'));
 	const atEnd = $derived(index === total - 1 && (!viewport.single || journal.side === 'R'));
 	const leftPageNumber = $derived(index * 2 + 1);
@@ -49,7 +50,9 @@
 
 		if (!journal.entries[target]) return;
 
-		const from = $state.snapshot(journal.currentEntry) as Entry;
+		const fromEntry = journal.entries[journal.current];
+		if (!fromEntry) return;
+		const from = $state.snapshot(fromEntry) as Entry;
 		const fromLeft = index * 2 + 1;
 		const fromRight = index * 2 + 2;
 
@@ -312,22 +315,24 @@
 				class="cover absolute inset-0 rounded-[24px] bg-[linear-gradient(135deg,#523479,#3A2360_55%,#2E1A4E)] shadow-[0_32px_75px_rgba(0,0,0,.65),0_12px_28px_rgba(0,0,0,.45),inset_0_0_0_2px_rgba(255,255,255,.07)] after:absolute after:inset-2 after:rounded-[17px] after:border-2 after:border-dashed after:border-gold/50 after:content-['']"
 			></div>
 
-			{#if viewport.single}
-				{#key `${journal.current}-${journal.side}`}
-					{#if journal.side === 'L'}
-						<LeftPage
-							entry={journal.currentEntry}
-							date={journal.current}
-							pageNumber={leftPageNumber}
-							enter
-						/>
-					{:else}
-						<RightPage entry={journal.currentEntry} pageNumber={rightPageNumber} enter />
-					{/if}
-				{/key}
-			{:else}
-				<LeftPage entry={journal.currentEntry} date={journal.current} pageNumber={leftPageNumber} />
-				<RightPage entry={journal.currentEntry} pageNumber={rightPageNumber} />
+			{#if currentEntry}
+				{#if viewport.single}
+					{#key `${journal.current}-${journal.side}`}
+						{#if journal.side === 'L'}
+							<LeftPage
+								entry={currentEntry}
+								date={journal.current}
+								pageNumber={leftPageNumber}
+								enter
+							/>
+						{:else}
+							<RightPage entry={currentEntry} pageNumber={rightPageNumber} enter />
+						{/if}
+					{/key}
+				{:else}
+					<LeftPage entry={currentEntry} date={journal.current} pageNumber={leftPageNumber} />
+					<RightPage entry={currentEntry} pageNumber={rightPageNumber} />
+				{/if}
 			{/if}
 
 			{#if !viewport.single}

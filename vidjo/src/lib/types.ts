@@ -199,6 +199,8 @@ export interface NotificationItem {
 	fromUserId: string;
 	fromUserName: string;
 	fromUserAvatar: string | null;
+	/** Owner of the page the notification refers to (defaults to the current user). */
+	postOwnerId?: string;
 	postId?: string;
 	postTitle?: string;
 	postDate?: string;

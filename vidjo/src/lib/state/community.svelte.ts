@@ -399,9 +399,11 @@ class CommunityState {
 					'postgres_changes',
 					{ event: '*', schema: 'public', table: 'vidjo_entries' },
 					(payload) => {
-						const row = (payload.new ?? payload.old) as
-							| { privacy?: string | null; owner_id?: string; entry_date?: string }
-							| null;
+						const row = (payload.new ?? payload.old) as {
+							privacy?: string | null;
+							owner_id?: string;
+							entry_date?: string;
+						} | null;
 						if (row?.owner_id === this.currentUserId) return;
 						if (row?.privacy === 'community') {
 							this.scheduleRefresh();
@@ -700,8 +702,12 @@ class CommunityState {
 		}
 	}
 
-	async deleteComment(post: FriendPost, commentId: string) {
+	async deleteComment(post: FriendPost, commentId: string): Promise<boolean> {
 		const key = postKey(post.authorId, post.date);
+		const removed =
+			(this.commentMap[key] ?? []).find((c) => c.id === commentId) ??
+			post.comments.find((c) => c.id === commentId);
+
 		this.commentMap = {
 			...this.commentMap,
 			[key]: (this.commentMap[key] ?? []).filter((c) => c.id !== commentId)
@@ -710,32 +716,49 @@ class CommunityState {
 			p.id === post.id ? { ...p, comments: p.comments.filter((c) => c.id !== commentId) } : p
 		);
 
-		if (isSupabaseConfigured && auth.user && isUuid(post.authorId)) {
-			try {
-				await supabase
-					.from('vidjo_comments')
-					.delete()
-					.eq('id', commentId)
-					.eq('context', 'community');
-			} catch {
-				// Optimistic update already applied; server failure is non-fatal for UI.
+		if (!isSupabaseConfigured || !auth.user || !isUuid(post.authorId)) return true;
+
+		const { error } = await supabase
+			.from('vidjo_comments')
+			.delete()
+			.eq('id', commentId)
+			.eq('context', 'community');
+
+		if (error) {
+			console.warn('[VidJo] Could not delete the comment.', error);
+			// Roll the optimistic removal back so the UI matches the server.
+			if (removed) {
+				this.commentMap = {
+					...this.commentMap,
+					[key]: [...(this.commentMap[key] ?? []), removed]
+				};
+				this.posts = this.posts.map((p) =>
+					p.id === post.id && !p.comments.some((c) => c.id === commentId)
+						? { ...p, comments: [...p.comments, removed] }
+						: p
+				);
 			}
+			return false;
 		}
+
+		return true;
 	}
 
-	async reportComment(post: FriendPost, commentId: string, reason: string) {
-		if (!isSupabaseConfigured || !auth.user || !isUuid(post.authorId)) return;
+	async reportComment(post: FriendPost, commentId: string, reason: string): Promise<boolean> {
+		if (!isSupabaseConfigured || !auth.user || !isUuid(post.authorId)) return false;
 
-		try {
-			const { error } = await supabase.from('vidjo_comment_reports').insert({
-				comment_id: commentId,
-				reporter_id: auth.user.id,
-				reason
-			});
-			if (error) throw error;
-		} catch {
-			// Report failure is non-fatal for UI.
+		const { error } = await supabase.from('vidjo_comment_reports').insert({
+			comment_id: commentId,
+			reporter_id: auth.user.id,
+			reason
+		});
+
+		if (error) {
+			console.warn('[VidJo] Could not report the comment.', error);
+			return false;
 		}
+
+		return true;
 	}
 
 	reset() {

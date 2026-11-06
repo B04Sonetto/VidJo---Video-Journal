@@ -4,23 +4,23 @@
 	import Avatar from '#lib/components/Avatar.svelte';
 	import CommunityIcon from '#lib/components/CommunityIcon.svelte';
 	import type { NotificationItem } from '#lib/types';
-	import { onMount } from 'svelte';
-
-	onMount(() => {
-		friends.markNotificationsRead();
-	});
 
 	$effect(() => {
 		// A notification that arrives while this screen is open has been seen.
+		// The effect also runs on mount, so no separate `onMount` is needed.
 		void friends.notifications.length;
 		friends.markNotificationsRead();
 	});
 
 	const requestNotifications = $derived(
-		friends.notifications.filter((n): n is NotificationItem & { type: 'friend_request' } => n.type === 'friend_request')
+		friends.notifications.filter(
+			(n): n is NotificationItem & { type: 'friend_request' } => n.type === 'friend_request'
+		)
 	);
 	const commentNotifications = $derived(
-		friends.notifications.filter((n): n is NotificationItem & { type: 'comment' } => n.type === 'comment')
+		friends.notifications.filter(
+			(n): n is NotificationItem & { type: 'comment' } => n.type === 'comment'
+		)
 	);
 
 	function requestIdFor(item: NotificationItem & { type: 'friend_request' }) {
@@ -36,7 +36,18 @@
 	}
 
 	function openCommentPage(item: NotificationItem) {
-		if (item.postDate) nav.jump(item.postDate);
+		if (!item.postDate) return;
+
+		const ownerId = item.postOwnerId || friends.currentUserId;
+		if (ownerId && ownerId !== friends.currentUserId) {
+			// The comment lives on a friend's page, so open their journal reader
+			// instead of the signed-in user's own book.
+			friends.openJournal(ownerId, item.postDate);
+			nav.setView('friends');
+			return;
+		}
+
+		nav.jump(item.postDate);
 	}
 
 	function formatDate(iso: string) {
@@ -51,10 +62,12 @@
 </script>
 
 <div class="flex h-[700px] flex-col">
-	<header class="flex h-12 items-center justify-between gap-2 px-6 border-b border-line bg-paper/50">
+	<header
+		class="flex h-12 items-center justify-between gap-2 border-b border-line bg-paper/50 px-6"
+	>
 		<button
 			type="button"
-			class="flex size-9 items-center justify-center rounded-lg text-ink-soft hover:bg-light transition-colors"
+			class="flex size-9 items-center justify-center rounded-lg text-ink-soft transition-colors hover:bg-light"
 			onclick={() => nav.setView('journal')}
 			aria-label="Back"
 		>
@@ -78,7 +91,7 @@
 	<div class="flex-1 overflow-y-auto p-6">
 		{#if friends.notifications.length === 0}
 			<div class="flex h-full flex-col items-center justify-center text-center">
-				<CommunityIcon name="sparkles" size={48} class="text-gold/40 mb-4" />
+				<CommunityIcon name="sparkles" size={48} class="mb-4 text-gold/40" />
 				<p class="font-hand text-lg text-ink-soft">No new notifications</p>
 				<p class="mt-1 font-ui text-sm text-ink-soft">
 					Friend requests and comments on your pages will appear here.
@@ -90,9 +103,7 @@
 					<h2 class="mb-3 font-display text-lg font-bold text-ink">Friend Requests</h2>
 					<div class="space-y-3">
 						{#each requestNotifications as request (request.id)}
-							<div
-								class="flex items-center gap-3 rounded-xl border border-line bg-white/50 p-3"
-							>
+							<div class="flex items-center gap-3 rounded-xl border border-line bg-white/50 p-3">
 								<Avatar
 									src={request.fromUserAvatar}
 									name={request.fromUserName}
@@ -100,8 +111,8 @@
 									textClass="text-base"
 									ring=""
 								/>
-								<div class="flex-1 min-w-0">
-									<p class="font-ui text-sm font-semibold text-ink truncate">
+								<div class="min-w-0 flex-1">
+									<p class="truncate font-ui text-sm font-semibold text-ink">
 										{request.fromUserName}
 									</p>
 									<p class="mt-0.5 font-ui text-[11px] text-ink-soft">
@@ -112,7 +123,7 @@
 								<div class="flex items-center gap-2">
 									<button
 										type="button"
-										class="flex size-9 items-center justify-center rounded-lg bg-[#3F7A4F] text-white hover:bg-[#2F6A40] transition-colors"
+										class="flex size-9 items-center justify-center rounded-lg bg-[#3F7A4F] text-white transition-colors hover:bg-[#2F6A40]"
 										onclick={() => acceptRequest(requestIdFor(request))}
 										aria-label={`Accept friend request from ${request.fromUserName}`}
 									>
@@ -120,7 +131,7 @@
 									</button>
 									<button
 										type="button"
-										class="flex size-9 items-center justify-center rounded-lg border border-[#D19A9A] text-[#9A5B5B] hover:bg-[#3A222B]/30 transition-colors"
+										class="flex size-9 items-center justify-center rounded-lg border border-[#D19A9A] text-[#9A5B5B] transition-colors hover:bg-[#3A222B]/30"
 										onclick={() => declineRequest(requestIdFor(request))}
 										aria-label={`Decline friend request from ${request.fromUserName}`}
 									>
@@ -138,9 +149,7 @@
 					<h2 class="mb-3 font-display text-lg font-bold text-ink">Comments on Your Pages</h2>
 					<div class="space-y-3">
 						{#each commentNotifications as comment (comment.id)}
-							<div
-								class="flex items-start gap-3 rounded-xl border border-line bg-white/50 p-3"
-							>
+							<div class="flex items-start gap-3 rounded-xl border border-line bg-white/50 p-3">
 								<Avatar
 									src={comment.fromUserAvatar}
 									name={comment.fromUserName}
@@ -148,9 +157,9 @@
 									textClass="text-base"
 									ring=""
 								/>
-								<div class="flex-1 min-w-0">
+								<div class="min-w-0 flex-1">
 									<div class="flex items-baseline justify-between gap-2">
-										<p class="font-ui text-sm font-semibold text-ink truncate">
+										<p class="truncate font-ui text-sm font-semibold text-ink">
 											{comment.fromUserName}
 										</p>
 										<time class="shrink-0 font-ui text-[10px] text-ink-soft">

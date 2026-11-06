@@ -47,6 +47,8 @@ class FriendsState {
 	stories = $state<Friend[]>([]);
 	notifications = $state<NotificationItem[]>([]);
 	notificationsLastSeen = $state(0);
+	readerAuthorId = $state<string | null>(null);
+	readerDate = $state<string | null>(null);
 
 	private reactionMap = $state<Record<string, { counts: FriendPostReaction; mine: ReactionKey[] }>>(
 		{}
@@ -58,6 +60,17 @@ class FriendsState {
 
 	get myFriendCode() {
 		return profile.friendCode;
+	}
+
+	/** Opens a friend's journal reader, optionally at a specific page date. */
+	openJournal(authorId: string, date?: string | null) {
+		this.readerAuthorId = authorId;
+		this.readerDate = date ?? null;
+	}
+
+	closeJournal() {
+		this.readerAuthorId = null;
+		this.readerDate = null;
 	}
 
 	get unreadCount() {
@@ -118,7 +131,10 @@ class FriendsState {
 
 	async init(userId: string) {
 		if (!userId) return;
-		if (this.initializedFor === userId && this.loading) return;
+		// Each account is initialised once. `refresh()` handles reloading after
+		// the first load; letting `init` run again would reset lists and create
+		// duplicate realtime subscriptions.
+		if (this.initializedFor === userId) return;
 
 		this.initializedFor = userId;
 		this.currentUserId = userId;
@@ -308,7 +324,10 @@ class FriendsState {
 		if (friendIds.length === 0) return [];
 		const viewerId = this.currentUserId || auth.ownerId;
 
-		const sharedRequest = supabase
+		// Private pages are owner-only (enforced in RLS), so the friends feed only
+		// needs the shared entries. Explicit `included_friend_ids` exceptions no
+		// longer apply to private pages.
+		const { data, error } = await supabase
 			.from('vidjo_entries')
 			.select('*')
 			.in('privacy', ['friends', 'community'])
@@ -316,38 +335,11 @@ class FriendsState {
 			.order('entry_date', { ascending: false })
 			.limit(100);
 
-		// Private pages can still be opened to friends who were explicitly
-		// included in the page's audience.
-		const includedRequest = isUuid(viewerId)
-			? supabase
-					.from('vidjo_entries')
-					.select('*')
-					.eq('privacy', 'private')
-					.contains('included_friend_ids', [viewerId])
-					.in('owner_id', friendIds)
-					.order('entry_date', { ascending: false })
-					.limit(100)
-			: Promise.resolve({ data: [] as EntryRow[], error: null });
-
-		const [{ data: sharedData, error }, { data: includedData, error: includedError }] =
-			await Promise.all([sharedRequest, includedRequest]);
-
 		if (error) throw error;
-		if (includedError) throw includedError;
 
-		const seen = new Set<string>();
-		const data = [...(sharedData ?? []), ...(includedData ?? [])].filter((row) => {
-			const key = `${row.owner_id}:${row.entry_date}`;
-			if (seen.has(key)) return false;
-			seen.add(key);
-			return true;
-		});
-
-		const rows = (data as EntryRow[]).filter((row) => {
+		const rows = ((data as EntryRow[] | null) ?? []).filter((row) => {
 			const excluded = Array.isArray(row.excluded_friend_ids) ? row.excluded_friend_ids : [];
-			const included = Array.isArray(row.included_friend_ids) ? row.included_friend_ids : [];
 			if (excluded.includes(viewerId)) return false;
-			if (row.privacy === 'private' && !included.includes(viewerId)) return false;
 			// Community posts only cross into the friends feed when share_with_friends is set.
 			if (row.privacy === 'community' && !(row.share_with_friends ?? false)) return false;
 			return row.title || row.mind || row.refl || row.video_path || row.mood;
@@ -854,6 +846,7 @@ class FriendsState {
 						'VidJo student'
 					),
 					fromUserAvatar: normalizeImageUrl((author?.avatar_url as string) || null),
+					postOwnerId: entry?.owner_id || this.currentUserId,
 					postId: `friend-${this.currentUserId}-${date}`,
 					postTitle: entry?.title || 'Untitled page',
 					postDate: date,
@@ -1132,11 +1125,15 @@ class FriendsState {
 		);
 	}
 
-	async deleteComment(postId: string, commentId: string) {
+	async deleteComment(postId: string, commentId: string): Promise<boolean> {
 		const post = this.posts.find((item) => item.id === postId);
-		if (!post) return;
+		if (!post) return false;
 
 		const key = postKey(post.authorId, post.date);
+		const removed =
+			(this.commentMap[key] ?? []).find((c) => c.id === commentId) ??
+			post.comments.find((c) => c.id === commentId);
+
 		this.commentMap = {
 			...this.commentMap,
 			[key]: (this.commentMap[key] ?? []).filter((c) => c.id !== commentId)
@@ -1147,28 +1144,49 @@ class FriendsState {
 				: item
 		);
 
-		if (isSupabaseConfigured && auth.user && isUuid(post.authorId)) {
-			try {
-				await supabase.from('vidjo_comments').delete().eq('id', commentId).eq('context', 'friends');
-			} catch {
-				// Optimistic update already applied; server failure is non-fatal for UI.
+		if (!isSupabaseConfigured || !auth.user || !isUuid(post.authorId)) return true;
+
+		const { error } = await supabase
+			.from('vidjo_comments')
+			.delete()
+			.eq('id', commentId)
+			.eq('context', 'friends');
+
+		if (error) {
+			console.warn('[VidJo] Could not delete the comment.', error);
+			// Roll the optimistic removal back so the UI matches the server.
+			if (removed) {
+				this.commentMap = {
+					...this.commentMap,
+					[key]: [...(this.commentMap[key] ?? []), removed]
+				};
+				this.posts = this.posts.map((item) =>
+					item.id === postId && !item.comments.some((c) => c.id === commentId)
+						? { ...item, comments: [...item.comments, removed] }
+						: item
+				);
 			}
+			return false;
 		}
+
+		return true;
 	}
 
-	async reportComment(postId: string, commentId: string, reason: string) {
-		if (!isSupabaseConfigured || !auth.user) return;
+	async reportComment(postId: string, commentId: string, reason: string): Promise<boolean> {
+		if (!isSupabaseConfigured || !auth.user) return false;
 
-		try {
-			const { error } = await supabase.from('vidjo_comment_reports').insert({
-				comment_id: commentId,
-				reporter_id: auth.user.id,
-				reason
-			});
-			if (error) throw error;
-		} catch {
-			// Report failure is non-fatal for UI.
+		const { error } = await supabase.from('vidjo_comment_reports').insert({
+			comment_id: commentId,
+			reporter_id: auth.user.id,
+			reason
+		});
+
+		if (error) {
+			console.warn('[VidJo] Could not report the comment.', error);
+			return false;
 		}
+
+		return true;
 	}
 
 	setFilter(filter: 'all' | 'video' | 'written') {
@@ -1182,6 +1200,8 @@ class FriendsState {
 		this.stories = [];
 		this.notifications = [];
 		this.notificationsLastSeen = 0;
+		this.readerAuthorId = null;
+		this.readerDate = null;
 		this.reactionMap = {};
 		this.commentMap = {};
 		this.currentUserId = '';

@@ -163,10 +163,7 @@ class Journal {
 	private toastTimer: ReturnType<typeof setTimeout> | null = null;
 	private initSeq = 0;
 	private signedUrlPending = new Set<string>();
-
-	get currentEntry(): Entry {
-		return this.entries[this.current] as Entry;
-	}
+	private remoteDeletes = new Map<string, Promise<void>>();
 
 	get sortedDates(): string[] {
 		return Object.keys(this.entries).sort();
@@ -287,6 +284,7 @@ class Journal {
 		this.pending.clear();
 		this.flushing = false;
 		this.signedUrlPending.clear();
+		this.remoteDeletes.clear();
 
 		if (this.saveTimer) {
 			clearTimeout(this.saveTimer);
@@ -412,6 +410,9 @@ class Journal {
 				const dates = [...this.pending];
 				this.pending.clear();
 
+				// If a page was deleted and recreated, let the DELETE land first.
+				await Promise.all(dates.map((date) => this.remoteDeletes.get(date)));
+
 				const rows = dates
 					.map((date) => this.entries[date])
 					.filter((entry): entry is Entry => Boolean(entry))
@@ -448,8 +449,27 @@ class Journal {
 		if (error) console.warn('[VidJo] Could not delete the remote entry.', error);
 	}
 
+	/**
+	 * Deletes a page remotely and remembers the request. If the same date is
+	 * recreated before the DELETE finishes, `flush()` waits for it first so the
+	 * fresh page cannot be removed by the older request.
+	 */
+	private trackRemoteDelete(date: string) {
+		const task = this.removeRemote(date);
+		this.remoteDeletes.set(date, task);
+		void task.finally(() => {
+			if (this.remoteDeletes.get(date) === task) this.remoteDeletes.delete(date);
+		});
+		return task;
+	}
+
 	isBlank(entry: Entry) {
 		return (
+			!entry.saved &&
+			entry.privacy === 'private' &&
+			!entry.communitySlug &&
+			entry.includedFriendIds.length === 0 &&
+			entry.excludedFriendIds.length === 0 &&
 			!entry.mood &&
 			!entry.title &&
 			!entry.mind &&
@@ -466,7 +486,7 @@ class Journal {
 		if (this.current !== TODAY && this.isBlank(entry)) {
 			delete this.entries[this.current];
 			this.persistLocal();
-			void this.removeRemote(this.current);
+			void this.trackRemoteDelete(this.current);
 		}
 	}
 
@@ -480,17 +500,29 @@ class Journal {
 		}
 		void deleteStoredVideo(this.videoKey(date));
 
-		// Remove from remote
-		void this.removeRemote(date);
+		// Pick the neighbouring page before mutating so the fallback is the page
+		// next to the one being deleted, not the oldest page in the journal.
+		const order = this.sortedDates;
+		const idx = order.indexOf(date);
+		const neighbour = order[idx < order.length - 1 ? idx + 1 : idx - 1];
+
+		// Remove from remote. Track the request so a page recreated for this date
+		// is upserted only after the delete has completed.
+		void this.trackRemoteDelete(date);
 
 		// Remove from local state
 		delete this.entries[date];
 		this.persistLocal();
 
-		// Navigate to a nearby date
-		const dates = this.sortedDates;
-		const idx = dates.indexOf(date);
-		const target = dates[idx < dates.length - 1 ? idx + 1 : idx - 1] ?? TODAY;
+		// Navigate to a nearby date. Deleting the last remaining page would
+		// otherwise leave `current` pointing at a date with no entry, which makes
+		// Book/LeftPage/RightPage dereference `undefined`.
+		let target = neighbour && this.entries[neighbour] ? neighbour : this.sortedDates[0];
+		if (!target) {
+			target = TODAY;
+			this.entries[target] = blankEntry(target);
+			this.persistLocal();
+		}
 
 		if (this.current === date) {
 			this.current = target;
@@ -538,6 +570,11 @@ class Journal {
 			entry.shareWithFriends = false;
 		}
 
+		// Included friends only matter for private pages; clear that list so a
+		// stale exception can't keep exposing a page after privacy changes.
+		entry.includedFriendIds = [];
+		if (entry.privacy === 'private') entry.excludedFriendIds = [];
+
 		entry.sample = false;
 		this.queueSave(this.current);
 	}
@@ -558,6 +595,11 @@ class Journal {
 			entry.communitySlug = '';
 		}
 
+		// Included friends only matter for private pages; clear that list so a
+		// stale exception can't keep exposing a page after privacy changes.
+		entry.includedFriendIds = [];
+		if (entry.privacy === 'private') entry.excludedFriendIds = [];
+
 		entry.sample = false;
 		this.queueSave(this.current);
 	}
@@ -569,6 +611,8 @@ class Journal {
 		entry.privacy = 'private';
 		entry.communitySlug = '';
 		entry.shareWithFriends = false;
+		entry.includedFriendIds = [];
+		entry.excludedFriendIds = [];
 		entry.sample = false;
 		this.queueSave(this.current);
 	}

@@ -1,18 +1,39 @@
 <script lang="ts">
-	import { auth } from '#lib/state/auth.svelte';
 	import { profile } from '#lib/state/profile.svelte';
-	import { friends } from '#lib/state/friends.svelte';
-	import { community } from '#lib/state/community.svelte';
 	import { journal } from '#lib/state/journal.svelte';
 	import { supabase, isSupabaseConfigured } from '#lib/supabase';
-	import type { Profile } from '#lib/types';
 
 	let { open = $bindable(false) }: { open?: boolean } = $props();
-	let loading = $state(false);
 	let error = $state('');
 	let stats = $state<{ users: number; reports: number; posts: number } | null>(null);
-	let reports = $state<Array<{ id: string; comment_id: string; reason: string; created_at: string; reporter: string; reported_user: string }>>([]);
-	let users = $state<Array<{ user_id: string; username: string; display_name: string; user_role: string; created_at: string }>>([]);
+	let reports = $state<
+		Array<{
+			id: string;
+			comment_id: string;
+			reason: string;
+			created_at: string;
+			reporter: string;
+			reported_user: string;
+		}>
+	>([]);
+	let users = $state<
+		Array<{
+			user_id: string;
+			username: string;
+			display_name: string;
+			user_role: string;
+			created_at: string;
+		}>
+	>([]);
+
+	type ReportRow = {
+		id: string;
+		comment_id: string;
+		reason: string;
+		created_at: string;
+		reporter_name: string | null;
+		reported_user: string | null;
+	};
 
 	function isAdmin() {
 		return profile.profile?.user_role === 'admin';
@@ -20,54 +41,46 @@
 
 	async function loadStats() {
 		if (!isSupabaseConfigured) return;
-		loading = true;
+		error = '';
 		try {
-			const [{ count: u }, { count: r }, { count: p }] = await Promise.all([
+			const [usersRes, reportsRes, postsRes] = await Promise.all([
 				supabase.from('vidjo_profiles').select('*', { count: 'exact', head: true }),
 				supabase.from('vidjo_comment_reports').select('*', { count: 'exact', head: true }),
 				supabase.from('vidjo_entries').select('*', { count: 'exact', head: true })
 			]);
-			stats = { users: u ?? 0, reports: r ?? 0, posts: p ?? 0 };
+			const failure = usersRes.error ?? reportsRes.error ?? postsRes.error;
+			if (failure) throw failure;
+			stats = {
+				users: usersRes.count ?? 0,
+				reports: reportsRes.count ?? 0,
+				posts: postsRes.count ?? 0
+			};
 		} catch (err) {
 			error = err instanceof Error ? err.message : 'Failed to load stats.';
-		} finally {
-			loading = false;
 		}
 	}
 
 	async function loadReports() {
 		if (!isSupabaseConfigured) return;
+		error = '';
 		try {
-			const { data } = await supabase
-				.from('vidjo_comment_reports')
-				.select('*, reporter:reporter_id (username, display_name), comment:comment_id (author_id)')
-				.order('created_at', { ascending: false })
-				.limit(50);
+			// A SECURITY DEFINER RPC (schema.sql) joins the reporter, the comment
+			// author, and the comment body. PostgREST cannot embed auth.users, and
+			// admins may not be allowed to SELECT the reported comment directly, so
+			// a plain `.select('*, reporter:…, comment:…')` silently returned nothing.
+			const { data, error: loadError } = await supabase.rpc('vidjo_admin_list_reports', {
+				max_rows: 50
+			});
+			if (loadError) throw loadError;
 
-			// Enrich with reported user info.
-			const enriched = await Promise.all(
-				(data ?? []).map(async (report: any) => {
-					const authorId = report.comment?.author_id;
-					let reportedUser = 'Unknown';
-					if (authorId) {
-						const { data: p } = await supabase
-							.from('vidjo_profiles')
-							.select('display_name, username')
-							.eq('user_id', authorId)
-							.maybeSingle();
-						reportedUser = p?.display_name || p?.username || 'Unknown';
-					}
-					return {
-						id: report.id,
-						comment_id: report.comment_id,
-						reason: report.reason,
-						created_at: report.created_at,
-						reporter: report.reporter?.display_name || report.reporter?.username || 'Unknown',
-						reported_user: reportedUser
-					};
-				})
-			);
-			reports = enriched;
+			reports = ((data ?? []) as ReportRow[]).map((row) => ({
+				id: row.id,
+				comment_id: row.comment_id,
+				reason: row.reason,
+				created_at: row.created_at,
+				reporter: row.reporter_name || 'Unknown',
+				reported_user: row.reported_user || 'Unknown'
+			}));
 		} catch (err) {
 			error = err instanceof Error ? err.message : 'Failed to load reports.';
 		}
@@ -75,17 +88,34 @@
 
 	async function loadUsers() {
 		if (!isSupabaseConfigured) return;
+		error = '';
 		try {
-			const { data } = await supabase.from('vidjo_profiles').select('*').order('created_at', { ascending: false });
-			users = (data ?? []) as Array<{ user_id: string; username: string; display_name: string; user_role: string; created_at: string }>;
+			const { data, error: loadError } = await supabase
+				.from('vidjo_profiles')
+				.select('*')
+				.order('created_at', { ascending: false });
+			if (loadError) throw loadError;
+			users = (data ?? []) as Array<{
+				user_id: string;
+				username: string;
+				display_name: string;
+				user_role: string;
+				created_at: string;
+			}>;
 		} catch (err) {
 			error = err instanceof Error ? err.message : 'Failed to load users.';
 		}
 	}
 
 	async function banUser(userId: string) {
+		const target = users.find((user) => user.user_id === userId);
+		if (target?.user_role === 'admin') {
+			journal.toast('Admin accounts cannot be banned.');
+			return;
+		}
 		if (!confirm('Ban this user? This cannot be undone.')) return;
 		if (!isSupabaseConfigured) return;
+		error = '';
 		try {
 			const { error } = await supabase
 				.from('vidjo_profiles')
@@ -101,6 +131,7 @@
 
 	async function unbanUser(userId: string) {
 		if (!isSupabaseConfigured) return;
+		error = '';
 		try {
 			const { error } = await supabase
 				.from('vidjo_profiles')
@@ -131,12 +162,17 @@
 	aria-label="Admin panel"
 >
 	{#if open && isAdmin()}
-		<div class="absolute inset-0 bg-black/70 backdrop-blur-sm" onclick={() => (open = false)}></div>
+		<button
+			type="button"
+			class="absolute inset-0 border-0 bg-black/70 backdrop-blur-sm"
+			aria-label="Close admin panel"
+			onclick={() => (open = false)}
+		></button>
 		<div
-			class="relative w-full max-w-[700px] max-h-[90vh] rounded-[24px] border border-[#523A7A] bg-desk-2 p-6 shadow-[0_40px_100px_rgba(0,0,0,.6)] text-white flex flex-col"
+			class="relative flex max-h-[90vh] w-full max-w-[700px] flex-col rounded-[24px] border border-[#523A7A] bg-desk-2 p-6 text-white shadow-[0_40px_100px_rgba(0,0,0,.6)]"
 		>
-			<div class="flex items-center justify-between mb-6">
-				<h2 class="font-display text-xl font-bold flex items-center gap-2">
+			<div class="mb-6 flex items-center justify-between">
+				<h2 class="flex items-center gap-2 font-display text-xl font-bold">
 					<svg
 						width="20"
 						height="20"
@@ -163,7 +199,9 @@
 			</div>
 
 			{#if error}
-				<p class="mb-4 rounded-lg border border-[#D19A9A] bg-[#3A222B] px-3 py-2 font-ui text-xs text-[#FF9B9B]">
+				<p
+					class="mb-4 rounded-lg border border-[#D19A9A] bg-[#3A222B] px-3 py-2 font-ui text-xs text-[#FF9B9B]"
+				>
 					{error}
 				</p>
 			{/if}
@@ -171,16 +209,16 @@
 			<!-- Stats -->
 			<div class="mb-6 grid grid-cols-3 gap-3">
 				{#if stats}
-					{#each Object.entries(stats) as [key, value]}
+					{#each Object.entries(stats) as [key, value] (key)}
 						<div class="rounded-xl border border-[#4D366D] bg-[#24143D] p-4 text-center">
 							<div class="font-display text-2xl font-bold text-gold">{value}</div>
-							<div class="font-ui text-[11px] text-[#BBA8E0] uppercase tracking-wider">{key}</div>
+							<div class="font-ui text-[11px] tracking-wider text-[#BBA8E0] uppercase">{key}</div>
 						</div>
 					{/each}
 				{:else}
 					<div class="rounded-xl border border-[#4D366D] bg-[#24143D] p-4 text-center">
 						<div class="animate-pulse font-display text-2xl font-bold text-gold">--</div>
-						<div class="font-ui text-[11px] text-[#BBA8E0] uppercase tracking-wider">loading</div>
+						<div class="font-ui text-[11px] tracking-wider text-[#BBA8E0] uppercase">loading</div>
 					</div>
 				{/if}
 			</div>
@@ -196,7 +234,7 @@
 					<div class="space-y-2">
 						{#each reports as report (report.id)}
 							<div class="rounded-lg border border-[#4D366D] bg-[#24143D]/50 p-3">
-								<div class="flex items-baseline justify-between gap-2 mb-1">
+								<div class="mb-1 flex items-baseline justify-between gap-2">
 									<span class="font-ui text-xs font-bold text-white">{report.reporter}</span>
 									<span class="font-ui text-[10px] text-[#BBA8E0]">reported</span>
 									<span class="font-ui text-xs font-bold text-white">{report.reported_user}</span>
@@ -204,7 +242,9 @@
 								<p class="mb-2 font-hand text-sm text-[#D6CBEC]">
 									"{report.reason}"
 								</p>
-								<time class="font-ui text-[10px] text-[#8B6FD0]">{new Date(report.created_at).toLocaleString()}</time>
+								<time class="font-ui text-[10px] text-[#8B6FD0]"
+									>{new Date(report.created_at).toLocaleString()}</time
+								>
 							</div>
 						{/each}
 					</div>
@@ -221,31 +261,44 @@
 				{:else}
 					<div class="space-y-2">
 						{#each users as user (user.user_id)}
-							<div class="flex items-center justify-between rounded-lg border border-[#4D366D] bg-[#24143D]/50 p-3">
+							<div
+								class="flex items-center justify-between rounded-lg border border-[#4D366D] bg-[#24143D]/50 p-3"
+							>
 								<div>
 									<div class="font-ui text-xs font-bold text-white">{user.display_name}</div>
 									<div class="font-ui text-[10px] text-[#BBA8E0]">@{user.username}</div>
 								</div>
 								<div class="flex items-center gap-2">
 									<span
-										class="px-2 py-0.5 rounded text-[10px] font-bold {user.user_role === 'admin'
-											? 'bg-[#4F9DEB]/20 text-[#4F9DEB] border border-[#4F9DEB]/40'
+										class="rounded px-2 py-0.5 text-[10px] font-bold {user.user_role === 'admin'
+											? 'border border-[#4F9DEB]/40 bg-[#4F9DEB]/20 text-[#4F9DEB]'
 											: user.user_role === 'banned'
-												? 'bg-[#D19A9A]/20 text-[#D19A9A] border border-[#D19A9A]/40'
-												: 'bg-[#523A7A]/20 text-[#D6CBEC] border border-[#523A7A]/40'}"
+												? 'border border-[#D19A9A]/40 bg-[#D19A9A]/20 text-[#D19A9A]'
+												: 'border border-[#523A7A]/40 bg-[#523A7A]/20 text-[#D6CBEC]'}"
 									>
 										{user.user_role}
 									</span>
-									<button
-										type="button"
-										class="size-7 rounded hover:bg-white/10 text-[#BBA8E0] hover:text-white"
-										onclick={() =>
-											user.user_role === 'banned' ? unbanUser(user.user_id) : banUser(user.user_id)
-										}
-										aria-label={user.user_role === 'banned' ? 'Unban user' : 'Ban user'}
-									>
-										{user.user_role === 'banned' ? '🔓' : '🚫'}
-									</button>
+									{#if user.user_role === 'admin'}
+										<span
+											class="flex size-7 items-center justify-center text-[#8B6FD0]"
+											title="Admin accounts cannot be banned"
+											aria-label="Admin account"
+										>
+											🛡️
+										</span>
+									{:else}
+										<button
+											type="button"
+											class="size-7 rounded text-[#BBA8E0] hover:bg-white/10 hover:text-white"
+											onclick={() =>
+												user.user_role === 'banned'
+													? unbanUser(user.user_id)
+													: banUser(user.user_id)}
+											aria-label={user.user_role === 'banned' ? 'Unban user' : 'Ban user'}
+										>
+											{user.user_role === 'banned' ? '🔓' : '🚫'}
+										</button>
+									{/if}
 								</div>
 							</div>
 						{/each}
@@ -254,9 +307,14 @@
 			</div>
 		</div>
 	{:else if open && !isAdmin()}
-		<div class="absolute inset-0 bg-black/70 backdrop-blur-sm" onclick={() => (open = false)}></div>
+		<button
+			type="button"
+			class="absolute inset-0 border-0 bg-black/70 backdrop-blur-sm"
+			aria-label="Close admin panel"
+			onclick={() => (open = false)}
+		></button>
 		<div
-			class="relative rounded-[24px] border border-[#D19A9A] bg-[#3A222B] p-8 shadow-[0_40px_100px_rgba(0,0,0,.6)] text-center text-white max-w-[320px] mx-4"
+			class="relative mx-4 max-w-[320px] rounded-[24px] border border-[#D19A9A] bg-[#3A222B] p-8 text-center text-white shadow-[0_40px_100px_rgba(0,0,0,.6)]"
 		>
 			<h2 class="font-display text-xl font-bold">Admin access required</h2>
 			<p class="mt-3 font-ui text-sm text-[#FF9B9B]">

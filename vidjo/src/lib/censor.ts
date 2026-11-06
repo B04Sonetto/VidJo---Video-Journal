@@ -29,12 +29,17 @@ const OBSCENE_WORDS = [
 	'wanker'
 ];
 
-const OBSCENE_REGEX = new RegExp(`\\b(${OBSCENE_WORDS.join('|')})\\b`, 'gi');
+const OBSCENE_PATTERN = `\\b(${OBSCENE_WORDS.join('|')})\\b`;
+
+// `replace` needs the global flag; a separate non-global regex keeps `.test()`
+// stateless (`lastIndex` on a global regex makes repeated calls alternate).
+const OBSCENE_REGEX = new RegExp(OBSCENE_PATTERN, 'gi');
+const OBSCENE_TEST_REGEX = new RegExp(OBSCENE_PATTERN, 'i');
 
 export function censor(text: string, replacement = '***') {
 	return text.replace(OBSCENE_REGEX, replacement);
 }
 
 export function isObscene(text: string) {
-	return OBSCENE_REGEX.test(text);
+	return OBSCENE_TEST_REGEX.test(text);
 }
