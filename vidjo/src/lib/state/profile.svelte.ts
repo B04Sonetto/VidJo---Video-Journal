@@ -2,6 +2,8 @@ import { isSupabaseConfigured, supabase } from '#lib/supabase';
 import type { MoodKey, Privacy, Profile } from '#lib/types';
 import { auth } from '#lib/state/auth.svelte';
 import { cleanDisplayName, normalizeImageUrl } from '#lib/avatar';
+import { detectRasterImageMime } from '#lib/imageUpload';
+import { captureError } from '#lib/observability';
 
 export function generateFriendCode(userId: string): string {
 	if (!userId) return 'VJ-DEMO01';
@@ -88,11 +90,11 @@ class ProfileState {
 	}
 
 	get avatarUrl() {
-		return this.profile?.avatar_url || auth.avatarUrl || null;
+		return normalizeImageUrl(this.profile?.avatar_url || auth.avatarUrl || null);
 	}
 
 	get bannerUrl() {
-		return this.profile?.banner_url || null;
+		return normalizeImageUrl(this.profile?.banner_url || null);
 	}
 
 	get initials() {
@@ -126,6 +128,8 @@ class ProfileState {
 			const local = localStorage.getItem(`${PROFILE_STORAGE_KEY}:${userId}`);
 			if (local) {
 				cached = JSON.parse(local) as Profile;
+				cached.avatar_url = normalizeImageUrl(cached.avatar_url);
+				cached.banner_url = normalizeImageUrl(cached.banner_url);
 				this.profile = cached;
 				this.applyProfile(cached);
 			}
@@ -145,6 +149,11 @@ class ProfileState {
 
 				if (data) {
 					const remote = data as Profile;
+
+					// Sanitise legacy rows on read too, so a stored `data:image/svg+xml`
+					// or `javascript:` value can never reach an image sink.
+					remote.avatar_url = normalizeImageUrl(remote.avatar_url);
+					remote.banner_url = normalizeImageUrl(remote.banner_url);
 
 					// Older rows may not have a friend code yet. Preserve the code the
 					// user already saw on this device, otherwise generate one.
@@ -172,7 +181,7 @@ class ProfileState {
 						username: initialUsername,
 						display_name: initialName,
 						bio: '',
-						avatar_url: auth.avatarUrl || null,
+						avatar_url: normalizeImageUrl(auth.avatarUrl || null),
 						banner_url: null,
 						user_role: 'user',
 						friend_code: cached?.friend_code || generateFriendCode(userId),
@@ -212,8 +221,8 @@ class ProfileState {
 			username: cached?.username || auth.username || 'guest_student',
 			display_name: cached?.display_name || auth.displayName || 'Guest Student',
 			bio: cached?.bio || '',
-			avatar_url: cached?.avatar_url || auth.avatarUrl || null,
-			banner_url: cached?.banner_url || null,
+			avatar_url: normalizeImageUrl(cached?.avatar_url || auth.avatarUrl || null),
+			banner_url: normalizeImageUrl(cached?.banner_url || null),
 			user_role: cached?.user_role || 'user',
 			friend_code: cached?.friend_code || generateFriendCode(userId),
 			accent_color: this.accentColor,
@@ -346,18 +355,21 @@ class ProfileState {
 			'image/gif': 'gif'
 		};
 
-		if (!allowedTypes[file.type]) {
-			return { url: null, error: 'Choose a PNG, JPG, GIF, or WebP image.' };
-		}
-
 		if (file.size > 5 * 1024 * 1024) {
 			return { url: null, error: 'Images must be 5 MB or smaller.' };
+		}
+
+		// Trust the bytes, not the browser-supplied MIME type. A file renamed to
+		// `.png` or a spoofed `file.type` must not get into the public bucket.
+		const detectedType = await detectRasterImageMime(file);
+		if (!detectedType || !allowedTypes[detectedType]) {
+			return { url: null, error: 'Choose a PNG, JPG, GIF, or WebP image.' };
 		}
 
 		const userId = this.profile?.user_id || auth.ownerId;
 		if (!userId) return { url: null, error: 'No user ID available.' };
 
-		const fileExt = allowedTypes[file.type];
+		const fileExt = allowedTypes[detectedType];
 		const fileName = `${Date.now()}.${fileExt}`;
 		const folder = type === 'avatar' ? 'avatars' : 'banners';
 		// Storage policies require the first path segment to be the owner's user
@@ -366,10 +378,12 @@ class ProfileState {
 
 		const { error: uploadError } = await supabase.storage.from('vidjo-images').upload(path, file, {
 			cacheControl: '3600',
+			contentType: detectedType,
 			upsert: false
 		});
 
 		if (uploadError) {
+			captureError(new Error(uploadError.message), { area: 'profile-image-upload', type });
 			return { url: null, error: uploadError.message };
 		}
 
@@ -387,8 +401,20 @@ class ProfileState {
 		const cleanUsername = patch.username.trim();
 		const cleanDisplayName = patch.display_name.trim();
 		const cleanBio = patch.bio.trim();
-		const cleanAvatar = normalizeImageUrl(patch.avatar_url);
-		const cleanBanner = normalizeImageUrl(patch.banner_url);
+		const rawAvatar = patch.avatar_url?.trim() ?? '';
+		const rawBanner = patch.banner_url?.trim() ?? '';
+		const cleanAvatar = normalizeImageUrl(rawAvatar);
+		const cleanBanner = normalizeImageUrl(rawBanner);
+
+		if (rawAvatar && !cleanAvatar) {
+			return {
+				error: 'Profile pictures must be a PNG, JPG, GIF, or WebP image, or a preset avatar.'
+			};
+		}
+
+		if (rawBanner && !cleanBanner) {
+			return { error: 'Profile banners must be a PNG, JPG, GIF, or WebP image.' };
+		}
 
 		if (!/^[a-zA-Z0-9_.-]{2,24}$/.test(cleanUsername)) {
 			return { error: 'Username must be 2–24 letters, numbers, dots, dashes, or underscores.' };
@@ -526,7 +552,10 @@ class ProfileState {
 				if (entriesError) throw entriesError;
 
 				if (profileData) {
-					this.viewedProfile = profileData as Profile;
+					const viewed = profileData as Profile;
+					viewed.avatar_url = normalizeImageUrl(viewed.avatar_url);
+					viewed.banner_url = normalizeImageUrl(viewed.banner_url);
+					this.viewedProfile = viewed;
 				}
 
 				this.viewedProfilePosts = (

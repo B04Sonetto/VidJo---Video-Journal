@@ -490,17 +490,29 @@ class CommunityState {
 		const posts: CommunityPost[] = await Promise.all(
 			rows.map(async (row) => {
 				const author = profileMap.get(row.owner_id as string);
-				const videoPath = (row.video_path as string | null) ?? '';
+				let videoPath = (row.video_path as string | null) ?? '';
 				let videoUrl = '';
 
 				if (videoPath) {
 					try {
-						const { data: signed } = await supabase.storage
+						const { data: signed, error } = await supabase.storage
 							.from(VIDEO_BUCKET)
 							.createSignedUrl(videoPath, SIGNED_URL_TTL);
-						videoUrl = signed?.signedUrl || '';
-					} catch {
-						// Videos are optional.
+						if (error || !signed?.signedUrl) {
+							console.warn('[VidJo] Could not sign a community video URL.', {
+								path: videoPath,
+								status: error?.statusCode ?? null,
+								message: error?.message ?? 'No signed URL returned'
+							});
+							// The file was deleted or is no longer accessible. Treat the
+							// post as video-less so the feed stops asking for it.
+							videoPath = '';
+						} else {
+							videoUrl = signed.signedUrl;
+						}
+					} catch (error) {
+						console.warn('[VidJo] Could not sign a community video URL.', error);
+						videoPath = '';
 					}
 				}
 
@@ -521,7 +533,7 @@ class CommunityState {
 					refl: (row.refl as string) || '',
 					stickers: Array.isArray(row.stickers) ? row.stickers : [],
 					videoPath,
-					videoName: (row.video_name as string) || '',
+					videoName: videoPath ? (row.video_name as string) || '' : '',
 					videoUrl,
 					reactions: { ...EMPTY_REACTIONS },
 					userReactions: [],

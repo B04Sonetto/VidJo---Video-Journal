@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { avatarInitial, isEmojiAvatar, normalizeImageUrl } from '#lib/avatar';
+	import { avatarInitial, isEmojiAvatar, normalizeImageUrl, optimizedAvatarUrl } from '#lib/avatar';
 
 	let {
 		src = null,
@@ -18,25 +18,41 @@
 	} = $props();
 
 	let failed = $state(false);
+	let useOriginal = $state(false);
 
 	const resolved = $derived(normalizeImageUrl(src));
+	const optimized = $derived(optimizedAvatarUrl(resolved));
+	const displaySrc = $derived(useOriginal ? resolved : optimized);
 	const emoji = $derived(isEmojiAvatar(resolved));
 
 	$effect(() => {
-		// Reset the broken-image flag whenever the avatar changes.
+		// Reset the broken-image flags whenever the avatar changes.
 		void resolved;
 		failed = false;
+		useOriginal = false;
 	});
+
+	function handleImageError() {
+		// Image transformations need a paid Supabase plan. If the render
+		// endpoint is unavailable, retry the original object URL before
+		// falling back to initials.
+		if (!useOriginal && resolved && optimized !== resolved) {
+			useOriginal = true;
+			return;
+		}
+		failed = true;
+	}
 </script>
 
 {#if resolved && !emoji && !failed}
 	<img
-		src={resolved}
+		src={displaySrc ?? resolved}
 		alt={alt || name}
 		class="{className} shrink-0 rounded-full object-cover {ring}"
 		loading="lazy"
+		decoding="async"
 		referrerpolicy="no-referrer"
-		onerror={() => (failed = true)}
+		onerror={handleImageError}
 	/>
 {:else if emoji}
 	<span

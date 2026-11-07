@@ -128,6 +128,37 @@ On shared browsers, users can check "Clear cached pages on sign out" or click
 "Clear local cache" under **Profile → Settings** so no entries remain stored on
 that device.
 
+### Image transformations
+
+Avatars and profile banners request resized, re-encoded versions from Supabase's
+`/storage/v1/render/image/...` endpoint so large uploads do not cost full
+bandwidth on every page. This feature is included with **Supabase Pro and above**;
+on the Free plan the render endpoint returns an error and the app automatically
+falls back to the original public object URL, so nothing breaks.
+
+To use it, make sure image transformations are enabled for the project
+(**Storage → Settings → Image transformations**). No extra configuration or
+vendor is required.
+
+### Error tracking (optional)
+
+Error reporting is opt-in and disabled when no DSN is set. It is compatible with
+Sentry Cloud and self-hosted GlitchTip because both use the same
+`@sentry/browser` protocol.
+
+```sh
+PUBLIC_SENTRY_DSN=https://your-key@your-sentry-host/1
+PUBLIC_SENTRY_ENVIRONMENT=production   # optional
+PUBLIC_APP_RELEASE=vidjo@1.0.0         # optional
+```
+
+Leave `PUBLIC_SENTRY_DSN` empty for local development. Before an event is sent,
+the app strips request data, cookies, headers, and query strings, and replaces
+journal text, reflections, titles, bios, names, usernames, emails, and search
+terms with `[Filtered]`. Uploads, video signing/playback, video deletion, profile
+images, and account deletion report their failures so storage problems surface
+without exposing what the user wrote.
+
 ## Scripts
 
 | Command           | What it does                                        |
@@ -164,8 +195,11 @@ src/
     state/                Journal, auth, profile, friends, community, navigation
     authCallback.ts       Shared OAuth / email-link callback handling
     authErrors.ts         Friendly Supabase auth error messages
+    avatar.ts             Avatar/banner sanitizing and image-transform URLs
     dates.ts              Date helpers and TODAY
     identity.ts           Device id helpers for offline/legacy data
+    imageUpload.ts        Magic-byte validation for raster image uploads
+    observability.ts      Optional Sentry/GlitchTip init and PII scrubbing
     supabase.ts           Supabase client, auth persistence, bucket name
     videoStore.ts         IndexedDB cache for recordings
     types.ts              Shared types

@@ -1,3 +1,4 @@
+import { SvelteMap } from 'svelte/reactivity';
 import { isSupabaseConfigured, supabase, VIDEO_BUCKET } from '#lib/supabase';
 import { censor } from '#lib/censor';
 import type {
@@ -344,7 +345,7 @@ class FriendsState {
 			if (row.privacy === 'community' && !(row.share_with_friends ?? false)) return false;
 			return row.title || row.mind || row.refl || row.video_path || row.mood;
 		});
-		const friendMap = new Map(this.friends.map((friend) => [friend.id, friend]));
+		const friendMap = new SvelteMap(this.friends.map((friend) => [friend.id, friend]));
 
 		// Fetch profiles for any post authors not already in the friends list,
 		// so their name/avatar don't fall back to 'VidJo student'.
@@ -377,17 +378,29 @@ class FriendsState {
 		return Promise.all(
 			rows.map(async (row) => {
 				const author = friendMap.get(row.owner_id);
-				const videoPath = row.video_path || '';
+				let videoPath = row.video_path || '';
 				let videoUrl = '';
 
 				if (videoPath) {
 					try {
-						const { data: signed } = await supabase.storage
+						const { data: signed, error } = await supabase.storage
 							.from(VIDEO_BUCKET)
 							.createSignedUrl(videoPath, SIGNED_URL_TTL);
-						videoUrl = signed?.signedUrl || '';
-					} catch {
-						// Videos are optional.
+						if (error || !signed?.signedUrl) {
+							console.warn('[VidJo] Could not sign a friend video URL.', {
+								path: videoPath,
+								status: error?.statusCode ?? null,
+								message: error?.message ?? 'No signed URL returned'
+							});
+							// The file was deleted or is no longer accessible. Treat the
+							// post as video-less so the feed stops asking for it.
+							videoPath = '';
+						} else {
+							videoUrl = signed.signedUrl;
+						}
+					} catch (error) {
+						console.warn('[VidJo] Could not sign a friend video URL.', error);
+						videoPath = '';
 					}
 				}
 
@@ -406,7 +419,7 @@ class FriendsState {
 					refl: row.refl || '',
 					stickers: row.stickers || [],
 					videoPath,
-					videoName: row.video_name || '',
+					videoName: videoPath ? row.video_name || '' : '',
 					videoUrl,
 					reactions: { ...EMPTY_REACTIONS },
 					userReactions: [],
@@ -517,13 +530,13 @@ class FriendsState {
 			...new Set((commentRows ?? []).map((row) => row.author_id as string))
 		].filter(Boolean);
 
-		let authorMap = new Map<string, Record<string, string | null>>();
+		let authorMap = new SvelteMap<string, Record<string, string | null>>();
 		if (authorIds.length > 0) {
 			const { data: authors } = await supabase
 				.from('vidjo_profiles')
 				.select('user_id, username, display_name, avatar_url')
 				.in('user_id', authorIds);
-			authorMap = new Map(
+			authorMap = new SvelteMap(
 				(authors ?? []).map((author) => [
 					author.user_id as string,
 					author as Record<string, string | null>
@@ -796,7 +809,7 @@ class FriendsState {
 
 			// `vidjo_comments` has no foreign key to `vidjo_entries`, so fetch the
 			// matching page metadata separately instead of relying on an embed.
-			const entryMap = new Map<
+			const entryMap = new SvelteMap<
 				string,
 				{ title: string | null; owner_id: string; entry_date: string }
 			>();
@@ -818,13 +831,13 @@ class FriendsState {
 
 			const authorIds = [...new Set(rows.map((row) => row.author_id as string).filter(Boolean))];
 
-			let authorMap = new Map<string, Record<string, string | null>>();
+			let authorMap = new SvelteMap<string, Record<string, string | null>>();
 			if (authorIds.length > 0) {
 				const { data: authors } = await supabase
 					.from('vidjo_profiles')
 					.select('user_id, username, display_name, avatar_url')
 					.in('user_id', authorIds);
-				authorMap = new Map(
+				authorMap = new SvelteMap(
 					(authors ?? []).map((author) => [
 						author.user_id as string,
 						author as Record<string, string | null>

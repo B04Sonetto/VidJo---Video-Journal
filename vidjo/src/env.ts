@@ -15,5 +15,21 @@ export const variables = defineEnvVars({
 		public: true,
 		description: 'Legacy Supabase anon key. Used when no publishable key is set.',
 		schema: (value) => (value ?? '').trim()
+	},
+	PUBLIC_SENTRY_DSN: {
+		public: true,
+		description:
+			'Sentry-compatible DSN for client error tracking (Sentry or self-hosted GlitchTip). Leave empty to disable.',
+		schema: (value) => (value ?? '').trim()
+	},
+	PUBLIC_SENTRY_ENVIRONMENT: {
+		public: true,
+		description: 'Optional environment label sent with error reports (e.g. production).',
+		schema: (value) => (value ?? '').trim()
+	},
+	PUBLIC_APP_RELEASE: {
+		public: true,
+		description: 'Optional release/version string attached to error reports.',
+		schema: (value) => (value ?? '').trim()
 	}
 });

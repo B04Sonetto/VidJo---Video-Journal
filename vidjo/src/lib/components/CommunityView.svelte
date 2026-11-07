@@ -986,9 +986,9 @@
 
 						{#if post.mind}
 							<div
-								class="mt-2.5 rounded border border-line/70 bg-[#FFFDF6] paper-lined px-2.5 py-1.5"
+								class="mt-2.5 rounded border border-line/70 bg-[#FFFDF6] paper-lined [background-position:0_6px] px-2.5 py-1.5"
 							>
-								<p class="font-hand text-[17px] leading-[31px] whitespace-pre-wrap text-ink">
+								<p class="font-hand text-[17px] leading-[32px] whitespace-pre-wrap text-ink">
 									{post.mind}
 								</p>
 							</div>

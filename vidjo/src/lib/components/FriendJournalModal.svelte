@@ -399,7 +399,9 @@
 						{/if}
 
 						{#if page.mind}
-							<div class="mt-4 rounded-xl border border-line bg-[#FFFDF6] paper-lined px-4 py-3">
+							<div
+								class="mt-4 rounded-xl border border-line bg-[#FFFDF6] paper-lined [background-position:0_12px] px-4 py-3"
+							>
 								<p class="font-hand text-[22px] leading-[32px] whitespace-pre-wrap text-ink">
 									{page.mind}
 								</p>

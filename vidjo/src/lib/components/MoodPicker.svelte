@@ -31,6 +31,7 @@
 				class:-rotate-6={mood === item.k}
 				class:scale-105={mood === item.k}
 			>
+				<!-- eslint-disable-next-line svelte/no-at-html-tags -- static SVG from data/moods.ts -->
 				<span class="block size-[46px] [&>svg]:size-full">{@html item.svg}</span>
 			</span>
 			{item.l}

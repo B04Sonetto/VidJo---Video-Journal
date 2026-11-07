@@ -301,6 +301,7 @@
 								aria-label={'Add ' + sticker.n + ' sticker'}
 								onclick={() => journal.addSticker(sticker.k)}
 							>
+								<!-- eslint-disable-next-line svelte/no-at-html-tags -- static SVG from data/stickers.ts -->
 								<span class="block size-full [&>svg]:size-8">{@html sticker.svg}</span>
 							</button>
 						{/each}
@@ -505,6 +506,7 @@
 							aria-label={'Add ' + sticker.n + ' sticker'}
 							onclick={() => journal.addSticker(sticker.k)}
 						>
+							<!-- eslint-disable-next-line svelte/no-at-html-tags -- static SVG from data/stickers.ts -->
 							<span class="block size-full [&>svg]:size-full">{@html sticker.svg}</span>
 						</button>
 					{/each}

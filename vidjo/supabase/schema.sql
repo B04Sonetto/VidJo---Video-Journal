@@ -185,8 +185,39 @@ create table if not exists public.vidjo_profiles (
 );
 
 -- Safely add columns to existing tables (idempotent).
+alter table public.vidjo_profiles add column if not exists avatar_url text;
 alter table public.vidjo_profiles add column if not exists banner_url text;
 alter table public.vidjo_profiles add column if not exists user_role text not null default 'user';
+
+-- Purge legacy profile picture values that are not real raster images. Older
+-- builds accepted any `data:` URI (including `data:image/svg+xml`) or arbitrary
+-- string in `avatar_url`, which let a profile picture execute script. Short
+-- values are preset emoji/legacy preset names and stay untouched.
+update public.vidjo_profiles
+set avatar_url = null
+where avatar_url is not null
+	and avatar_url <> ''
+	and avatar_url !~* '^https?://'
+	and avatar_url !~* '^//'
+	and avatar_url !~* '^data:image/(png|jpe?g|gif|webp|avif|bmp|x-icon);'
+	and char_length(avatar_url) > 12;
+
+update public.vidjo_profiles
+set banner_url = null
+where banner_url is not null
+	and banner_url <> ''
+	and banner_url !~* '^https?://'
+	and banner_url !~* '^//'
+	and banner_url !~* '^data:image/(png|jpe?g|gif|webp|avif|bmp|x-icon);';
+
+-- SVG can carry scripts, so strip those URLs even when they use http(s).
+update public.vidjo_profiles
+set avatar_url = null
+where avatar_url ~* '\.svgz?([?#].*)?$';
+
+update public.vidjo_profiles
+set banner_url = null
+where banner_url ~* '\.svgz?([?#].*)?$';
 
 -- Banned accounts must lose every policy that depends on membership. The
 -- function is redefined here (after `vidjo_profiles` exists) so the ban flag is

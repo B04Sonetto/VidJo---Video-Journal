@@ -109,8 +109,8 @@
 				<div class="flex items-center justify-between">
 					<div class="flex items-center gap-2.5">
 						<span class="text-xl">
-						<CommunityIcon name="sparkles" size={20} />
-					</span>
+							<CommunityIcon name="sparkles" size={20} />
+						</span>
 						<h2 id="social-modal-title" class="font-display text-xl font-bold tracking-wide">
 							VidJo Social Hub
 						</h2>
@@ -287,7 +287,7 @@
 
 			<!-- Footer -->
 			<div class="bg-paper-2 flex items-center justify-between border-t border-line px-6 py-4">
-				<p class="font-ui text-xs text-ink-soft flex items-center gap-1">
+				<p class="flex items-center gap-1 font-ui text-xs text-ink-soft">
 					<CommunityIcon name="sparkles" size={12} />
 					Friends and Community features are in active development!
 				</p>

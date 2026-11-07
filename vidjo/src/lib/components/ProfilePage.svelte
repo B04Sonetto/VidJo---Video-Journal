@@ -8,7 +8,8 @@
 	import { community } from '#lib/state/community.svelte';
 	import { nav, type ProfileTab } from '#lib/state/navigation.svelte';
 	import { isSupabaseConfigured, supabase, VIDEO_BUCKET } from '#lib/supabase';
-	import { normalizeImageUrl } from '#lib/avatar';
+	import { normalizeImageUrl, optimizedBannerUrl } from '#lib/avatar';
+	import { captureError } from '#lib/observability';
 	import CommunityIcon from '#lib/components/CommunityIcon.svelte';
 	import Avatar from '#lib/components/Avatar.svelte';
 
@@ -181,7 +182,27 @@
 
 	let recentlyShared = $derived(myPosts.slice(0, 4));
 
-	let bannerSrc = $derived(normalizeImageUrl(profile.bannerUrl));
+	let bannerOriginal = $derived(normalizeImageUrl(profile.bannerUrl));
+	let bannerOptimized = $derived(optimizedBannerUrl(bannerOriginal));
+	let bannerUseOriginal = $state(false);
+	let bannerFailed = $state(false);
+	let bannerSrc = $derived(bannerUseOriginal ? bannerOriginal : bannerOptimized);
+
+	$effect(() => {
+		void bannerOriginal;
+		bannerFailed = false;
+		bannerUseOriginal = false;
+	});
+
+	function handleBannerError() {
+		// Fall back to the original object URL when transformations are not
+		// enabled for the Supabase project.
+		if (!bannerUseOriginal && bannerOriginal && bannerOptimized !== bannerOriginal) {
+			bannerUseOriginal = true;
+			return;
+		}
+		bannerFailed = true;
+	}
 
 	$effect(() => {
 		const key = [
@@ -344,7 +365,13 @@
 					.filter((path): path is string => Boolean(path));
 
 				if (videoPaths.length > 0) {
-					await supabase.storage.from(VIDEO_BUCKET).remove(videoPaths);
+					const { error: videoRemoveError } = await supabase.storage
+						.from(VIDEO_BUCKET)
+						.remove(videoPaths);
+					if (videoRemoveError) {
+						console.warn('[VidJo] Could not remove account videos.', videoRemoveError);
+						captureError(new Error(videoRemoveError.message), { area: 'account-delete-videos' });
+					}
 				}
 
 				for (const folder of ['avatars', 'banners']) {
@@ -353,7 +380,15 @@
 						.list(`${userId}/${folder}`);
 					const imagePaths = (imageFiles ?? []).map((file) => `${userId}/${folder}/${file.name}`);
 					if (imagePaths.length > 0) {
-						await supabase.storage.from('vidjo-images').remove(imagePaths);
+						const { error: imageRemoveError } = await supabase.storage
+							.from('vidjo-images')
+							.remove(imagePaths);
+						if (imageRemoveError) {
+							console.warn('[VidJo] Could not remove account images.', imageRemoveError);
+							captureError(new Error(imageRemoveError.message), {
+								area: 'account-delete-images'
+							});
+						}
 					}
 				}
 
@@ -367,6 +402,7 @@
 				}
 			} catch (err) {
 				console.error('[VidJo] Could not delete the account.', err);
+				captureError(err, { area: 'account-delete' });
 				journal.toast('Could not delete your account. Please try again.');
 				return;
 			}
@@ -401,12 +437,14 @@
 		class="relative overflow-hidden rounded-[32px] border border-[#523A7A] shadow-[0_28px_70px_rgba(0,0,0,.5)]"
 	>
 		<div class="relative h-44 min-[720px]:h-52">
-			{#if bannerSrc}
+			{#if bannerSrc && !bannerFailed}
 				<img
 					src={bannerSrc}
 					alt=""
 					class="absolute inset-0 h-full w-full object-cover"
+					decoding="async"
 					referrerpolicy="no-referrer"
+					onerror={handleBannerError}
 				/>
 			{:else}
 				<div
@@ -932,7 +970,7 @@
 					Default paper style
 				</p>
 				<div class="mt-2 grid gap-2">
-					{#each ['lined', 'dotted', 'grid', 'plain'] as const as style}
+					{#each ['lined', 'dotted', 'grid', 'plain'] as const as style (style)}
 						<button
 							type="button"
 							class="flex items-center justify-between rounded-xl px-4 py-3 transition-colors {profile.paperStyle ===
@@ -1128,63 +1166,69 @@
 
 					<div class="grid gap-1.5">
 						<span class="font-ui text-xs font-bold tracking-wider text-gold uppercase"
-							>Avatar image URL</span
+							>Profile picture</span
 						>
-						<input
-							bind:value={editAvatar}
-							type="url"
-							aria-label="Avatar image URL"
-							placeholder="https://…"
-							class="h-11 rounded-xl border border-white/15 bg-[#24143D] px-3.5 font-ui text-sm text-white placeholder:text-[#9B8CB5] focus:border-gold/60 focus:outline-none"
-						/>
+						<span class="font-ui text-[11px] text-[#BBA8E0]"
+							>Upload a PNG, JPG, GIF, or WebP image (max 5 MB).</span
+						>
 						<label
 							class="flex cursor-pointer items-center gap-2 rounded-xl border border-white/15 bg-[#24143D] px-3.5 py-2 font-ui text-xs text-[#D6CBEC] hover:bg-[#3A2A55]"
 						>
 							Upload photo
 							<input
 								type="file"
-								accept="image/*"
+								accept="image/png,image/jpeg,image/gif,image/webp"
 								class="hidden"
 								onchange={(event) => {
-									const file = (event.currentTarget as HTMLInputElement).files?.[0];
+									const input = event.currentTarget as HTMLInputElement;
+									const file = input.files?.[0];
 									if (file) avatarFile = file;
+									input.value = '';
 								}}
 							/>
 						</label>
 						{#if avatarFile}
 							<span class="font-ui text-[11px] text-lav">Selected: {avatarFile.name}</span>
+						{:else if editAvatar}
+							<button
+								type="button"
+								class="justify-self-start font-ui text-[11px] font-semibold text-[#FF9B9B] hover:underline"
+								onclick={() => {
+									editAvatar = '';
+									avatarFile = null;
+								}}
+							>
+								Remove photo
+							</button>
 						{/if}
 					</div>
 
 					<div class="grid gap-1.5">
 						<span class="font-ui text-xs font-bold tracking-wider text-gold uppercase"
-							>Profile banner URL</span
+							>Profile banner</span
 						>
-						<input
-							bind:value={editBanner}
-							type="url"
-							aria-label="Profile banner URL"
-							placeholder="https://…"
-							class="h-11 rounded-xl border border-white/15 bg-[#24143D] px-3.5 font-ui text-sm text-white placeholder:text-[#9B8CB5] focus:border-gold/60 focus:outline-none"
-						/>
+						<span class="font-ui text-[11px] text-[#BBA8E0]"
+							>Upload a PNG, JPG, GIF, or WebP image (max 5 MB).</span
+						>
 						<label
 							class="flex cursor-pointer items-center gap-2 rounded-xl border border-white/15 bg-[#24143D] px-3.5 py-2 font-ui text-xs text-[#D6CBEC] hover:bg-[#3A2A55]"
 						>
 							Upload banner
 							<input
 								type="file"
-								accept="image/*"
+								accept="image/png,image/jpeg,image/gif,image/webp"
 								class="hidden"
 								onchange={(event) => {
-									const file = (event.currentTarget as HTMLInputElement).files?.[0];
+									const input = event.currentTarget as HTMLInputElement;
+									const file = input.files?.[0];
 									if (file) bannerFile = file;
+									input.value = '';
 								}}
 							/>
 						</label>
 						{#if bannerFile}
 							<span class="font-ui text-[11px] text-lav">Selected: {bannerFile.name}</span>
-						{/if}
-						{#if editBanner || bannerFile}
+						{:else if editBanner}
 							<button
 								type="button"
 								class="justify-self-start font-ui text-[11px] font-semibold text-[#FF9B9B] hover:underline"

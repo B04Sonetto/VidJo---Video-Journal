@@ -98,12 +98,40 @@
 						playsinline
 						onerror={() => {
 							if (journal.entries[date]?.videoPath) {
-								void journal.resolveSignedUrl(date);
+								journal.refreshVideo(date);
 							}
 						}}
+						onloadeddata={() => journal.videoPlayed(date)}
 						class="block h-full w-full bg-[#120A20] object-contain"
 					></video>
 				{/key}
+			{:else if journal.videoProblem(date)}
+				<div
+					class="flex flex-col items-center gap-2 px-6 text-center font-hand text-lg text-[#EDE6F7]"
+				>
+					<div class="font-ui text-[15px] font-semibold">Video unavailable</div>
+					<p class="m-0 text-[14px] leading-snug text-lav/90">
+						{journal.videoProblem(date)}
+					</p>
+					{#if !preview}
+						<div class="flex flex-wrap justify-center gap-2">
+							<button
+								type="button"
+								class="min-h-[34px] rounded-lg border-2 border-lav/60 bg-white/[.08] px-3 font-ui text-[13px] font-semibold text-white transition-all hover:border-lav hover:bg-white/[.16] active:scale-[0.98]"
+								onclick={() => journal.retryVideo(date)}
+							>
+								Try again
+							</button>
+							<button
+								type="button"
+								class="min-h-[34px] rounded-lg border border-[#CDBBE9] bg-light px-3 font-ui text-[13px] font-medium text-accent"
+								onclick={() => journal.removeVideo(date)}
+							>
+								Remove
+							</button>
+						</div>
+					{/if}
+				</div>
 			{:else if journal.entries[date]?.videoPath}
 				<div
 					class="flex flex-col items-center gap-2.5 text-center font-hand text-lg text-[#EDE6F7]"
@@ -240,7 +268,7 @@
 					<button
 						type="button"
 						class="min-h-[30px] rounded-lg border border-[#CDBBE9] bg-light px-2 font-ui text-[13px] font-medium text-accent"
-						onclick={() => journal.removeVideo()}
+						onclick={() => journal.removeVideo(date)}
 					>
 						Remove
 					</button>
@@ -259,7 +287,9 @@
 		onSelect={(mood) => !preview && journal.toggleMood(mood)}
 	/>
 
-	<p class="mt-auto mb-2 text-center font-hand text-lg text-ink-soft flex items-center justify-center gap-1">
+	<p
+		class="mt-auto mb-2 flex items-center justify-center gap-1 text-center font-hand text-lg text-ink-soft"
+	>
 		Open the sticker tray below to make this page yours
 		<CommunityIcon name="spark" size={14} />
 	</p>

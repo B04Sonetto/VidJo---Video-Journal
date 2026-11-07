@@ -763,7 +763,7 @@
 						{#if usernameChecking}
 							<span class="font-ui text-[11px] text-accent">Checking availability…</span>
 						{:else if usernameAvailable === true}
-							<span class="font-ui text-[11px] text-[#3F7A4F] flex items-center gap-1">
+							<span class="flex items-center gap-1 font-ui text-[11px] text-[#3F7A4F]">
 								<CommunityIcon name="check" size={11} />
 								Available
 							</span>

@@ -657,4 +657,3 @@
 		<span class="font-ui text-[10px] font-semibold">Profile</span>
 	</button>
 </nav>
-<div class="h-20 min-[900px]:hidden"></div>

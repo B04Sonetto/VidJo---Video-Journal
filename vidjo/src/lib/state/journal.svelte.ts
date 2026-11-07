@@ -1,6 +1,7 @@
 import { STICKER_BY_KEY } from '#lib/data/stickers';
 import { TODAY, uid } from '#lib/dates';
 import { peekDeviceId } from '#lib/identity';
+import { captureError } from '#lib/observability';
 import { isSupabaseConfigured, supabase, VIDEO_BUCKET } from '#lib/supabase';
 import { viewport } from '#lib/state/viewport.svelte';
 import {
@@ -34,6 +35,27 @@ function legacyVideoPath(url: unknown): string {
 	} catch {
 		return url.slice(index + marker.length).split('?')[0];
 	}
+}
+
+const VIDEO_MIME_BY_EXT: Record<string, string> = {
+	mp4: 'video/mp4',
+	m4v: 'video/mp4',
+	mov: 'video/quicktime',
+	webm: 'video/webm',
+	mkv: 'video/x-matroska'
+};
+
+/**
+ * The bucket's `allowed_mime_types` only accepts plain video MIME types.
+ * MediaRecorder commonly reports values such as `video/mp4;codecs=avc1`, so
+ * strip parameters and fall back to the file extension before uploading.
+ */
+function videoContentType(blob: Blob, name: string): string {
+	const base = (blob.type || '').split(';')[0].trim().toLowerCase();
+	if (base.startsWith('video/')) return base;
+
+	const ext = name.split('.').pop()?.toLowerCase() ?? '';
+	return VIDEO_MIME_BY_EXT[ext] ?? 'video/webm';
 }
 
 /** Fill in missing fields from older cached entries, including legacy video URLs. */
@@ -145,6 +167,8 @@ class Journal {
 	selected = $state<string[]>([]);
 	lastPage = $state<Side>('R');
 	sessionVideos = $state<Record<string, string>>({});
+	/** Per-date reason a stored video cannot be played, so the UI can stop spinning. */
+	videoFailures = $state<Record<string, string>>({});
 
 	ready = $state(false);
 	busy = $state(false);
@@ -163,6 +187,7 @@ class Journal {
 	private toastTimer: ReturnType<typeof setTimeout> | null = null;
 	private initSeq = 0;
 	private signedUrlPending = new Set<string>();
+	private videoRefreshAttempts = new Map<string, number>();
 	private remoteDeletes = new Map<string, Promise<void>>();
 
 	get sortedDates(): string[] {
@@ -295,6 +320,8 @@ class Journal {
 			if (url.startsWith('blob:')) URL.revokeObjectURL(url);
 		}
 		this.sessionVideos = {};
+		this.videoFailures = {};
+		this.videoRefreshAttempts.clear();
 	}
 
 	private async claimLegacy(ownerId: string): Promise<Record<string, Entry>> {
@@ -646,10 +673,43 @@ class Journal {
 		if (session) return session;
 
 		const path = this.entries[date]?.videoPath;
-		if (path && isSupabaseConfigured) {
+		if (path && isSupabaseConfigured && !this.videoFailures[date]) {
 			void this.resolveSignedUrl(date, path);
 		}
 		return '';
+	}
+
+	/** Human-readable reason the stored video cannot be played, or '' when it can. */
+	videoProblem(date: string) {
+		return this.videoFailures[date] ?? '';
+	}
+
+	/** Ask storage for a fresh URL after the previous one expired or failed to play. */
+	refreshVideo(date: string) {
+		const attempts = (this.videoRefreshAttempts.get(date) ?? 0) + 1;
+		this.videoRefreshAttempts.set(date, attempts);
+
+		if (attempts > 2) {
+			this.videoFailures[date] = 'The video could not be played.';
+			return;
+		}
+
+		this.clearSessionVideo(date);
+		delete this.videoFailures[date];
+		void this.resolveSignedUrl(date);
+	}
+
+	/** Reset the refresh budget once a video actually plays. */
+	videoPlayed(date: string) {
+		this.videoRefreshAttempts.delete(date);
+	}
+
+	/** Manual retry from the page when signing previously failed. */
+	retryVideo(date: string) {
+		this.videoRefreshAttempts.delete(date);
+		delete this.videoFailures[date];
+		this.clearSessionVideo(date);
+		void this.resolveSignedUrl(date);
 	}
 
 	async resolveSignedUrl(date: string, path?: string) {
@@ -663,11 +723,43 @@ class Journal {
 			const { data, error } = await supabase.storage
 				.from(VIDEO_BUCKET)
 				.createSignedUrl(targetPath, SIGNED_URL_TTL);
-			if (!error && data?.signedUrl) {
-				this.sessionVideos[date] = data.signedUrl;
+
+			if (error || !data?.signedUrl) {
+				const detail = error as { message?: string; statusCode?: string | number } | null;
+				const message = detail?.message?.trim() || 'The video could not be loaded.';
+				const folder = targetPath.split('/')[0] || '';
+				const mismatch = Boolean(this.ownerId && folder && folder !== this.ownerId);
+
+				// All signing failures arrive as HTTP 400. Log the actual storage
+				// message so a missing object is not mistaken for an app bug.
+				console.warn('[VidJo] Could not create a signed video URL.', {
+					path: targetPath,
+					owner: this.ownerId,
+					pathOwner: folder,
+					ownerMismatch: mismatch,
+					status: detail?.statusCode ?? null,
+					message
+				});
+
+				this.videoFailures[date] = mismatch
+					? 'This video was uploaded under a different account, so it cannot be played here.'
+					: /not found|does not exist|invalid key|not authorized|permission/i.test(message)
+						? 'This video is no longer available in storage.'
+						: message;
+				return;
 			}
+
+			this.sessionVideos[date] = data.signedUrl;
+			delete this.videoFailures[date];
 		} catch (err) {
-			console.warn('[VidJo] Could not create signed URL for', targetPath, err);
+			const message = err instanceof Error ? err.message : String(err);
+			console.warn('[VidJo] Could not create a signed video URL.', {
+				path: targetPath,
+				owner: this.ownerId,
+				message
+			});
+			captureError(err, { area: 'video-sign' });
+			this.videoFailures[date] = message;
 		} finally {
 			this.signedUrlPending.delete(date);
 		}
@@ -689,6 +781,8 @@ class Journal {
 
 		this.uploading = true;
 		this.clearSessionVideo(date);
+		delete this.videoFailures[date];
+		this.videoRefreshAttempts.delete(date);
 
 		try {
 			let uploadedPath = '';
@@ -737,20 +831,32 @@ class Journal {
 		}
 	}
 
-	removeVideo() {
-		const entry = this.entries[this.current];
+	async removeVideo(date = this.current) {
+		const entry = this.entries[date];
 		if (!entry) return;
 
-		const date = this.current;
 		const previousPath = entry.videoPath;
 
 		this.clearSessionVideo(date);
 		void deleteStoredVideo(this.videoKey(date));
+		delete this.videoFailures[date];
+		this.videoRefreshAttempts.delete(date);
 		entry.videoPath = '';
 		entry.videoName = '';
 		entry.sample = false;
 		this.queueSave(date);
-		if (previousPath) void this.deleteRemoteVideo(previousPath);
+
+		if (!previousPath) {
+			this.toast('Video removed');
+			return;
+		}
+
+		const deleted = await this.deleteRemoteVideo(previousPath);
+		if (!deleted && this.remote) {
+			this.toast('Video removed from this page, but the stored file could not be deleted.');
+		} else {
+			this.toast('Video removed');
+		}
 	}
 
 	private clearSessionVideo(date: string) {
@@ -811,7 +917,7 @@ class Journal {
 			const safeName = name.replace(/[^a-zA-Z0-9._-]/g, '_') || 'video.webm';
 			const path = `${this.ownerId}/${date}/${Date.now()}-${safeName}`;
 			const { error } = await supabase.storage.from(VIDEO_BUCKET).upload(path, blob, {
-				contentType: blob.type || 'video/webm',
+				contentType: videoContentType(blob, safeName),
 				upsert: true
 			});
 
@@ -827,23 +933,52 @@ class Journal {
 		} catch (error) {
 			const message = error instanceof Error ? error.message : String(error);
 			console.warn('[VidJo] Video upload failed.', error);
+			captureError(error, { area: 'video-upload' });
 			return { path: '', url: '', bucketMissing: /bucket/i.test(message) };
 		}
 	}
 
-	private async deleteRemoteVideo(pathOrUrl: string) {
-		if (!pathOrUrl || !isSupabaseConfigured || !this.ownerId) return;
+	private async deleteRemoteVideo(pathOrUrl: string): Promise<boolean> {
+		if (!pathOrUrl || !isSupabaseConfigured || !this.ownerId) return false;
 
 		let path = pathOrUrl;
 		if (path.includes('http://') || path.includes('https://')) {
 			path = legacyVideoPath(pathOrUrl);
 		}
-		if (!path) return;
+		if (!path) return false;
+
+		// The delete policy only allows objects inside the signed-in user's
+		// folder. Skip other keys instead of sending a request that cannot work.
+		const folder = path.split('/')[0] || '';
+		if (folder !== this.ownerId) {
+			console.warn('[VidJo] Not deleting a video outside this account folder.', {
+				path,
+				owner: this.ownerId
+			});
+			return false;
+		}
 
 		try {
-			await supabase.storage.from(VIDEO_BUCKET).remove([path]);
+			const { error } = await supabase.storage.from(VIDEO_BUCKET).remove([path]);
+			if (error) {
+				// `.remove()` resolves with an error object instead of throwing, so
+				// this is the only place a failed deletion is visible.
+				console.warn('[VidJo] Could not delete the stored video.', {
+					path,
+					status: error.statusCode ?? null,
+					message: error.message
+				});
+				captureError(new Error(error.message), {
+					area: 'video-delete',
+					status: error.statusCode ?? null
+				});
+				return false;
+			}
+			return true;
 		} catch (error) {
-			console.warn('[VidJo] Could not remove the old video.', error);
+			console.warn('[VidJo] Could not delete the stored video.', { path, error });
+			captureError(error, { area: 'video-delete' });
+			return false;
 		}
 	}
 

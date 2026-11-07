@@ -122,7 +122,7 @@
 				username: cleanUsername,
 				display_name: completionNickname.trim(),
 				bio: profile.profile?.bio ?? '',
-				avatar_url: profile.profile?.avatar_url ?? null,
+				avatar_url: profile.avatarUrl,
 				banner_url: profile.bannerUrl
 			});
 			if (result.error) {
@@ -303,6 +303,9 @@
 			</div>
 		{/if}
 	</main>
+
+	<!-- Reserve space for the fixed mobile bottom navigation. -->
+	<div class="h-20 min-[900px]:hidden" aria-hidden="true"></div>
 
 	<CalendarModal open={calendarOpen} onClose={() => (calendarOpen = false)} />
 {/if}

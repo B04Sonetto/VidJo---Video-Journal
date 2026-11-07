@@ -21,9 +21,38 @@ export function legacyPresetAvatar(value: string | null | undefined): string | n
 }
 
 /**
+ * Only raster image formats are allowed. SVG can contain scripts, so it must
+ * never reach an image sink, even though `<img>` usually blocks SVG scripts.
+ */
+const SAFE_RASTER_DATA_URL_RE =
+	/^data:image\/(?:png|jpe?g|pjpeg|x-png|gif|webp|avif|bmp|x-icon|vnd\.microsoft\.icon)(?:;[a-z0-9=._-]+)*,/i;
+
+const SVG_EXTENSION_RE = /\.svgz?(?:[?#].*)?$/i;
+
+function normalizeHttpUrl(value: string): string | null {
+	// Mixed-content images silently fail on the HTTPS deployment.
+	const upgraded = value.replace(/^http:\/\//i, 'https://');
+
+	try {
+		const parsed = new URL(upgraded);
+		if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') return null;
+		if (SVG_EXTENSION_RE.test(parsed.pathname)) return null;
+		// Use the parsed href so quotes, spaces, and control characters are
+		// percent-encoded before the value ever reaches an attribute.
+		return parsed.href;
+	} catch {
+		return null;
+	}
+}
+
+/**
  * Avatars can be real image URLs, preset emoji, or nothing at all. Users often
  * paste Pinterest/Google URLs without a protocol, so normalise them before they
  * ever reach an `<img src>`.
+ *
+ * Anything that is not an emoji, an http(s) image URL, or a raster `data:` URI
+ * is rejected. This closes the `data:image/svg+xml` / `javascript:` sinks that
+ * allowed a profile picture to execute script.
  */
 export function normalizeImageUrl(value: string | null | undefined): string | null {
 	if (!value) return null;
@@ -37,22 +66,100 @@ export function normalizeImageUrl(value: string | null | undefined): string | nu
 	const legacyPreset = legacyPresetAvatar(trimmed);
 	if (legacyPreset) return legacyPreset;
 
-	if (trimmed.startsWith('//')) return `https:${trimmed}`;
+	if (trimmed.startsWith('//')) return normalizeHttpUrl(`https:${trimmed}`);
 
-	if (/^https?:\/\//i.test(trimmed)) {
-		// Mixed-content images silently fail on the HTTPS deployment.
-		return trimmed.replace(/^http:\/\//i, 'https://');
+	if (/^https?:\/\//i.test(trimmed)) return normalizeHttpUrl(trimmed);
+
+	if (/^data:/i.test(trimmed)) {
+		return SAFE_RASTER_DATA_URL_RE.test(trimmed) ? trimmed : null;
 	}
-
-	if (/^data:image\//i.test(trimmed)) return trimmed;
 
 	// Bare domains such as `i.pinimg.com/736x/...` were being treated as
 	// relative paths, which is what produced the broken `://i.pinimg.com` image.
 	if (/^(?:[\w-]+\.)+[a-z]{2,}(?:[/:?#]|$)/i.test(trimmed)) {
-		return `https://${trimmed}`;
+		return normalizeHttpUrl(`https://${trimmed}`);
 	}
 
-	return trimmed;
+	return null;
+}
+
+export type ImageTransformOptions = {
+	width?: number;
+	height?: number;
+	quality?: number;
+	resize?: 'cover' | 'contain' | 'fill';
+};
+
+const PUBLIC_STORAGE_MARKER = '/storage/v1/object/public/';
+const RENDER_STORAGE_MARKER = '/storage/v1/render/image/public/';
+
+function applyImageTransform(url: URL, transform: ImageTransformOptions) {
+	const setDimension = (key: 'width' | 'height', value: number | undefined) => {
+		if (!value) return;
+		url.searchParams.set(key, String(Math.min(2500, Math.max(1, Math.round(value)))));
+	};
+
+	setDimension('width', transform.width);
+	setDimension('height', transform.height);
+	if (transform.resize) url.searchParams.set('resize', transform.resize);
+	if (transform.quality) {
+		url.searchParams.set(
+			'quality',
+			String(Math.min(100, Math.max(20, Math.round(transform.quality))))
+		);
+	}
+}
+
+/**
+ * Supabase Storage can resize and re-encode public-bucket images at the CDN
+ * edge. Only `/storage/v1/object/public/...` URLs are rewritten to the
+ * `/storage/v1/render/image/public/...` endpoint; emoji presets, local data
+ * URIs, and third-party images pass through unchanged.
+ */
+export function transformedImageUrl(
+	value: string | null | undefined,
+	transform: ImageTransformOptions
+): string | null {
+	if (!value || isEmojiAvatar(value)) return value ?? null;
+	if (!/^https?:\/\//i.test(value)) return value;
+
+	let parsed: URL;
+	try {
+		parsed = new URL(value);
+	} catch {
+		return value;
+	}
+
+	const isRender = parsed.pathname.includes(RENDER_STORAGE_MARKER);
+	const isPublicObject = parsed.pathname.includes(PUBLIC_STORAGE_MARKER);
+	if (!isRender && !isPublicObject) return value;
+
+	if (isPublicObject) {
+		parsed.pathname = parsed.pathname.replace(PUBLIC_STORAGE_MARKER, RENDER_STORAGE_MARKER);
+	}
+
+	applyImageTransform(parsed, transform);
+	return parsed.href;
+}
+
+/** Square avatar variant. 256px covers the largest avatar at 2x DPI. */
+export function optimizedAvatarUrl(value: string | null | undefined, size = 256): string | null {
+	return transformedImageUrl(value, {
+		width: size,
+		height: size,
+		resize: 'cover',
+		quality: 80
+	});
+}
+
+/** Wide profile-banner variant. The hero is at most ~1100 CSS px wide. */
+export function optimizedBannerUrl(value: string | null | undefined, width = 1600): string | null {
+	return transformedImageUrl(value, {
+		width,
+		height: Math.round(width * 0.3),
+		resize: 'cover',
+		quality: 80
+	});
 }
 
 export function isEmojiAvatar(value: string | null | undefined): boolean {
