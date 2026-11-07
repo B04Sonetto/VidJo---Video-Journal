@@ -1,15 +1,9 @@
 <script lang="ts">
 	import './layout.css';
-	import { onMount } from 'svelte';
 	import favicon from '#lib/assets/favicon.svg';
-	import { initErrorTracking } from '#lib/observability';
 	import type { LayoutProps } from './$types';
 
 	let { children }: LayoutProps = $props();
-
-	onMount(() => {
-		initErrorTracking();
-	});
 </script>
 
 <svelte:head>

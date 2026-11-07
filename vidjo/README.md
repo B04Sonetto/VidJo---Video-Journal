@@ -143,8 +143,9 @@ vendor is required.
 ### Error tracking (optional)
 
 Error reporting is opt-in and disabled when no DSN is set. It is compatible with
-Sentry Cloud and self-hosted GlitchTip because both use the same
-`@sentry/browser` protocol.
+Sentry Cloud and self-hosted GlitchTip because both use the same Sentry SDK
+protocol. Client and server errors are reported through `@sentry/sveltekit`, but
+Session Replay and performance tracing are intentionally off.
 
 ```sh
 PUBLIC_SENTRY_DSN=https://your-key@your-sentry-host/1

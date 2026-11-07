@@ -1,3 +1,4 @@
+import { sentrySvelteKit } from '@sentry/sveltekit/vite';
 import tailwindcss from '@tailwindcss/vite';
 import adapterNode from '@sveltejs/adapter-node';
 import adapterVercel from '@sveltejs/adapter-vercel';
@@ -10,6 +11,10 @@ const adapter = process.env.VERCEL ? adapterVercel() : adapterNode();
 
 export default defineConfig({
 	plugins: [
+		sentrySvelteKit({
+			org: 'sean-carlo-masaya',
+			project: 'vidjo-video-journal'
+		}),
 		tailwindcss(),
 		sveltekit({
 			compilerOptions: {

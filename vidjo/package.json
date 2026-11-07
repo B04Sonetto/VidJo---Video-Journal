@@ -44,7 +44,7 @@
 		"#lib/*": "./src/lib/*"
 	},
 	"dependencies": {
-		"@sentry/browser": "^11.11.0",
+		"@sentry/sveltekit": "^11.11.0",
 		"@supabase/supabase-js": "^2.118.0"
 	}
 }
