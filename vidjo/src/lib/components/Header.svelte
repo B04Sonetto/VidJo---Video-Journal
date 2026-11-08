@@ -473,7 +473,7 @@
 				</div>
 			{/if}
 			{#if adminOpen}
-				<AdminPanel open={adminOpen} />
+				<AdminPanel bind:open={adminOpen} />
 			{/if}
 		</div>
 	{:else}
