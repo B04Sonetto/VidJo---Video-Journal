@@ -1,4 +1,5 @@
 import { SvelteMap } from 'svelte/reactivity';
+import { track } from '#lib/analytics';
 import { isSupabaseConfigured, supabase, VIDEO_BUCKET } from '#lib/supabase';
 import { censor } from '#lib/censor';
 import type {
@@ -682,6 +683,7 @@ class FriendsState {
 		}
 
 		await this.refreshRemote();
+		track('friend_request_sent');
 		const message = result.message || 'Friend request sent!';
 		journal.toast(message);
 		return {
@@ -714,6 +716,7 @@ class FriendsState {
 
 		await this.refreshRemote();
 		this.syncNotificationsFromFriendRequests();
+		track('friend_request_accepted');
 		journal.toast(result.message || 'You are now friends!');
 	}
 
@@ -740,6 +743,7 @@ class FriendsState {
 
 		await this.refreshRemote();
 		this.syncNotificationsFromFriendRequests();
+		track('friend_request_declined');
 		journal.toast('Friend request declined.');
 	}
 
@@ -787,6 +791,7 @@ class FriendsState {
 			this.persistFriendsCache();
 		}
 
+		track('friend_removed');
 		if (target) journal.toast(`Removed ${target.displayName} from friends.`);
 	}
 
@@ -1072,6 +1077,7 @@ class FriendsState {
 
 				const { error } = await request;
 				if (error) console.warn('[VidJo] Could not save the reaction.', error);
+				else if (!hasReacted) track('reaction_added', { surface: 'friends' });
 			})();
 		}
 	}
@@ -1119,6 +1125,7 @@ class FriendsState {
 			return;
 		}
 
+		track('comment_posted', { surface: 'friends' });
 		const savedId = (data?.id as string) || temp.id;
 		this.commentMap = {
 			...this.commentMap,

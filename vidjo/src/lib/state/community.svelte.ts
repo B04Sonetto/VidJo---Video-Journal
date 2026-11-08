@@ -1,3 +1,4 @@
+import { track } from '#lib/analytics';
 import { auth } from '#lib/state/auth.svelte';
 import { journal } from '#lib/state/journal.svelte';
 import { profile } from '#lib/state/profile.svelte';
@@ -318,6 +319,7 @@ class CommunityState {
 			}
 		}
 
+		track(nextJoined ? 'community_joined' : 'community_left');
 		journal.toast(nextJoined ? `Joined ${community.tag}` : `Left ${community.tag}`);
 		return true;
 	}
@@ -652,12 +654,14 @@ class CommunityState {
 						.eq('user_id', auth.user.id)
 						.eq('reaction', reaction);
 				} else {
-					await supabase.from('vidjo_reactions').insert({
+					const { error } = await supabase.from('vidjo_reactions').insert({
 						post_owner_id: post.authorId,
 						post_date: post.date,
 						user_id: auth.user.id,
 						reaction
 					});
+					if (error) throw error;
+					track('reaction_added', { surface: 'community' });
 				}
 			} catch (error) {
 				console.warn('[VidJo] Could not save the reaction.', error);
@@ -700,6 +704,7 @@ class CommunityState {
 					.single();
 
 				if (error) throw error;
+				track('comment_posted', { surface: 'community' });
 				this.commentMap = {
 					...this.commentMap,
 					[key]: (this.commentMap[key] ?? []).map((comment) =>

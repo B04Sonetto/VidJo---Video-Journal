@@ -1,3 +1,4 @@
+import { track } from '#lib/analytics';
 import { STICKER_BY_KEY } from '#lib/data/stickers';
 import { TODAY, uid } from '#lib/dates';
 import { peekDeviceId } from '#lib/identity';
@@ -665,6 +666,11 @@ class Journal {
 		}
 
 		void this.flush();
+		track('entry_saved', {
+			has_video: Boolean(entry.videoPath),
+			privacy: entry.privacy,
+			mood: Boolean(entry.mood)
+		});
 		this.toast('Saved to your journal');
 	}
 
@@ -746,6 +752,13 @@ class Journal {
 					: /not found|does not exist|invalid key|not authorized|permission/i.test(message)
 						? 'This video is no longer available in storage.'
 						: message;
+				track('video_play_failed', {
+					reason: mismatch
+						? 'permission'
+						: /not found|does not exist|invalid key|not authorized/i.test(message)
+							? 'missing'
+							: 'unknown'
+				});
 				return;
 			}
 
@@ -824,6 +837,10 @@ class Journal {
 			if (previousPath && previousPath !== entry.videoPath) {
 				void this.deleteRemoteVideo(previousPath);
 			}
+			track('video_added', {
+				mode: uploadedPath ? 'cloud' : 'device',
+				mime: file.type.includes('mp4') ? 'mp4' : file.type.includes('webm') ? 'webm' : 'other'
+			});
 			entry.sample = false;
 			this.queueSave(date);
 		} finally {
@@ -845,6 +862,7 @@ class Journal {
 		entry.videoName = '';
 		entry.sample = false;
 		this.queueSave(date);
+		track('video_removed');
 
 		if (!previousPath) {
 			this.toast('Video removed');

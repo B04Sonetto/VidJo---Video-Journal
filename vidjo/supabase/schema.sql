@@ -1549,3 +1549,229 @@ begin
 	end loop;
 end;
 $$;
+
+-- ---------------------------------------------------------------------------
+-- Privacy-friendly product analytics
+-- ---------------------------------------------------------------------------
+-- Only aggregate-friendly, non-content facts are stored. Journal text, titles,
+-- reflections, bios, names, emails, search terms, IP addresses, user agents,
+-- and referrers are never written here. Clients cannot read the table; the
+-- admin-only RPC below returns aggregates only.
+--
+-- Events are inserted through `vidjo_track_event` so the server can enforce an
+-- event allowlist, a metadata allowlist, and a per-user rate limit. This keeps a
+-- modified client from stuffing journal content or arbitrary text into stats.
+
+create table if not exists public.vidjo_analytics_events (
+	id bigint generated always as identity primary key,
+	user_id uuid references auth.users(id) on delete set null,
+	event text not null,
+	route text not null default '',
+	meta jsonb not null default '{}'::jsonb,
+	created_at timestamptz not null default now()
+);
+
+create index if not exists vidjo_analytics_created_idx
+	on public.vidjo_analytics_events (created_at desc);
+create index if not exists vidjo_analytics_user_created_idx
+	on public.vidjo_analytics_events (user_id, created_at desc);
+create index if not exists vidjo_analytics_event_created_idx
+	on public.vidjo_analytics_events (event, created_at desc);
+
+alter table public.vidjo_analytics_events enable row level security;
+-- No policies on purpose: only the SECURITY DEFINER functions below may touch
+-- this table, and clients get aggregates rather than raw rows.
+revoke all on public.vidjo_analytics_events from anon;
+revoke all on public.vidjo_analytics_events from authenticated;
+
+create or replace function public.vidjo_track_event(
+	p_event text,
+	p_route text default '',
+	p_meta jsonb default '{}'::jsonb
+)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+	curr_user uuid := auth.uid();
+	safe_meta jsonb;
+	recent int;
+begin
+	-- Unknown or unauthenticated callers are ignored rather than raising: a
+	-- blocked analytics beacon must never break the journal.
+	if curr_user is null or not public.vidjo_is_member() then
+		return;
+	end if;
+
+	if p_event is null or p_event not in (
+		'session_start',
+		'view_changed',
+		'entry_saved',
+		'video_added',
+		'video_removed',
+		'video_play_failed',
+		'friend_request_sent',
+		'friend_request_accepted',
+		'friend_request_declined',
+		'friend_removed',
+		'community_joined',
+		'community_left',
+		'comment_posted',
+		'reaction_added',
+		'profile_updated'
+	) then
+		return;
+	end if;
+
+	-- Keep only known, scalar, short metadata. Anything else is dropped before
+	-- it reaches the table, so a client bug cannot leak writing or bios.
+	select coalesce(jsonb_object_agg(key, value), '{}'::jsonb)
+	into safe_meta
+	from jsonb_each(coalesce(p_meta, '{}'::jsonb))
+	where key in (
+		'view',
+		'privacy',
+		'has_video',
+		'mood',
+		'mode',
+		'mime',
+		'surface',
+		'reason',
+		'count'
+	)
+		and jsonb_typeof(value) in ('string', 'number', 'boolean')
+		and length(value::text) <= 80;
+
+	-- Bound the write rate so one account cannot distort the numbers.
+	select count(*) into recent
+	from public.vidjo_analytics_events
+	where user_id = curr_user
+		and created_at > now() - interval '1 hour';
+
+	if recent >= 300 then
+		return;
+	end if;
+
+	insert into public.vidjo_analytics_events (user_id, event, route, meta)
+	values (
+		curr_user,
+		p_event,
+		left(coalesce(p_route, ''), 40),
+		safe_meta
+	);
+end;
+$$;
+
+revoke all on function public.vidjo_track_event(text, text, jsonb) from public;
+revoke all on function public.vidjo_track_event(text, text, jsonb) from anon;
+grant execute on function public.vidjo_track_event(text, text, jsonb) to authenticated;
+
+-- Admin dashboard: one call returns counts plus 30-day activity. Aggregates
+-- only; the raw event rows are never exposed to the client.
+create or replace function public.vidjo_admin_overview(days int default 30)
+returns jsonb
+language plpgsql
+stable
+security definer
+set search_path = public
+as $$
+declare
+	window_days int := greatest(1, least(coalesce(days, 30), 365));
+	since timestamptz := now() - make_interval(days => window_days);
+	day_start date := current_date - (window_days - 1);
+	result jsonb;
+begin
+	if not exists (
+		select 1 from public.vidjo_profiles
+		where user_id = auth.uid() and user_role = 'admin'
+	) then
+		raise exception 'Admin access required.' using errcode = '42501';
+	end if;
+
+	select jsonb_build_object(
+		'window_days', window_days,
+		'generated_at', now(),
+		'users_total', (select count(*) from public.vidjo_profiles),
+		'users_new', (
+			select count(*) from public.vidjo_profiles where created_at >= since
+		),
+		'entries_total', (select count(*) from public.vidjo_entries),
+		'entries_shared', (
+			select count(*) from public.vidjo_entries
+			where privacy in ('friends', 'community') or share_with_friends
+		),
+		'entries_video', (
+			select count(*) from public.vidjo_entries
+			where coalesce(video_path, '') <> ''
+		),
+		'reports_total', (select count(*) from public.vidjo_comment_reports),
+		'reports_new', (
+			select count(*) from public.vidjo_comment_reports where created_at >= since
+		),
+		'events_total', (
+			select count(*) from public.vidjo_analytics_events where created_at >= since
+		),
+		'events_today', (
+			select count(*) from public.vidjo_analytics_events where created_at >= current_date
+		),
+		'active_users', (
+			select count(distinct user_id)
+			from public.vidjo_analytics_events
+			where created_at >= since and user_id is not null
+		),
+		'active_users_today', (
+			select count(distinct user_id)
+			from public.vidjo_analytics_events
+			where created_at >= current_date and user_id is not null
+		),
+		'daily', (
+			select coalesce(
+				jsonb_agg(
+					jsonb_build_object(
+						'day', d.day::date,
+						'events', coalesce(e.events, 0),
+						'users', coalesce(e.users, 0)
+					)
+					order by d.day
+				),
+				'[]'::jsonb
+			)
+			from generate_series(day_start, current_date, interval '1 day') as d(day)
+			left join (
+				select
+					created_at::date as day,
+					count(*) as events,
+					count(distinct user_id) as users
+				from public.vidjo_analytics_events
+				where created_at >= since
+				group by 1
+			) e on e.day = d.day::date
+		),
+		'top_events', (
+			select coalesce(
+				jsonb_agg(
+					jsonb_build_object('event', t.event, 'count', t.event_count)
+					order by t.event_count desc
+				),
+				'[]'::jsonb
+			)
+			from (
+				select event, count(*) as event_count
+				from public.vidjo_analytics_events
+				where created_at >= since
+				group by event
+				order by count(*) desc
+				limit 8
+			) t
+		)
+	) into result;
+
+	return result;
+end;
+$$;
+
+revoke all on function public.vidjo_admin_overview(int) from public;
+revoke all on function public.vidjo_admin_overview(int) from anon;
+grant execute on function public.vidjo_admin_overview(int) to authenticated;

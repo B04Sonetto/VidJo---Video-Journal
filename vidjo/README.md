@@ -48,6 +48,8 @@ auth/persistence and an offline `localStorage` fallback.
   jump-to-day navigation.
 - **Autosave** — entries are written to `localStorage` immediately and synced to
   Supabase on a short debounce.
+- **Admin console** — moderation-only view of comment reports, member search and
+  role filters, plus privacy-friendly usage statistics (no journal content).
 - **Accessible controls** — focus styles, keyboard sticker movement/deletion,
   live page announcements, and reduced-motion support.
 
@@ -139,6 +141,23 @@ falls back to the original public object URL, so nothing breaks.
 To use it, make sure image transformations are enabled for the project
 (**Storage → Settings → Image transformations**). No extra configuration or
 vendor is required.
+
+### Product analytics (built in)
+
+VidJo records a small set of first-party usage events in Supabase; no third-party
+analytics service is used. Events are written through the `vidjo_track_event`
+RPC, which enforces an event allowlist and a metadata allowlist, and limits each
+account to 300 events per hour. Journal text, reflections, titles, bios, names,
+emails, search terms, IP addresses, user agents, and referrers are never stored.
+
+The event list is limited to feature usage such as `session_start`,
+`entry_saved`, `video_added`, `friend_request_sent`, `comment_posted`, and
+`profile_updated`. Only admins can read the aggregates, through the
+`vidjo_admin_overview` RPC that powers the **Overview** tab of the admin console.
+Raw rows are never exposed to the browser.
+
+Analytics are part of `schema.sql` and need no extra account, key, or vendor.
+Re-run the schema to create the table and functions on an existing project.
 
 ### Error tracking (optional)
 

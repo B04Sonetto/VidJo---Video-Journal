@@ -12,6 +12,7 @@
 	import ProfilePage from '#lib/components/ProfilePage.svelte';
 	import StickerTray from '#lib/components/StickerTray.svelte';
 	import Toast from '#lib/components/Toast.svelte';
+	import { track } from '#lib/analytics';
 	import { auth } from '#lib/state/auth.svelte';
 	import { journal } from '#lib/state/journal.svelte';
 	import { profile } from '#lib/state/profile.svelte';
@@ -73,6 +74,31 @@
 			if (seq !== initSeq) return;
 			await Promise.all([friends.init(ownerId), community.init(ownerId)]);
 		})();
+	});
+
+	// One session event per app load, then one event per view change. The
+	// payload contains only the view name, never journal content.
+	let analyticsSession = $state(false);
+	let analyticsView = $state('');
+
+	$effect(() => {
+		if (!auth.active) {
+			analyticsSession = false;
+			analyticsView = '';
+			return;
+		}
+
+		const view = nav.view;
+		if (!analyticsSession) {
+			analyticsSession = true;
+			analyticsView = view;
+			track('session_start', { view });
+			return;
+		}
+
+		if (view === analyticsView) return;
+		analyticsView = view;
+		track('view_changed', { view });
 	});
 
 	// After the profile loads, detect the placeholder username created for

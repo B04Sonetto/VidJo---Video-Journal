@@ -1,3 +1,4 @@
+import { track } from '#lib/analytics';
 import { isSupabaseConfigured, supabase } from '#lib/supabase';
 import type { MoodKey, Privacy, Profile } from '#lib/types';
 import { auth } from '#lib/state/auth.svelte';
@@ -490,6 +491,7 @@ class ProfileState {
 		this.profile = updated;
 		if (userId) this.persistLocal(userId);
 		this.saving = false;
+		track('profile_updated');
 		return { error: '' };
 	}
 
