@@ -125,6 +125,18 @@ any other member.
 The video bucket is private, and the player uses short-lived signed URLs.
 Private videos cannot be viewed by anyone other than their owner.
 
+### Video posters and compatibility
+
+When a video is added, VidJo captures a small JPEG poster in the browser (no
+server or third-party service) and stores it beside the video in the same private
+bucket. Posters follow the same sharing rules as the video, so private pages stay
+owner-only. Capture is best-effort: if the browser cannot read the file, the
+video still uploads and the UI falls back to a styled placeholder.
+
+New recordings prefer MP4/H.264 at about 1.8 Mbps. Browsers that can only record
+WebM show a note that the result may not play in Safari; uploading an MP4 avoids
+that limitation. See `docs/video-transcoding-plan.md` for the phased plan.
+
 Journal pages are cached locally per account so the book opens offline.
 On shared browsers, users can check "Clear cached pages on sign out" or click
 "Clear local cache" under **Profile → Settings** so no entries remain stored on
@@ -222,6 +234,7 @@ src/
     observability.ts      Optional Sentry/GlitchTip init and PII scrubbing
     supabase.ts           Supabase client, auth persistence, bucket name
     videoStore.ts         IndexedDB cache for recordings
+    videoThumb.ts         Browser-side JPEG poster capture
     types.ts              Shared types
   routes/
     +page.svelte          Auth gate and app composition

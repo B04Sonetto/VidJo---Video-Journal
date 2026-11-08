@@ -144,6 +144,7 @@
 				videoPath: entry.videoPath,
 				videoName: entry.videoName,
 				videoUrl: journal.sessionVideos[date] || '',
+				videoThumbUrl: journal.sessionThumbs[date] || '',
 				reactions: { love: 0, spark: 0, warm: 0, proud: 0 },
 				userReactions: [],
 				comments: [],
@@ -845,6 +846,7 @@
 								<!-- svelte-ignore a11y_media_has_caption -->
 								<video
 									src={post.videoUrl}
+									poster={post.videoThumbUrl || undefined}
 									controls
 									playsinline
 									class="max-h-[290px] w-full bg-black object-contain"

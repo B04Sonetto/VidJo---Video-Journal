@@ -362,6 +362,7 @@
 								<!-- svelte-ignore a11y_media_has_caption -->
 								<video
 									src={page.videoUrl}
+									poster={page.videoThumbUrl || undefined}
 									controls
 									playsinline
 									class="max-h-[380px] w-full bg-black object-contain"

@@ -39,6 +39,8 @@ export interface Entry {
 	 * URL here: signed URLs are short-lived and must stay in memory only.
 	 */
 	videoPath: string;
+	/** Object path for the JPEG poster generated when the video was added. */
+	videoThumbPath: string;
 	videoName: string;
 	/**
 	 * Friend IDs excluded from seeing this post, even when privacy allows friends.
@@ -64,6 +66,7 @@ export interface EntryRow {
 	saved: boolean | null;
 	sample: boolean | null;
 	video_path: string | null;
+	video_thumb_path: string | null;
 	excluded_friend_ids: string[] | null;
 	included_friend_ids: string[] | null;
 	share_with_friends: boolean | null;
@@ -182,6 +185,7 @@ export interface FriendPost {
 	refl: string;
 	stickers?: Sticker[];
 	videoUrl?: string;
+	videoThumbUrl?: string;
 	videoPath?: string;
 	videoName?: string;
 	videoCaption?: string;

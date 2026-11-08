@@ -494,6 +494,8 @@ class CommunityState {
 				const author = profileMap.get(row.owner_id as string);
 				let videoPath = (row.video_path as string | null) ?? '';
 				let videoUrl = '';
+				let videoThumbPath = (row.video_thumb_path as string | null) ?? '';
+				let videoThumbUrl = '';
 
 				if (videoPath) {
 					try {
@@ -509,12 +511,27 @@ class CommunityState {
 							// The file was deleted or is no longer accessible. Treat the
 							// post as video-less so the feed stops asking for it.
 							videoPath = '';
+							videoThumbPath = '';
 						} else {
 							videoUrl = signed.signedUrl;
 						}
 					} catch (error) {
 						console.warn('[VidJo] Could not sign a community video URL.', error);
 						videoPath = '';
+						videoThumbPath = '';
+					}
+				}
+
+				if (videoThumbPath) {
+					try {
+						const { data: signed, error } = await supabase.storage
+							.from(VIDEO_BUCKET)
+							.createSignedUrl(videoThumbPath, SIGNED_URL_TTL);
+						if (!error && signed?.signedUrl) {
+							videoThumbUrl = signed.signedUrl;
+						}
+					} catch {
+						// Posters are optional; fall back to the video's first frame.
 					}
 				}
 
@@ -537,6 +554,7 @@ class CommunityState {
 					videoPath,
 					videoName: videoPath ? (row.video_name as string) || '' : '',
 					videoUrl,
+					videoThumbUrl,
 					reactions: { ...EMPTY_REACTIONS },
 					userReactions: [],
 					comments: [],

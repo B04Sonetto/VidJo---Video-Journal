@@ -182,6 +182,15 @@
 		}
 	}
 
+	function mp4RecordingSupported() {
+		if (typeof MediaRecorder === 'undefined') return false;
+		try {
+			return MediaRecorder.isTypeSupported('video/mp4;codecs=avc1.42E01E,mp4a.40.2');
+		} catch {
+			return false;
+		}
+	}
+
 	function startRecording() {
 		if (!stream || stage !== 'ready') return;
 
@@ -197,8 +206,8 @@
 
 		try {
 			recorder = mimeType
-				? new MediaRecorder(stream, { mimeType, videoBitsPerSecond: 2_500_000 })
-				: new MediaRecorder(stream, { videoBitsPerSecond: 2_500_000 });
+				? new MediaRecorder(stream, { mimeType, videoBitsPerSecond: 1_800_000 })
+				: new MediaRecorder(stream, { videoBitsPerSecond: 1_800_000 });
 		} catch {
 			fail('This browser could not start the recorder. You can upload a video instead.');
 			return;
@@ -407,6 +416,12 @@
 					<p id="record-help" class="mt-1 font-hand text-lg text-[#C9B8E8]">
 						Up to 3 minutes. Take your time — it is your page.
 					</p>
+					{#if !mp4RecordingSupported()}
+						<p class="mt-1 font-ui text-[11px] leading-snug text-[#A892CE]">
+							This browser records WebM, which may not play in Safari. Upload an MP4 if you need it
+							to play everywhere.
+						</p>
+					{/if}
 				</div>
 
 				<button

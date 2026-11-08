@@ -356,13 +356,16 @@
 				// from the underlying object store.
 				const { data: videoRows } = await supabase
 					.from('vidjo_entries')
-					.select('video_path')
+					.select('video_path, video_thumb_path')
 					.eq('owner_id', userId)
-					.not('video_path', 'is', null);
+					.or('video_path.not.is.null,video_thumb_path.not.is.null');
 
-				const videoPaths = (videoRows ?? [])
-					.map((row) => row.video_path as string | null)
-					.filter((path): path is string => Boolean(path));
+				const videoPaths = (videoRows ?? []).flatMap((row) => {
+					const paths: string[] = [];
+					if (row.video_path) paths.push(row.video_path as string);
+					if (row.video_thumb_path) paths.push(row.video_thumb_path as string);
+					return paths;
+				});
 
 				if (videoPaths.length > 0) {
 					const { error: videoRemoveError } = await supabase.storage

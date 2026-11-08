@@ -1,10 +1,10 @@
 # Video transcoding and thumbnails — plan
 
-Status: **plan only, not implemented**
+Status: **Phase 1 implemented. Phases 2–3 are planned only.**
 
 ## Why this is needed
 
-- Recordings are produced by `MediaRecorder` at 2.5 Mbps, 720p, up to 3 minutes.
+- Recordings are produced by `MediaRecorder` at about 1.8 Mbps, 720p, up to 3 minutes.
 - `pickMimeType()` prefers MP4/H.264 (Safari), but Chrome and Firefox usually
   record WebM/VP8 or WebM/VP9.
 - Safari cannot reliably play WebM. A video recorded on Android or Chrome can
@@ -47,7 +47,7 @@ No new service, no new secrets, no video leaves Supabase.
   note: “This browser records WebM. It will be converted for sharing if needed.”
 - Lower the default bitrate from 2.5 Mbps to about 1.8 Mbps at 720p. A 3-minute
   clip drops from roughly 56 MB to roughly 40 MB with no visible loss for a
-  journal video.
+  journal video. **Implemented.**
 - Keep `playsinline`, `controls`, and the existing 3-minute cap.
 
 **Result:** most Safari recordings are already MP4, and files are smaller.
@@ -127,7 +127,7 @@ Other free APIs checked:
 
 ## Recommendation
 
-**Phase 1 (do first): Option A1 + A2.**
+**Phase 1 (implemented): Option A1 + A2.**
 Thumbnails and MP4-first recording solve the visible problems immediately, cost
 nothing, and introduce no privacy trade-off.
 

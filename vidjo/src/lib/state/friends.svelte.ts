@@ -381,6 +381,8 @@ class FriendsState {
 				const author = friendMap.get(row.owner_id);
 				let videoPath = row.video_path || '';
 				let videoUrl = '';
+				let videoThumbPath = row.video_thumb_path || '';
+				let videoThumbUrl = '';
 
 				if (videoPath) {
 					try {
@@ -396,12 +398,27 @@ class FriendsState {
 							// The file was deleted or is no longer accessible. Treat the
 							// post as video-less so the feed stops asking for it.
 							videoPath = '';
+							videoThumbPath = '';
 						} else {
 							videoUrl = signed.signedUrl;
 						}
 					} catch (error) {
 						console.warn('[VidJo] Could not sign a friend video URL.', error);
 						videoPath = '';
+						videoThumbPath = '';
+					}
+				}
+
+				if (videoThumbPath) {
+					try {
+						const { data: signed, error } = await supabase.storage
+							.from(VIDEO_BUCKET)
+							.createSignedUrl(videoThumbPath, SIGNED_URL_TTL);
+						if (!error && signed?.signedUrl) {
+							videoThumbUrl = signed.signedUrl;
+						}
+					} catch {
+						// Posters are optional; fall back to the video's first frame.
 					}
 				}
 
@@ -422,6 +439,7 @@ class FriendsState {
 					videoPath,
 					videoName: videoPath ? row.video_name || '' : '',
 					videoUrl,
+					videoThumbUrl,
 					reactions: { ...EMPTY_REACTIONS },
 					userReactions: [],
 					comments: [],
@@ -461,6 +479,7 @@ class FriendsState {
 					videoPath: entry.videoPath,
 					videoName: entry.videoName,
 					videoUrl: journal.sessionVideos[date],
+					videoThumbUrl: journal.sessionThumbs[date] || '',
 					reactions: { ...EMPTY_REACTIONS },
 					userReactions: [],
 					comments: [],

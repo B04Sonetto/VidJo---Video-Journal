@@ -91,6 +91,7 @@ create table if not exists public.vidjo_entries (
 	saved boolean not null default false,
 	sample boolean not null default false,
 	video_path text,
+	video_thumb_path text,
 	excluded_friend_ids text[] not null default '{}',
 	included_friend_ids text[] not null default '{}',
 	share_with_friends boolean not null default false,
@@ -101,6 +102,7 @@ create table if not exists public.vidjo_entries (
 );
 
 alter table public.vidjo_entries add column if not exists video_path text;
+alter table public.vidjo_entries add column if not exists video_thumb_path text;
 alter table public.vidjo_entries add column if not exists excluded_friend_ids text[] not null default '{}';
 alter table public.vidjo_entries add column if not exists included_friend_ids text[] not null default '{}';
 alter table public.vidjo_entries add column if not exists share_with_friends boolean not null default false;
@@ -473,7 +475,7 @@ values (
 	'vidjo-videos',
 	false,
 	52428800,
-	array['video/webm', 'video/mp4', 'video/quicktime', 'video/x-matroska']
+	array['video/webm', 'video/mp4', 'video/quicktime', 'video/x-matroska', 'image/jpeg']
 )
 on conflict (id) do update set
 	public = false,
@@ -488,6 +490,7 @@ drop policy if exists "vidjo video delete" on storage.objects;
 -- The bucket is private. Signed URLs are created for playback in the app.
 -- Private videos (`privacy = 'private'`) can ONLY be accessed by the owner.
 -- Shared entries (`privacy in ('friends', 'community')`) can be read by authenticated members.
+-- Thumbnails live beside the video and follow the same sharing rule.
 create policy "vidjo video read" on storage.objects
 	for select to authenticated
 	using (
@@ -497,7 +500,8 @@ create policy "vidjo video read" on storage.objects
 			(storage.foldername(name))[1] = auth.uid()::text
 			or exists (
 				select 1 from public.vidjo_entries e
-				where e.video_path = storage.objects.name
+				where (e.video_path = storage.objects.name
+					or e.video_thumb_path = storage.objects.name)
 					and e.privacy in ('friends', 'community')
 			)
 		)

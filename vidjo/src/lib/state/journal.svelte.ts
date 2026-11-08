@@ -5,6 +5,7 @@ import { peekDeviceId } from '#lib/identity';
 import { captureError } from '#lib/observability';
 import { isSupabaseConfigured, supabase, VIDEO_BUCKET } from '#lib/supabase';
 import { viewport } from '#lib/state/viewport.svelte';
+import { captureVideoThumbnail } from '#lib/videoThumb';
 import {
 	clearStoredVideosForOwner,
 	deleteStoredVideo,
@@ -73,6 +74,7 @@ function normalizeEntry(raw: Partial<Entry> & { date: string; videoUrl?: string 
 		saved: Boolean(raw.saved),
 		sample: Boolean(raw.sample),
 		videoPath: raw.videoPath || legacyVideoPath(raw.videoUrl),
+		videoThumbPath: raw.videoThumbPath ?? '',
 		videoName: raw.videoName ?? '',
 		excludedFriendIds: Array.isArray(raw.excludedFriendIds) ? raw.excludedFriendIds : [],
 		includedFriendIds: Array.isArray(raw.includedFriendIds) ? raw.includedFriendIds : [],
@@ -109,6 +111,7 @@ export function blankEntry(date: string): Entry {
 		saved: false,
 		sample: false,
 		videoPath: '',
+		videoThumbPath: '',
 		videoName: '',
 		excludedFriendIds: [],
 		includedFriendIds: [],
@@ -129,6 +132,7 @@ function rowToEntry(row: EntryRow): Entry {
 		saved: Boolean(row.saved),
 		sample: Boolean(row.sample),
 		videoPath: row.video_path || legacyVideoPath(row.video_url),
+		videoThumbPath: row.video_thumb_path ?? '',
 		videoName: row.video_name ?? '',
 		excludedFriendIds: Array.isArray(row.excluded_friend_ids) ? row.excluded_friend_ids : [],
 		includedFriendIds: Array.isArray(row.included_friend_ids) ? row.included_friend_ids : [],
@@ -152,6 +156,7 @@ function entryToRow(ownerId: string, entry: Entry): EntryRow {
 		saved: Boolean(entry.saved),
 		sample: Boolean(entry.sample),
 		video_path: entry.videoPath || null,
+		video_thumb_path: entry.videoThumbPath || null,
 		excluded_friend_ids: [...entry.excludedFriendIds],
 		included_friend_ids: [...entry.includedFriendIds],
 		share_with_friends: Boolean(entry.shareWithFriends),
@@ -168,6 +173,8 @@ class Journal {
 	selected = $state<string[]>([]);
 	lastPage = $state<Side>('R');
 	sessionVideos = $state<Record<string, string>>({});
+	/** Signed poster URLs, keyed by entry date. Posters are optional. */
+	sessionThumbs = $state<Record<string, string>>({});
 	/** Per-date reason a stored video cannot be played, so the UI can stop spinning. */
 	videoFailures = $state<Record<string, string>>({});
 
@@ -188,6 +195,8 @@ class Journal {
 	private toastTimer: ReturnType<typeof setTimeout> | null = null;
 	private initSeq = 0;
 	private signedUrlPending = new Set<string>();
+	private thumbPending = new Set<string>();
+	private thumbUnavailable = new Set<string>();
 	private videoRefreshAttempts = new Map<string, number>();
 	private remoteDeletes = new Map<string, Promise<void>>();
 
@@ -310,6 +319,8 @@ class Journal {
 		this.pending.clear();
 		this.flushing = false;
 		this.signedUrlPending.clear();
+		this.thumbPending.clear();
+		this.thumbUnavailable.clear();
 		this.remoteDeletes.clear();
 
 		if (this.saveTimer) {
@@ -320,7 +331,11 @@ class Journal {
 		for (const url of Object.values(this.sessionVideos)) {
 			if (url.startsWith('blob:')) URL.revokeObjectURL(url);
 		}
+		for (const url of Object.values(this.sessionThumbs)) {
+			if (url.startsWith('blob:')) URL.revokeObjectURL(url);
+		}
 		this.sessionVideos = {};
+		this.sessionThumbs = {};
 		this.videoFailures = {};
 		this.videoRefreshAttempts.clear();
 	}
@@ -522,11 +537,14 @@ class Journal {
 		const entry = this.entries[date];
 		if (!entry) return;
 
-		// Clean up video if present
-		if (entry.videoPath) {
-			void this.deleteRemoteVideo(entry.videoPath);
+		// Clean up video and poster if present
+		if (entry.videoPath || entry.videoThumbPath) {
+			void this.deleteRemoteObjects([entry.videoPath, entry.videoThumbPath]);
 		}
 		void deleteStoredVideo(this.videoKey(date));
+		this.clearSessionVideo(date);
+		this.clearSessionThumb(date);
+		this.thumbUnavailable.delete(date);
 
 		// Pick the neighbouring page before mutating so the fallback is the page
 		// next to the one being deleted, not the oldest page in the journal.
@@ -685,6 +703,18 @@ class Journal {
 		return '';
 	}
 
+	/** Signed poster URL for a stored video, or '' while it loads or if unavailable. */
+	thumbFor(date: string) {
+		const session = this.sessionThumbs[date];
+		if (session) return session;
+
+		const path = this.entries[date]?.videoThumbPath;
+		if (path && isSupabaseConfigured && !this.thumbUnavailable.has(date)) {
+			void this.resolveThumbnail(date, path);
+		}
+		return '';
+	}
+
 	/** Human-readable reason the stored video cannot be played, or '' when it can. */
 	videoProblem(date: string) {
 		return this.videoFailures[date] ?? '';
@@ -778,6 +808,34 @@ class Journal {
 		}
 	}
 
+	private async resolveThumbnail(date: string, path?: string) {
+		const targetPath = path ?? this.entries[date]?.videoThumbPath;
+		if (!targetPath || !isSupabaseConfigured) return;
+		if (this.sessionThumbs[date] || this.thumbPending.has(date)) return;
+		if (this.thumbUnavailable.has(date)) return;
+
+		this.thumbPending.add(date);
+		try {
+			const { data, error } = await supabase.storage
+				.from(VIDEO_BUCKET)
+				.createSignedUrl(targetPath, SIGNED_URL_TTL);
+
+			if (error || !data?.signedUrl) {
+				// Posters are optional. Remember the failure so every render does not
+				// retry the same missing object.
+				this.thumbUnavailable.add(date);
+				return;
+			}
+
+			this.sessionThumbs[date] = data.signedUrl;
+		} catch (error) {
+			this.thumbUnavailable.add(date);
+			console.debug('[VidJo] Could not sign a video poster.', { path: targetPath, error });
+		} finally {
+			this.thumbPending.delete(date);
+		}
+	}
+
 	private videoKey(date: string) {
 		return `${this.ownerId}:${date}`;
 	}
@@ -791,36 +849,62 @@ class Journal {
 		const date = this.current;
 		const ownerId = this.ownerId;
 		const previousPath = entry.videoPath;
+		const previousThumbPath = entry.videoThumbPath;
 
 		this.uploading = true;
 		this.clearSessionVideo(date);
+		this.clearSessionThumb(date);
 		delete this.videoFailures[date];
+		this.thumbUnavailable.delete(date);
 		this.videoRefreshAttempts.delete(date);
 
 		try {
 			let uploadedPath = '';
 			let uploadedUrl = '';
+			let uploadedThumbPath = '';
+			let uploadedThumbUrl = '';
 			let bucketMissing = false;
+
+			// Capture the poster while the video uploads. Capture is best-effort and
+			// resolves to null on failure, so it never blocks the upload.
+			const thumbPromise = captureVideoThumbnail(file);
 
 			if (this.remote) {
 				const result = await this.uploadVideoBlob(file, date, file.name);
 				uploadedPath = result.path;
 				uploadedUrl = result.url;
 				bucketMissing = result.bucketMissing;
+
+				if (uploadedPath) {
+					const thumb = await thumbPromise;
+					if (thumb) {
+						const thumbResult = await this.uploadThumbBlob(thumb, date);
+						uploadedThumbPath = thumbResult.path;
+						uploadedThumbUrl = thumbResult.url;
+						// Keep the local capture as a session-only poster if the
+						// thumbnail upload failed.
+						if (!uploadedThumbUrl) this.sessionThumbs[date] = URL.createObjectURL(thumb);
+					}
+				}
 			}
 
 			if (this.ownerId !== ownerId || this.entries[date] !== entry) return;
 
 			if (uploadedPath) {
 				entry.videoPath = uploadedPath;
+				entry.videoThumbPath = uploadedThumbPath;
 				entry.videoName = file.name;
 				this.sessionVideos[date] = uploadedUrl;
+				if (uploadedThumbUrl) this.sessionThumbs[date] = uploadedThumbUrl;
 				await deleteStoredVideo(this.videoKey(date));
 				this.toast('Video added to this page');
 			} else {
+				const thumb = await thumbPromise;
 				entry.videoPath = '';
+				entry.videoThumbPath = '';
 				entry.videoName = file.name;
 				this.sessionVideos[date] = URL.createObjectURL(file);
+				if (thumb) this.sessionThumbs[date] = URL.createObjectURL(thumb);
 				const stored = await putStoredVideo(this.videoKey(date), file);
 
 				if (!stored) {
@@ -834,8 +918,11 @@ class Journal {
 
 			if (this.ownerId !== ownerId || this.entries[date] !== entry) return;
 
-			if (previousPath && previousPath !== entry.videoPath) {
-				void this.deleteRemoteVideo(previousPath);
+			const stalePaths = [previousPath, previousThumbPath].filter((path): path is string =>
+				Boolean(path)
+			);
+			if (stalePaths.length > 0) {
+				void this.deleteRemoteObjects(stalePaths);
 			}
 			track('video_added', {
 				mode: uploadedPath ? 'cloud' : 'device',
@@ -853,23 +940,30 @@ class Journal {
 		if (!entry) return;
 
 		const previousPath = entry.videoPath;
+		const previousThumbPath = entry.videoThumbPath;
 
 		this.clearSessionVideo(date);
+		this.clearSessionThumb(date);
 		void deleteStoredVideo(this.videoKey(date));
 		delete this.videoFailures[date];
+		this.thumbUnavailable.delete(date);
 		this.videoRefreshAttempts.delete(date);
 		entry.videoPath = '';
+		entry.videoThumbPath = '';
 		entry.videoName = '';
 		entry.sample = false;
 		this.queueSave(date);
 		track('video_removed');
 
-		if (!previousPath) {
+		const stalePaths = [previousPath, previousThumbPath].filter((path): path is string =>
+			Boolean(path)
+		);
+		if (stalePaths.length === 0) {
 			this.toast('Video removed');
 			return;
 		}
 
-		const deleted = await this.deleteRemoteVideo(previousPath);
+		const deleted = await this.deleteRemoteObjects(stalePaths);
 		if (!deleted && this.remote) {
 			this.toast('Video removed from this page, but the stored file could not be deleted.');
 		} else {
@@ -882,6 +976,13 @@ class Journal {
 		if (!url) return;
 		if (url.startsWith('blob:')) URL.revokeObjectURL(url);
 		delete this.sessionVideos[date];
+	}
+
+	private clearSessionThumb(date: string) {
+		const url = this.sessionThumbs[date];
+		if (!url) return;
+		if (url.startsWith('blob:')) URL.revokeObjectURL(url);
+		delete this.sessionThumbs[date];
 	}
 
 	private async hydrateVideos(seq: number) {
@@ -899,6 +1000,12 @@ class Journal {
 					} else {
 						if (!entry.videoName) entry.videoName = 'vidjo-video.webm';
 						this.sessionVideos[entry.date] = URL.createObjectURL(blob);
+						void captureVideoThumbnail(blob).then((thumb) => {
+							if (!thumb || seq !== this.initSeq) return;
+							if (this.entries[entry.date] !== entry || entry.videoPath) return;
+							if (this.sessionThumbs[entry.date]) return;
+							this.sessionThumbs[entry.date] = URL.createObjectURL(thumb);
+						});
 						if (this.remote) void this.uploadLocalVideo(entry, blob, key, seq);
 						return;
 					}
@@ -907,11 +1014,15 @@ class Journal {
 				if (entry.videoPath) {
 					void this.resolveSignedUrl(entry.date, entry.videoPath);
 				}
+				if (entry.videoThumbPath) {
+					void this.resolveThumbnail(entry.date, entry.videoThumbPath);
+				}
 			})
 		);
 	}
 
 	private async uploadLocalVideo(entry: Entry, blob: Blob, key: string, seq: number) {
+		const thumbPromise = captureVideoThumbnail(blob);
 		const { path, url } = await this.uploadVideoBlob(
 			blob,
 			entry.date,
@@ -919,7 +1030,22 @@ class Journal {
 		);
 		if (!path || seq !== this.initSeq) return;
 
+		const thumb = await thumbPromise;
+		if (seq !== this.initSeq) return;
+
+		let thumbPath = '';
+		if (thumb) {
+			const thumbResult = await this.uploadThumbBlob(thumb, entry.date);
+			if (seq !== this.initSeq) return;
+			thumbPath = thumbResult.path;
+			if (thumbResult.url) {
+				this.clearSessionThumb(entry.date);
+				this.sessionThumbs[entry.date] = thumbResult.url;
+			}
+		}
+
 		entry.videoPath = path;
+		entry.videoThumbPath = thumbPath;
 		this.sessionVideos[entry.date] = url;
 		await deleteStoredVideo(key);
 		this.queueSave(entry.date);
@@ -956,33 +1082,70 @@ class Journal {
 		}
 	}
 
-	private async deleteRemoteVideo(pathOrUrl: string): Promise<boolean> {
-		if (!pathOrUrl || !isSupabaseConfigured || !this.ownerId) return false;
-
-		let path = pathOrUrl;
-		if (path.includes('http://') || path.includes('https://')) {
-			path = legacyVideoPath(pathOrUrl);
-		}
-		if (!path) return false;
-
-		// The delete policy only allows objects inside the signed-in user's
-		// folder. Skip other keys instead of sending a request that cannot work.
-		const folder = path.split('/')[0] || '';
-		if (folder !== this.ownerId) {
-			console.warn('[VidJo] Not deleting a video outside this account folder.', {
-				path,
-				owner: this.ownerId
-			});
-			return false;
+	private async uploadThumbBlob(blob: Blob, date: string) {
+		if (!isSupabaseConfigured || !this.remote || !this.ownerId) {
+			return { path: '', url: '' };
 		}
 
 		try {
-			const { error } = await supabase.storage.from(VIDEO_BUCKET).remove([path]);
+			const path = `${this.ownerId}/${date}/${Date.now()}-thumb.jpg`;
+			const { error } = await supabase.storage.from(VIDEO_BUCKET).upload(path, blob, {
+				contentType: 'image/jpeg',
+				upsert: true
+			});
+
+			if (error) throw error;
+
+			const { data: signedData, error: signError } = await supabase.storage
+				.from(VIDEO_BUCKET)
+				.createSignedUrl(path, SIGNED_URL_TTL);
+
+			if (signError) throw signError;
+
+			return { path, url: signedData?.signedUrl ?? '' };
+		} catch (error) {
+			// A poster is optional. Keep the video even if the thumbnail upload fails.
+			console.warn('[VidJo] Video poster upload failed.', error);
+			captureError(error, { area: 'video-thumb-upload' });
+			return { path: '', url: '' };
+		}
+	}
+
+	private async deleteRemoteObjects(pathsOrUrls: string[]): Promise<boolean> {
+		if (!isSupabaseConfigured || !this.ownerId) return false;
+
+		const paths = pathsOrUrls
+			.map((pathOrUrl) => {
+				if (pathOrUrl.includes('http://') || pathOrUrl.includes('https://')) {
+					return legacyVideoPath(pathOrUrl);
+				}
+				return pathOrUrl;
+			})
+			.filter((path) => {
+				if (!path) return false;
+
+				// The delete policy only allows objects inside the signed-in user's
+				// folder. Skip other keys instead of sending a request that cannot work.
+				const folder = path.split('/')[0] || '';
+				if (folder !== this.ownerId) {
+					console.warn('[VidJo] Not deleting a video outside this account folder.', {
+						path,
+						owner: this.ownerId
+					});
+					return false;
+				}
+				return true;
+			});
+
+		if (paths.length === 0) return false;
+
+		try {
+			const { error } = await supabase.storage.from(VIDEO_BUCKET).remove(paths);
 			if (error) {
 				// `.remove()` resolves with an error object instead of throwing, so
 				// this is the only place a failed deletion is visible.
-				console.warn('[VidJo] Could not delete the stored video.', {
-					path,
+				console.warn('[VidJo] Could not delete stored video files.', {
+					paths,
 					status: error.statusCode ?? null,
 					message: error.message
 				});
@@ -994,7 +1157,7 @@ class Journal {
 			}
 			return true;
 		} catch (error) {
-			console.warn('[VidJo] Could not delete the stored video.', { path, error });
+			console.warn('[VidJo] Could not delete stored video files.', { paths, error });
 			captureError(error, { area: 'video-delete' });
 			return false;
 		}

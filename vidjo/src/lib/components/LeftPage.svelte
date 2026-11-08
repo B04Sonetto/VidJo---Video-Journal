@@ -26,6 +26,7 @@
 	let recordOpen = $state(false);
 
 	const videoUrl = $derived(journal.videoFor(date));
+	const posterUrl = $derived(journal.thumbFor(date));
 	const dow = $derived(parseDate(date).toLocaleDateString('en-US', { weekday: 'long' }));
 	const dateText = $derived(
 		parseDate(date).toLocaleDateString('en-US', { day: 'numeric', month: 'long', year: 'numeric' })
@@ -93,6 +94,7 @@
 				{#key videoUrl}
 					<video
 						src={videoUrl}
+						poster={posterUrl || undefined}
 						controls={!preview}
 						muted={preview}
 						playsinline
