@@ -91,7 +91,7 @@
 			aria-hidden="true"
 		></span>
 		<div
-			class="relative flex h-full items-center justify-center overflow-hidden rounded-[2px] bg-[radial-gradient(circle_at_30%_30%,#4A2F78,#251541_70%)]"
+			class="relative flex h-full items-center justify-center overflow-hidden rounded-[2px] bg-[radial-gradient(circle_at_30%_30%,#38215C,#150A26_70%)]"
 		>
 			{#if videoUrl}
 				{#key videoUrl}
