@@ -310,7 +310,7 @@
 							type="button"
 							class="inline-flex shrink-0 items-center gap-2 rounded-xl px-4 py-2 font-ui text-sm font-semibold transition-colors {tab ===
 							item.key
-								? 'bg-gold text-[#2A1B3D]'
+								? 'bg-cta text-cta-text'
 								: 'text-[#BBA8E0] hover:bg-white/5 hover:text-white'}"
 							aria-current={tab === item.key ? 'page' : undefined}
 							onclick={() => (tab = item.key)}
@@ -320,7 +320,7 @@
 								<span
 									class="rounded-full px-1.5 py-0.5 text-[10px] font-semibold tabular-nums {tab ===
 									item.key
-										? 'bg-[#2A1B3D]/15 text-[#2A1B3D]'
+										? 'bg-white/20 text-cta-text'
 										: 'bg-white/10 text-[#D6CBEC]'}"
 								>
 									{item.count}
@@ -654,7 +654,7 @@
 										type="button"
 										class="inline-flex shrink-0 items-center gap-1.5 rounded-lg px-3 py-1.5 font-ui text-xs font-semibold capitalize transition-colors {roleFilter ===
 										role
-											? 'bg-gold text-[#2A1B3D]'
+											? 'bg-cta text-cta-text'
 											: 'text-[#BBA8E0] hover:text-white'}"
 										aria-pressed={roleFilter === role}
 										onclick={() => (roleFilter = role as RoleFilter)}

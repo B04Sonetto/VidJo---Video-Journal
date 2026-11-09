@@ -40,7 +40,7 @@
 
 	const variants: Record<Variant, string> = {
 		primary:
-			'bg-gold text-[#2A1B3D] shadow-[0_6px_18px_rgba(212,162,76,.26)] hover:bg-[#E2B666] hover:shadow-[0_8px_22px_rgba(212,162,76,.34)]',
+			'bg-cta text-cta-text shadow-[0_6px_18px_var(--color-cta-shadow)] hover:bg-cta-hover hover:shadow-[0_8px_22px_var(--color-cta-shadow)]',
 		outline:
 			'border border-[#5A4580] bg-desk-2 text-[#EDE6F7] hover:border-lav/70 hover:bg-[#34214E]',
 		paper:

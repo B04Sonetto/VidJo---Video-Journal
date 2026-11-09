@@ -20,6 +20,12 @@
 	--color-highlight: #d4a24c;
 	--color-success: #3f7a4f;
 	--color-danger: #a83a3a;
+
+	/* Primary CTA: follows the active journal theme. */
+	--color-cta: #6d4fb2;
+	--color-cta-hover: #7c5ec4;
+	--color-cta-text: #fbf8ff;
+	--color-cta-shadow: rgb(109 79 178 / 0.32);
 	--color-light: #f3ecfa;
 
 	/* Book / journal page theme variables */
@@ -50,6 +56,11 @@ html[data-theme='sunset'] {
 	--color-book-accent: #d4a24c;
 	--color-book-shadow: #ecd5b6;
 	--color-book-edge: #dfc3a0;
+
+	--color-cta: #a84a34;
+	--color-cta-hover: #b85c43;
+	--color-cta-text: #fff7f2;
+	--color-cta-shadow: rgb(168 74 52 / 0.32);
 }
 
 html[data-theme='sunset'] body {
@@ -73,6 +84,11 @@ html[data-theme='midnight'] {
 	--color-book-accent: #7d58c2;
 	--color-book-shadow: #d8e0ef;
 	--color-book-edge: #bcc9df;
+
+	--color-cta: #3f6ac4;
+	--color-cta-hover: #4672c9;
+	--color-cta-text: #f7faff;
+	--color-cta-shadow: rgb(63 106 196 / 0.34);
 }
 
 html[data-theme='midnight'] body {

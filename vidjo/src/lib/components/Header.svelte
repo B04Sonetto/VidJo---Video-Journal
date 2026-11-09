@@ -146,7 +146,7 @@
 
 	<button
 		type="button"
-		class="inline-flex min-h-11 items-center gap-2 rounded-xl bg-gold px-[18px] font-ui text-[15px] font-bold text-[#2A1B3F] shadow-[0_6px_18px_rgba(212,162,76,.26)] transition-all hover:bg-[#E2B666] hover:shadow-[0_8px_22px_rgba(212,162,76,.34)] active:scale-[.98]"
+		class="inline-flex min-h-11 items-center gap-2 rounded-xl bg-cta px-[18px] font-ui text-[15px] font-bold text-cta-text shadow-[0_6px_18px_var(--color-cta-shadow)] transition-all hover:bg-cta-hover hover:shadow-[0_8px_22px_var(--color-cta-shadow)] active:scale-[.98]"
 		onclick={() => nav.jump(TODAY)}
 	>
 		<CommunityIcon name="plus" size={16} />
