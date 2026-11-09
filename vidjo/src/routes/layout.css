@@ -22,10 +22,10 @@
 	--color-danger: #a83a3a;
 
 	/* Primary CTA: follows the active journal theme. */
-	--color-cta: #6d4fb2;
-	--color-cta-hover: #7c5ec4;
+	--color-cta: #5b3f9c;
+	--color-cta-hover: #6a4cb0;
 	--color-cta-text: #fbf8ff;
-	--color-cta-shadow: rgb(109 79 178 / 0.32);
+	--color-cta-shadow: rgb(91 63 156 / 0.34);
 	--color-light: #f3ecfa;
 
 	/* Book / journal page theme variables */
