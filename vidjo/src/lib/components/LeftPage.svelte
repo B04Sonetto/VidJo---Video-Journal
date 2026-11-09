@@ -80,8 +80,16 @@
 	</div>
 
 	<div
-		class="relative mt-1.5 h-[300px] shrink-0 rounded bg-white p-3 pb-11 shadow-[0_3px_10px_rgba(60,40,20,.22)]"
+		class="relative mt-1.5 h-[300px] shrink-0 rotate-[-.8deg] rounded bg-white p-3 pb-11 shadow-[0_3px_10px_rgba(60,40,20,.26)]"
 	>
+		<span
+			class="absolute -top-3 left-[-18px] z-[2] h-7 w-[92px] rotate-[-34deg] bg-lav/[.85] [background-image:repeating-linear-gradient(90deg,rgba(255,255,255,.35)_0_6px,transparent_6px_12px)] shadow-[0_1px_2px_rgba(0,0,0,.15)]"
+			aria-hidden="true"
+		></span>
+		<span
+			class="absolute -top-3 right-[-18px] z-[2] h-7 w-[92px] rotate-[34deg] bg-[rgba(240,200,115,.88)] [background-image:repeating-linear-gradient(90deg,rgba(255,255,255,.35)_0_6px,transparent_6px_12px)] shadow-[0_1px_2px_rgba(0,0,0,.15)]"
+			aria-hidden="true"
+		></span>
 		<div
 			class="relative flex h-full items-center justify-center overflow-hidden rounded-[2px] bg-[radial-gradient(circle_at_30%_30%,#4A2F78,#251541_70%)]"
 		>
