@@ -8,6 +8,7 @@
 	import { nav } from '#lib/state/navigation.svelte';
 	import { viewport } from '#lib/state/viewport.svelte';
 	import CommunityIcon from '#lib/components/CommunityIcon.svelte';
+	import Button from '#lib/components/ui/Button.svelte';
 	import type { Entry } from '#lib/types';
 
 	let {
@@ -27,6 +28,7 @@
 	let prompt = $state('');
 	let promptIndex = 0;
 	let previousDate: string | undefined;
+	let saving = $state(false);
 
 	const sharingWithFriends = $derived(
 		entry.privacy === 'friends' || (entry.privacy === 'community' && entry.shareWithFriends)
@@ -89,6 +91,17 @@
 		journal.updateCurrent({ excludedFriendIds: excluded, includedFriendIds: [] });
 		await journal.flush();
 	}
+
+	async function save() {
+		if (preview || saving) return;
+		saving = true;
+		try {
+			journal.markSaved();
+			await journal.flush();
+		} finally {
+			saving = false;
+		}
+	}
 </script>
 
 <section
@@ -133,7 +146,7 @@
 		</label>
 		<button
 			type="button"
-			class="inline-flex min-h-9 items-center gap-1.5 rounded-full border border-[#CDBBE9] bg-light px-3.5 font-hand text-base font-bold text-accent shadow-sm transition-colors hover:bg-[#E8DCF8]"
+			class="inline-flex min-h-9 items-center gap-1.5 rounded-full border border-[#CDBBE9] bg-light px-3.5 font-ui text-xs font-semibold text-accent transition-colors hover:bg-[#E8DCF8]"
 			disabled={preview}
 			onclick={needPrompt}
 		>
@@ -143,7 +156,7 @@
 
 	{#if prompt}
 		<div
-			class="mt-2 rounded-xl border-2 border-[#D4A24C] bg-[#FFF3D6] px-3 py-2 font-hand text-lg text-accent shadow-sm"
+			class="mt-2 rounded-lg border border-gold/60 bg-[#FFF6E0] px-3 py-2 font-hand text-lg text-ink"
 		>
 			{prompt}
 		</div>
@@ -162,7 +175,7 @@
 			value={entry.mind}
 			oninput={(event) => update({ mind: event.currentTarget.value })}></textarea>
 		<span
-			class="absolute right-1.5 -bottom-0.5 rounded bg-paper px-1 font-ui text-sm text-ink-soft"
+			class="absolute right-1.5 -bottom-0.5 rounded bg-paper px-1 font-ui text-sm text-ink-soft tabular-nums"
 		>
 			{entry.mind.length}/500
 		</span>
@@ -188,7 +201,7 @@
 			value={entry.refl}
 			oninput={(event) => update({ refl: event.currentTarget.value })}></textarea>
 		<span
-			class="absolute right-1.5 -bottom-0.5 rounded bg-paper px-1 font-ui text-sm text-ink-soft"
+			class="absolute right-1.5 -bottom-0.5 rounded bg-paper px-1 font-ui text-sm text-ink-soft tabular-nums"
 		>
 			{entry.refl.length}/300
 		</span>
@@ -210,24 +223,7 @@
 			role="group"
 			aria-label="Friend visibility"
 		>
-			<span class="font-ui text-xs font-bold tracking-wider text-ink-soft uppercase">
-				<svg
-					class="mr-1 inline size-4 shrink-0 align-[-3px] text-accent"
-					width="16"
-					height="16"
-					viewBox="0 0 24 24"
-					fill="none"
-					stroke="currentColor"
-					stroke-width="2"
-					stroke-linecap="round"
-					stroke-linejoin="round"
-					aria-hidden="true"
-					><circle cx="12" cy="12" r="10"></circle><path
-						d="M9.09 9a3 3 0 00-4.1 4.1l-2.4 2.4a3 3 0 004.1 4.1l2.4-2.4a3 3 0 004.1-4.1l-2.4-2.4a3 3 0 00-4.1-4.1z"
-					></path></svg
-				>
-				Friend visibility
-			</span>
+			<span class="font-ui text-xs font-semibold text-ink-soft">Visible to friends</span>
 			<span class="sr-only"
 				>Tap a friend to hide this page from them, or tap again to let them see it.</span
 			>
@@ -255,18 +251,13 @@
 					<p class="font-hand text-base text-ink-soft">
 						Join a community to choose where this page appears.
 					</p>
-					<button
-						type="button"
-						class="inline-flex items-center gap-1.5 rounded-full bg-accent px-3 py-1.5 font-ui text-xs font-bold text-white hover:bg-[#624690]"
-						onclick={() => nav.setView('community')}
-					>
-						<CommunityIcon name="globe" size={13} />
+					<Button size="sm" icon="globe" onclick={() => nav.setView('community')}>
 						Find communities
-					</button>
+					</Button>
 				</div>
 			{:else}
 				<label
-					class="flex items-center gap-2 font-ui text-xs font-bold tracking-wider text-ink-soft uppercase"
+					class="flex items-center gap-2 font-ui text-xs font-semibold text-ink-soft"
 					for={`${id}-community`}
 				>
 					<CommunityIcon name="globe" size={14} />
@@ -287,22 +278,20 @@
 		</div>
 	{/if}
 
-	<button
-		type="button"
-		class="mt-1.5 flex h-[54px] items-center justify-center gap-3.5 rounded-xl bg-accent font-display text-[21px] font-bold text-white shadow-[0_4px_14px_rgba(42,27,61,.3)] transition-all hover:bg-[#624690] hover:shadow-[0_6px_18px_rgba(42,27,61,.4)] active:scale-[0.99] disabled:opacity-60"
+	<Button
+		size="lg"
+		class="mt-1.5 h-[54px] w-full"
+		icon="check"
+		loading={saving}
 		disabled={preview}
-		onclick={() => !preview && journal.markSaved()}
+		onclick={save}
 	>
-		<span class="text-gold">
-			<CommunityIcon name="spark" size={18} />
-		</span>
-		Save VidJo
-		<span class="text-gold">
-			<CommunityIcon name="spark" size={18} />
-		</span>
-	</button>
+		{saving ? 'Saving…' : 'Save this page'}
+	</Button>
 
-	<div class="absolute right-0 bottom-3.5 left-0 text-center font-hand text-base text-ink-soft">
+	<div
+		class="absolute right-0 bottom-3.5 left-0 text-center font-ui text-xs font-semibold text-ink-muted tabular-nums"
+	>
 		{pageNumber}
 	</div>
 

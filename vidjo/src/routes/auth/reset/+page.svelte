@@ -4,6 +4,9 @@
 	import { resolve } from '$app/paths';
 	import { completeAuthCallback } from '#lib/authCallback';
 	import { auth } from '#lib/state/auth.svelte';
+	import Button from '#lib/components/ui/Button.svelte';
+	import Spinner from '#lib/components/ui/Spinner.svelte';
+	import CommunityIcon from '#lib/components/CommunityIcon.svelte';
 
 	let checking = $state(true);
 	let ready = $state(false);
@@ -77,28 +80,11 @@
 	<div
 		class="w-full rounded-[26px] border border-[#4A3670] bg-paper px-7 py-10 text-ink shadow-[0_30px_80px_rgba(0,0,0,.55)] min-[420px]:px-10"
 	>
-		<div class="font-ui text-[11px] font-bold tracking-[.16em] text-ink-soft uppercase">
-			Account recovery
-		</div>
-		<h1 class="mt-2 font-display text-[34px] leading-[1.05] font-bold">Choose a new password</h1>
+		<h1 class="font-display text-[34px] leading-[1.05] font-bold">Choose a new password</h1>
 
 		{#if checking}
-			<p class="mt-5 flex items-center gap-2 font-hand text-xl text-ink-soft">
-				<svg
-					class="size-5 animate-spin text-accent"
-					viewBox="0 0 24 24"
-					fill="none"
-					aria-hidden="true"
-				>
-					<circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="3" opacity=".3"
-					></circle>
-					<path
-						d="M21 12a9 9 0 00-9-9"
-						stroke="currentColor"
-						stroke-width="3"
-						stroke-linecap="round"
-					></path>
-				</svg>
+			<p class="mt-5 flex items-center gap-2 font-ui text-sm text-ink-soft">
+				<Spinner size={18} class="text-accent" />
 				Checking your reset link…
 			</p>
 		{:else if failed}
@@ -157,7 +143,7 @@
 						onclick={() => (passwordVisible = !passwordVisible)}
 						aria-label={passwordVisible ? 'Hide password' : 'Show password'}
 					>
-						{passwordVisible ? 'hide' : 'show'}
+						<CommunityIcon name={passwordVisible ? 'eye-off' : 'eye'} size={16} />
 					</button>
 				</div>
 
@@ -176,13 +162,9 @@
 					required
 				/>
 
-				<button
-					type="submit"
-					class="mt-5 flex h-12 w-full items-center justify-center gap-2 rounded-xl border border-[#6A528F] bg-accent font-ui text-[15px] font-bold text-white shadow-[0_5px_14px_rgba(42,27,61,.22)] hover:bg-[#624690] disabled:cursor-wait disabled:opacity-70"
-					disabled={busy}
-				>
-					{busy ? 'Saving…' : 'Save password & open journal'}
-				</button>
+				<Button type="submit" size="lg" class="mt-5 w-full" loading={busy}>
+					Save password & open journal
+				</Button>
 			</form>
 		{/if}
 	</div>

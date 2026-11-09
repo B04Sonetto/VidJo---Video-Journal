@@ -3,6 +3,8 @@
 	import CommunityIcon from '#lib/components/CommunityIcon.svelte';
 	import RecordVideoModal from '#lib/components/RecordVideoModal.svelte';
 	import StickerLayer from '#lib/components/StickerLayer.svelte';
+	import Button from '#lib/components/ui/Button.svelte';
+	import Spinner from '#lib/components/ui/Spinner.svelte';
 	import { parseDate, TODAY } from '#lib/dates';
 	import { journal } from '#lib/state/journal.svelte';
 	import { viewport } from '#lib/state/viewport.svelte';
@@ -61,7 +63,7 @@
 >
 	<div class="flex h-[62px] items-start justify-between gap-3">
 		<div>
-			<div class="font-ui text-[15px] font-bold tracking-[.14em] text-ink-soft uppercase">
+			<div class="font-ui text-sm font-semibold text-ink-muted">
 				{dow}
 			</div>
 			<div class="mt-0.5 font-display text-[34px] leading-[1.1] font-bold text-ink">
@@ -70,7 +72,7 @@
 		</div>
 		{#if entry.sample}
 			<div
-				class="rotate-3 rounded-lg border-2 border-dashed border-[#C9A25A] bg-[#FFF3D6] px-2.5 py-0.5 font-hand text-[15px] font-bold text-[#8A5A12]"
+				class="rounded-md border border-[#C9A25A] bg-[#FFF3D6] px-2.5 py-1 font-ui text-[11px] font-semibold text-[#7A4E0C]"
 			>
 				Sample page
 			</div>
@@ -78,15 +80,8 @@
 	</div>
 
 	<div
-		class="relative mt-1.5 h-[300px] shrink-0 rotate-[-.8deg] rounded bg-white p-3 pb-11 shadow-[0_3px_10px_rgba(60,40,20,.28)]"
+		class="relative mt-1.5 h-[300px] shrink-0 rounded bg-white p-3 pb-11 shadow-[0_3px_10px_rgba(60,40,20,.22)]"
 	>
-		<span
-			class="absolute -top-3 left-[-18px] z-[2] h-7 w-[92px] rotate-[-34deg] bg-lav/[.85] [background-image:repeating-linear-gradient(90deg,rgba(255,255,255,.35)_0_6px,transparent_6px_12px)] shadow-[0_1px_2px_rgba(0,0,0,.15)]"
-		></span>
-		<span
-			class="absolute -top-3 right-[-18px] z-[2] h-7 w-[92px] rotate-[34deg] bg-[rgba(240,200,115,.88)] [background-image:repeating-linear-gradient(90deg,rgba(255,255,255,.35)_0_6px,transparent_6px_12px)] shadow-[0_1px_2px_rgba(0,0,0,.15)]"
-		></span>
-
 		<div
 			class="relative flex h-full items-center justify-center overflow-hidden rounded-[2px] bg-[radial-gradient(circle_at_30%_30%,#4A2F78,#251541_70%)]"
 		>
@@ -117,20 +112,17 @@
 					</p>
 					{#if !preview}
 						<div class="flex flex-wrap justify-center gap-2">
-							<button
-								type="button"
-								class="min-h-[34px] rounded-lg border-2 border-lav/60 bg-white/[.08] px-3 font-ui text-[13px] font-semibold text-white transition-all hover:border-lav hover:bg-white/[.16] active:scale-[0.98]"
+							<Button
+								size="sm"
+								variant="outline"
+								icon="refresh"
 								onclick={() => journal.retryVideo(date)}
 							>
 								Try again
-							</button>
-							<button
-								type="button"
-								class="min-h-[34px] rounded-lg border border-[#CDBBE9] bg-light px-3 font-ui text-[13px] font-medium text-accent"
-								onclick={() => journal.removeVideo(date)}
-							>
+							</Button>
+							<Button size="sm" variant="paper" onclick={() => journal.removeVideo(date)}>
 								Remove
-							</button>
+							</Button>
 						</div>
 					{/if}
 				</div>
@@ -138,110 +130,38 @@
 				<div
 					class="flex flex-col items-center gap-2.5 text-center font-hand text-lg text-[#EDE6F7]"
 				>
-					<div
-						class="size-7 animate-spin rounded-full border-2 border-lav border-t-transparent"
-					></div>
+					<Spinner size={26} class="text-lav" />
 					<span>Loading video…</span>
 				</div>
 			{:else}
-				<span class="absolute top-[14px] left-[18px] text-base text-gold">
-					<CommunityIcon name="spark" size={14} />
-				</span>
-				<span class="absolute top-[40px] right-[22px] text-base text-gold">
-					<CommunityIcon name="spark" size={14} />
-				</span>
-				<span class="absolute bottom-[18px] left-[30px] text-base text-gold">
-					<CommunityIcon name="spark" size={14} />
-				</span>
-
-				<div
-					class="flex flex-col items-center gap-3 px-4 text-center font-hand text-xl text-[#EDE6F7]"
-				>
-					<svg
-						width="54"
-						height="54"
-						viewBox="0 0 24 24"
-						fill="none"
-						stroke="#C9B8E8"
-						stroke-width="1.5"
-						stroke-linecap="round"
-						stroke-linejoin="round"
-						aria-hidden="true"
-					>
-						<rect x="2.5" y="6" width="13" height="12" rx="2.5"></rect>
-						<path d="M15.5 10.5l6-3.5v10l-6-3.5z"></path>
-					</svg>
-					<div>Record or upload your video</div>
+				<div class="flex flex-col items-center gap-4 px-4 text-center text-[#EDE6F7]">
+					<span class="flex size-14 items-center justify-center rounded-full bg-white/10 text-lav">
+						<CommunityIcon name="video" size={26} />
+					</span>
+					<div class="font-ui text-[15px] font-semibold">No video on this page yet</div>
 					<div class="flex flex-wrap justify-center gap-2.5">
-						<button
-							type="button"
-							class="inline-flex min-h-11 items-center gap-2 rounded-xl bg-accent px-[18px] font-ui text-[15px] font-semibold text-white shadow-[0_4px_12px_rgba(0,0,0,.25)] transition-all hover:bg-[#624690] active:scale-[0.98]"
-							disabled={preview}
-							onclick={() => (recordOpen = true)}
-						>
-							<svg
-								width="18"
-								height="18"
-								viewBox="0 0 24 24"
-								fill="none"
-								stroke="#fff"
-								stroke-width="1.8"
-								stroke-linecap="round"
-								stroke-linejoin="round"
-								aria-hidden="true"
-							>
-								<circle cx="12" cy="12" r="8"></circle>
-								<circle cx="12" cy="12" r="3" fill="#fff"></circle>
-							</svg>
-							Record Video
-						</button>
-						<button
-							type="button"
-							class="inline-flex min-h-11 items-center gap-2 rounded-xl border-2 border-lav/60 bg-white/[.08] px-[18px] font-ui text-[15px] font-semibold text-white transition-all hover:border-lav hover:bg-white/[.16] active:scale-[0.98]"
+						<Button size="md" icon="camera" disabled={preview} onclick={() => (recordOpen = true)}>
+							Record video
+						</Button>
+						<Button
+							variant="outline"
+							size="md"
+							icon="upload"
 							disabled={preview}
 							onclick={() => uploadInput?.click()}
 						>
-							<svg
-								width="18"
-								height="18"
-								viewBox="0 0 24 24"
-								fill="none"
-								stroke="#fff"
-								stroke-width="1.8"
-								stroke-linecap="round"
-								stroke-linejoin="round"
-								aria-hidden="true"
-							>
-								<path
-									d="M7 18a4.5 4.5 0 01-.5-9 6 6 0 0111.5 1.5A3.7 3.7 0 0117.5 18M12 11v8M9 14l3-3 3 3"
-								></path>
-							</svg>
-							Upload Video
-						</button>
+							Upload video
+						</Button>
 					</div>
 				</div>
 			{/if}
 
 			{#if journal.uploading}
 				<div
-					class="pointer-events-none absolute inset-0 z-[3] flex flex-col items-center justify-center gap-2 bg-[#120A20]/70 text-center font-ui text-sm text-white"
+					class="pointer-events-none absolute inset-0 z-[3] flex flex-col items-center justify-center gap-2.5 bg-[#120A20]/70 text-center font-ui text-sm text-white"
 					role="status"
 				>
-					<svg
-						class="size-7 animate-spin text-gold"
-						viewBox="0 0 24 24"
-						fill="none"
-						aria-hidden="true"
-					>
-						<circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="3" opacity=".3"
-						></circle>
-						<path
-							d="M21 12a9 9 0 00-9-9"
-							stroke="currentColor"
-							stroke-width="3"
-							stroke-linecap="round"
-						></path>
-					</svg>
+					<Spinner size={26} class="text-gold" />
 					Saving video…
 				</div>
 			{/if}
@@ -289,14 +209,13 @@
 		onSelect={(mood) => !preview && journal.toggleMood(mood)}
 	/>
 
-	<p
-		class="mt-auto mb-2 flex items-center justify-center gap-1 text-center font-hand text-lg text-ink-soft"
-	>
+	<p class="mt-auto mb-2 text-center font-hand text-lg text-ink-soft">
 		Open the sticker tray below to make this page yours
-		<CommunityIcon name="spark" size={14} />
 	</p>
 
-	<div class="absolute right-0 bottom-3.5 left-0 text-center font-hand text-base text-ink-soft">
+	<div
+		class="absolute right-0 bottom-3.5 left-0 text-center font-ui text-xs font-semibold text-ink-muted tabular-nums"
+	>
 		{pageNumber}
 	</div>
 

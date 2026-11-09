@@ -10,6 +10,9 @@
 	import Avatar from '#lib/components/Avatar.svelte';
 	import CommunityIcon from '#lib/components/CommunityIcon.svelte';
 	import FriendJournalModal from '#lib/components/FriendJournalModal.svelte';
+	import PageHeader from '#lib/components/ui/PageHeader.svelte';
+	import Button from '#lib/components/ui/Button.svelte';
+	import Skeleton from '#lib/components/ui/Skeleton.svelte';
 	import type { Friend, FriendPost } from '#lib/types';
 
 	type Shelf = {
@@ -242,52 +245,21 @@
 />
 
 <div class="mx-auto w-full max-w-[1240px] px-4 py-6 min-[900px]:px-6">
-	<!-- Header -->
-	<div class="flex flex-wrap items-end justify-between gap-4">
-		<div>
-			<div class="flex flex-wrap items-center gap-2">
-				<span
-					class="inline-flex items-center gap-1.5 rounded-full border border-gold/30 bg-gold/10 px-3 py-1 font-ui text-[11px] font-bold tracking-wide text-gold uppercase"
-				>
-					<span class="size-1.5 rounded-full bg-gold" aria-hidden="true"></span>
-					Notebook shelf
-				</span>
-				<span class="font-ui text-xs text-[#BBA8E0]">
-					{friends.friendCount}
-					{friends.friendCount === 1 ? 'friend' : 'friends'}
-				</span>
-			</div>
-			<h1
-				class="mt-2 font-display text-4xl font-bold tracking-tight text-white min-[720px]:text-5xl"
-			>
-				Friends
-			</h1>
-			<p
-				class="mt-2 max-w-[620px] font-ui text-sm leading-relaxed text-[#CFC3E6] min-[720px]:text-base"
-			>
-				Open a friend's notebook to read the pages they shared with friends. Nothing else is
-				visible.
-			</p>
-		</div>
-
-		<div class="flex flex-wrap items-center gap-3">
-			<button
-				type="button"
-				class="font-ui text-xs font-semibold text-gold hover:underline"
-				onclick={() => nav.jump(TODAY)}
-			>
-				Open my journal →
-			</button>
-			<button
-				type="button"
-				class="inline-flex min-h-12 items-center gap-2.5 rounded-[14px] border-[1.5px] border-gold bg-gold/10 px-5 font-ui text-sm font-semibold text-[#F3DDAE] transition-colors hover:bg-gold/20"
-				onclick={openAddFriend}
-			>
-				<span class="text-lg leading-none" aria-hidden="true">+</span>
-				Add a friend
-			</button>
-		</div>
-	</div>
+	<PageHeader
+		title="Friends"
+		description="Open a friend's notebook to read the pages they shared. Nothing else is visible."
+	>
+		{#snippet meta()}
+			{friends.friendCount}
+			{friends.friendCount === 1 ? 'friend' : 'friends'}
+		{/snippet}
+		{#snippet actions()}
+			<Button variant="ghost" trailingIcon="arrow-right" onclick={() => nav.jump(TODAY)}>
+				Open my journal
+			</Button>
+			<Button icon="plus" onclick={openAddFriend}>Add a friend</Button>
+		{/snippet}
+	</PageHeader>
 
 	<div
 		class="mt-7 grid gap-6 min-[1040px]:grid-cols-[minmax(0,1fr)_340px] min-[1040px]:items-start"
@@ -299,7 +271,7 @@
 			<div class="flex flex-wrap items-center justify-between gap-3">
 				<div class="flex items-baseline gap-3">
 					<h2 class="font-display text-[26px] leading-none font-bold text-white">The shelf</h2>
-					<span class="font-ui text-sm text-[#BBA8E0]">
+					<span class="font-ui text-sm text-[#BBA8E0] tabular-nums">
 						{friends.friendCount}
 						{friends.friendCount === 1 ? 'friend' : 'friends'}
 					</span>
@@ -323,142 +295,153 @@
 			</div>
 
 			<div class="mt-6">
-				{#each shelfRows as row, rowIndex (rowIndex)}
-					<div class={rowIndex === 0 ? '' : 'mt-9'}>
-						<div class="grid grid-cols-2 gap-x-6 gap-y-6 min-[720px]:grid-cols-3">
-							{#each row as item, itemIndex (item.kind === 'shelf' ? item.shelf.friend.id : `add-${itemIndex}`)}
-								{#if item.kind === 'add'}
-									<button
-										type="button"
-										class="flex aspect-[3/4] w-full flex-col items-center justify-center gap-2.5 rounded-[6px_12px_12px_6px] border-2 border-dashed border-[#8B6FD0] p-3 text-center text-[#D6CBEC] transition-colors hover:border-gold hover:bg-white/[.03] hover:text-white"
-										onclick={openAddFriend}
-										aria-label="Add a friend with a friend code"
-									>
-										<span
-											class="flex size-9 items-center justify-center rounded-full border border-[#8B6FD0] text-xl leading-none"
-											aria-hidden="true"
-										>
-											+
-										</span>
-										<span class="font-hand text-xl leading-tight font-bold">Add a friend</span>
-										<span class="font-ui text-[10px] leading-tight text-[#BBA8E0]">
-											with a friend code
-										</span>
-									</button>
-									<div class="mt-3 h-6" aria-hidden="true"></div>
-								{:else}
-									{@const shelf = item.shelf}
-									{@const cover = coverFor(shelf.friend.id + shelf.friend.displayName)}
-									{@const sticker = stickerFor(shelf.friend.id + shelf.friend.displayName)}
-									{@const moodPost = shelf.posts.find(
-										(entry) => entry.mood && MOOD_BY_KEY[entry.mood]
-									)}
-									<div class="min-w-0">
+				{#if friends.loading && shelves.length === 0}
+					<div class="grid grid-cols-2 gap-x-6 gap-y-6 min-[720px]:grid-cols-3">
+						{#each [0, 1, 2] as slot (slot)}
+							<div>
+								<Skeleton class="aspect-[3/4] w-full rounded-[6px_12px_12px_6px]" />
+								<Skeleton class="mx-auto mt-3 h-3.5 w-2/3" />
+							</div>
+						{/each}
+					</div>
+				{:else}
+					{#each shelfRows as row, rowIndex (rowIndex)}
+						<div class={rowIndex === 0 ? '' : 'mt-9'}>
+							<div class="grid grid-cols-2 gap-x-6 gap-y-6 min-[720px]:grid-cols-3">
+								{#each row as item, itemIndex (item.kind === 'shelf' ? item.shelf.friend.id : `add-${itemIndex}`)}
+									{#if item.kind === 'add'}
 										<button
 											type="button"
-											class="group relative block w-full text-left"
-											onclick={() => openReader(shelf)}
-											aria-label="Open {shelf.friend.displayName}'s notebook, {shelf.newCount}
-												new pages"
+											class="flex aspect-[3/4] w-full flex-col items-center justify-center gap-2.5 rounded-lg border border-[#8B6FD0] p-3 text-center text-[#D6CBEC] transition-colors hover:border-gold hover:bg-white/[.03] hover:text-white"
+											onclick={openAddFriend}
+											aria-label="Add a friend with a friend code"
 										>
-											{#if shelf.newCount > 0}
-												<span
-													class="absolute -top-1.5 -right-1.5 z-10 flex h-[22px] min-w-[22px] items-center justify-center rounded-full bg-gold px-1 font-ui text-[11px] font-bold text-[#2A1B3D] shadow-[0_0_0_3px_#2A1B3D]"
-												>
-													{shelf.newCount}
-												</span>
-											{/if}
-
 											<span
-												class="relative block aspect-[3/4] overflow-hidden rounded-[6px_12px_12px_6px] shadow-[0_12px_20px_rgba(0,0,0,.5),inset_-3px_0_0_rgba(255,255,255,.08)] transition-transform duration-200 group-hover:-translate-y-1"
-												style="background: linear-gradient(135deg, {cover[0]}, {cover[1]})"
+												class="flex size-9 items-center justify-center rounded-full border border-[#8B6FD0] text-gold"
+												aria-hidden="true"
 											>
-												<span
-													class="absolute inset-y-0 left-0 w-[13%] bg-black/30"
-													aria-hidden="true"
-												></span>
-												<span
-													class="absolute inset-2 left-[19%] rounded-[8px] border-2 border-dashed border-gold/55"
-													aria-hidden="true"
-												></span>
-
-												{#if shelf.isOwner}
-													<span
-														class="absolute top-[8%] left-[21%] z-10 rounded-full bg-white/20 px-1.5 py-0.5 font-ui text-[8px] font-bold text-white"
-													>
-														Your notebook
-													</span>
-												{/if}
-
-												<span
-													class="absolute top-1/2 right-[12%] left-[26%] -translate-y-1/2 -rotate-2 rounded bg-paper px-1.5 py-1 text-center font-hand text-[22px] leading-none font-bold text-ink shadow-[0_2px_4px_rgba(0,0,0,.3)]"
-												>
-													<span class="block truncate">
-														{firstName(shelf.friend.displayName)}
-													</span>
-												</span>
-
-												{#if sticker}
-													<span
-														class="absolute top-[9%] right-[8%] w-[36%] rotate-[8deg] sticker-shadow [&>svg]:block [&>svg]:h-auto [&>svg]:w-full"
-														aria-hidden="true"
-													>
-														<!-- eslint-disable-next-line svelte/no-at-html-tags -- static SVG from data/stickers.ts -->
-														{@html sticker.svg}
-													</span>
-												{/if}
+												<CommunityIcon name="plus" size={16} />
+											</span>
+											<span class="font-hand text-xl leading-tight font-bold">Add a friend</span>
+											<span class="font-ui text-[10px] leading-tight text-[#BBA8E0]">
+												with a friend code
 											</span>
 										</button>
-
-										<div
-											class="mt-3 flex items-center justify-center gap-2 text-[13px] leading-tight text-[#D6CBEC]"
-										>
-											{#if moodPost?.mood && MOOD_BY_KEY[moodPost.mood]}
-												<span class="size-5 shrink-0 [&>svg]:size-full" aria-hidden="true">
-													<!-- eslint-disable-next-line svelte/no-at-html-tags -- static SVG from data/moods.ts -->
-													{@html MOOD_BY_KEY[moodPost.mood].svg}
-												</span>
-											{:else}
-												<svg
-													class="size-5 shrink-0 text-gold"
-													viewBox="0 0 24 24"
-													fill="none"
-													stroke="currentColor"
-													stroke-width="1.8"
-													stroke-linejoin="round"
-													aria-hidden="true"
-												>
-													<path d="m12 3 1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9Z"
-													></path>
-												</svg>
-											{/if}
-											<span>
+										<div class="mt-3 h-6" aria-hidden="true"></div>
+									{:else}
+										{@const shelf = item.shelf}
+										{@const cover = coverFor(shelf.friend.id + shelf.friend.displayName)}
+										{@const sticker = stickerFor(shelf.friend.id + shelf.friend.displayName)}
+										{@const moodPost = shelf.posts.find(
+											(entry) => entry.mood && MOOD_BY_KEY[entry.mood]
+										)}
+										<div class="min-w-0">
+											<button
+												type="button"
+												class="group relative block w-full text-left"
+												onclick={() => openReader(shelf)}
+												aria-label="Open {shelf.friend.displayName}'s notebook, {shelf.newCount}
+												new pages"
+											>
 												{#if shelf.newCount > 0}
-													{shelf.newCount} new
-													{shelf.newCount === 1 ? 'page' : 'pages'}
-												{:else if shelf.posts.length > 0}
-													{shelf.posts.length} shared
-													{shelf.posts.length === 1 ? 'page' : 'pages'}
-												{:else}
-													No shared pages
+													<span
+														class="absolute -top-1.5 -right-1.5 z-10 flex h-[22px] min-w-[22px] items-center justify-center rounded-full bg-gold px-1 font-ui text-[11px] font-bold text-[#2A1B3D] shadow-[0_0_0_3px_#2A1B3D]"
+													>
+														{shelf.newCount}
+													</span>
 												{/if}
-											</span>
-										</div>
-									</div>
-								{/if}
-							{/each}
-						</div>
 
-						<div
-							class="mx-[-8px] mt-2 h-4 rounded-[4px] bg-[linear-gradient(#4A3470,#33224F)] shadow-[0_8px_12px_rgba(0,0,0,.4)]"
-							aria-hidden="true"
-						></div>
-					</div>
-				{/each}
+												<span
+													class="relative block aspect-[3/4] overflow-hidden rounded-[6px_12px_12px_6px] shadow-[0_12px_20px_rgba(0,0,0,.5),inset_-3px_0_0_rgba(255,255,255,.08)] transition-transform duration-200 group-hover:-translate-y-1"
+													style="background: linear-gradient(135deg, {cover[0]}, {cover[1]})"
+												>
+													<span
+														class="absolute inset-y-0 left-0 w-[13%] bg-black/30"
+														aria-hidden="true"
+													></span>
+													<span
+														class="absolute inset-2 left-[19%] rounded-[8px] border border-gold/40"
+														aria-hidden="true"
+													></span>
+
+													{#if shelf.isOwner}
+														<span
+															class="absolute top-[8%] left-[21%] z-10 rounded-full bg-white/20 px-1.5 py-0.5 font-ui text-[8px] font-bold text-white"
+														>
+															Your notebook
+														</span>
+													{/if}
+
+													<span
+														class="absolute top-1/2 right-[12%] left-[26%] -translate-y-1/2 -rotate-2 rounded bg-paper px-1.5 py-1 text-center font-hand text-[22px] leading-none font-bold text-ink shadow-[0_2px_4px_rgba(0,0,0,.3)]"
+													>
+														<span class="block truncate">
+															{firstName(shelf.friend.displayName)}
+														</span>
+													</span>
+
+													{#if sticker}
+														<span
+															class="absolute top-[9%] right-[8%] w-[36%] rotate-[8deg] sticker-shadow [&>svg]:block [&>svg]:h-auto [&>svg]:w-full"
+															aria-hidden="true"
+														>
+															<!-- eslint-disable-next-line svelte/no-at-html-tags -- static SVG from data/stickers.ts -->
+															{@html sticker.svg}
+														</span>
+													{/if}
+												</span>
+											</button>
+
+											<div
+												class="mt-3 flex items-center justify-center gap-2 text-[13px] leading-tight text-[#D6CBEC]"
+											>
+												{#if moodPost?.mood && MOOD_BY_KEY[moodPost.mood]}
+													<span class="size-5 shrink-0 [&>svg]:size-full" aria-hidden="true">
+														<!-- eslint-disable-next-line svelte/no-at-html-tags -- static SVG from data/moods.ts -->
+														{@html MOOD_BY_KEY[moodPost.mood].svg}
+													</span>
+												{:else}
+													<svg
+														class="size-5 shrink-0 text-gold"
+														viewBox="0 0 24 24"
+														fill="none"
+														stroke="currentColor"
+														stroke-width="1.8"
+														stroke-linejoin="round"
+														aria-hidden="true"
+													>
+														<path d="m12 3 1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9Z"
+														></path>
+													</svg>
+												{/if}
+												<span>
+													{#if shelf.newCount > 0}
+														{shelf.newCount} new
+														{shelf.newCount === 1 ? 'page' : 'pages'}
+													{:else if shelf.posts.length > 0}
+														{shelf.posts.length} shared
+														{shelf.posts.length === 1 ? 'page' : 'pages'}
+													{:else}
+														No shared pages
+													{/if}
+												</span>
+											</div>
+										</div>
+									{/if}
+								{/each}
+							</div>
+
+							<div
+								class="mx-[-8px] mt-2 h-4 rounded-[4px] bg-[linear-gradient(#4A3470,#33224F)] shadow-[0_8px_12px_rgba(0,0,0,.4)]"
+								aria-hidden="true"
+							></div>
+						</div>
+					{/each}
+				{/if}
 			</div>
 
-			{#if friends.friendCount === 0}
-				<p class="mt-6 text-center font-hand text-base leading-snug text-[#C9B8E8]">
+			{#if !friends.loading && friends.friendCount === 0}
+				<p class="mt-6 text-center font-ui text-sm leading-relaxed text-[#C9B8E8]">
 					Your shelf is waiting. Add a friend with their code and their notebook will appear here.
 				</p>
 			{/if}
@@ -686,10 +669,7 @@
 			</div>
 
 			<form class="p-5" onsubmit={submitAddFriend}>
-				<label
-					for="friend-code-input"
-					class="block font-ui text-xs font-bold tracking-wide text-ink-soft uppercase"
-				>
+				<label for="friend-code-input" class="block font-ui text-xs font-semibold text-ink-soft">
 					Their friend code
 				</label>
 				<input
@@ -723,43 +703,33 @@
 				{/if}
 
 				<div class="mt-5 flex items-center justify-between gap-2 border-t border-line pt-4">
-					<button
-						type="button"
-						class="min-h-10 rounded-xl border border-line px-4 font-ui text-sm font-semibold text-ink-soft transition-colors hover:bg-light hover:text-ink"
-						onclick={() => (addOpen = false)}
-					>
-						Cancel
-					</button>
-					<button
+					<Button variant="paper" onclick={() => (addOpen = false)}>Cancel</Button>
+					<Button
 						type="submit"
-						class="flex min-h-10 items-center gap-2 rounded-xl bg-accent px-5 font-ui text-sm font-bold text-white transition-colors hover:bg-[#624690] disabled:cursor-not-allowed disabled:opacity-50"
+						icon="mail"
+						loading={addBusy}
 						disabled={addBusy || !addCodeInput.trim()}
 					>
-						{#if addBusy}
-							<span
-								class="size-4 animate-spin rounded-full border-2 border-white border-t-transparent"
-								aria-hidden="true"
-							></span>
-							Sending…
-						{:else}
-							Send request
-						{/if}
-					</button>
+						{addBusy ? 'Sending…' : 'Send request'}
+					</Button>
 				</div>
 			</form>
 
 			<div class="border-t border-line bg-light/70 px-5 py-3">
-				<p class="font-ui text-[10px] font-bold tracking-wide text-ink-soft uppercase">Your code</p>
+				<p class="font-ui text-[11px] font-semibold text-ink-soft">Your friend code</p>
 				<div class="mt-1 flex items-center gap-2">
-					<code class="rounded-lg bg-paper px-2 py-1 font-mono text-xs font-bold text-accent">
+					<code
+						class="rounded-md bg-paper px-2 py-1 font-mono text-xs font-bold text-accent tabular-nums"
+					>
 						{friends.myFriendCode}
 					</code>
 					<button
 						type="button"
-						class="font-ui text-xs font-semibold text-accent hover:underline"
+						class="inline-flex items-center gap-1 font-ui text-xs font-semibold text-accent hover:underline"
 						onclick={copyMyCode}
 					>
-						{copied ? 'Copied!' : 'Copy'}
+						<CommunityIcon name="copy" size={12} />
+						{copied ? 'Copied' : 'Copy'}
 					</button>
 				</div>
 			</div>

@@ -2,6 +2,8 @@
 	import { onMount } from 'svelte';
 	import LeftPage from '#lib/components/LeftPage.svelte';
 	import RightPage from '#lib/components/RightPage.svelte';
+	import CommunityIcon from '#lib/components/CommunityIcon.svelte';
+	import Button from '#lib/components/ui/Button.svelte';
 	import { journal } from '#lib/state/journal.svelte';
 	import { nav } from '#lib/state/navigation.svelte';
 	import { viewport } from '#lib/state/viewport.svelte';
@@ -23,6 +25,7 @@
 	let flip = $state<Flip | null>(null);
 	let flipTimer: ReturnType<typeof setTimeout> | undefined;
 	let deleteConfirm = $state<string | null>(null);
+	let deleting = $state(false);
 
 	const bookWidth = $derived(viewport.single ? 600 : 1160);
 	const scale = $derived(hostWidth > 0 ? Math.min(1, hostWidth / bookWidth) : 1);
@@ -123,9 +126,14 @@
 	}
 
 	async function confirmDelete() {
-		if (!deleteConfirm) return;
-		await journal.deleteEntry(deleteConfirm);
-		deleteConfirm = null;
+		if (!deleteConfirm || deleting) return;
+		deleting = true;
+		try {
+			await journal.deleteEntry(deleteConfirm);
+			deleteConfirm = null;
+		} finally {
+			deleting = false;
+		}
 	}
 
 	async function cancelDelete() {
@@ -225,20 +233,7 @@
 			aria-pressed={journal.side === 'L'}
 			onclick={() => setSide('L')}
 		>
-			<svg
-				width="15"
-				height="15"
-				viewBox="0 0 24 24"
-				fill="none"
-				stroke="currentColor"
-				stroke-width="2"
-				stroke-linecap="round"
-				stroke-linejoin="round"
-				aria-hidden="true"
-			>
-				<rect x="2.5" y="6" width="13" height="12" rx="2.5"></rect>
-				<path d="M15.5 10.5l6-3.5v10l-6-3.5z"></path>
-			</svg>
+			<CommunityIcon name="video" size={15} />
 			Video
 		</button>
 		<button
@@ -250,42 +245,12 @@
 			aria-pressed={journal.side === 'R'}
 			onclick={() => setSide('R')}
 		>
-			<svg
-				width="15"
-				height="15"
-				viewBox="0 0 24 24"
-				fill="none"
-				stroke="currentColor"
-				stroke-width="2"
-				stroke-linecap="round"
-				stroke-linejoin="round"
-				aria-hidden="true"
-			>
-				<path d="M12 20h9"></path>
-				<path d="M16.5 3.5a2.1 2.1 0 013 3L7 19l-4 1 1-4z"></path>
-			</svg>
+			<CommunityIcon name="pen" size={15} />
 			Write
 		</button>
-		<button
-			type="button"
-			class="flex min-h-10 items-center justify-center gap-1.5 rounded-xl bg-accent px-3.5 font-ui text-[13px] font-bold text-white shadow-[0_3px_10px_rgba(42,27,61,.35)] transition-all hover:bg-[#624690] active:scale-95"
-			onclick={() => journal.markSaved()}
-		>
-			<svg
-				width="15"
-				height="15"
-				viewBox="0 0 24 24"
-				fill="none"
-				stroke="currentColor"
-				stroke-width="2.2"
-				stroke-linecap="round"
-				stroke-linejoin="round"
-				aria-hidden="true"
-			>
-				<path d="M20 6L9 17l-5-5"></path>
-			</svg>
+		<Button size="sm" class="min-h-10" icon="check" onclick={() => journal.markSaved()}>
 			Save
-		</button>
+		</Button>
 	</div>
 {/if}
 
@@ -294,12 +259,6 @@
 	class="relative mx-auto w-full max-w-[1240px]"
 	style:height={`${740 * scale}px`}
 >
-	<!-- Ambient desk glow beneath book -->
-	<div
-		class="pointer-events-none absolute inset-x-8 bottom-[-10px] -z-10 h-40 rounded-full bg-[radial-gradient(ellipse_at_center,rgba(110,65,160,0.38)_0%,rgba(67,41,107,0.18)_50%,transparent_72%)] blur-2xl"
-		aria-hidden="true"
-	></div>
-
 	<div
 		class="relative origin-top-left"
 		style:width={`${bookWidth}px`}
@@ -312,7 +271,7 @@
 			class:w-[1160px]={!viewport.single}
 		>
 			<div
-				class="cover absolute inset-0 rounded-[24px] bg-[linear-gradient(135deg,#523479,#3A2360_55%,#2E1A4E)] shadow-[0_32px_75px_rgba(0,0,0,.65),0_12px_28px_rgba(0,0,0,.45),inset_0_0_0_2px_rgba(255,255,255,.07)] after:absolute after:inset-2 after:rounded-[17px] after:border-2 after:border-dashed after:border-gold/50 after:content-['']"
+				class="cover absolute inset-0 rounded-[24px] bg-[linear-gradient(135deg,#523479,#3A2360_55%,#2E1A4E)] shadow-[0_32px_75px_rgba(0,0,0,.65),0_12px_28px_rgba(0,0,0,.45)] ring-1 ring-white/[.07] ring-inset"
 			></div>
 
 			{#if currentEntry}
@@ -406,28 +365,16 @@
 <div class="mx-auto mt-[18px] flex max-w-[1160px] items-center justify-center gap-4">
 	<button
 		type="button"
-		class="flex size-12 items-center justify-center rounded-full border-[1.5px] border-[#5A4580] bg-desk-2 shadow-[0_4px_14px_rgba(0,0,0,.35)] transition-all hover:scale-105 hover:bg-[#3A2A55] active:scale-95 disabled:cursor-default disabled:opacity-35 disabled:hover:scale-100 disabled:hover:bg-desk-2"
+		class="flex size-12 items-center justify-center rounded-full border-[1.5px] border-[#5A4580] bg-desk-2 text-white shadow-[0_4px_14px_rgba(0,0,0,.35)] transition-colors hover:bg-[#3A2A55] disabled:cursor-default disabled:opacity-35 disabled:hover:bg-desk-2"
 		disabled={atStart}
 		aria-label="Previous page"
 		onclick={() => go(-1)}
 	>
-		<svg
-			width="22"
-			height="22"
-			viewBox="0 0 24 24"
-			fill="none"
-			stroke="#fff"
-			stroke-width="2"
-			stroke-linecap="round"
-			stroke-linejoin="round"
-			aria-hidden="true"
-		>
-			<path d="M15 5l-7 7 7 7"></path>
-		</svg>
+		<CommunityIcon name="arrow-left" size={22} />
 	</button>
 
 	<div
-		class="min-w-[160px] text-center font-ui text-[15px] font-medium tracking-wide text-[#D6CBEC]"
+		class="min-w-[160px] text-center font-ui text-[15px] font-medium text-[#D6CBEC] tabular-nums"
 		aria-live="polite"
 	>
 		{pageLabel}
@@ -435,46 +382,21 @@
 
 	<button
 		type="button"
-		class="flex size-12 items-center justify-center rounded-full border-[1.5px] border-[#5A4580] bg-desk-2 shadow-[0_4px_14px_rgba(0,0,0,.35)] transition-all hover:scale-105 hover:bg-[#3A2A55] active:scale-95 disabled:cursor-default disabled:opacity-35 disabled:hover:scale-100 disabled:hover:bg-desk-2"
+		class="flex size-12 items-center justify-center rounded-full border-[1.5px] border-[#5A4580] bg-desk-2 text-white shadow-[0_4px_14px_rgba(0,0,0,.35)] transition-colors hover:bg-[#3A2A55] disabled:cursor-default disabled:opacity-35 disabled:hover:bg-desk-2"
 		disabled={atEnd}
 		aria-label="Next page"
 		onclick={() => go(1)}
 	>
-		<svg
-			width="22"
-			height="22"
-			viewBox="0 0 24 24"
-			fill="none"
-			stroke="#fff"
-			stroke-width="2"
-			stroke-linecap="round"
-			stroke-linejoin="round"
-			aria-hidden="true"
-		>
-			<path d="M9 5l7 7-7 7"></path>
-		</svg>
+		<CommunityIcon name="arrow-right" size={22} />
 	</button>
 
 	<button
 		type="button"
-		class="flex size-12 items-center justify-center rounded-full border-[1.5px] border-[#D19A9A] bg-desk-2 shadow-[0_4px_14px_rgba(0,0,0,.35)] transition-all hover:scale-105 hover:bg-[#3A222B] active:scale-95 disabled:cursor-default disabled:opacity-35 disabled:hover:scale-100 disabled:hover:bg-desk-2"
+		class="flex size-12 items-center justify-center rounded-full border-[1.5px] border-[#D19A9A] bg-desk-2 text-white shadow-[0_4px_14px_rgba(0,0,0,.35)] transition-colors hover:bg-[#3A222B] disabled:cursor-default disabled:opacity-35 disabled:hover:bg-desk-2"
 		aria-label="Delete this page"
 		onclick={deletePage}
 	>
-		<svg
-			width="22"
-			height="22"
-			viewBox="0 0 24 24"
-			fill="none"
-			stroke="#fff"
-			stroke-width="2"
-			stroke-linecap="round"
-			stroke-linejoin="round"
-			aria-hidden="true"
-		>
-			<polyline points="3 6 5 6 21 6"></polyline>
-			<path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"></path>
-		</svg>
+		<CommunityIcon name="trash" size={22} />
 	</button>
 </div>
 
@@ -495,27 +417,17 @@
 			aria-hidden="true"
 		></button>
 		<div
-			class="relative mx-4 max-w-[320px] rounded-[24px] border border-[#5A4580] bg-desk-2 p-8 text-center text-white shadow-[0_30px_80px_rgba(0,0,0,.6)]"
+			class="relative mx-4 max-w-[340px] rounded-2xl border border-[#5A4580] bg-desk-2 p-7 text-center text-white shadow-[0_30px_80px_rgba(0,0,0,.6)]"
 		>
-			<h2 class="font-display text-xl font-bold">Delete this page?</h2>
-			<p class="mt-3 font-ui text-sm leading-relaxed text-[#D6CBEC]">
-				This will permanently remove this journal entry. It cannot be undone.
+			<h2 class="font-display text-xl font-bold text-balance">Delete this page?</h2>
+			<p class="mt-2.5 font-ui text-sm leading-relaxed text-[#D6CBEC]">
+				This permanently removes this journal entry and its video. It cannot be undone.
 			</p>
 			<div class="mt-6 flex justify-center gap-3">
-				<button
-					type="button"
-					class="flex size-11 items-center justify-center rounded-xl border border-[#5A4580] bg-[#33224D] px-4 font-ui text-sm text-[#D6CBEC] hover:bg-[#43306A]"
-					onclick={cancelDelete}
-				>
-					Cancel
-				</button>
-				<button
-					type="button"
-					class="flex size-11 items-center justify-center rounded-xl border border-[#D19A9A] bg-[#3A222B] px-4 font-ui text-sm text-white hover:bg-[#4A2A32]"
-					onclick={confirmDelete}
-				>
-					Delete
-				</button>
+				<Button variant="outline" onclick={cancelDelete} disabled={deleting}>Cancel</Button>
+				<Button variant="danger" icon="trash" loading={deleting} onclick={confirmDelete}>
+					Delete page
+				</Button>
 			</div>
 		</div>
 	</div>

@@ -278,9 +278,7 @@
 				<aside
 					class="hidden min-h-0 flex-col overflow-y-auto border-r border-line bg-[#F7F0DE] p-4 min-[860px]:flex"
 				>
-					<p class="mb-2 font-ui text-[10px] font-bold tracking-[.16em] text-ink-soft uppercase">
-						Pages in this notebook
-					</p>
+					<p class="mb-2 font-ui text-[11px] font-semibold text-ink-soft">Pages in this notebook</p>
 					{#if sorted.length === 0}
 						<p class="font-hand text-base text-ink-soft">No shared pages yet.</p>
 					{:else}
@@ -325,9 +323,7 @@
 					{#if page}
 						<div class="flex flex-wrap items-center justify-between gap-2">
 							<div class="flex flex-wrap items-center gap-2">
-								<span
-									class="font-ui text-[11px] font-bold tracking-[.16em] text-ink-soft uppercase"
-								>
+								<span class="font-ui text-[11px] font-semibold text-ink-soft">
 									{page.dateFormatted}
 								</span>
 								{#if page.mood && MOOD_BY_KEY[page.mood]}
@@ -419,9 +415,7 @@
 									<CommunityIcon name="star" size={16} />
 								</span>
 								<div>
-									<span
-										class="block font-ui text-[10px] font-bold tracking-[.14em] text-accent uppercase"
-										>Reflection</span
+									<span class="block font-ui text-[10px] font-semibold text-accent">Reflection</span
 									>
 									<p class="mt-0.5 font-hand text-lg leading-snug text-ink">{page.refl}</p>
 								</div>
@@ -467,10 +461,8 @@
 							</div>
 
 							<div class="mt-3 border-t border-line/70 pt-3">
-								<span
-									class="mb-2 block font-ui text-[10px] font-bold tracking-[.14em] text-ink-soft uppercase"
-								>
-									Friend notes ({page.comments.length})
+								<span class="mb-2 block font-ui text-[10px] font-semibold text-ink-soft">
+									Friend notes <span class="tabular-nums">({page.comments.length})</span>
 								</span>
 
 								{#if page.comments.length > 0}

@@ -3,6 +3,7 @@
 	import { auth } from '#lib/state/auth.svelte';
 	import { profile } from '#lib/state/profile.svelte';
 	import CommunityIcon from '#lib/components/CommunityIcon.svelte';
+	import Button from '#lib/components/ui/Button.svelte';
 
 	type View = 'signin' | 'signup' | 'signup-2' | 'code';
 
@@ -68,17 +69,12 @@
 
 	let heading = $derived(
 		view === 'code'
-			? 'Check your inbox'
-			: view === 'signup' || view === 'signup-2'
-				? 'Make it yours'
-				: 'Open your journal'
-	);
-	let kicker = $derived(
-		view === 'code'
-			? 'One more step'
-			: view === 'signup' || view === 'signup-2'
+			? 'Enter your sign-in code'
+			: view === 'signup'
 				? 'Create your journal'
-				: 'Your private video journal'
+				: view === 'signup-2'
+					? 'Set a password'
+					: 'Sign in to your journal'
 	);
 	let subtitle = $derived(
 		view === 'code'
@@ -536,23 +532,10 @@
 		class="grid w-full overflow-hidden rounded-[26px] border border-[#4A3670] bg-desk-2 shadow-[0_30px_80px_rgba(0,0,0,.55)] min-[900px]:grid-cols-[1.02fr_.98fr]"
 	>
 		<aside
-			class="relative hidden overflow-hidden bg-[linear-gradient(150deg,#523479,#3A2360_58%,#2E1A4E)] p-10 text-white min-[900px]:flex min-[900px]:flex-col"
+			class="relative hidden overflow-hidden bg-[linear-gradient(155deg,#4A2F70,#3A2360_58%,#2E1A4E)] p-10 text-white min-[900px]:flex min-[900px]:flex-col"
 			aria-hidden="true"
 		>
-			<div
-				class="pointer-events-none absolute inset-3 rounded-[18px] border-2 border-dashed border-gold/40"
-			></div>
-			<span class="absolute top-9 right-10 text-2xl text-gold">
-				<CommunityIcon name="spark" size={24} />
-			</span>
-			<span class="absolute top-24 left-8 text-base text-gold/80">
-				<CommunityIcon name="spark" size={16} />
-			</span>
-			<span class="absolute right-14 bottom-16 text-xl text-gold/70">
-				<CommunityIcon name="spark" size={20} />
-			</span>
-
-			<div class="relative mt-3 flex items-center gap-3">
+			<div class="flex items-center gap-3">
 				<svg width="40" height="48" viewBox="0 0 44 52" aria-hidden="true" class="shrink-0">
 					<path d="M30 6a20 20 0 100 40 17 17 0 01-8-20 17 17 0 018-20z" fill="#E8C9A0"></path>
 					<path d="M38 12l1.4 3.6 3.6 1.4-3.6 1.4L38 22l-1.4-3.6L33 17l3.6-1.4z" fill="#D4A24C"
@@ -560,42 +543,80 @@
 				</svg>
 				<div>
 					<div class="font-display text-[38px] leading-none font-bold">VidJo</div>
-					<div class="mt-1 font-ui text-xs tracking-[.06em] text-[#D6CBEC]">
-						SMALL VIDEOS, BIG THOUGHTS.
+					<div class="mt-1 font-ui text-xs text-[#D6CBEC]">Small videos, big thoughts.</div>
+				</div>
+			</div>
+
+			<div class="mt-10 max-w-[380px]">
+				<h2 class="m-0 font-display text-[40px] leading-[1.05] font-bold text-balance">
+					A page for every day you want to keep.
+				</h2>
+				<p class="mt-4 font-ui text-[15px] leading-relaxed text-[#D6CBEC]">
+					Record a short video, write what is on your mind, and flip back to the ordinary days that
+					turned out to matter.
+				</p>
+			</div>
+
+			<!-- An actual spread, not a mock-up of features -->
+			<div class="mt-9 w-full max-w-[420px]">
+				<div
+					class="grid grid-cols-2 overflow-hidden rounded-2xl shadow-[0_24px_50px_rgba(0,0,0,.45)] ring-1 ring-black/20"
+				>
+					<div class="bg-paper p-4 text-ink">
+						<div class="flex items-baseline justify-between gap-2">
+							<span class="font-display text-sm font-bold">Today</span>
+							<span class="font-ui text-[10px] text-ink-soft tabular-nums">Nov 8</span>
+						</div>
+						<div
+							class="relative mt-3 aspect-[4/5] overflow-hidden rounded-lg bg-[linear-gradient(160deg,#6A4E93,#3E2A5F)]"
+						>
+							<span class="absolute inset-0 flex items-center justify-center">
+								<span
+									class="flex size-9 items-center justify-center rounded-full bg-white/90 text-[#3E2A5F]"
+								>
+									<CommunityIcon name="play" size={14} />
+								</span>
+							</span>
+							<span
+								class="absolute right-1.5 bottom-1.5 rounded bg-black/45 px-1 py-0.5 font-ui text-[9px] font-semibold text-white tabular-nums"
+							>
+								0:42
+							</span>
+						</div>
+						<p class="mt-3 font-hand text-[15px] leading-snug text-ink">
+							Walked home the long way.
+						</p>
+					</div>
+					<div class="border-l border-line/70 bg-[#FFFCF3] p-4 text-ink">
+						<div class="font-ui text-[10px] font-semibold text-ink-soft">On my mind</div>
+						<p class="mt-1.5 font-hand text-[15px] leading-snug">
+							The light through the trees was doing something.
+						</p>
+						<div class="mt-3 space-y-2">
+							<div class="h-1.5 w-full rounded-full bg-line/70"></div>
+							<div class="h-1.5 w-11/12 rounded-full bg-line/70"></div>
+							<div class="h-1.5 w-4/5 rounded-full bg-line/70"></div>
+						</div>
+						<div class="mt-4 flex flex-wrap gap-1.5">
+							<span
+								class="rounded-full bg-gold/25 px-2 py-0.5 font-ui text-[9px] font-semibold text-[#7A4E0C]"
+							>
+								Calm
+							</span>
+							<span
+								class="rounded-full bg-accent/10 px-2 py-0.5 font-ui text-[9px] font-semibold text-accent"
+							>
+								Friends
+							</span>
+						</div>
 					</div>
 				</div>
 			</div>
 
-			<div class="relative mt-12 max-w-[350px]">
-				<h2 class="m-0 font-display text-[42px] leading-[1.05] font-bold">
-					Your days,<br />kept like a<br />scrapbook.
-				</h2>
-				<p class="mt-5 font-hand text-[22px] leading-snug text-[#E6DCF4]">
-					Record a small video, write what is on your mind, and stick the little things to the page.
-				</p>
-			</div>
-
-			<div
-				class="relative mt-9 max-w-[360px] rounded-[24px] border border-white/10 bg-white/[.08] p-6 backdrop-blur-sm"
-			>
-				<p class="font-hand text-[18px] leading-snug text-[#F3EDF9]">
-					“Some days are loud. Some days are quiet. Both deserve a page.”
-				</p>
-				<div class="mt-4 flex items-center gap-3">
-					<span class="flex size-9 items-center justify-center rounded-full bg-gold/20 text-gold">
-						<CommunityIcon name="spark" size={16} />
-					</span>
-					<p class="font-ui text-sm text-[#D6CBEC]">
-						Your private video journal, one page at a time.
-					</p>
-				</div>
-			</div>
-
-			<div
-				class="relative mt-auto rotate-[-2deg] self-start rounded-lg border border-[#E6D9B8] bg-paper px-4 py-2 font-hand text-lg text-ink shadow-[0_6px_16px_rgba(0,0,0,.28)]"
-			>
-				“A little page a day.”
-			</div>
+			<p class="mt-auto flex items-center gap-2 pt-8 font-ui text-xs text-[#C9B8E8]">
+				<CommunityIcon name="lock" size={14} class="shrink-0" />
+				Private by default. Only you can read your pages.
+			</p>
 		</aside>
 
 		<div
@@ -610,13 +631,10 @@
 				<span class="font-display text-2xl font-bold">VidJo</span>
 			</div>
 
-			<div class="font-ui text-[11px] font-bold tracking-[.16em] text-ink-soft uppercase">
-				{kicker}
-			</div>
-			<h1 class="mt-2 font-display text-[38px] leading-[1.05] font-bold text-ink">
+			<h1 class="font-display text-[34px] leading-[1.05] font-bold text-balance text-ink">
 				{heading}
 			</h1>
-			<p class="mt-2 font-ui text-sm leading-snug text-ink-soft" aria-live="polite">
+			<p class="mt-2 font-ui text-sm leading-relaxed text-ink-soft" aria-live="polite">
 				{subtitle}
 			</p>
 
@@ -660,19 +678,7 @@
 						onclick={useDifferentEmail}
 						disabled={busy}
 					>
-						<svg
-							width="15"
-							height="15"
-							viewBox="0 0 24 24"
-							fill="none"
-							stroke="currentColor"
-							stroke-width="2"
-							stroke-linecap="round"
-							stroke-linejoin="round"
-							aria-hidden="true"
-						>
-							<path d="M19 12H5M11 6l-6 6 6 6"></path>
-						</svg>
+						<CommunityIcon name="arrow-left" size={15} />
 						Use a different email
 					</button>
 
@@ -699,33 +705,15 @@
 						</div>
 					</fieldset>
 
-					<button
-						type="submit"
-						class="mt-4 flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-accent font-ui text-[15px] font-bold text-white shadow-[0_4px_12px_rgba(42,27,61,.3)] transition-colors hover:bg-[#624690] disabled:cursor-wait disabled:opacity-70"
-						disabled={busy}
-					>
-						{#if busy}
-							<svg class="size-4 animate-spin" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-								<circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="3" opacity=".3"
-								></circle>
-								<path
-									d="M21 12a9 9 0 00-9-9"
-									stroke="currentColor"
-									stroke-width="3"
-									stroke-linecap="round"
-								></path>
-							</svg>
-							{busyLabel}
-						{:else}
-							{primaryLabel}
-						{/if}
-					</button>
+					<Button type="submit" size="lg" class="mt-4 w-full" loading={busy} disabled={busy}>
+						{busy ? busyLabel : primaryLabel}
+					</Button>
 
 					<div class="mt-4 flex flex-wrap items-center justify-between gap-2 font-ui text-[12px]">
 						<span class="text-ink-soft">Didn't get it?</span>
 						<button
 							type="button"
-							class="font-bold text-accent hover:underline disabled:cursor-default disabled:text-ink-soft disabled:no-underline"
+							class="font-bold text-accent tabular-nums hover:underline disabled:cursor-default disabled:text-ink-soft disabled:no-underline"
 							disabled={cooldown > 0 || busy}
 							onclick={resend}
 						>
@@ -813,26 +801,9 @@
 						Your nickname can be anything. Your @username stays unique across VidJo.
 					</p>
 
-					<button
-						type="submit"
-						class="mt-5 flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-accent font-ui text-[15px] font-bold text-white shadow-[0_4px_12px_rgba(42,27,61,.3)] transition-colors hover:bg-[#624690] disabled:cursor-wait disabled:opacity-70"
-						disabled={busy}
-					>
+					<Button type="submit" size="lg" class="mt-5 w-full" trailingIcon="arrow-right">
 						Continue
-						<svg
-							width="18"
-							height="18"
-							viewBox="0 0 24 24"
-							fill="none"
-							stroke="currentColor"
-							stroke-width="2"
-							stroke-linecap="round"
-							stroke-linejoin="round"
-							aria-hidden="true"
-						>
-							<path d="M5 12h14M13 6l6 6-6 6"></path>
-						</svg>
-					</button>
+					</Button>
 
 					<p class="mt-5 font-ui text-[12px] leading-relaxed text-ink-soft">
 						{#if auth.signupAvailable}
@@ -857,19 +828,7 @@
 						onclick={() => switchView('signup')}
 						disabled={busy}
 					>
-						<svg
-							width="15"
-							height="15"
-							viewBox="0 0 24 24"
-							fill="none"
-							stroke="currentColor"
-							stroke-width="2"
-							stroke-linecap="round"
-							stroke-linejoin="round"
-							aria-hidden="true"
-						>
-							<path d="M19 12H5M11 6l-6 6 6 6"></path>
-						</svg>
+						<CommunityIcon name="arrow-left" size={15} />
 						Back to step 1
 					</button>
 
@@ -895,7 +854,7 @@
 							onclick={() => (passwordVisible = !passwordVisible)}
 							aria-label={passwordVisible ? 'Hide password' : 'Show password'}
 						>
-							{passwordVisible ? 'hide' : 'show'}
+							<CommunityIcon name={passwordVisible ? 'eye-off' : 'eye'} size={16} />
 						</button>
 					</div>
 
@@ -930,27 +889,9 @@
 						Have a classmate's invite code? Enter it here to connect immediately.
 					</p>
 
-					<button
-						type="submit"
-						class="mt-5 flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-accent font-ui text-[15px] font-bold text-white shadow-[0_4px_12px_rgba(42,27,61,.3)] transition-colors hover:bg-[#624690] disabled:cursor-wait disabled:opacity-70"
-						disabled={busy}
-					>
-						{#if busy}
-							<svg class="size-4 animate-spin" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-								<circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="3" opacity=".3"
-								></circle>
-								<path
-									d="M21 12a9 9 0 00-9-9"
-									stroke="currentColor"
-									stroke-width="3"
-									stroke-linecap="round"
-								></path>
-							</svg>
-							{busyLabel}
-						{:else}
-							{primaryLabel}
-						{/if}
-					</button>
+					<Button type="submit" size="lg" class="mt-5 w-full" loading={busy} disabled={busy}>
+						{busy ? busyLabel : primaryLabel}
+					</Button>
 				{:else}
 					<!-- ── Sign In ── -->
 					<label class="block font-ui text-[13px] font-bold text-ink" for="vidjo-email">
@@ -993,7 +934,7 @@
 								onclick={() => (passwordVisible = !passwordVisible)}
 								aria-label={passwordVisible ? 'Hide password' : 'Show password'}
 							>
-								{passwordVisible ? 'hide' : 'show'}
+								<CommunityIcon name={passwordVisible ? 'eye-off' : 'eye'} size={16} />
 							</button>
 						</div>
 						<button
@@ -1007,80 +948,46 @@
 						</button>
 					{:else}
 						<div class="mt-2 flex items-center gap-2 font-ui text-[12px] text-ink">
-							<svg
-								width="14"
-								height="14"
-								viewBox="0 0 24 24"
-								fill="none"
-								stroke="currentColor"
-								stroke-width="2"
-								stroke-linecap="round"
-								stroke-linejoin="round"
-								aria-hidden="true"
-							>
-								<path d="M12 16V12M12 8h.01M21 12a9 9 0 11-18 0a9 9 0 0118 0z"></path>
-							</svg>
+							<CommunityIcon name="alert" size={14} class="shrink-0" />
 							We'll send a reset link to {email.trim() || 'your email'}.
 						</div>
 					{/if}
 
 					{#if forgotPassword && view === 'signin'}
-						<button
-							type="button"
-							class="mt-4 flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-accent font-ui text-[15px] font-bold text-white shadow-[0_4px_12px_rgba(42,27,61,.3)] transition-colors hover:bg-[#624690] disabled:cursor-wait disabled:opacity-70"
-							onclick={sendReset}
+						<Button
+							size="lg"
+							class="mt-4 w-full"
+							loading={busy}
 							disabled={busy}
+							onclick={sendReset}
 						>
-							{busy ? 'Sending…' : 'Send reset link'}
-						</button>
+							{busy ? 'Sending reset link…' : 'Send reset link'}
+						</Button>
 						<button
 							type="button"
-							class="mt-2 font-ui text-[12px] font-medium text-accent hover:underline"
+							class="mt-3 inline-flex items-center gap-1.5 font-ui text-[12px] font-medium text-accent hover:underline"
 							onclick={() => (forgotPassword = false)}
 							disabled={busy}
 						>
-							← Back to sign in
+							<CommunityIcon name="arrow-left" size={14} />
+							Back to sign in
 						</button>
 					{:else}
-						<button
+						<Button
 							type="submit"
-							class="mt-4 flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-accent font-ui text-[15px] font-bold text-white shadow-[0_4px_12px_rgba(42,27,61,.3)] transition-colors hover:bg-[#624690] disabled:cursor-wait disabled:opacity-70"
+							size="lg"
+							class="mt-4 w-full"
+							loading={busy}
 							disabled={busy}
+							trailingIcon="arrow-right"
 						>
-							{#if busy}
-								<svg class="size-4 animate-spin" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-									<circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="3" opacity=".3"
-									></circle>
-									<path
-										d="M21 12a9 9 0 00-9-9"
-										stroke="currentColor"
-										stroke-width="3"
-										stroke-linecap="round"
-									></path>
-								</svg>
-								{busyLabel}
-							{:else}
-								{primaryLabel}
-								<svg
-									width="18"
-									height="18"
-									viewBox="0 0 24 24"
-									fill="none"
-									stroke="currentColor"
-									stroke-width="2"
-									stroke-linecap="round"
-									stroke-linejoin="round"
-									aria-hidden="true"
-								>
-									<path d="M5 12h14M13 6l6 6-6 6"></path>
-								</svg>
-							{/if}
-						</button>
+							{busy ? busyLabel : primaryLabel}
+						</Button>
 
 						<div class="mt-4 text-center">
 							<button
 								type="button"
-								class="font-ui text-[12px] font-medium text-accent hover:underline disabled:cursor-default disabled:text-ink-soft disabled:no-underline"
+								class="font-ui text-[12px] font-medium text-accent tabular-nums hover:underline disabled:cursor-default disabled:text-ink-soft disabled:no-underline"
 								onclick={sendCode}
 								disabled={busy || cooldown > 0}
 							>
@@ -1098,12 +1005,7 @@
 							<span class="h-px flex-1 bg-line"></span>
 						</div>
 
-						<button
-							type="button"
-							class="flex h-12 w-full items-center justify-center gap-2.5 rounded-xl border-2 border-line bg-[#FFFDF6] font-ui text-[15px] font-bold text-ink transition-colors hover:bg-light disabled:cursor-wait disabled:opacity-70"
-							disabled={busy}
-							onclick={google}
-						>
+						<Button variant="paper" size="lg" class="w-full" disabled={busy} onclick={google}>
 							<svg width="19" height="19" viewBox="0 0 48 48" aria-hidden="true">
 								<path
 									fill="#FFC107"
@@ -1123,7 +1025,7 @@
 								></path>
 							</svg>
 							Continue with Google
-						</button>
+						</Button>
 
 						{#if auth.providersChecked && !auth.googleAvailable}
 							<p class="mt-2 text-center font-ui text-[11px] text-ink-soft">
@@ -1159,21 +1061,7 @@
 			<div
 				class="mt-7 flex items-center gap-2 border-t border-line pt-4 font-ui text-[11px] text-ink-soft"
 			>
-				<svg
-					width="14"
-					height="14"
-					viewBox="0 0 24 24"
-					fill="none"
-					stroke="currentColor"
-					stroke-width="1.8"
-					stroke-linecap="round"
-					stroke-linejoin="round"
-					aria-hidden="true"
-					class="shrink-0"
-				>
-					<rect x="4" y="10" width="16" height="10" rx="2"></rect>
-					<path d="M8 10V7a4 4 0 018 0v3"></path>
-				</svg>
+				<CommunityIcon name="lock" size={14} class="shrink-0" />
 				Private by default. Only you can read your pages.
 			</div>
 		</div>

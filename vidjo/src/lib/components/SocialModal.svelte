@@ -196,8 +196,8 @@
 
 						<div>
 							<div class="flex items-center justify-between">
-								<span class="font-ui text-xs font-bold tracking-wider text-ink-soft uppercase">
-									Friend Entries Preview
+								<span class="font-ui text-xs font-semibold text-ink-soft">
+									Friend entries preview
 								</span>
 								<span class="font-ui text-xs text-accent"> Sharing: "Friends + Community" </span>
 							</div>
@@ -258,8 +258,8 @@
 						</div>
 
 						<div>
-							<span class="font-ui text-xs font-bold tracking-wider text-ink-soft uppercase">
-								Trending Campus Topics & Prompts
+							<span class="font-ui text-xs font-semibold text-ink-soft">
+								Trending campus topics & prompts
 							</span>
 							<div class="mt-2.5 flex flex-col gap-3">
 								{#each COMMUNITY_PROMPTS as topic (topic.tag)}

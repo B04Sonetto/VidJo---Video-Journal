@@ -12,6 +12,7 @@
 	import { captureError } from '#lib/observability';
 	import CommunityIcon from '#lib/components/CommunityIcon.svelte';
 	import Avatar from '#lib/components/Avatar.svelte';
+	import Button from '#lib/components/ui/Button.svelte';
 
 	const tabs: { id: ProfileTab; label: string }[] = [
 		{ id: 'overview', label: 'Overview' },
@@ -458,65 +459,21 @@
 				class="absolute inset-0 [background-image:radial-gradient(circle_at_20%_30%,rgba(212,162,76,.4)_0%,transparent_40%),radial-gradient(circle_at_80%_20%,rgba(201,184,232,.3)_0%,transparent_35%)] opacity-40"
 			></div>
 			<div class="absolute top-5 right-5 flex flex-wrap gap-2">
-				<button
-					type="button"
-					class="inline-flex items-center gap-1.5 rounded-full border border-white/20 bg-white/10 px-3.5 py-2 font-ui text-xs font-semibold text-white backdrop-blur-sm transition-colors hover:bg-white/20"
-					onclick={() => setTab('edit')}
-				>
-					<svg
-						width="14"
-						height="14"
-						viewBox="0 0 24 24"
-						fill="none"
-						stroke="currentColor"
-						stroke-width="2"
-						stroke-linecap="round"
-						stroke-linejoin="round"
-						aria-hidden="true"
-					>
-						<path d="M12 20h9M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4L16.5 3.5z"></path>
-					</svg>
+				<Button size="sm" variant="outline" icon="pen" onclick={() => setTab('edit')}>
 					Edit profile
-				</button>
-				<button
-					type="button"
-					class="inline-flex items-center gap-1.5 rounded-full border border-white/20 bg-white/10 px-3.5 py-2 font-ui text-xs font-semibold text-white backdrop-blur-sm transition-colors hover:bg-white/20"
-					onclick={() => setTab('settings')}
-				>
-					<svg
-						width="14"
-						height="14"
-						viewBox="0 0 24 24"
-						fill="none"
-						stroke="currentColor"
-						stroke-width="2"
-						stroke-linecap="round"
-						stroke-linejoin="round"
-						aria-hidden="true"
-					>
-						<circle cx="12" cy="12" r="3"></circle>
-						<path
-							d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"
-						></path>
-					</svg>
+				</Button>
+				<Button size="sm" variant="outline" icon="settings" onclick={() => setTab('settings')}>
 					Settings
-				</button>
+				</Button>
 			</div>
 			<div class="absolute -bottom-16 left-1/2 flex -translate-x-1/2 flex-col items-center">
-				<div class="relative">
-					<Avatar
-						src={profile.avatarUrl}
-						name={profile.displayName}
-						className="size-32"
-						textClass="text-5xl"
-						ring="border-4 border-gold/60 shadow-[0_20px_40px_rgba(0,0,0,.45)]"
-					/>
-					<span
-						class="absolute right-2 bottom-2 flex size-8 items-center justify-center rounded-full bg-[#3F7A4F] text-white ring-4 ring-[#24143D]"
-					>
-						<CommunityIcon name="check" size={15} />
-					</span>
-				</div>
+				<Avatar
+					src={profile.avatarUrl}
+					name={profile.displayName}
+					className="size-32"
+					textClass="text-5xl"
+					ring="border-4 border-gold/60 shadow-[0_20px_40px_rgba(0,0,0,.45)]"
+				/>
 			</div>
 		</div>
 
@@ -541,7 +498,7 @@
 
 			<div class="mt-5 flex flex-wrap items-center justify-center gap-2">
 				<span
-					class="rounded-full bg-white/10 px-3 py-1 font-mono text-xs font-bold tracking-wider text-gold"
+					class="rounded-full bg-white/10 px-3 py-1 font-mono text-xs font-bold tracking-wider text-gold tabular-nums"
 				>
 					{profile.friendCode}
 				</span>
@@ -554,20 +511,7 @@
 						<CommunityIcon name="check" size={13} />
 						Copied
 					{:else}
-						<svg
-							width="13"
-							height="13"
-							viewBox="0 0 24 24"
-							fill="none"
-							stroke="currentColor"
-							stroke-width="2"
-							stroke-linecap="round"
-							stroke-linejoin="round"
-							aria-hidden="true"
-						>
-							<rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
-							<path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"></path>
-						</svg>
+						<CommunityIcon name="copy" size={13} />
 						Copy friend code
 					{/if}
 				</button>
@@ -575,14 +519,14 @@
 
 			<div class="mt-6 grid grid-cols-2 gap-3 min-[640px]:grid-cols-4">
 				<div class="rounded-2xl border border-[#4D366D] bg-white/[.04] p-4">
-					<p class="font-display text-2xl font-bold text-white">{totalPages}</p>
+					<p class="font-display text-2xl font-bold text-white tabular-nums">{totalPages}</p>
 					<p class="font-ui text-xs text-[#BBA8E0]">Pages written</p>
 				</div>
 				<div
 					class="rounded-2xl border border-gold/40 bg-[linear-gradient(135deg,rgba(212,162,76,.18),transparent)] p-4"
 				>
 					<p
-						class="flex items-center justify-center gap-1.5 font-display text-2xl font-bold text-gold"
+						class="flex items-center justify-center gap-1.5 font-display text-2xl font-bold text-gold tabular-nums"
 					>
 						<CommunityIcon name="flame" size={20} />
 						{streak}
@@ -590,11 +534,13 @@
 					<p class="font-ui text-xs text-[#BBA8E0]">Day streak</p>
 				</div>
 				<div class="rounded-2xl border border-[#4D366D] bg-white/[.04] p-4">
-					<p class="font-display text-2xl font-bold text-[#8BE2A4]">{friends.friendCount}</p>
+					<p class="font-display text-2xl font-bold text-[#8BE2A4] tabular-nums">
+						{friends.friendCount}
+					</p>
 					<p class="font-ui text-xs text-[#BBA8E0]">Friends</p>
 				</div>
 				<div class="rounded-2xl border border-[#4D366D] bg-white/[.04] p-4">
-					<p class="font-display text-2xl font-bold text-lav">{badges.length}</p>
+					<p class="font-display text-2xl font-bold text-lav tabular-nums">{badges.length}</p>
 					<p class="font-ui text-xs text-[#BBA8E0]">Badges</p>
 				</div>
 			</div>
@@ -627,22 +573,24 @@
 				class="rounded-[26px] border border-[#4D366D] bg-desk-2 p-6 text-white shadow-[0_18px_44px_rgba(0,0,0,.38)]"
 			>
 				<h2 class="font-display text-xl font-bold">About</h2>
-				<dl class="mt-4 grid gap-3 font-ui text-sm">
-					<div class="flex items-center justify-between gap-4 border-b border-white/10 pb-3">
+				<dl class="mt-4 grid gap-2.5 font-ui text-sm">
+					<div class="flex items-center justify-between gap-4">
 						<dt class="text-[#BBA8E0]">Nickname</dt>
 						<dd class="font-semibold text-white">{profile.nickname}</dd>
 					</div>
-					<div class="flex items-center justify-between gap-4 border-b border-white/10 pb-3">
+					<div class="flex items-center justify-between gap-4">
 						<dt class="text-[#BBA8E0]">Username</dt>
 						<dd class="font-semibold text-lav">@{profile.username}</dd>
 					</div>
-					<div class="flex items-center justify-between gap-4 border-b border-white/10 pb-3">
+					<div class="flex items-center justify-between gap-4">
 						<dt class="text-[#BBA8E0]">Member since</dt>
 						<dd class="font-semibold text-white">{profile.memberSince}</dd>
 					</div>
 					<div class="flex items-center justify-between gap-4">
 						<dt class="text-[#BBA8E0]">Communities</dt>
-						<dd class="font-semibold text-white">{community.joinedCommunities.length}</dd>
+						<dd class="font-semibold text-white tabular-nums">
+							{community.joinedCommunities.length}
+						</dd>
 					</div>
 				</dl>
 				{#if profile.bio}
@@ -696,7 +644,7 @@
 						onclick={() => nav.jump(journal.current)}
 					>
 						<span class="font-ui text-sm">Write today's page</span>
-						<span class="text-gold">→</span>
+						<CommunityIcon name="arrow-right" size={15} class="text-gold" />
 					</button>
 					<button
 						type="button"
@@ -704,7 +652,7 @@
 						onclick={() => nav.setView('friends')}
 					>
 						<span class="font-ui text-sm">Go to friends</span>
-						<span class="text-gold">→</span>
+						<CommunityIcon name="arrow-right" size={15} class="text-gold" />
 					</button>
 					<button
 						type="button"
@@ -712,7 +660,7 @@
 						onclick={() => nav.setView('community')}
 					>
 						<span class="font-ui text-sm">Explore communities</span>
-						<span class="text-gold">→</span>
+						<CommunityIcon name="arrow-right" size={15} class="text-gold" />
 					</button>
 				</div>
 			</div>
@@ -754,26 +702,12 @@
 							>
 								<div class="flex items-center justify-between gap-2">
 									<span
-										class="rounded-full bg-accent/10 px-2 py-0.5 font-ui text-[10px] font-bold text-gold uppercase"
+										class="rounded-full bg-accent/10 px-2 py-0.5 font-ui text-[10px] font-semibold text-gold"
 									>
 										{post.communityTag || post.privacy}
 									</span>
 									{#if post.hasVideo}
-										<svg
-											width="14"
-											height="14"
-											viewBox="0 0 24 24"
-											fill="none"
-											stroke="currentColor"
-											stroke-width="2"
-											stroke-linecap="round"
-											stroke-linejoin="round"
-											class="text-[#BBA8E0]"
-											aria-hidden="true"
-										>
-											<polygon points="23 7 16 12 23 17 23 7"></polygon>
-											<rect x="1" y="5" width="15" height="14" rx="2" ry="2"></rect>
-										</svg>
+										<CommunityIcon name="video" size={14} class="text-[#BBA8E0]" />
 									{/if}
 								</div>
 								<p
@@ -828,26 +762,12 @@
 						>
 							<div class="flex items-center justify-between gap-2">
 								<span
-									class="rounded-full bg-accent/10 px-2 py-0.5 font-ui text-[10px] font-bold text-gold uppercase"
+									class="rounded-full bg-accent/10 px-2 py-0.5 font-ui text-[10px] font-semibold text-gold"
 								>
 									{post.communityTag || post.privacy}
 								</span>
 								{#if post.hasVideo}
-									<svg
-										width="14"
-										height="14"
-										viewBox="0 0 24 24"
-										fill="none"
-										stroke="currentColor"
-										stroke-width="2"
-										stroke-linecap="round"
-										stroke-linejoin="round"
-										class="text-[#BBA8E0]"
-										aria-hidden="true"
-									>
-										<polygon points="23 7 16 12 23 17 23 7"></polygon>
-										<rect x="1" y="5" width="15" height="14" rx="2" ry="2"></rect>
-									</svg>
+									<CommunityIcon name="video" size={14} class="text-[#BBA8E0]" />
 								{/if}
 							</div>
 							<p
@@ -912,9 +832,7 @@
 					Your accent color follows you across the app.
 				</p>
 
-				<p class="mt-5 font-ui text-xs font-bold tracking-wider text-gold uppercase">
-					Accent color
-				</p>
+				<p class="mt-5 font-ui text-xs font-semibold text-gold">Accent color</p>
 				<div class="mt-2 flex flex-wrap gap-2.5">
 					{#each accentChoices as color (color)}
 						<button
@@ -930,7 +848,7 @@
 						></button>
 					{/each}
 					<label
-						class="flex size-10 cursor-pointer items-center justify-center rounded-full border-2 border-dashed border-white/30 text-xs text-white/70 hover:border-white/60"
+						class="flex size-10 cursor-pointer items-center justify-center rounded-full border-2 border-white/30 text-white/70 transition-colors hover:border-white/60 hover:text-white"
 					>
 						<input
 							type="color"
@@ -938,13 +856,11 @@
 							value={profile.accentColor}
 							oninput={(event) => (profile.accentColor = event.currentTarget.value)}
 						/>
-						+
+						<CommunityIcon name="plus" size={16} />
 					</label>
 				</div>
 
-				<p class="mt-6 font-ui text-xs font-bold tracking-wider text-gold uppercase">
-					Journal theme
-				</p>
+				<p class="mt-6 font-ui text-xs font-semibold text-gold">Journal theme</p>
 				<div class="mt-2 grid gap-2">
 					{#each themes as theme (theme.id)}
 						<button
@@ -969,9 +885,7 @@
 					{/each}
 				</div>
 
-				<p class="mt-6 font-ui text-xs font-bold tracking-wider text-gold uppercase">
-					Default paper style
-				</p>
+				<p class="mt-6 font-ui text-xs font-semibold text-gold">Default paper style</p>
 				<div class="mt-2 grid gap-2">
 					{#each ['lined', 'dotted', 'grid', 'plain'] as const as style (style)}
 						<button
@@ -999,7 +913,7 @@
 					{/each}
 				</div>
 
-				<p class="mt-6 font-ui text-xs font-bold tracking-wider text-gold uppercase">Text size</p>
+				<p class="mt-6 font-ui text-xs font-semibold text-gold">Text size</p>
 				<div class="mt-2 flex items-center gap-4">
 					<span class="font-ui text-xs text-[#BBA8E0]">A</span>
 					<select
@@ -1073,37 +987,20 @@
 					<p class="mt-3 font-ui text-xs font-semibold text-[#FF9B9B]">{settingsError}</p>
 				{/if}
 
-				<button
-					type="button"
-					class="mt-5 w-full rounded-xl bg-accent px-4 py-2.5 font-ui text-sm font-bold text-white transition-colors hover:bg-[#624690] disabled:opacity-60"
-					disabled={settingsSaving}
-					onclick={saveSettings}
-				>
-					{settingsSaving ? 'Saving…' : 'Save settings'}
-				</button>
-				<button
-					type="button"
-					class="mt-2 w-full rounded-xl border border-white/20 px-4 py-2.5 font-ui text-sm font-semibold text-[#D6CBEC] transition-colors hover:bg-white/10"
-					onclick={clearCache}
-				>
+				<Button class="mt-5 w-full" loading={settingsSaving} onclick={saveSettings}>
+					Save settings
+				</Button>
+				<Button class="mt-2 w-full" variant="outline" icon="refresh" onclick={clearCache}>
 					Clear local journal cache
-				</button>
+				</Button>
 
-				<div class="mt-6 border-t border-white/10 pt-6">
-					<button
-						type="button"
-						class="mt-2 w-full rounded-xl border border-white/20 px-4 py-2.5 font-ui text-sm font-semibold text-[#D6CBEC] transition-colors hover:bg-white/10"
-						onclick={exportJournal}
-					>
-						📥 Export journal data
-					</button>
-					<button
-						type="button"
-						class="mt-2 w-full rounded-xl border border-[#D19A9A] px-4 py-2.5 font-ui text-sm font-semibold text-[#FF9B9B] transition-colors hover:bg-[#3A222B]"
-						onclick={deleteAccount}
-					>
-						🗑️ Delete my account
-					</button>
+				<div class="mt-6 space-y-2 border-t border-white/10 pt-6">
+					<Button class="w-full" variant="outline" icon="upload" onclick={exportJournal}>
+						Export journal data
+					</Button>
+					<Button class="w-full" variant="danger" icon="trash" onclick={deleteAccount}>
+						Delete my account
+					</Button>
 				</div>
 			</div>
 		</div>
@@ -1120,9 +1017,7 @@
 
 				<div class="mt-5 grid gap-4">
 					<label class="grid gap-1.5">
-						<span class="font-ui text-xs font-bold tracking-wider text-gold uppercase"
-							>Nickname</span
-						>
+						<span class="font-ui text-xs font-semibold text-gold">Nickname</span>
 						<input
 							bind:value={editNickname}
 							type="text"
@@ -1133,9 +1028,7 @@
 					</label>
 
 					<label class="grid gap-1.5">
-						<span class="font-ui text-xs font-bold tracking-wider text-gold uppercase"
-							>Username</span
-						>
+						<span class="font-ui text-xs font-semibold text-gold">Username</span>
 						<div class="relative">
 							<span
 								class="absolute top-1/2 left-3.5 -translate-y-1/2 font-ui text-sm text-[#9B8CB5]"
@@ -1156,7 +1049,7 @@
 					</label>
 
 					<label class="grid gap-1.5">
-						<span class="font-ui text-xs font-bold tracking-wider text-gold uppercase">Bio</span>
+						<span class="font-ui text-xs font-semibold text-gold">Bio</span>
 						<textarea
 							bind:value={editBio}
 							maxlength="200"
@@ -1168,9 +1061,7 @@
 					</label>
 
 					<div class="grid gap-1.5">
-						<span class="font-ui text-xs font-bold tracking-wider text-gold uppercase"
-							>Profile picture</span
-						>
+						<span class="font-ui text-xs font-semibold text-gold">Profile picture</span>
 						<span class="font-ui text-[11px] text-[#BBA8E0]"
 							>Upload a PNG, JPG, GIF, or WebP image (max 5 MB).</span
 						>
@@ -1207,9 +1098,7 @@
 					</div>
 
 					<div class="grid gap-1.5">
-						<span class="font-ui text-xs font-bold tracking-wider text-gold uppercase"
-							>Profile banner</span
-						>
+						<span class="font-ui text-xs font-semibold text-gold">Profile banner</span>
 						<span class="font-ui text-[11px] text-[#BBA8E0]"
 							>Upload a PNG, JPG, GIF, or WebP image (max 5 MB).</span
 						>
@@ -1251,20 +1140,8 @@
 				{/if}
 
 				<div class="mt-5 flex flex-wrap gap-2">
-					<button
-						type="submit"
-						class="rounded-xl bg-accent px-5 py-2.5 font-ui text-sm font-bold text-white transition-colors hover:bg-[#624690] disabled:opacity-60"
-						disabled={editSaving}
-					>
-						{editSaving ? 'Saving…' : 'Save profile'}
-					</button>
-					<button
-						type="button"
-						class="rounded-xl border border-white/20 px-5 py-2.5 font-ui text-sm font-semibold text-[#D6CBEC] transition-colors hover:bg-white/10"
-						onclick={() => setTab('overview')}
-					>
-						Cancel
-					</button>
+					<Button type="submit" loading={editSaving} icon="check">Save profile</Button>
+					<Button variant="outline" onclick={() => setTab('overview')}>Cancel</Button>
 				</div>
 			</form>
 		</div>

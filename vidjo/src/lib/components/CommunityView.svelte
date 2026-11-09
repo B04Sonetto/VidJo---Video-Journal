@@ -11,6 +11,10 @@
 	import CommunityIcon from '#lib/components/CommunityIcon.svelte';
 	import ProfileModal from '#lib/components/ProfileModal.svelte';
 	import Avatar from '#lib/components/Avatar.svelte';
+	import PageHeader from '#lib/components/ui/PageHeader.svelte';
+	import Button from '#lib/components/ui/Button.svelte';
+	import Spinner from '#lib/components/ui/Spinner.svelte';
+	import Skeleton from '#lib/components/ui/Skeleton.svelte';
 	import { censor } from '#lib/censor';
 	import type { CommunityPost, FriendPostReaction, MoodKey } from '#lib/types';
 
@@ -347,92 +351,29 @@
 </script>
 
 <div class="mx-auto w-full max-w-[1240px] px-4 py-6 min-[900px]:px-6">
-	<!-- Header -->
-	<header class="flex flex-wrap items-end justify-between gap-4">
-		<div class="min-w-0">
-			<div class="flex flex-wrap items-center gap-2">
-				<span
-					class="inline-flex items-center gap-1.5 rounded-full border border-gold/30 bg-gold/10 px-3 py-1 font-ui text-[11px] font-bold tracking-wide text-gold uppercase"
-				>
-					<span class="size-1.5 rounded-full bg-gold" aria-hidden="true"></span>
-					Campus communities
-				</span>
-				<span class="font-ui text-xs text-[#BBA8E0]">
-					{community.joinedCommunities.length}
-					{community.joinedCommunities.length === 1 ? 'community' : 'communities'} joined
-				</span>
-			</div>
-			<h1
-				class="mt-2 font-display text-4xl font-bold tracking-tight text-white min-[720px]:text-5xl"
-			>
-				Community
-			</h1>
-			<p
-				class="mt-2 max-w-[640px] font-ui text-sm leading-relaxed text-[#CFC3E6] min-[720px]:text-base"
-			>
-				Small corners of campus built around a shared feeling. Read what people chose to share,
-				cheer them on, and leave a kind note.
-			</p>
-		</div>
-
-		<div class="flex flex-wrap items-center gap-3">
+	<PageHeader
+		title="Community"
+		description="Small corners of campus built around a shared feeling. Read what people chose to share, cheer them on, and leave a kind note."
+	>
+		{#snippet meta()}
+			{community.joinedCommunities.length}
+			{community.joinedCommunities.length === 1 ? 'community' : 'communities'} joined
+		{/snippet}
+		{#snippet actions()}
 			{#if feedVisible}
-				<button
-					type="button"
-					class="inline-flex min-h-11 items-center gap-2 rounded-[14px] border border-[#5A4580] bg-desk-2 px-4 font-ui text-sm font-semibold text-[#EDE6F7] transition-colors hover:border-lav/70 hover:bg-[#34214E]"
-					onclick={openRandomPage}
-				>
-					<svg
-						class="size-[18px] shrink-0 text-gold"
-						viewBox="0 0 24 24"
-						fill="none"
-						stroke="currentColor"
-						stroke-width="1.9"
-						stroke-linecap="round"
-						stroke-linejoin="round"
-						aria-hidden="true"
-					>
-						<rect x="4" y="4" width="16" height="16" rx="3"></rect>
-						<path d="M8.5 8.5h.01M15.5 8.5h.01M12 12h.01M8.5 15.5h.01M15.5 15.5h.01"></path>
-					</svg>
-					Open a random page
-				</button>
+				<Button variant="outline" icon="grid" onclick={openRandomPage}>Open a random page</Button>
 			{/if}
-			<button
-				type="button"
-				class="inline-flex min-h-12 items-center gap-2.5 rounded-[14px] border-[1.5px] border-gold bg-gold/10 px-5 font-ui text-sm font-semibold text-[#F3DDAE] transition-colors hover:bg-gold/20"
-				onclick={() => nav.jump(TODAY)}
-			>
-				<svg
-					class="size-[18px] shrink-0"
-					viewBox="0 0 24 24"
-					fill="none"
-					stroke="currentColor"
-					stroke-width="2"
-					stroke-linecap="round"
-					stroke-linejoin="round"
-					aria-hidden="true"
-				>
-					<path d="M12 20h9"></path>
-					<path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"></path>
-				</svg>
-				Share a page
-			</button>
-		</div>
-	</header>
+			<Button icon="pen" onclick={() => nav.jump(TODAY)}>Share a page</Button>
+		{/snippet}
+	</PageHeader>
 
 	{#if community.loading && community.communities.length === 0}
 		<div
-			class="relative mt-7 overflow-hidden rounded-[10px] bg-paper px-6 py-14 text-center text-ink shadow-[0_16px_34px_rgba(0,0,0,.4)]"
+			class="mt-7 rounded-[10px] bg-paper px-6 py-14 text-center text-ink shadow-[0_16px_34px_rgba(0,0,0,.4)]"
+			role="status"
 		>
-			<span
-				class="absolute -top-3 left-1/2 h-[26px] w-[92px] -translate-x-1/2 rotate-[3deg] bg-lav/90"
-				aria-hidden="true"
-			></span>
-			<div
-				class="mx-auto size-9 animate-spin rounded-full border-2 border-accent border-t-transparent"
-			></div>
-			<p class="mt-4 font-hand text-xl text-ink-soft">Finding communities…</p>
+			<Spinner size={36} class="mx-auto text-accent" />
+			<p class="mt-4 font-ui text-sm font-medium text-ink-soft">Finding communities…</p>
 		</div>
 	{:else if !community.hasJoined || showDiscovery}
 		<!-- Discovery / join view -->
@@ -451,17 +392,18 @@
 					</p>
 				</div>
 				<div class="flex items-center gap-3">
-					<span class="font-ui text-xs text-[#BBA8E0]">
+					<span class="font-ui text-xs text-[#BBA8E0] tabular-nums">
 						{community.communities.length} available
 					</span>
 					{#if community.hasJoined}
-						<button
-							type="button"
-							class="min-h-10 rounded-full border border-[#5A4580] bg-desk-2 px-4 font-ui text-xs font-semibold text-[#EDE6F7] transition-colors hover:border-lav/70 hover:bg-[#34214E]"
+						<Button
+							variant="outline"
+							size="sm"
+							icon="arrow-left"
 							onclick={() => (showDiscovery = false)}
 						>
-							← Back to feed
-						</button>
+							Back to feed
+						</Button>
 					{/if}
 				</div>
 			</div>
@@ -482,7 +424,7 @@
 									<CommunityIcon name={item.icon} size={24} />
 								</span>
 								<span
-									class="rounded-full bg-light px-2.5 py-1 font-ui text-[10px] font-bold text-ink-soft"
+									class="rounded-full bg-light px-2.5 py-1 font-ui text-[10px] font-semibold text-ink-soft tabular-nums"
 								>
 									{item.memberCount}
 									{item.memberCount === 1 ? 'member' : 'members'}
@@ -505,10 +447,10 @@
 								{item.description}
 							</p>
 
-							<div class="mt-3 flex items-center gap-1.5 font-hand text-base text-ink-soft">
-								<span class="text-gold" aria-hidden="true">
-									<CommunityIcon name="spark" size={14} />
-								</span>
+							<div
+								class="mt-3 flex items-center gap-1.5 font-ui text-sm text-ink-soft tabular-nums"
+							>
+								<CommunityIcon name="video" size={14} class="text-ink-muted" />
 								{slugCounts[item.slug] ?? 0}
 								{(slugCounts[item.slug] ?? 0) === 1 ? 'shared page' : 'shared pages'}
 								visible to you
@@ -516,30 +458,20 @@
 
 							{#if item.joined}
 								<div class="mt-4 grid grid-cols-2 gap-2">
-									<button
-										type="button"
-										class="min-h-10 rounded-xl bg-accent px-3 font-ui text-xs font-bold text-white transition-colors hover:bg-[#624690]"
-										onclick={() => openCommunity(item.slug)}
-									>
-										Open feed
-									</button>
-									<button
-										type="button"
-										class="min-h-10 rounded-xl border-[1.5px] border-[#CDBBE9] px-3 font-ui text-xs font-semibold text-accent transition-colors hover:bg-light"
-										onclick={() => leaveCommunity(item.slug)}
-									>
+									<Button size="sm" onclick={() => openCommunity(item.slug)}>Open feed</Button>
+									<Button size="sm" variant="paper" onclick={() => leaveCommunity(item.slug)}>
 										Leave
-									</button>
+									</Button>
 								</div>
 							{:else}
-								<button
-									type="button"
-									class="mt-4 flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-accent px-4 font-ui text-sm font-bold text-white transition-colors hover:bg-[#624690]"
+								<Button
+									class="mt-4 w-full"
+									size="sm"
+									icon="check"
 									onclick={() => joinAndOpen(item.slug)}
 								>
-									<CommunityIcon name="check" size={15} />
 									Join {item.tag}
-								</button>
+								</Button>
 							{/if}
 						</div>
 					</article>
@@ -550,23 +482,15 @@
 		<!-- Prompt + mood browser -->
 		<div class="mt-7 grid gap-6 min-[940px]:grid-cols-[minmax(0,380px)_minmax(0,1fr)]">
 			<section
-				class="relative mx-auto w-full max-w-[470px] rotate-[-1deg] rounded-[6px] bg-paper px-6 pt-7 pb-6 text-ink shadow-[0_12px_24px_rgba(0,0,0,.4)] min-[940px]:mx-0"
+				class="mx-auto w-full max-w-[470px] rounded-[6px] bg-paper px-6 py-6 text-ink shadow-[0_12px_24px_rgba(0,0,0,.4)] min-[940px]:mx-0"
 			>
-				<span
-					class="absolute -top-3 left-1/2 -ml-[46px] h-[26px] w-[92px] rotate-[3deg] bg-lav/90"
-					aria-hidden="true"
-				></span>
-				<p class="font-ui text-[11px] font-bold tracking-[.14em] text-[#8A5A12] uppercase">
-					Today's prompt
+				<p class="font-ui text-xs font-semibold text-[#8A5A12]">Today's prompt</p>
+				<p class="mt-2 font-hand text-[28px] leading-[1.2] font-bold text-balance text-ink">
+					{todaysPrompt}
 				</p>
-				<p class="mt-2 font-hand text-[28px] leading-[1.2] font-bold text-ink">{todaysPrompt}</p>
-				<button
-					type="button"
-					class="mt-4 min-h-11 rounded-xl bg-accent px-5 font-ui text-sm font-semibold text-white transition-colors hover:bg-[#624690]"
-					onclick={() => nav.jump(TODAY)}
-				>
+				<Button class="mt-4" trailingIcon="arrow-right" onclick={() => nav.jump(TODAY)}>
 					Answer with a VidJo
-				</button>
+				</Button>
 			</section>
 
 			<section class="min-w-0">
@@ -605,7 +529,7 @@
 					>
 						<CommunityIcon name="sparkles" size={17} class="text-gold" />
 						All moods
-						<span class="font-ui text-[10px] opacity-60">{basePosts.length}</span>
+						<span class="font-ui text-[10px] tabular-nums opacity-60">{basePosts.length}</span>
 					</button>
 
 					{#each MOODS as mood (mood.k)}
@@ -623,7 +547,9 @@
 								{@html mood.svg}
 							</span>
 							{mood.l}
-							<span class="font-ui text-[10px] opacity-60">{moodCounts[mood.k] ?? 0}</span>
+							<span class="font-ui text-[10px] tabular-nums opacity-60"
+								>{moodCounts[mood.k] ?? 0}</span
+							>
 						</button>
 					{/each}
 				</div>
@@ -636,7 +562,7 @@
 		>
 			<div class="flex items-center gap-2">
 				<span
-					class="hidden shrink-0 pr-1 font-ui text-[10px] font-bold tracking-[.14em] text-[#9B8CB5] uppercase min-[900px]:block"
+					class="hidden shrink-0 pr-1 font-ui text-[10px] font-semibold text-[#9B8CB5] min-[900px]:block"
 				>
 					Your communities
 				</span>
@@ -651,7 +577,7 @@
 				>
 					<CommunityIcon name="globe" size={14} />
 					All joined
-					<span class="text-[10px] opacity-60">{memberPosts.length}</span>
+					<span class="text-[10px] tabular-nums opacity-60">{memberPosts.length}</span>
 				</button>
 
 				{#each community.joinedCommunities as item (item.slug)}
@@ -666,27 +592,16 @@
 					>
 						<CommunityIcon name={item.icon} size={14} />
 						{item.tag}
-						<span class="text-[10px] opacity-60">{slugCounts[item.slug] ?? 0}</span>
+						<span class="text-[10px] tabular-nums opacity-60">{slugCounts[item.slug] ?? 0}</span>
 					</button>
 				{/each}
 
 				<button
 					type="button"
-					class="ml-auto flex shrink-0 items-center gap-1.5 rounded-full border border-dashed border-[#6A5490] px-3 py-2 font-ui text-xs font-semibold text-[#C9B8E8] transition-colors hover:border-gold/60 hover:text-white"
+					class="ml-auto flex shrink-0 items-center gap-1.5 rounded-full border border-[#6A5490] px-3 py-2 font-ui text-xs font-semibold text-[#C9B8E8] transition-colors hover:border-gold/60 hover:text-white"
 					onclick={() => (showDiscovery = true)}
 				>
-					<svg
-						class="size-[13px]"
-						viewBox="0 0 24 24"
-						fill="none"
-						stroke="currentColor"
-						stroke-width="2"
-						stroke-linecap="round"
-						aria-hidden="true"
-					>
-						<line x1="12" y1="5" x2="12" y2="19"></line>
-						<line x1="5" y1="12" x2="19" y2="12"></line>
-					</svg>
+					<CommunityIcon name="plus" size={13} />
 					Discover
 				</button>
 			</div>
@@ -726,7 +641,7 @@
 							viewBox="0 0 24 24"
 							fill="none"
 							stroke="currentColor"
-							stroke-width="2"
+							stroke-width="1.8"
 							stroke-linecap="round"
 							stroke-linejoin="round"
 							aria-hidden="true"
@@ -737,7 +652,7 @@
 						Newest
 					</button>
 				</div>
-				<span class="font-ui text-xs text-[#BBA8E0]">
+				<span class="font-ui text-xs text-[#BBA8E0] tabular-nums">
 					{filteredPosts.length}
 					{filteredPosts.length === 1 ? 'page' : 'pages'}
 				</span>
@@ -749,7 +664,7 @@
 					viewBox="0 0 24 24"
 					fill="none"
 					stroke="currentColor"
-					stroke-width="2"
+					stroke-width="1.8"
 					stroke-linecap="round"
 					stroke-linejoin="round"
 					aria-hidden="true"
@@ -768,14 +683,23 @@
 		</div>
 
 		<!-- Feed -->
-		{#if filteredPosts.length === 0}
+		{#if community.loading && community.posts.length === 0}
 			<div
-				class="relative mx-auto mt-8 max-w-[620px] overflow-hidden rounded-[10px] bg-paper px-6 py-10 text-center text-ink shadow-[0_16px_34px_rgba(0,0,0,.4)]"
+				class="mt-8 grid items-start gap-x-6 gap-y-10 min-[640px]:grid-cols-2 min-[1180px]:grid-cols-3"
 			>
-				<span
-					class="absolute -top-3 left-1/2 h-[26px] w-[92px] -translate-x-1/2 rotate-[3deg] bg-lav/90"
-					aria-hidden="true"
-				></span>
+				{#each [0, 1, 2, 3, 4, 5] as slot (slot)}
+					<div class="rounded-[5px] bg-paper p-3 pb-3.5 shadow-[0_12px_24px_rgba(0,0,0,.45)]">
+						<Skeleton class="aspect-[4/3] w-full rounded-[2px]" />
+						<Skeleton class="mt-3 h-4 w-3/4" />
+						<Skeleton class="mt-2 h-3 w-1/2" />
+						<Skeleton class="mt-4 h-9 w-full rounded-lg" />
+					</div>
+				{/each}
+			</div>
+		{:else if filteredPosts.length === 0}
+			<div
+				class="mx-auto mt-8 max-w-[620px] rounded-[10px] bg-paper px-6 py-10 text-center text-ink shadow-[0_16px_34px_rgba(0,0,0,.4)]"
+			>
 				<span
 					class="mx-auto flex size-16 items-center justify-center rounded-full bg-light"
 					style={activeMood !== 'all' ? `background: ${MOOD_BY_KEY[activeMood].c}80` : ''}
@@ -786,11 +710,11 @@
 							{@html MOOD_BY_KEY[activeMood].svg}
 						</span>
 					{:else}
-						<CommunityIcon name="sparkles" size={28} class="text-accent" />
+						<CommunityIcon name="globe" size={28} class="text-accent" />
 					{/if}
 				</span>
 				<p class="mt-4 font-display text-2xl font-bold">No pages here yet</p>
-				<p class="mx-auto mt-2 max-w-[420px] font-hand text-lg leading-snug text-ink-soft">
+				<p class="mx-auto mt-2 max-w-[420px] font-ui text-sm leading-relaxed text-ink-soft">
 					{#if searchQuery.trim()}
 						Nothing matched “{searchQuery}”. Try a different search or clear your filters.
 					{:else if activeMood !== 'all'}
@@ -803,21 +727,11 @@
 				</p>
 				<div class="mt-5 flex flex-wrap justify-center gap-2.5">
 					{#if searchQuery.trim() || activeMood !== 'all' || activeSlug !== 'all'}
-						<button
-							type="button"
-							class="min-h-10 rounded-xl border border-line px-4 font-ui text-xs font-semibold text-ink-soft transition-colors hover:bg-light hover:text-ink"
-							onclick={clearFilters}
-						>
-							Clear filters
-						</button>
+						<Button variant="paper" size="sm" onclick={clearFilters}>Clear filters</Button>
 					{/if}
-					<button
-						type="button"
-						class="min-h-10 rounded-xl bg-accent px-5 font-ui text-xs font-bold text-white transition-colors hover:bg-[#624690]"
-						onclick={() => nav.jump(TODAY)}
-					>
+					<Button size="sm" trailingIcon="arrow-right" onclick={() => nav.jump(TODAY)}>
 						Write today's page
-					</button>
+					</Button>
 				</div>
 			</div>
 		{:else}
@@ -835,11 +749,6 @@
 							? 'ring-4 ring-gold ring-offset-2 ring-offset-desk'
 							: ''}"
 					>
-						<span
-							class="absolute top-[-9px] left-1/2 z-10 size-[18px] -translate-x-1/2 rounded-full bg-[radial-gradient(circle_at_35%_30%,#F6DFA8,#D4A24C_60%,#8A5F1A)] shadow-[0_2px_3px_rgba(0,0,0,.5)]"
-							aria-hidden="true"
-						></span>
-
 						<!-- Media / cover -->
 						{#if post.videoUrl}
 							<div class="relative overflow-hidden rounded-[2px] border border-line bg-[#120A20]">
@@ -869,24 +778,11 @@
 								<span
 									class="flex size-12 items-center justify-center rounded-full bg-white/95 text-accent shadow-lg"
 								>
-									<svg
-										class="size-[22px]"
-										viewBox="0 0 24 24"
-										fill="currentColor"
-										aria-hidden="true"
-									>
-										<path d="M8 5v14l11-7z"></path>
-									</svg>
+									<CommunityIcon name="play" size={22} />
 								</span>
-								<p class="mt-2.5 max-w-[82%] font-hand text-lg leading-tight font-bold">
+								<p class="mt-2.5 max-w-[82%] font-ui text-sm leading-tight font-semibold">
 									{post.videoName || 'A shared video moment'}
 								</p>
-								<span class="absolute bottom-2 left-2 font-mono text-[9px] tracking-wider text-gold"
-									>VIDJO</span
-								>
-								<span class="absolute right-2 bottom-2 font-mono text-[9px] text-white/55"
-									>VIDEO</span
-								>
 							</div>
 						{:else if mood}
 							<div
@@ -1004,9 +900,7 @@
 									<CommunityIcon name="star" size={14} />
 								</span>
 								<div class="min-w-0">
-									<span
-										class="block font-ui text-[9px] font-bold tracking-[.14em] text-accent uppercase"
-										>Reflection</span
+									<span class="block font-ui text-[10px] font-semibold text-accent">Reflection</span
 									>
 									<p class="mt-0.5 font-hand text-base leading-snug font-semibold text-ink">
 										{post.refl}
@@ -1050,7 +944,7 @@
 										aria-pressed={post.userReactions.includes(reaction.key)}
 									>
 										<CommunityIcon name={reaction.icon} size={12} />
-										<span>{post.reactions[reaction.key]}</span>
+										<span class="tabular-nums">{post.reactions[reaction.key]}</span>
 									</button>
 								{/each}
 							</div>
@@ -1065,14 +959,14 @@
 									viewBox="0 0 24 24"
 									fill="none"
 									stroke="currentColor"
-									stroke-width="2"
+									stroke-width="1.8"
 									stroke-linecap="round"
 									stroke-linejoin="round"
 									aria-hidden="true"
 								>
 									<path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"></path>
 								</svg>
-								Notes ({post.comments.length})
+								Notes <span class="tabular-nums">({post.comments.length})</span>
 							</button>
 							{#if post.isOwner || post.authorId === auth.ownerId}
 								<button
@@ -1091,9 +985,7 @@
 						{#if openComments === post.id}
 							<div class="mt-2.5 rounded-xl border border-line bg-[#FFFDF6]">
 								<div class="p-2.5">
-									<span
-										class="mb-2 block font-ui text-[9px] font-bold tracking-[.14em] text-ink-soft uppercase"
-									>
+									<span class="mb-2 block font-ui text-[10px] font-semibold text-ink-soft">
 										Community notes
 									</span>
 
@@ -1217,24 +1109,16 @@
 
 		<!-- Share callout -->
 		<div
-			class="relative mx-auto mt-12 max-w-[760px] rotate-[0.4deg] rounded-[8px] bg-paper px-6 py-7 text-center text-ink shadow-[0_14px_30px_rgba(0,0,0,.4)]"
+			class="mx-auto mt-12 max-w-[760px] rounded-[8px] bg-paper px-6 py-7 text-center text-ink shadow-[0_14px_30px_rgba(0,0,0,.4)]"
 		>
-			<span
-				class="absolute -top-3 left-1/2 h-[24px] w-[86px] -translate-x-1/2 rotate-[-2deg] bg-gold/70"
-				aria-hidden="true"
-			></span>
 			<h2 class="font-display text-2xl font-bold">Want your page in the feed?</h2>
 			<p class="mx-auto mt-2 max-w-[520px] font-ui text-sm leading-relaxed text-ink-soft">
-				Set a journal page to <span class="font-bold text-accent">Community</span>, then pick one of
-				your joined communities. You choose what gets shared.
+				Set a journal page to <span class="font-semibold text-accent">Community</span>, then pick
+				one of your joined communities. You choose what gets shared.
 			</p>
-			<button
-				type="button"
-				class="mt-4 min-h-11 rounded-xl bg-accent px-6 font-ui text-sm font-bold text-white shadow transition-colors hover:bg-[#624690]"
-				onclick={() => nav.jump(TODAY)}
-			>
+			<Button class="mt-4" trailingIcon="arrow-right" onclick={() => nav.jump(TODAY)}>
 				Go to today's page
-			</button>
+			</Button>
 		</div>
 	{/if}
 
@@ -1242,18 +1126,7 @@
 	<p
 		class="mx-auto mt-10 flex max-w-[760px] items-start gap-2.5 font-ui text-xs leading-relaxed text-[#CFC3E6]"
 	>
-		<svg
-			class="mt-0.5 size-[18px] shrink-0 text-gold"
-			viewBox="0 0 24 24"
-			fill="none"
-			stroke="currentColor"
-			stroke-width="1.9"
-			stroke-linecap="round"
-			stroke-linejoin="round"
-			aria-hidden="true"
-		>
-			<path d="M5 21V4M5 4h11l-2 4 2 4H5"></path>
-		</svg>
+		<CommunityIcon name="shield" size={18} class="mt-0.5 shrink-0 text-gold" />
 		<span>
 			Be kind. If a note feels unsafe, use its Report link. Community pages are only visible to
 			members of the communities they were shared with.
@@ -1298,7 +1171,7 @@
 
 			<div class="p-5">
 				<div class="rounded-xl border border-line bg-[#FFFDF6] p-3">
-					<p class="font-ui text-[10px] font-bold tracking-wide text-ink-soft uppercase">
+					<p class="font-ui text-[10px] font-semibold text-ink-soft">
 						{deleteTarget.dateFormatted}
 					</p>
 					<p class="mt-1 font-display text-lg leading-tight font-bold text-ink">
@@ -1315,29 +1188,16 @@
 				</p>
 
 				<div class="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-					<button
-						type="button"
-						class="min-h-10 rounded-xl border border-line px-4 font-ui text-sm font-semibold text-ink-soft transition-colors hover:bg-light hover:text-ink"
-						onclick={() => (deleteTarget = null)}
-					>
-						Keep it posted
-					</button>
-					<button
-						type="button"
-						class="flex min-h-10 items-center justify-center gap-2 rounded-xl bg-[#9A5B5B] px-4 font-ui text-sm font-bold text-white transition-colors hover:bg-[#7E4747] disabled:cursor-wait disabled:opacity-60"
-						onclick={confirmDelete}
+					<Button variant="paper" onclick={() => (deleteTarget = null)}>Keep it posted</Button>
+					<Button
+						variant="danger"
+						icon="trash"
+						loading={deleteBusy}
 						disabled={deleteBusy}
+						onclick={confirmDelete}
 					>
-						{#if deleteBusy}
-							<span
-								class="size-4 animate-spin rounded-full border-2 border-white border-t-transparent"
-								aria-hidden="true"
-							></span>
-							Removing…
-						{:else}
-							Remove from community
-						{/if}
-					</button>
+						{deleteBusy ? 'Removing…' : 'Remove from community'}
+					</Button>
 				</div>
 			</div>
 		</div>

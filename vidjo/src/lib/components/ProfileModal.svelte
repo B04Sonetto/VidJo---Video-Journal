@@ -7,6 +7,7 @@
 	import { cleanDisplayName } from '#lib/avatar';
 	import Avatar from '#lib/components/Avatar.svelte';
 	import CommunityIcon from '#lib/components/CommunityIcon.svelte';
+	import Button from '#lib/components/ui/Button.svelte';
 	import { onMount } from 'svelte';
 	import { SvelteDate } from 'svelte/reactivity';
 
@@ -243,10 +244,8 @@
 				class="relative flex items-center justify-between border-b border-line bg-[linear-gradient(135deg,#34214E,#231438)] px-6 py-5 text-white"
 			>
 				<div class="flex items-center gap-3">
-					<div
-						class="flex size-9 items-center justify-center rounded-xl bg-lav/20 text-gold shadow-inner"
-					>
-						<CommunityIcon name="sparkles" size={18} />
+					<div class="flex size-9 items-center justify-center rounded-xl bg-lav/20 text-gold">
+						<CommunityIcon name="user" size={18} />
 					</div>
 					<div>
 						<h2 id="profile-title" class="font-display text-xl font-bold tracking-wide">
@@ -280,7 +279,7 @@
 							class="flex flex-col items-center text-center sm:flex-row sm:items-start sm:gap-5 sm:text-left"
 						>
 							<!-- Avatar -->
-							<div class="relative shrink-0">
+							<div class="shrink-0">
 								<Avatar
 									src={modalAvatar}
 									name={modalName}
@@ -288,12 +287,6 @@
 									textClass="text-4xl"
 									ring="border-4 border-gold/60 shadow-lg"
 								/>
-								<span
-									class="absolute right-0 bottom-0 flex size-6 items-center justify-center rounded-full bg-[#3F7A4F] text-xs text-white ring-2 ring-paper"
-									title="Active student"
-								>
-									<CommunityIcon name="check" size={10} />
-								</span>
 							</div>
 
 							<!-- Names & Handle -->
@@ -346,7 +339,7 @@
 											“{modalBio}”
 										</p>
 									{:else}
-										<p class="font-ui text-xs text-ink-soft italic">
+										<p class="font-ui text-xs leading-relaxed text-ink-soft">
 											{#if isOwnProfile}
 												No bio yet. Click "Edit Profile" below to share a few words with your
 												classmates and community!
@@ -373,11 +366,14 @@
 								<div
 									class="flex flex-col items-center rounded-2xl border border-[#E6D9B8] bg-[linear-gradient(135deg,#FFF8E7,#F7F2FD)] p-3 text-center"
 								>
-									<span class="flex items-center gap-1 font-display text-xl font-bold text-gold">
-										🔥 {streak}
+									<span
+										class="flex items-center gap-1 font-display text-xl font-bold text-gold tabular-nums"
+									>
+										<CommunityIcon name="flame" size={16} />
+										{streak}
 									</span>
 									<span class="font-ui text-[10px] text-ink-soft min-[480px]:text-[11px]"
-										>Day Streak</span
+										>Day streak</span
 									>
 								</div>
 								<div
@@ -403,9 +399,7 @@
 							<!-- Badges -->
 							<div class="bg-paper-2 rounded-2xl border border-line p-4">
 								<div class="flex items-center justify-between">
-									<span class="font-ui text-xs font-bold tracking-wide text-accent uppercase"
-										>Achievements</span
-									>
+									<span class="font-ui text-xs font-semibold text-accent">Achievements</span>
 									<span class="font-ui text-[11px] text-ink-soft">{badges.length} earned</span>
 								</div>
 								<div class="mt-3 flex flex-wrap gap-2">
@@ -420,32 +414,42 @@
 									{#if badges.includes('five-pages')}
 										<span
 											class="inline-flex items-center gap-1.5 rounded-full border border-[#D5C6E8] bg-light px-3 py-1 font-ui text-xs font-semibold text-accent"
-											>📓 Scribbler</span
 										>
+											<CommunityIcon name="book" size={13} />
+											Scribbler
+										</span>
 									{/if}
 									{#if badges.includes('ten-pages')}
 										<span
 											class="inline-flex items-center gap-1.5 rounded-full border border-[#D5C6E8] bg-light px-3 py-1 font-ui text-xs font-semibold text-accent"
-											>📚 Storyteller</span
 										>
+											<CommunityIcon name="book" size={13} />
+											Storyteller
+										</span>
 									{/if}
 									{#if badges.includes('three-day-streak')}
 										<span
 											class="inline-flex items-center gap-1.5 rounded-full border border-[#F0D9A8] bg-[#FFF8E7] px-3 py-1 font-ui text-xs font-semibold text-[#7A5618]"
-											>🔥 3-Day Streak</span
 										>
+											<CommunityIcon name="flame" size={13} />
+											3-day streak
+										</span>
 									{/if}
 									{#if badges.includes('week-streak')}
 										<span
 											class="inline-flex items-center gap-1.5 rounded-full border border-[#F0D9A8] bg-[#FFF8E7] px-3 py-1 font-ui text-xs font-semibold text-[#7A5618]"
-											>🔥 Week Streak</span
 										>
+											<CommunityIcon name="flame" size={13} />
+											Week streak
+										</span>
 									{/if}
 									{#if badges.includes('made-friend')}
 										<span
 											class="inline-flex items-center gap-1.5 rounded-full border border-[#C9E6D1] bg-[#EDF6EF] px-3 py-1 font-ui text-xs font-semibold text-[#2F6B45]"
-											>🤝 Friendly</span
 										>
+											<CommunityIcon name="users" size={13} />
+											Friendly
+										</span>
 									{/if}
 									{#if badges.includes('social-circle')}
 										<span
@@ -467,9 +471,7 @@
 						<!-- Friends & Community Preview Card -->
 						<div class="bg-paper-2 rounded-2xl border border-line p-4">
 							<div class="flex items-center justify-between">
-								<span class="font-ui text-xs font-bold tracking-wide text-accent uppercase">
-									Community Preview
-								</span>
+								<span class="font-ui text-xs font-semibold text-accent">Community preview</span>
 								<span
 									class="rounded-md bg-gold/20 px-2 py-0.5 font-ui text-[11px] font-medium text-[#7A5618]"
 								>
@@ -515,9 +517,9 @@
 								class="rounded-2xl border border-[#E4D7F5] bg-[#F7F2FD] p-4 text-xs text-ink-soft"
 							>
 								<div class="flex items-start gap-2.5">
-									<span class="text-base">🛡️</span>
+									<CommunityIcon name="shield" size={16} class="mt-0.5 shrink-0 text-accent" />
 									<div class="flex-1">
-										<b class="font-ui text-ink">Shared Computer Security</b>
+										<b class="font-ui text-ink">Shared computer security</b>
 										<p class="mt-0.5 font-ui leading-normal">
 											On shared computers, you can clear cached journal pages from this browser so
 											other visitors cannot view them.
@@ -557,9 +559,7 @@
 							<!-- Journal theme -->
 							<div class="rounded-2xl border border-line bg-light/60 p-4">
 								<div class="mb-3 flex items-center justify-between">
-									<span class="font-ui text-xs font-bold tracking-wide text-accent uppercase">
-										Journal theme
-									</span>
+									<span class="font-ui text-xs font-semibold text-accent">Journal theme</span>
 									<span class="font-ui text-[11px] text-ink-soft">
 										{profile.theme.charAt(0).toUpperCase() + profile.theme.slice(1)}
 									</span>
@@ -604,8 +604,8 @@
 
 						<!-- Avatar selection -->
 						<div>
-							<span class="block font-ui text-xs font-bold tracking-wide text-ink-soft uppercase">
-								Choose Your Avatar
+							<span class="block font-ui text-xs font-semibold text-ink-soft">
+								Choose your avatar
 							</span>
 							<div class="mt-2 flex flex-wrap items-center gap-2">
 								{#each PRESET_AVATARS as preset (preset.label)}
@@ -638,9 +638,9 @@
 						<div>
 							<label
 								for="edit-display-name"
-								class="block font-ui text-xs font-bold tracking-wide text-ink-soft uppercase"
+								class="block font-ui text-xs font-semibold text-ink-soft"
 							>
-								Display Name
+								Display name
 							</label>
 							<input
 								id="edit-display-name"
@@ -659,9 +659,9 @@
 						<div>
 							<label
 								for="edit-username"
-								class="flex items-center justify-between font-ui text-xs font-bold tracking-wide text-ink-soft uppercase"
+								class="flex items-center justify-between font-ui text-xs font-semibold text-ink-soft"
 							>
-								<span>Unique Username</span>
+								<span>Unique username</span>
 								{#if usernameStatus.checking}
 									<span class="text-accent">Checking availability…</span>
 								{:else if usernameStatus.available === true}
@@ -698,11 +698,8 @@
 						<!-- Bio -->
 						<div>
 							<div class="flex items-center justify-between">
-								<label
-									for="edit-bio"
-									class="block font-ui text-xs font-bold tracking-wide text-ink-soft uppercase"
-								>
-									Bio / About You
+								<label for="edit-bio" class="block font-ui text-xs font-semibold text-ink-soft">
+									Bio / About you
 								</label>
 								<span class="font-ui text-[11px] text-ink-soft">
 									{editBio.length}/200
@@ -724,59 +721,20 @@
 			<!-- Modal Footer -->
 			<div class="bg-paper-2 flex items-center justify-between border-t border-line px-6 py-4">
 				{#if mode === 'view'}
-					<button
-						type="button"
-						class="rounded-xl border border-line px-4 py-2 font-ui text-sm font-medium text-ink-soft transition-colors hover:bg-paper hover:text-ink"
-						onclick={onClose}
-					>
-						Close
-					</button>
+					<Button variant="paper" onclick={onClose}>Close</Button>
 					{#if isOwnProfile}
-						<button
-							type="button"
-							class="flex items-center gap-2 rounded-xl bg-accent px-5 py-2.5 font-ui text-sm font-bold text-white shadow transition-all hover:bg-[#624690] active:scale-95"
-							onclick={startEdit}
-						>
-							<svg
-								width="16"
-								height="16"
-								viewBox="0 0 24 24"
-								fill="none"
-								stroke="currentColor"
-								stroke-width="2"
-								stroke-linecap="round"
-								stroke-linejoin="round"
-								aria-hidden="true"
-							>
-								<path d="M12 20h9M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4L16.5 3.5z"></path>
-							</svg>
-							Edit Profile
-						</button>
+						<Button icon="pen" onclick={startEdit}>Edit profile</Button>
 					{/if}
 				{:else}
-					<button
-						type="button"
-						class="rounded-xl border border-line px-4 py-2 font-ui text-sm font-medium text-ink-soft transition-colors hover:bg-paper hover:text-ink"
-						onclick={cancelEdit}
-						disabled={profile.saving}
-					>
-						Cancel
-					</button>
-					<button
-						type="button"
-						class="flex items-center gap-2 rounded-xl bg-accent px-5 py-2.5 font-ui text-sm font-bold text-white shadow transition-all hover:bg-[#624690] active:scale-95 disabled:opacity-50"
+					<Button variant="paper" onclick={cancelEdit} disabled={profile.saving}>Cancel</Button>
+					<Button
+						icon="check"
+						loading={profile.saving}
+						disabled={usernameStatus.available === false}
 						onclick={save}
-						disabled={profile.saving || usernameStatus.available === false}
 					>
-						{#if profile.saving}
-							<div
-								class="size-4 animate-spin rounded-full border-2 border-white border-t-transparent"
-							></div>
-							Saving…
-						{:else}
-							Save Changes
-						{/if}
-					</button>
+						Save changes
+					</Button>
 				{/if}
 			</div>
 		</div>

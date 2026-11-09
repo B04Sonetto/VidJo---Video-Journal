@@ -9,6 +9,7 @@
 	import { isSupabaseConfigured } from '#lib/supabase';
 	import Avatar from '#lib/components/Avatar.svelte';
 	import AdminPanel from '#lib/components/AdminPanel.svelte';
+	import CommunityIcon from '#lib/components/CommunityIcon.svelte';
 
 	let { onCalendar }: { onCalendar: () => void } = $props();
 
@@ -73,85 +74,38 @@
 	>
 		<button
 			type="button"
-			class="group relative flex min-h-10 items-center gap-2 rounded-full px-4 py-2 font-ui text-[14px] transition-all {nav.view ===
+			class="relative flex min-h-10 items-center gap-2 rounded-full px-4 py-2 font-ui text-[14px] transition-colors {nav.view ===
 			'journal'
-				? 'bg-white/15 font-semibold text-white shadow-[inset_0_1px_0_rgba(255,255,255,.12)]'
+				? 'bg-white/15 font-semibold text-white'
 				: 'text-[#D6CBEC] hover:bg-white/[.08] hover:text-white'}"
 			aria-current={nav.view === 'journal' ? 'page' : undefined}
 			onclick={() => nav.setView('journal')}
 		>
-			<svg
-				width="16"
-				height="16"
-				viewBox="0 0 24 24"
-				fill="none"
-				stroke="currentColor"
-				stroke-width="2"
-				stroke-linecap="round"
-				stroke-linejoin="round"
-				class="transition-transform group-hover:scale-105"
-				aria-hidden="true"
-			>
-				<path
-					d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H19a1 1 0 0 1 1 1v18a1 1 0 0 1-1 1H6.5a1 1 0 0 1 0-5H20"
-				></path>
-			</svg>
+			<CommunityIcon name="book" size={16} />
 			<span>Journal</span>
 		</button>
 		<button
 			type="button"
-			class="group flex min-h-10 items-center gap-2 rounded-full px-4 py-2 font-ui text-[14px] text-[#D6CBEC] transition-all hover:bg-white/[.08] hover:text-white"
+			class="flex min-h-10 items-center gap-2 rounded-full px-4 py-2 font-ui text-[14px] text-[#D6CBEC] transition-colors hover:bg-white/[.08] hover:text-white"
 			onclick={onCalendar}
 		>
-			<svg
-				width="16"
-				height="16"
-				viewBox="0 0 24 24"
-				fill="none"
-				stroke="currentColor"
-				stroke-width="2"
-				stroke-linecap="round"
-				stroke-linejoin="round"
-				class="transition-transform group-hover:scale-105"
-				aria-hidden="true"
-			>
-				<rect width="18" height="18" x="3" y="4" rx="2" ry="2"></rect>
-				<line x1="16" x2="16" y1="2" y2="6"></line>
-				<line x1="8" x2="8" y1="2" y2="6"></line>
-				<line x1="3" x2="21" y1="10" y2="10"></line>
-			</svg>
+			<CommunityIcon name="calendar" size={16} />
 			<span>Calendar</span>
 		</button>
 		<button
 			type="button"
-			class="group relative flex min-h-10 items-center gap-2 rounded-full px-4 py-2 font-ui text-[14px] transition-all {nav.view ===
+			class="relative flex min-h-10 items-center gap-2 rounded-full px-4 py-2 font-ui text-[14px] transition-colors {nav.view ===
 			'friends'
-				? 'bg-white/15 font-semibold text-white shadow-[inset_0_1px_0_rgba(255,255,255,.12)]'
+				? 'bg-white/15 font-semibold text-white'
 				: 'text-[#D6CBEC] hover:bg-white/[.08] hover:text-white'}"
 			aria-current={nav.view === 'friends' ? 'page' : undefined}
 			onclick={() => nav.setView('friends')}
 		>
-			<svg
-				width="16"
-				height="16"
-				viewBox="0 0 24 24"
-				fill="none"
-				stroke="currentColor"
-				stroke-width="2"
-				stroke-linecap="round"
-				stroke-linejoin="round"
-				class="transition-transform group-hover:scale-105"
-				aria-hidden="true"
-			>
-				<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path>
-				<circle cx="9" cy="7" r="4"></circle>
-				<path d="M22 21v-2a4 4 0 0 0-3-3.87"></path>
-				<path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
-			</svg>
+			<CommunityIcon name="users" size={16} />
 			<span>Friends</span>
 			{#if friends.pendingCount > 0}
 				<span
-					class="absolute -top-1 -right-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-gold px-1 text-[10px] font-bold text-[#2A1B3F] shadow-[0_0_0_2px_#2A1B3F]"
+					class="absolute -top-1 -right-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-gold px-1 font-ui text-[10px] font-bold text-[#2A1B3F] tabular-nums shadow-[0_0_0_2px_#2A1B3F]"
 				>
 					{friends.pendingCount}
 				</span>
@@ -159,59 +113,30 @@
 		</button>
 		<button
 			type="button"
-			class="group relative flex min-h-10 items-center gap-2 rounded-full px-4 py-2 font-ui text-[14px] transition-all {nav.view ===
+			class="relative flex min-h-10 items-center gap-2 rounded-full px-4 py-2 font-ui text-[14px] transition-colors {nav.view ===
 			'community'
-				? 'bg-white/15 font-semibold text-white shadow-[inset_0_1px_0_rgba(255,255,255,.12)]'
+				? 'bg-white/15 font-semibold text-white'
 				: 'text-[#D6CBEC] hover:bg-white/[.08] hover:text-white'}"
 			aria-current={nav.view === 'community' ? 'page' : undefined}
 			onclick={() => nav.setView('community')}
 		>
-			<svg
-				width="16"
-				height="16"
-				viewBox="0 0 24 24"
-				fill="none"
-				stroke="currentColor"
-				stroke-width="2"
-				stroke-linecap="round"
-				stroke-linejoin="round"
-				class="transition-transform group-hover:scale-105"
-				aria-hidden="true"
-			>
-				<circle cx="12" cy="12" r="10"></circle>
-				<path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"></path>
-				<path d="M2 12h20"></path>
-			</svg>
+			<CommunityIcon name="globe" size={16} />
 			<span>Community</span>
 		</button>
 		<button
 			type="button"
-			class="group relative flex min-h-10 items-center gap-2 rounded-full px-4 py-2 font-ui text-[14px] transition-all {nav.view ===
+			class="relative flex min-h-10 items-center gap-2 rounded-full px-4 py-2 font-ui text-[14px] transition-colors {nav.view ===
 			'notifications'
-				? 'bg-white/15 font-semibold text-white shadow-[inset_0_1px_0_rgba(255,255,255,.12)]'
+				? 'bg-white/15 font-semibold text-white'
 				: 'text-[#D6CBEC] hover:bg-white/[.08] hover:text-white'}"
 			aria-current={nav.view === 'notifications' ? 'page' : undefined}
 			aria-label={`Notifications${friends.unreadCount > 0 ? `, ${friends.unreadCount} unread` : ''}`}
 			onclick={() => nav.setView('notifications')}
 		>
-			<svg
-				width="16"
-				height="16"
-				viewBox="0 0 24 24"
-				fill="none"
-				stroke="currentColor"
-				stroke-width="2"
-				stroke-linecap="round"
-				stroke-linejoin="round"
-				class="transition-transform group-hover:scale-105"
-				aria-hidden="true"
-			>
-				<path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
-				<path d="M13.73 21a2 2 0 01-3.46 0"></path>
-			</svg>
+			<CommunityIcon name="bell" size={16} />
 			{#if friends.unreadCount > 0}
 				<span
-					class="absolute -top-1 -right-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white shadow-[0_0_0_2px_#7F1D1D]"
+					class="absolute -top-1 -right-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-danger px-1 font-ui text-[10px] font-bold text-white tabular-nums shadow-[0_0_0_2px_#2A1B3F]"
 				>
 					{friends.unreadCount > 9 ? '9+' : friends.unreadCount}
 				</span>
@@ -221,21 +146,10 @@
 
 	<button
 		type="button"
-		class="group inline-flex min-h-11 items-center gap-2 rounded-xl border border-gold/60 bg-[linear-gradient(135deg,rgba(212,162,76,0.22),rgba(81,57,122,0.35))] px-[18px] font-ui text-[15px] font-semibold text-[#FFFDF6] shadow-[0_4px_18px_rgba(212,162,76,0.18)] transition-all hover:scale-[1.02] hover:border-gold hover:bg-[linear-gradient(135deg,rgba(212,162,76,0.32),rgba(81,57,122,0.45))] hover:shadow-[0_6px_22px_rgba(212,162,76,0.28)] active:scale-[0.98]"
+		class="inline-flex min-h-11 items-center gap-2 rounded-xl bg-gold px-[18px] font-ui text-[15px] font-bold text-[#2A1B3F] shadow-[0_6px_18px_rgba(212,162,76,.26)] transition-all hover:bg-[#E2B666] hover:shadow-[0_8px_22px_rgba(212,162,76,.34)] active:scale-[.98]"
 		onclick={() => nav.jump(TODAY)}
 	>
-		<svg
-			width="16"
-			height="16"
-			viewBox="0 0 24 24"
-			fill="currentColor"
-			class="text-gold transition-transform group-hover:scale-110"
-			aria-hidden="true"
-		>
-			<path
-				d="M12 2L13.09 8.26L19 6L14.74 10.74L21 12L14.74 13.26L19 18L13.09 15.74L12 22L10.91 15.74L5 18L9.26 13.26L3 12L9.26 10.74L5 6L10.91 8.26L12 2Z"
-			></path>
-		</svg>
+		<CommunityIcon name="plus" size={16} />
 		Today's page
 	</button>
 
@@ -264,20 +178,11 @@
 						@{profile.username}
 					</span>
 				</div>
-				<svg
-					width="15"
-					height="15"
-					viewBox="0 0 24 24"
-					fill="none"
-					stroke="currentColor"
-					stroke-width="2"
-					stroke-linecap="round"
-					stroke-linejoin="round"
+				<CommunityIcon
+					name="chevron-down"
+					size={15}
 					class="text-[#BBA8E0] transition-transform {menuOpen ? 'rotate-180' : ''}"
-					aria-hidden="true"
-				>
-					<path d="M6 9l6 6 6-6"></path>
-				</svg>
+				/>
 			</button>
 
 			{#if menuOpen}
@@ -322,20 +227,7 @@
 								nav.openProfile('overview');
 							}}
 						>
-							<svg
-								width="15"
-								height="15"
-								viewBox="0 0 24 24"
-								fill="none"
-								stroke="currentColor"
-								stroke-width="2"
-								stroke-linecap="round"
-								stroke-linejoin="round"
-								aria-hidden="true"
-							>
-								<path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
-								<circle cx="12" cy="7" r="4"></circle>
-							</svg>
+							<CommunityIcon name="user" size={15} />
 							Profile
 						</button>
 						<button
@@ -346,22 +238,7 @@
 								nav.openProfile('settings');
 							}}
 						>
-							<svg
-								width="15"
-								height="15"
-								viewBox="0 0 24 24"
-								fill="none"
-								stroke="currentColor"
-								stroke-width="2"
-								stroke-linecap="round"
-								stroke-linejoin="round"
-								aria-hidden="true"
-							>
-								<circle cx="12" cy="12" r="3"></circle>
-								<path
-									d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"
-								></path>
-							</svg>
+							<CommunityIcon name="settings" size={15} />
 							Settings
 						</button>
 						{#if isAdmin()}
@@ -373,33 +250,14 @@
 									adminOpen = true;
 								}}
 							>
-								<svg
-									width="15"
-									height="15"
-									viewBox="0 0 24 24"
-									fill="none"
-									stroke="currentColor"
-									stroke-width="2"
-									stroke-linecap="round"
-									stroke-linejoin="round"
-									aria-hidden="true"
-								>
-									<circle cx="12" cy="12" r="3"></circle>
-									<path
-										d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"
-									></path>
-								</svg>
+								<CommunityIcon name="shield" size={15} />
 								Admin
 							</button>
 						{/if}
 					</div>
 
 					<div class="mt-3">
-						<p
-							class="mb-2 block font-ui text-[11px] font-bold tracking-wider text-[#9B8CB5] uppercase"
-						>
-							Theme
-						</p>
+						<p class="mb-2 block font-ui text-[11px] font-semibold text-ink-soft">Theme</p>
 						<div class="flex flex-wrap gap-2">
 							<button
 								type="button"
@@ -455,19 +313,7 @@
 						role="menuitem"
 						onclick={signOut}
 					>
-						<svg
-							width="16"
-							height="16"
-							viewBox="0 0 24 24"
-							fill="none"
-							stroke="currentColor"
-							stroke-width="2"
-							stroke-linecap="round"
-							stroke-linejoin="round"
-							aria-hidden="true"
-						>
-							<path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9"></path>
-						</svg>
+						<CommunityIcon name="logout" size={16} />
 						Sign out
 					</button>
 				</div>
@@ -496,80 +342,36 @@
 >
 	<button
 		type="button"
-		class="flex flex-col items-center gap-1 rounded-2xl px-3 py-1.5 transition-all {nav.view ===
+		class="flex flex-col items-center gap-1 rounded-2xl px-3 py-1.5 transition-colors {nav.view ===
 		'journal'
 			? 'text-white'
 			: 'text-[#BBA8E0]'}"
 		onclick={() => nav.setView('journal')}
 	>
-		<svg
-			width="20"
-			height="20"
-			viewBox="0 0 24 24"
-			fill="none"
-			stroke="currentColor"
-			stroke-width="2"
-			stroke-linecap="round"
-			stroke-linejoin="round"
-			aria-hidden="true"
-		>
-			<path
-				d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H19a1 1 0 0 1 1 1v18a1 1 0 0 1-1 1H6.5a1 1 0 0 1 0-5H20"
-			></path>
-		</svg>
+		<CommunityIcon name="book" size={20} />
 		<span class="font-ui text-[10px] font-semibold">Journal</span>
 	</button>
 	<button
 		type="button"
-		class="flex flex-col items-center gap-1 rounded-2xl px-3 py-1.5 text-[#BBA8E0] transition-all"
+		class="flex flex-col items-center gap-1 rounded-2xl px-3 py-1.5 text-[#BBA8E0] transition-colors"
 		onclick={onCalendar}
 	>
-		<svg
-			width="20"
-			height="20"
-			viewBox="0 0 24 24"
-			fill="none"
-			stroke="currentColor"
-			stroke-width="2"
-			stroke-linecap="round"
-			stroke-linejoin="round"
-			aria-hidden="true"
-		>
-			<rect width="18" height="18" x="3" y="4" rx="2" ry="2"></rect>
-			<line x1="16" x2="16" y1="2" y2="6"></line>
-			<line x1="8" x2="8" y1="2" y2="6"></line>
-			<line x1="3" x2="21" y1="10" y2="10"></line>
-		</svg>
+		<CommunityIcon name="calendar" size={20} />
 		<span class="font-ui text-[10px] font-semibold">Calendar</span>
 	</button>
 	<button
 		type="button"
-		class="relative flex flex-col items-center gap-1 rounded-2xl px-3 py-1.5 transition-all {nav.view ===
+		class="relative flex flex-col items-center gap-1 rounded-2xl px-3 py-1.5 transition-colors {nav.view ===
 		'friends'
 			? 'text-white'
 			: 'text-[#BBA8E0]'}"
 		onclick={() => nav.setView('friends')}
 	>
-		<svg
-			width="20"
-			height="20"
-			viewBox="0 0 24 24"
-			fill="none"
-			stroke="currentColor"
-			stroke-width="2"
-			stroke-linecap="round"
-			stroke-linejoin="round"
-			aria-hidden="true"
-		>
-			<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path>
-			<circle cx="9" cy="7" r="4"></circle>
-			<path d="M22 21v-2a4 4 0 0 0-3-3.87"></path>
-			<path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
-		</svg>
+		<CommunityIcon name="users" size={20} />
 		<span class="font-ui text-[10px] font-semibold">Friends</span>
 		{#if friends.pendingCount > 0}
 			<span
-				class="absolute -top-0.5 right-2 flex h-4 min-w-4 items-center justify-center rounded-full bg-gold px-1 text-[9px] font-bold text-[#2A1B3F]"
+				class="absolute -top-0.5 right-2 flex h-4 min-w-4 items-center justify-center rounded-full bg-gold px-1 font-ui text-[9px] font-bold text-[#2A1B3F] tabular-nums"
 			>
 				{friends.pendingCount}
 			</span>
@@ -577,56 +379,29 @@
 	</button>
 	<button
 		type="button"
-		class="flex flex-col items-center gap-1 rounded-2xl px-3 py-1.5 transition-all {nav.view ===
+		class="flex flex-col items-center gap-1 rounded-2xl px-3 py-1.5 transition-colors {nav.view ===
 		'community'
 			? 'text-white'
 			: 'text-[#BBA8E0]'}"
 		onclick={() => nav.setView('community')}
 	>
-		<svg
-			width="20"
-			height="20"
-			viewBox="0 0 24 24"
-			fill="none"
-			stroke="currentColor"
-			stroke-width="2"
-			stroke-linecap="round"
-			stroke-linejoin="round"
-			aria-hidden="true"
-		>
-			<circle cx="12" cy="12" r="10"></circle>
-			<path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"></path>
-			<path d="M2 12h20"></path>
-		</svg>
+		<CommunityIcon name="globe" size={20} />
 		<span class="font-ui text-[10px] font-semibold">Community</span>
 	</button>
 	<button
 		type="button"
-		class="relative flex flex-col items-center gap-1 rounded-2xl px-3 py-1.5 transition-all {nav.view ===
+		class="relative flex flex-col items-center gap-1 rounded-2xl px-3 py-1.5 transition-colors {nav.view ===
 		'notifications'
 			? 'text-white'
 			: 'text-[#BBA8E0]'}"
 		aria-label={`Notifications${friends.unreadCount > 0 ? `, ${friends.unreadCount} unread` : ''}`}
 		onclick={() => nav.setView('notifications')}
 	>
-		<svg
-			width="20"
-			height="20"
-			viewBox="0 0 24 24"
-			fill="none"
-			stroke="currentColor"
-			stroke-width="2"
-			stroke-linecap="round"
-			stroke-linejoin="round"
-			aria-hidden="true"
-		>
-			<path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
-			<path d="M13.73 21a2 2 0 01-3.46 0"></path>
-		</svg>
+		<CommunityIcon name="bell" size={20} />
 		<span class="font-ui text-[10px] font-semibold">Alerts</span>
 		{#if friends.unreadCount > 0}
 			<span
-				class="absolute -top-0.5 right-2 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[9px] font-bold text-white"
+				class="absolute -top-0.5 right-2 flex h-4 min-w-4 items-center justify-center rounded-full bg-danger px-1 font-ui text-[9px] font-bold text-white tabular-nums"
 			>
 				{friends.unreadCount > 9 ? '9+' : friends.unreadCount}
 			</span>
@@ -634,26 +409,13 @@
 	</button>
 	<button
 		type="button"
-		class="flex flex-col items-center gap-1 rounded-2xl px-3 py-1.5 transition-all {nav.view ===
+		class="flex flex-col items-center gap-1 rounded-2xl px-3 py-1.5 transition-colors {nav.view ===
 		'profile'
 			? 'text-white'
 			: 'text-[#BBA8E0]'}"
 		onclick={() => nav.openProfile('overview')}
 	>
-		<svg
-			width="20"
-			height="20"
-			viewBox="0 0 24 24"
-			fill="none"
-			stroke="currentColor"
-			stroke-width="2"
-			stroke-linecap="round"
-			stroke-linejoin="round"
-			aria-hidden="true"
-		>
-			<path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
-			<circle cx="12" cy="7" r="4"></circle>
-		</svg>
+		<CommunityIcon name="user" size={20} />
 		<span class="font-ui text-[10px] font-semibold">Profile</span>
 	</button>
 </nav>

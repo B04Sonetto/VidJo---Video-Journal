@@ -308,25 +308,11 @@
 
 						<button
 							type="button"
-							class="flex size-10 flex-none flex-col items-center justify-center gap-0.5 rounded-2xl border-2 border-dashed border-[#8B6FD0] bg-transparent text-[10px] text-[#D6CBEC]"
+							class="flex size-10 flex-none flex-col items-center justify-center gap-0.5 rounded-2xl border border-[#8B6FD0] bg-transparent text-[10px] text-[#D6CBEC] transition-colors hover:bg-white/5"
 							aria-label="Add your own image as a sticker"
 							onclick={() => imageInput?.click()}
 						>
-							<svg
-								width="20"
-								height="20"
-								viewBox="0 0 24 24"
-								fill="none"
-								stroke="currentColor"
-								stroke-width="1.8"
-								stroke-linecap="round"
-								stroke-linejoin="round"
-								aria-hidden="true"
-							>
-								<rect x="3" y="4" width="18" height="16" rx="3"></rect>
-								<circle cx="9" cy="10" r="2"></circle>
-								<path d="M21 16l-5-5-8 9"></path>
-							</svg>
+							<CommunityIcon name="camera" size={18} />
 							Your image
 						</button>
 					</div>
@@ -513,25 +499,11 @@
 
 					<button
 						type="button"
-						class="flex h-[76px] w-24 flex-none flex-col items-center justify-center gap-0.5 rounded-2xl border-2 border-dashed border-[#8B6FD0] bg-transparent text-xs text-[#D6CBEC]"
+						class="flex h-[76px] w-24 flex-none flex-col items-center justify-center gap-0.5 rounded-2xl border border-[#8B6FD0] bg-transparent text-xs text-[#D6CBEC] transition-colors hover:bg-white/5"
 						aria-label="Add your own image as a sticker"
 						onclick={() => imageInput?.click()}
 					>
-						<svg
-							width="26"
-							height="26"
-							viewBox="0 0 24 24"
-							fill="none"
-							stroke="currentColor"
-							stroke-width="1.8"
-							stroke-linecap="round"
-							stroke-linejoin="round"
-							aria-hidden="true"
-						>
-							<rect x="3" y="4" width="18" height="16" rx="3"></rect>
-							<circle cx="9" cy="10" r="2"></circle>
-							<path d="M21 16l-5-5-8 9"></path>
-						</svg>
+						<CommunityIcon name="camera" size={24} />
 						Your image
 					</button>
 				</div>

@@ -1,6 +1,7 @@
 <script lang="ts">
 	import Avatar from '#lib/components/Avatar.svelte';
 	import CommunityIcon from '#lib/components/CommunityIcon.svelte';
+	import Button from '#lib/components/ui/Button.svelte';
 	import { profile } from '#lib/state/profile.svelte';
 	import { journal } from '#lib/state/journal.svelte';
 	import { isSupabaseConfigured, supabase } from '#lib/supabase';
@@ -270,13 +271,7 @@
 					class="flex shrink-0 flex-wrap items-center justify-between gap-4 border-b border-[#3D2A5C] bg-[#24143D] px-5 py-4 sm:px-7 sm:py-5"
 				>
 					<div class="min-w-0">
-						<div class="flex items-center gap-2">
-							<span class="size-1.5 rounded-full bg-gold" aria-hidden="true"></span>
-							<span class="font-ui text-[10px] font-bold tracking-[0.18em] text-gold uppercase">
-								VidJo staff
-							</span>
-						</div>
-						<h2 class="mt-1 font-display text-[26px] leading-tight font-bold text-white">
+						<h2 class="font-display text-[26px] leading-tight font-bold text-white">
 							Admin console
 						</h2>
 						<p class="mt-0.5 font-ui text-xs text-[#BBA8E0]">
@@ -285,44 +280,22 @@
 					</div>
 
 					<div class="flex items-center gap-2">
-						<button
-							type="button"
-							class="inline-flex min-h-10 items-center gap-2 rounded-xl border border-[#5A4580] bg-[#33224D] px-3.5 font-ui text-xs font-semibold text-[#EDE6F7] transition-colors hover:bg-[#43306A] disabled:cursor-wait disabled:opacity-60"
-							disabled={loading}
+						<Button
+							size="sm"
+							variant="outline"
+							icon="refresh"
+							{loading}
 							onclick={() => void loadAll()}
 						>
-							<svg
-								class="size-4 {loading ? 'animate-spin' : ''}"
-								viewBox="0 0 24 24"
-								fill="none"
-								stroke="currentColor"
-								stroke-width="2"
-								stroke-linecap="round"
-								stroke-linejoin="round"
-								aria-hidden="true"
-							>
-								<path d="M21 12a9 9 0 1 1-2.64-6.36"></path>
-								<path d="M21 3v6h-6"></path>
-							</svg>
-							{loading ? 'Refreshing' : 'Refresh'}
-						</button>
+							Refresh
+						</Button>
 						<button
 							type="button"
-							class="flex size-10 items-center justify-center rounded-xl border border-[#5A4580] bg-[#33224D] text-[#D6CBEC] transition-colors hover:bg-[#43306A] hover:text-white"
+							class="flex size-9 items-center justify-center rounded-xl border border-[#5A4580] bg-[#33224D] text-[#D6CBEC] transition-colors hover:bg-[#43306A] hover:text-white"
 							aria-label="Close admin console"
 							onclick={() => (open = false)}
 						>
-							<svg
-								class="size-4"
-								viewBox="0 0 24 24"
-								fill="none"
-								stroke="currentColor"
-								stroke-width="2"
-								stroke-linecap="round"
-								aria-hidden="true"
-							>
-								<path d="M6 6l12 12M18 6L6 18"></path>
-							</svg>
+							<CommunityIcon name="x" size={16} />
 						</button>
 					</div>
 				</header>
@@ -345,7 +318,8 @@
 							{item.label}
 							{#if item.count !== null}
 								<span
-									class="rounded-full px-1.5 py-0.5 text-[10px] font-bold {tab === item.key
+									class="rounded-full px-1.5 py-0.5 text-[10px] font-semibold tabular-nums {tab ===
+									item.key
 										? 'bg-[#2A1B3D]/15 text-[#2A1B3D]'
 										: 'bg-white/10 text-[#D6CBEC]'}"
 								>
@@ -382,16 +356,14 @@
 								{#each kpis as kpi (kpi.label)}
 									<div class="rounded-2xl border border-[#4D366D] bg-[#24143D] p-4">
 										<div class="flex items-center justify-between gap-2">
-											<p
-												class="font-ui text-[10px] font-bold tracking-[0.14em] text-[#BBA8E0] uppercase"
-											>
-												{kpi.label}
-											</p>
+											<p class="font-ui text-xs font-semibold text-[#BBA8E0]">{kpi.label}</p>
 											<span class="flex size-8 items-center justify-center rounded-full {kpi.chip}">
 												<CommunityIcon name={kpi.icon} size={15} />
 											</span>
 										</div>
-										<p class="mt-2 font-display text-3xl leading-none font-bold text-white">
+										<p
+											class="mt-2 font-display text-3xl leading-none font-bold text-white tabular-nums"
+										>
 											{kpi.value.toLocaleString()}
 										</p>
 										<p class="mt-1 font-ui text-[11px] text-[#9E8CC0]">{kpi.note}</p>
@@ -412,20 +384,18 @@
 									</div>
 									<div class="flex items-center gap-5">
 										<div class="text-right">
-											<p class="font-display text-2xl leading-none font-bold text-gold">
+											<p
+												class="font-display text-2xl leading-none font-bold text-gold tabular-nums"
+											>
 												{overview.events_total.toLocaleString()}
 											</p>
-											<p class="font-ui text-[10px] tracking-wide text-[#9E8CC0] uppercase">
-												events
-											</p>
+											<p class="font-ui text-[11px] text-[#9E8CC0]">events</p>
 										</div>
 										<div class="text-right">
-											<p class="font-display text-2xl leading-none font-bold text-lav">
+											<p class="font-display text-2xl leading-none font-bold text-lav tabular-nums">
 												{overview.active_users.toLocaleString()}
 											</p>
-											<p class="font-ui text-[10px] tracking-wide text-[#9E8CC0] uppercase">
-												active members
-											</p>
+											<p class="font-ui text-[11px] text-[#9E8CC0]">active members</p>
 										</div>
 									</div>
 								</div>
@@ -450,10 +420,12 @@
 									</div>
 								{:else}
 									<div
-										class="mt-4 rounded-xl border border-dashed border-[#5A4580] bg-[#1E1133]/60 px-4 py-8 text-center"
+										class="mt-4 rounded-xl border border-[#5A4580] bg-[#1E1133]/60 px-4 py-8 text-center"
 									>
 										<CommunityIcon name="trending" size={26} class="mx-auto text-gold/60" />
-										<p class="mt-2 font-hand text-xl text-[#D6CBEC]">No activity recorded yet.</p>
+										<p class="mt-2 font-ui text-sm font-semibold text-[#D6CBEC]">
+											No activity recorded yet.
+										</p>
 										<p class="mt-1 font-ui text-xs text-[#9E8CC0]">
 											Events appear here as members use VidJo. Only feature names and counts are
 											stored.
@@ -469,7 +441,7 @@
 										<h3 class="font-display text-xl leading-tight font-bold text-white">
 											Most used features
 										</h3>
-										<span class="font-ui text-[10px] tracking-wide text-[#9E8CC0] uppercase">
+										<span class="font-ui text-[11px] text-[#9E8CC0] tabular-nums">
 											last {overview.window_days} days
 										</span>
 									</div>
@@ -482,7 +454,7 @@
 														<span class="font-ui text-sm font-semibold text-[#EDE6F7]">
 															{eventLabel(item.event)}
 														</span>
-														<span class="font-ui text-xs font-semibold text-[#BBA8E0]">
+														<span class="font-ui text-xs font-semibold text-[#BBA8E0] tabular-nums">
 															{item.count.toLocaleString()}
 														</span>
 													</div>
@@ -496,7 +468,7 @@
 											{/each}
 										</ul>
 									{:else}
-										<p class="mt-4 font-hand text-lg text-[#9E8CC0]">
+										<p class="mt-4 font-ui text-sm text-[#9E8CC0]">
 											Feature usage will show up after the first few sessions.
 										</p>
 									{/if}
@@ -513,20 +485,20 @@
 										</div>
 										<div class="mt-4 grid grid-cols-2 gap-3">
 											<div class="rounded-xl bg-[#1B102B] px-3 py-3">
-												<p class="font-display text-3xl leading-none font-bold text-gold">
+												<p
+													class="font-display text-3xl leading-none font-bold text-gold tabular-nums"
+												>
 													{overview.events_today.toLocaleString()}
 												</p>
-												<p class="mt-1 font-ui text-[10px] tracking-wide text-[#9E8CC0] uppercase">
-													events today
-												</p>
+												<p class="mt-1 font-ui text-[11px] text-[#9E8CC0]">events today</p>
 											</div>
 											<div class="rounded-xl bg-[#1B102B] px-3 py-3">
-												<p class="font-display text-3xl leading-none font-bold text-lav">
+												<p
+													class="font-display text-3xl leading-none font-bold text-lav tabular-nums"
+												>
 													{overview.active_users_today.toLocaleString()}
 												</p>
-												<p class="mt-1 font-ui text-[10px] tracking-wide text-[#9E8CC0] uppercase">
-													members today
-												</p>
+												<p class="mt-1 font-ui text-[11px] text-[#9E8CC0]">members today</p>
 											</div>
 										</div>
 										<p class="mt-3 font-ui text-[11px] leading-relaxed text-[#8B6FD0]">
@@ -548,20 +520,17 @@
 											{overview.window_days} days.
 										</p>
 										<div class="mt-4 flex flex-wrap gap-2">
-											<button
-												type="button"
-												class="inline-flex min-h-9 items-center gap-1.5 rounded-lg border border-gold/50 bg-gold/10 px-3 font-ui text-xs font-semibold text-[#F3DDAE] transition-colors hover:bg-gold/20"
-												onclick={() => (tab = 'reports')}
-											>
+											<Button size="sm" icon="alert" onclick={() => (tab = 'reports')}>
 												Review reports
-											</button>
-											<button
-												type="button"
-												class="inline-flex min-h-9 items-center gap-1.5 rounded-lg border border-[#5A4580] px-3 font-ui text-xs font-semibold text-[#D6CBEC] transition-colors hover:bg-white/5"
+											</Button>
+											<Button
+												size="sm"
+												variant="outline"
+												icon="users"
 												onclick={() => (tab = 'users')}
 											>
 												Manage members
-											</button>
+											</Button>
 										</div>
 									</section>
 								</div>
@@ -577,7 +546,7 @@
 									Flagged comments from friends and community pages.
 								</p>
 							</div>
-							<span class="font-ui text-xs text-[#BBA8E0]">
+							<span class="font-ui text-xs text-[#BBA8E0] tabular-nums">
 								{reports.length}
 								{reports.length === 1 ? 'report' : 'reports'}
 							</span>
@@ -593,7 +562,7 @@
 							</div>
 						{:else if reports.length === 0}
 							<div
-								class="rounded-2xl border border-dashed border-[#5A4580] bg-[#24143D]/60 px-6 py-14 text-center"
+								class="rounded-2xl border border-[#5A4580] bg-[#24143D]/60 px-6 py-14 text-center"
 							>
 								<CommunityIcon name="check" size={30} class="mx-auto text-gold/70" />
 								<p class="mt-3 font-display text-2xl font-bold text-white">Nothing flagged</p>
@@ -618,7 +587,7 @@
 												{report.reported_user || 'Unknown member'}
 											</span>
 											<span
-												class="ml-auto rounded-full bg-gold/20 px-2.5 py-0.5 font-ui text-[10px] font-bold text-[#8A5A12] capitalize"
+												class="ml-auto rounded-full bg-gold/20 px-2.5 py-0.5 font-ui text-[10px] font-semibold text-[#8A5A12] capitalize"
 											>
 												{report.reason || 'other'}
 											</span>
@@ -631,7 +600,7 @@
 												{report.comment_body}
 											</blockquote>
 										{:else}
-											<p class="mt-3 font-ui text-xs text-ink-soft italic">
+											<p class="mt-3 font-ui text-xs text-ink-soft">
 												The comment is no longer available.
 											</p>
 										{/if}
@@ -654,7 +623,7 @@
 									Ban or restore accounts. Admin accounts are protected.
 								</p>
 							</div>
-							<span class="font-ui text-xs text-[#BBA8E0]">
+							<span class="font-ui text-xs text-[#BBA8E0] tabular-nums">
 								{filteredUsers.length} of {users.length}
 							</span>
 						</div>
@@ -662,18 +631,11 @@
 						<div class="mb-4 flex flex-wrap items-center gap-2">
 							<label class="relative min-w-[220px] flex-1">
 								<span class="sr-only">Search members</span>
-								<svg
-									class="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-[#8B6FD0]"
-									viewBox="0 0 24 24"
-									fill="none"
-									stroke="currentColor"
-									stroke-width="2"
-									stroke-linecap="round"
-									aria-hidden="true"
-								>
-									<circle cx="11" cy="11" r="7"></circle>
-									<path d="M20 20l-3.5-3.5"></path>
-								</svg>
+								<CommunityIcon
+									name="search"
+									size={16}
+									class="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-[#8B6FD0]"
+								/>
 								<input
 									type="search"
 									class="h-11 w-full rounded-xl border border-[#4D366D] bg-[#1B102B] pr-3 pl-9 font-ui text-sm text-white placeholder:text-[#7C6A9C] focus:border-gold focus:outline-none"
@@ -690,7 +652,7 @@
 								{#each ['all', 'user', 'admin', 'banned'] as role (role)}
 									<button
 										type="button"
-										class="inline-flex shrink-0 items-center gap-1.5 rounded-lg px-3 py-1.5 font-ui text-xs font-bold capitalize transition-colors {roleFilter ===
+										class="inline-flex shrink-0 items-center gap-1.5 rounded-lg px-3 py-1.5 font-ui text-xs font-semibold capitalize transition-colors {roleFilter ===
 										role
 											? 'bg-gold text-[#2A1B3D]'
 											: 'text-[#BBA8E0] hover:text-white'}"
@@ -698,7 +660,7 @@
 										onclick={() => (roleFilter = role as RoleFilter)}
 									>
 										{role}
-										<span class="text-[10px] opacity-70">
+										<span class="text-[10px] tabular-nums opacity-70">
 											{roleCounts[role as RoleFilter]}
 										</span>
 									</button>
@@ -716,10 +678,12 @@
 							</div>
 						{:else if filteredUsers.length === 0}
 							<div
-								class="rounded-2xl border border-dashed border-[#5A4580] bg-[#24143D]/60 px-6 py-12 text-center"
+								class="rounded-2xl border border-[#5A4580] bg-[#24143D]/60 px-6 py-12 text-center"
 							>
 								<CommunityIcon name="search" size={28} class="mx-auto text-gold/60" />
-								<p class="mt-3 font-hand text-xl text-[#D6CBEC]">No members match that search.</p>
+								<p class="mt-3 font-ui text-sm font-semibold text-[#D6CBEC]">
+									No members match that search.
+								</p>
 								<button
 									type="button"
 									class="mt-3 font-ui text-xs font-semibold text-gold hover:underline"
@@ -768,68 +732,30 @@
 												title="Admin accounts cannot be banned"
 												aria-label="Admin account, protected"
 											>
-												<svg
-													class="size-[18px]"
-													viewBox="0 0 24 24"
-													fill="none"
-													stroke="currentColor"
-													stroke-width="2"
-													stroke-linecap="round"
-													stroke-linejoin="round"
-													aria-hidden="true"
-												>
-													<path d="M12 3l7 3v6c0 4.5-3 7.5-7 9-4-1.5-7-4.5-7-9V6l7-3z"></path>
-													<path d="M9.5 12l1.7 1.7L15 10"></path>
-												</svg>
+												<CommunityIcon name="shield" size={18} />
 											</span>
-										{:else}
-											<button
-												type="button"
-												class="inline-flex min-h-9 items-center gap-1.5 rounded-lg border px-3 font-ui text-[11px] font-semibold transition-colors disabled:cursor-wait disabled:opacity-60 {user.user_role ===
-												'banned'
-													? 'border-[#5A4580] text-[#D6CBEC] hover:bg-white/5'
-													: 'border-[#D19A9A]/40 bg-[#D19A9A]/10 text-[#F0A3A3] hover:bg-[#D19A9A]/20'}"
+										{:else if user.user_role === 'banned'}
+											<Button
+												size="sm"
+												variant="outline"
+												icon="check"
+												loading={busyUser === user.user_id}
 												disabled={busyUser === user.user_id}
-												onclick={() =>
-													setRole(user, user.user_role === 'banned' ? 'user' : 'banned')}
+												onclick={() => setRole(user, 'user')}
 											>
-												{#if busyUser === user.user_id}
-													<span
-														class="size-3.5 animate-spin rounded-full border-2 border-current border-t-transparent"
-														aria-hidden="true"
-													></span>
-												{:else if user.user_role === 'banned'}
-													<svg
-														class="size-3.5"
-														viewBox="0 0 24 24"
-														fill="none"
-														stroke="currentColor"
-														stroke-width="2"
-														stroke-linecap="round"
-														stroke-linejoin="round"
-														aria-hidden="true"
-													>
-														<rect x="4" y="11" width="16" height="10" rx="2"></rect>
-														<path d="M8 11V7a4 4 0 0 1 7.5-2"></path>
-													</svg>
-													Unban
-												{:else}
-													<svg
-														class="size-3.5"
-														viewBox="0 0 24 24"
-														fill="none"
-														stroke="currentColor"
-														stroke-width="2"
-														stroke-linecap="round"
-														stroke-linejoin="round"
-														aria-hidden="true"
-													>
-														<circle cx="12" cy="12" r="9"></circle>
-														<path d="M5.6 5.6l12.8 12.8"></path>
-													</svg>
-													Ban
-												{/if}
-											</button>
+												Unban
+											</Button>
+										{:else}
+											<Button
+												size="sm"
+												variant="danger"
+												icon="user-minus"
+												loading={busyUser === user.user_id}
+												disabled={busyUser === user.user_id}
+												onclick={() => setRole(user, 'banned')}
+											>
+												Ban
+											</Button>
 										{/if}
 									</div>
 								{/each}
@@ -851,31 +777,13 @@
 				<span
 					class="mx-auto flex size-12 items-center justify-center rounded-full bg-[#D19A9A]/15 text-[#F0A3A3]"
 				>
-					<svg
-						class="size-6"
-						viewBox="0 0 24 24"
-						fill="none"
-						stroke="currentColor"
-						stroke-width="2"
-						stroke-linecap="round"
-						stroke-linejoin="round"
-						aria-hidden="true"
-					>
-						<rect x="4" y="10.5" width="16" height="10.5" rx="2"></rect>
-						<path d="M8 10.5V7a4 4 0 0 1 8 0v3.5"></path>
-					</svg>
+					<CommunityIcon name="lock" size={24} />
 				</span>
 				<h2 class="mt-4 font-display text-xl font-bold">Admin access required</h2>
 				<p class="mt-2 font-ui text-sm text-[#FFB4B4]">
 					Only administrators can open this console.
 				</p>
-				<button
-					type="button"
-					class="mt-5 min-h-10 rounded-xl border border-white/20 bg-white/10 px-5 font-ui text-sm text-[#EDE6F7] hover:bg-white/20"
-					onclick={() => (open = false)}
-				>
-					Close
-				</button>
+				<Button class="mt-5" variant="outline" onclick={() => (open = false)}>Close</Button>
 			</div>
 		{/if}
 	</div>

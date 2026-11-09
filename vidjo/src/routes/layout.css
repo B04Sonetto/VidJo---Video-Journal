@@ -12,9 +12,14 @@
 	--color-paper-edge: #e9dfc6;
 	--color-line: #d8c8a2;
 	--color-ink: #2a1b3d;
-	--color-ink-soft: #5b4a78;
+	--color-ink-soft: #4c3b66;
+	--color-ink-muted: #6f5d8a;
 	--color-lav: #c9b8e8;
 	--color-accent: #51397a;
+	--color-accent-strong: #3f2a61;
+	--color-highlight: #d4a24c;
+	--color-success: #3f7a4f;
+	--color-danger: #a83a3a;
 	--color-light: #f3ecfa;
 
 	/* Book / journal page theme variables */
@@ -102,6 +107,18 @@ html[data-theme='midnight'] body {
 		cursor: pointer;
 	}
 
+	h1,
+	h2,
+	h3 {
+		text-wrap: balance;
+	}
+
+	p,
+	li,
+	dd {
+		text-wrap: pretty;
+	}
+
 	:focus-visible {
 		outline: 3px solid var(--color-gold);
 		outline-offset: 2px;
@@ -111,6 +128,72 @@ html[data-theme='midnight'] body {
 		background: var(--color-lav);
 		color: var(--color-ink);
 	}
+
+	input::placeholder,
+	textarea::placeholder {
+		color: var(--color-ink-muted);
+		opacity: 1;
+	}
+}
+
+/* Shared surface language: one radius scale, one shadow, one border. */
+@utility surface {
+	border-radius: 1rem;
+	border: 1px solid color-mix(in srgb, var(--color-lav) 28%, transparent);
+	background: var(--color-desk-2);
+}
+
+@utility surface-paper {
+	border-radius: 1rem;
+	border: 1px solid var(--color-line);
+	background: var(--color-paper);
+	color: var(--color-ink);
+}
+
+@utility skeleton {
+	position: relative;
+	overflow: hidden;
+	border-radius: 0.5rem;
+	background: color-mix(in srgb, var(--color-lav) 18%, transparent);
+}
+
+@utility skeleton-paper {
+	position: relative;
+	overflow: hidden;
+	border-radius: 0.5rem;
+	background: color-mix(in srgb, var(--color-line) 55%, transparent);
+}
+
+.skeleton::after,
+.skeleton-paper::after {
+	content: '';
+	position: absolute;
+	inset: 0;
+	transform: translateX(-100%);
+	background: linear-gradient(90deg, transparent, rgb(255 255 255 / 0.16), transparent);
+	animation: vidjo-shimmer 1.5s ease-in-out infinite;
+}
+
+@keyframes vidjo-shimmer {
+	100% {
+		transform: translateX(100%);
+	}
+}
+
+/* Page-level entrance used by feeds and cards. */
+@keyframes vidjo-rise {
+	from {
+		opacity: 0;
+		transform: translateY(6px);
+	}
+	to {
+		opacity: 1;
+		transform: none;
+	}
+}
+
+@utility rise {
+	animation: vidjo-rise 0.24s ease-out both;
 }
 
 /* Paper textures used by the two journal pages. */

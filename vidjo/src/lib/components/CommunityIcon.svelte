@@ -16,7 +16,7 @@
 	viewBox="0 0 24 24"
 	fill="none"
 	stroke="currentColor"
-	stroke-width="2"
+	stroke-width="1.8"
 	stroke-linecap="round"
 	stroke-linejoin="round"
 	class={className}
@@ -92,6 +92,77 @@
 		<circle cx="9" cy="7" r="4"></circle>
 		<path d="M22 21v-2a4 4 0 00-3-3.87"></path>
 		<path d="M16 3.13a4 4 0 010 7.75"></path>
+	{:else if name === 'arrow-left'}
+		<path d="M19 12H5M11 18l-6-6 6-6"></path>
+	{:else if name === 'arrow-right'}
+		<path d="M5 12h14M13 6l6 6-6 6"></path>
+	{:else if name === 'plus'}
+		<path d="M12 5v14M5 12h14"></path>
+	{:else if name === 'settings'}
+		<circle cx="12" cy="12" r="3"></circle>
+		<path
+			d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"
+		></path>
+	{:else if name === 'copy'}
+		<rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+		<path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+	{:else if name === 'bell'}
+		<path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
+		<path d="M13.7 21a2 2 0 0 1-3.4 0"></path>
+	{:else if name === 'user'}
+		<path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+		<circle cx="12" cy="7" r="4"></circle>
+	{:else if name === 'calendar'}
+		<rect width="18" height="18" x="3" y="4" rx="2"></rect>
+		<path d="M16 2v4M8 2v4M3 10h18"></path>
+	{:else if name === 'play'}
+		<path d="M7 4.5v15l13-7.5z"></path>
+	{:else if name === 'trash'}
+		<path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"
+		></path>
+	{:else if name === 'lock'}
+		<rect x="4" y="10" width="16" height="10" rx="2"></rect>
+		<path d="M8 10V7a4 4 0 0 1 8 0v3"></path>
+	{:else if name === 'eye'}
+		<path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z"></path>
+		<circle cx="12" cy="12" r="3"></circle>
+	{:else if name === 'eye-off'}
+		<path d="m3 3 18 18M10.6 10.6a3 3 0 0 0 4.2 4.2"></path>
+		<path
+			d="M9.9 5.2A10.5 10.5 0 0 1 12 5c6.5 0 10 7 10 7a18 18 0 0 1-3.2 4.1M6.6 6.6A18 18 0 0 0 2 12s3.5 7 10 7c1 0 1.9-.1 2.7-.4"
+		></path>
+	{:else if name === 'shield'}
+		<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z"></path>
+	{:else if name === 'mail'}
+		<rect x="2" y="4" width="20" height="16" rx="2"></rect>
+		<path d="m22 7-10 6L2 7"></path>
+	{:else if name === 'alert'}
+		<circle cx="12" cy="12" r="9"></circle>
+		<path d="M12 8v4M12 16h.01"></path>
+	{:else if name === 'refresh'}
+		<path d="M21 12a9 9 0 1 1-2.6-6.4M21 3v6h-6"></path>
+	{:else if name === 'external'}
+		<path d="M14 3h7v7M21 3l-9 9"></path>
+		<path d="M21 14v5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5"></path>
+	{:else if name === 'upload'}
+		<path d="M12 16V4M7 9l5-5 5 5"></path>
+		<path d="M4 16v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3"></path>
+	{:else if name === 'camera'}
+		<path d="M4 8h3l1.5-2h7L17 8h3a1 1 0 0 1 1 1v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V9a1 1 0 0 1 1-1Z"
+		></path>
+		<circle cx="12" cy="13" r="3.5"></circle>
+	{:else if name === 'chevron-down'}
+		<path d="m6 9 6 6 6-6"></path>
+	{:else if name === 'pen'}
+		<path d="M12 20h9"></path>
+		<path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"></path>
+	{:else if name === 'grid'}
+		<rect x="3" y="3" width="7" height="7" rx="1.5"></rect>
+		<rect x="14" y="3" width="7" height="7" rx="1.5"></rect>
+		<rect x="3" y="14" width="7" height="7" rx="1.5"></rect>
+		<rect x="14" y="14" width="7" height="7" rx="1.5"></rect>
+	{:else if name === 'logout'}
+		<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"></path>
 	{:else}
 		<circle cx="12" cy="12" r="9"></circle>
 		<path d="M3 12h18"></path>
