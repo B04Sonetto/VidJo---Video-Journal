@@ -344,8 +344,9 @@
 		type="button"
 		class="flex flex-col items-center gap-1 rounded-2xl px-3 py-1.5 transition-colors {nav.view ===
 		'journal'
-			? 'text-white'
-			: 'text-[#BBA8E0]'}"
+			? 'bg-white/15 text-white shadow-[inset_0_1px_0_rgba(255,255,255,.12)]'
+			: 'text-[#BBA8E0] hover:bg-white/[.07] hover:text-white'}"
+		aria-current={nav.view === 'journal' ? 'page' : undefined}
 		onclick={() => nav.setView('journal')}
 	>
 		<CommunityIcon name="book" size={20} />
@@ -353,7 +354,7 @@
 	</button>
 	<button
 		type="button"
-		class="flex flex-col items-center gap-1 rounded-2xl px-3 py-1.5 text-[#BBA8E0] transition-colors"
+		class="flex flex-col items-center gap-1 rounded-2xl px-3 py-1.5 text-[#BBA8E0] transition-colors hover:bg-white/[.07] hover:text-white"
 		onclick={onCalendar}
 	>
 		<CommunityIcon name="calendar" size={20} />
@@ -363,8 +364,9 @@
 		type="button"
 		class="relative flex flex-col items-center gap-1 rounded-2xl px-3 py-1.5 transition-colors {nav.view ===
 		'friends'
-			? 'text-white'
-			: 'text-[#BBA8E0]'}"
+			? 'bg-white/15 text-white shadow-[inset_0_1px_0_rgba(255,255,255,.12)]'
+			: 'text-[#BBA8E0] hover:bg-white/[.07] hover:text-white'}"
+		aria-current={nav.view === 'friends' ? 'page' : undefined}
 		onclick={() => nav.setView('friends')}
 	>
 		<CommunityIcon name="users" size={20} />
@@ -381,8 +383,9 @@
 		type="button"
 		class="flex flex-col items-center gap-1 rounded-2xl px-3 py-1.5 transition-colors {nav.view ===
 		'community'
-			? 'text-white'
-			: 'text-[#BBA8E0]'}"
+			? 'bg-white/15 text-white shadow-[inset_0_1px_0_rgba(255,255,255,.12)]'
+			: 'text-[#BBA8E0] hover:bg-white/[.07] hover:text-white'}"
+		aria-current={nav.view === 'community' ? 'page' : undefined}
 		onclick={() => nav.setView('community')}
 	>
 		<CommunityIcon name="globe" size={20} />
@@ -392,8 +395,9 @@
 		type="button"
 		class="relative flex flex-col items-center gap-1 rounded-2xl px-3 py-1.5 transition-colors {nav.view ===
 		'notifications'
-			? 'text-white'
-			: 'text-[#BBA8E0]'}"
+			? 'bg-white/15 text-white shadow-[inset_0_1px_0_rgba(255,255,255,.12)]'
+			: 'text-[#BBA8E0] hover:bg-white/[.07] hover:text-white'}"
+		aria-current={nav.view === 'notifications' ? 'page' : undefined}
 		aria-label={`Notifications${friends.unreadCount > 0 ? `, ${friends.unreadCount} unread` : ''}`}
 		onclick={() => nav.setView('notifications')}
 	>
@@ -411,8 +415,9 @@
 		type="button"
 		class="flex flex-col items-center gap-1 rounded-2xl px-3 py-1.5 transition-colors {nav.view ===
 		'profile'
-			? 'text-white'
-			: 'text-[#BBA8E0]'}"
+			? 'bg-white/15 text-white shadow-[inset_0_1px_0_rgba(255,255,255,.12)]'
+			: 'text-[#BBA8E0] hover:bg-white/[.07] hover:text-white'}"
+		aria-current={nav.view === 'profile' ? 'page' : undefined}
 		onclick={() => nav.openProfile('overview')}
 	>
 		<CommunityIcon name="user" size={20} />

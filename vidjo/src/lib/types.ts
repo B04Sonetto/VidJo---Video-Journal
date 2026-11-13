@@ -4,7 +4,8 @@ export type Privacy = 'private' | 'friends' | 'community';
 
 export type PaperStyle = 'lined' | 'dotted' | 'grid' | 'plain';
 
-export type MoodKey = 'happy' | 'calm' | 'tired' | 'sad' | 'stressed' | 'angry' | 'excited';
+export type MoodKey =
+	'happy' | 'calm' | 'neutral' | 'tired' | 'sad' | 'stressed' | 'angry' | 'excited';
 
 export interface Sticker {
 	id: string;

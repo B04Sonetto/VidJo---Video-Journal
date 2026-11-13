@@ -21,6 +21,12 @@ export const MOODS: MoodDef[] = [
 		svg: '<svg viewBox="0 0 52 52"><path d="M26 47V28M26 40q-14-2-15-16 13 0 15 12M26 36q12-1 14-14-12 0-14 11M26 28q-6-6-1-18 7 9 1 18z" fill="#7DB07F" stroke="#3D6B47" stroke-width="2" stroke-linejoin="round"/></svg>'
 	},
 	{
+		k: 'neutral',
+		l: 'Neutral',
+		c: '#D8D3E8',
+		svg: '<svg viewBox="0 0 52 52"><circle cx="26" cy="26" r="18" fill="#D8D3E8" stroke="#6F6885" stroke-width="2.2"/><circle cx="20.5" cy="23" r="1.8" fill="#3A3550"/><circle cx="31.5" cy="23" r="1.8" fill="#3A3550"/><path d="M20 32h12" fill="none" stroke="#3A3550" stroke-width="2.2" stroke-linecap="round"/></svg>'
+	},
+	{
 		k: 'tired',
 		l: 'Tired',
 		c: '#D9CCF0',

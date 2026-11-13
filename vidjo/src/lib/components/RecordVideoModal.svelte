@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { tick } from 'svelte';
+	import { portal } from '#lib/actions/portal';
 	import { journal } from '#lib/state/journal.svelte';
 
 	let {
@@ -396,6 +397,7 @@
 
 {#if open}
 	<div
+		use:portal
 		class="fixed inset-0 z-50 flex items-center justify-center overflow-auto bg-[rgba(15,8,25,.8)] px-4 py-6"
 		data-modal-open
 		role="presentation"

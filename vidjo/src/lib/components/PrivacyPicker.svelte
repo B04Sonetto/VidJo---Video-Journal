@@ -65,7 +65,7 @@
 	{#each options as option (option.key)}
 		<button
 			type="button"
-			class="relative flex min-h-[68px] flex-col justify-between rounded-xl border-2 border-line bg-[#FFFDF6] p-2 text-left font-hand text-base font-bold text-ink transition-all hover:bg-light min-[400px]:p-2.5 min-[400px]:text-lg"
+			class="relative flex min-h-[68px] flex-col justify-between rounded-xl border-2 border-line bg-[#FFFDF6] p-2 text-left font-hand text-sm font-bold text-ink transition-all hover:bg-light disabled:pointer-events-none min-[400px]:p-2.5 min-[400px]:text-base min-[900px]:text-lg"
 			class:border-accent={option.active}
 			class:ring-2={option.active}
 			class:ring-accent={option.active}

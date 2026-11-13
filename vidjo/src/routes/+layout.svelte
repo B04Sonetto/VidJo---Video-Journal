@@ -1,9 +1,13 @@
 <script lang="ts">
+	import { onMount } from 'svelte';
 	import './layout.css';
 	import favicon from '#lib/assets/favicon.svg';
+	import { initFocusTrap } from '#lib/focusTrap';
 	import type { LayoutProps } from './$types';
 
 	let { children }: LayoutProps = $props();
+
+	onMount(initFocusTrap);
 </script>
 
 <svelte:head>

@@ -27,9 +27,11 @@
 	let deleteConfirm = $state<string | null>(null);
 	let deleting = $state(false);
 
-	const bookWidth = $derived(viewport.single ? 600 : 1160);
-	const scale = $derived(hostWidth > 0 ? Math.min(1, hostWidth / bookWidth) : 1);
-	const offset = $derived(Math.max(0, (hostWidth - bookWidth * scale) / 2));
+	const bookWidth = 1160;
+	const scale = $derived(
+		viewport.single ? 1 : hostWidth > 0 ? Math.min(1, hostWidth / bookWidth) : 1
+	);
+	const offset = $derived(viewport.single ? 0 : Math.max(0, (hostWidth - bookWidth * scale) / 2));
 
 	const dates = $derived(journal.sortedDates);
 	const index = $derived(dates.indexOf(journal.current));
@@ -221,7 +223,7 @@
 
 {#if viewport.single}
 	<div
-		class="mx-auto mb-2.5 flex w-full max-w-[600px] items-center gap-1.5 rounded-2xl border border-[#5A4580]/60 bg-desk-2/95 p-1.5 shadow-[0_6px_18px_rgba(0,0,0,.3)]"
+		class="mx-auto mb-2.5 flex w-full max-w-[720px] items-center gap-1.5 rounded-2xl border border-[#5A4580]/60 bg-desk-2/95 p-1.5 shadow-[0_6px_18px_rgba(0,0,0,.3)]"
 		aria-label="Journal page"
 	>
 		<button
@@ -256,19 +258,19 @@
 
 <div
 	bind:this={host}
-	class="relative mx-auto w-full max-w-[1240px]"
-	style:height={`${740 * scale}px`}
+	class="relative mx-auto w-full {viewport.single ? 'max-w-[720px]' : 'max-w-[1240px]'}"
+	style:height={viewport.single ? null : `${740 * scale}px`}
 >
 	<div
-		class="relative origin-top-left"
-		style:width={`${bookWidth}px`}
-		style:transform={`scale(${scale})`}
-		style:margin-left={`${offset}px`}
+		class="relative {viewport.single ? 'w-full' : 'origin-top-left'}"
+		style:width={viewport.single ? null : `${bookWidth}px`}
+		style:transform={viewport.single ? null : `scale(${scale})`}
+		style:margin-left={viewport.single ? null : `${offset}px`}
 	>
 		<div
-			class="book relative h-[740px] [perspective:2600px]"
-			class:w-[600px]={viewport.single}
-			class:w-[1160px]={!viewport.single}
+			class="book relative [perspective:2600px] {viewport.single
+				? 'w-full p-2.5 min-[480px]:p-3.5 min-[640px]:p-4'
+				: 'h-[740px] w-[1160px]'}"
 		>
 			<div
 				class="cover absolute inset-0 rounded-[24px] bg-[linear-gradient(135deg,#523479,#3A2360_55%,#2E1A4E)] shadow-[0_32px_75px_rgba(0,0,0,.65),0_12px_28px_rgba(0,0,0,.45)] ring-1 ring-white/[.07] ring-inset"

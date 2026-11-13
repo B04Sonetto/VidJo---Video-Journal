@@ -7,7 +7,7 @@ Status: **Plan only. No provider, API key, or budget has been chosen yet.**
 ## 1. Short answer
 
 Yes. AI can detect a useful subset of vulgar or unsafe video content:
- 
+
 - **Visual content:** explicit nudity, sexual activity, exposed genitalia,
   graphic violence, gore, drugs, and some hate symbols are detectable with
   commercial image/video moderation APIs. Accuracy is good for clear cases and
