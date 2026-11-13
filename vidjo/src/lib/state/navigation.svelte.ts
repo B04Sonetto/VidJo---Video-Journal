@@ -1,3 +1,5 @@
+import { isFutureDate } from '#lib/dates';
+
 export type MainView = 'journal' | 'friends' | 'community' | 'profile' | 'notifications';
 
 export type ProfileTab = 'overview' | 'portfolio' | 'achievements' | 'settings' | 'edit';
@@ -16,8 +18,11 @@ class Navigation {
 	target = $state<string | null>(null);
 
 	jump(date: string) {
+		// Future pages cannot be created, so never navigate to one either.
+		if (isFutureDate(date)) return false;
 		this.view = 'journal';
 		this.target = date;
+		return true;
 	}
 
 	setView(newView: MainView) {

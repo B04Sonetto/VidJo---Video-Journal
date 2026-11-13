@@ -145,7 +145,7 @@
 	{#each stickers as sticker (sticker.id)}
 		{@const definition = STICKER_BY_KEY[sticker.type]}
 		<div
-			class="stk absolute cursor-grab touch-none select-none active:cursor-grabbing"
+			class="stk group absolute cursor-grab touch-none select-none active:cursor-grabbing"
 			class:sticker-flat={definition?.flat}
 			class:sticker-shadow={!definition?.flat}
 			class:sel={journal.selected.includes(sticker.id)}
@@ -168,21 +168,32 @@
 		>
 			<button
 				type="button"
-				class="absolute -top-3 -right-3 size-6 rounded-full border border-[#4D366D]/60 bg-[#1B102B]/80 text-[10px] font-bold text-white transition-colors hover:border-[#D4A24C] hover:bg-[#51397A] active:scale-95"
+				class="absolute -top-4 -right-4 z-10 flex size-9 items-center justify-center rounded-full border-2 border-[#D4A24C]/70 bg-[#1B102B] text-white shadow-[0_3px_10px_rgba(0,0,0,.55)] transition-all hover:scale-110 hover:border-[#F0C778] hover:bg-[#7A2E3D] focus-visible:ring-2 focus-visible:ring-gold focus-visible:outline-none active:scale-95 {journal.selected.includes(
+					sticker.id
+				)
+					? 'pointer-events-auto opacity-100'
+					: 'pointer-events-none opacity-0 group-focus-within:pointer-events-auto group-focus-within:opacity-100 group-hover:pointer-events-auto group-hover:opacity-100'}"
+				style:transform={`rotate(${-sticker.rot}deg)`}
+				onpointerdown={(event) => {
+					// Do not start a drag when the delete control is pressed.
+					event.stopPropagation();
+					event.preventDefault();
+				}}
 				onclick={(event) => {
 					event.stopPropagation();
 					// `deleteSticker` already persists the change via `commit()`.
 					journal.deleteSticker(sticker.id);
 				}}
 				aria-label="Remove sticker"
+				title="Remove sticker"
 			>
 				<svg
-					width="10"
-					height="10"
+					width="16"
+					height="16"
 					viewBox="0 0 24 24"
 					fill="none"
 					stroke="currentColor"
-					stroke-width="2.5"
+					stroke-width="2.2"
 					stroke-linecap="round"
 					stroke-linejoin="round"
 					aria-hidden="true"

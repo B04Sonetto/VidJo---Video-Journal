@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { auth } from '#lib/state/auth.svelte';
 	import { SvelteDate } from 'svelte/reactivity';
+	import { censor } from '#lib/censor';
 	import { dateKey } from '#lib/dates';
 	import { profile } from '#lib/state/profile.svelte';
 	import { journal } from '#lib/state/journal.svelte';
@@ -713,7 +714,7 @@
 								<p
 									class="mt-2 truncate font-display text-base font-bold text-white group-hover:text-gold"
 								>
-									{post.title}
+									{censor(post.title)}
 								</p>
 								<p class="mt-1 font-ui text-xs text-[#BBA8E0]">{post.date}</p>
 							</button>

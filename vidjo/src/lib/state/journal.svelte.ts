@@ -1,6 +1,7 @@
 import { track } from '#lib/analytics';
+import { isObscene } from '#lib/censor';
 import { STICKER_BY_KEY } from '#lib/data/stickers';
-import { TODAY, uid } from '#lib/dates';
+import { isFutureDate, TODAY, uid } from '#lib/dates';
 import { peekDeviceId } from '#lib/identity';
 import { captureError } from '#lib/observability';
 import { isSupabaseConfigured, supabase, VIDEO_BUCKET } from '#lib/supabase';
@@ -579,8 +580,21 @@ class Journal {
 	}
 
 	ensureEntry(date: string) {
+		// A page may exist for today or an earlier day only. This guard also
+		// covers a stale calendar tab or a crafted call to `ensureEntry`.
+		if (isFutureDate(date)) {
+			this.toast('Future pages are locked. You can write today or an earlier day.');
+			return null;
+		}
 		if (!this.entries[date]) this.entries[date] = blankEntry(date);
 		return this.entries[date];
+	}
+
+	/** Shared text is masked when other people read it. Explain that before they post. */
+	private warnIfSharedTextHasProfanity(entry: Entry) {
+		if (isObscene([entry.title, entry.mind, entry.refl].join(' '))) {
+			this.toast('Heads up: swearing is hidden in Friends and Community text.');
+		}
 	}
 
 	updateCurrent(patch: Partial<Entry>) {
@@ -623,6 +637,7 @@ class Journal {
 
 		entry.sample = false;
 		this.queueSave(this.current);
+		if (enabled) this.warnIfSharedTextHasProfanity(entry);
 	}
 
 	setCommunitySharing(enabled: boolean) {
@@ -648,6 +663,7 @@ class Journal {
 
 		entry.sample = false;
 		this.queueSave(this.current);
+		if (enabled) this.warnIfSharedTextHasProfanity(entry);
 	}
 
 	setPrivate() {

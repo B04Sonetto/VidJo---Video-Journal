@@ -19,6 +19,7 @@
 		reporter_name: string | null;
 		reported_user: string | null;
 		comment_body: string | null;
+		reported_user_id: string | null;
 	};
 
 	type AdminUser = {
@@ -28,6 +29,8 @@
 		avatar_url: string | null;
 		user_role: string;
 		created_at: string;
+		ban_reason?: string | null;
+		banned_at?: string | null;
 	};
 
 	type DailyPoint = { day: string; events: number; users: number };
@@ -78,6 +81,7 @@
 	let userSearch = $state('');
 	let roleFilter = $state<RoleFilter>('all');
 	let busyUser = $state('');
+	let busyWarn = $state('');
 
 	function isAdmin() {
 		return profile.profile?.user_role === 'admin';
@@ -156,7 +160,9 @@
 				supabase.rpc('vidjo_admin_list_reports', { max_rows: 50 }),
 				supabase
 					.from('vidjo_profiles')
-					.select('user_id, username, display_name, avatar_url, user_role, created_at')
+					.select(
+						'user_id, username, display_name, avatar_url, user_role, created_at, ban_reason, banned_at'
+					)
 					.order('created_at', { ascending: false })
 			]);
 
@@ -173,36 +179,104 @@
 		}
 	}
 
-	async function setRole(user: AdminUser, role: 'user' | 'banned') {
-		if (user.user_role === 'admin') {
-			journal.toast('Admin accounts cannot be banned.');
+	function askReason(action: 'warn' | 'ban', name: string) {
+		const fallback =
+			action === 'warn'
+				? 'Insulting another member'
+				: 'Repeated or serious community guideline violations.';
+		const value = prompt(
+			`${action === 'warn' ? 'Warning' : 'Ban'} reason for ${name}.\nThis reason is shown to the member.`,
+			fallback
+		);
+		if (value === null) return null;
+		return value.trim() || fallback;
+	}
+
+	async function warnUser(userId: string | null | undefined, name: string) {
+		if (!userId) {
+			journal.toast('That comment has no author to warn.');
 			return;
 		}
 
-		if (
-			role === 'banned' &&
-			!confirm('Ban this user? Their journal stays in place, but they lose access.')
-		) {
+		const reason = askReason('warn', name);
+		if (!reason) return;
+
+		busyWarn = userId;
+		error = '';
+
+		try {
+			const { error: warnError } = await supabase.rpc('vidjo_admin_warn_user', {
+				p_user_id: userId,
+				p_reason: reason,
+				p_message: ''
+			});
+
+			if (warnError) throw warnError;
+			journal.toast(`Warning sent to ${name}`);
+		} catch (err) {
+			error = err instanceof Error ? err.message : 'Could not send that warning.';
+		} finally {
+			busyWarn = '';
+		}
+	}
+
+	async function banUser(userId: string | null | undefined, name: string) {
+		if (!userId) {
+			journal.toast('That comment has no author to ban.');
 			return;
 		}
 
+		const reason = askReason('ban', name);
+		if (!reason) return;
+
+		busyUser = userId;
+		error = '';
+
+		try {
+			const { error: banError } = await supabase.rpc('vidjo_admin_ban_user', {
+				p_user_id: userId,
+				p_reason: reason
+			});
+
+			if (banError) throw banError;
+
+			users = users.map((item) =>
+				item.user_id === userId
+					? {
+							...item,
+							user_role: 'banned',
+							ban_reason: reason,
+							banned_at: new Date().toISOString()
+						}
+					: item
+			);
+			journal.toast(`${name} was suspended. Their journal was not deleted.`);
+		} catch (err) {
+			error = err instanceof Error ? err.message : 'Could not suspend this user.';
+		} finally {
+			busyUser = '';
+		}
+	}
+
+	async function unbanUser(user: AdminUser) {
 		busyUser = user.user_id;
 		error = '';
 
 		try {
-			const { error: updateError } = await supabase
-				.from('vidjo_profiles')
-				.update({ user_role: role })
-				.eq('user_id', user.user_id);
+			const { error: unbanError } = await supabase.rpc('vidjo_admin_unban_user', {
+				p_user_id: user.user_id
+			});
 
-			if (updateError) throw updateError;
+			if (unbanError) throw unbanError;
 
 			users = users.map((item) =>
-				item.user_id === user.user_id ? { ...item, user_role: role } : item
+				item.user_id === user.user_id
+					? { ...item, user_role: 'user', ban_reason: null, banned_at: null }
+					: item
 			);
-			journal.toast(role === 'banned' ? 'User banned' : 'User unbanned');
+			journal.toast('User restored');
 		} catch (err) {
-			error = err instanceof Error ? err.message : 'Could not update this user.';
+			error = err instanceof Error ? err.message : 'Could not restore this user.';
 		} finally {
 			busyUser = '';
 		}
@@ -605,12 +679,50 @@
 											</p>
 										{/if}
 
-										<time
-											class="mt-3 block font-ui text-[10px] text-ink-soft"
-											datetime={report.created_at}
+										<div
+											class="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-line/60 pt-3"
 										>
-											{formatDate(report.created_at)}
-										</time>
+											<time class="font-ui text-[10px] text-ink-soft" datetime={report.created_at}>
+												{formatDate(report.created_at)}
+											</time>
+
+											{#if report.reported_user_id}
+												<div class="flex flex-wrap gap-2">
+													<Button
+														size="sm"
+														variant="paper"
+														icon="alert"
+														loading={busyWarn === report.reported_user_id}
+														disabled={Boolean(busyWarn || busyUser)}
+														onclick={() =>
+															void warnUser(
+																report.reported_user_id,
+																report.reported_user || 'this member'
+															)}
+													>
+														Warn author
+													</Button>
+													<Button
+														size="sm"
+														variant="danger"
+														icon="user-minus"
+														loading={busyUser === report.reported_user_id}
+														disabled={Boolean(busyWarn || busyUser)}
+														onclick={() =>
+															void banUser(
+																report.reported_user_id,
+																report.reported_user || 'this member'
+															)}
+													>
+														Ban author
+													</Button>
+												</div>
+											{:else}
+												<span class="font-ui text-[10px] text-ink-soft">
+													Comment author unavailable
+												</span>
+											{/if}
+										</div>
 									</article>
 								{/each}
 							</div>
@@ -620,7 +732,7 @@
 							<div>
 								<h3 class="font-display text-2xl leading-tight font-bold text-white">Members</h3>
 								<p class="mt-0.5 font-ui text-xs text-[#9E8CC0]">
-									Ban or restore accounts. Admin accounts are protected.
+									Warn, ban, or restore accounts. Banning never deletes journals or posts.
 								</p>
 							</div>
 							<span class="font-ui text-xs text-[#BBA8E0] tabular-nums">
@@ -716,6 +828,11 @@
 											<p class="truncate font-ui text-[11px] text-[#9E8CC0]">
 												@{user.username} · joined {formatDate(user.created_at)}
 											</p>
+											{#if user.user_role === 'banned' && user.ban_reason}
+												<p class="mt-0.5 truncate font-ui text-[10px] text-[#F0A3A3]">
+													Ban reason: {user.ban_reason}
+												</p>
+											{/if}
 										</div>
 
 										<span
@@ -741,21 +858,35 @@
 												icon="check"
 												loading={busyUser === user.user_id}
 												disabled={busyUser === user.user_id}
-												onclick={() => setRole(user, 'user')}
+												onclick={() => void unbanUser(user)}
 											>
-												Unban
+												Restore
 											</Button>
 										{:else}
-											<Button
-												size="sm"
-												variant="danger"
-												icon="user-minus"
-												loading={busyUser === user.user_id}
-												disabled={busyUser === user.user_id}
-												onclick={() => setRole(user, 'banned')}
-											>
-												Ban
-											</Button>
+											<div class="flex flex-wrap items-center gap-2">
+												<Button
+													size="sm"
+													variant="outline"
+													icon="alert"
+													loading={busyWarn === user.user_id}
+													disabled={Boolean(busyWarn || busyUser)}
+													onclick={() =>
+														void warnUser(user.user_id, user.display_name || `@${user.username}`)}
+												>
+													Warn
+												</Button>
+												<Button
+													size="sm"
+													variant="danger"
+													icon="user-minus"
+													loading={busyUser === user.user_id}
+													disabled={Boolean(busyWarn || busyUser)}
+													onclick={() =>
+														void banUser(user.user_id, user.display_name || `@${user.username}`)}
+												>
+													Ban
+												</Button>
+											</div>
 										{/if}
 									</div>
 								{/each}

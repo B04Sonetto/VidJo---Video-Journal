@@ -1,3 +1,6 @@
+// Keep this list in sync with `public.vidjo_censor_text()` in supabase/schema.sql.
+// Comments are masked on the server; shared page text is masked when it is read
+// by someone else. Private journal text and video audio are never censored.
 const OBSCENE_WORDS = [
 	'arse',
 	'ass',
@@ -10,23 +13,33 @@ const OBSCENE_WORDS = [
 	'damn',
 	'dick',
 	'dickhead',
+	'douche',
+	'douchebag',
 	'dumbass',
 	'faggot',
+	'fuck',
+	'fucked',
+	'fucker',
+	'fucking',
 	'hell',
 	'idiot',
 	'jerk',
 	'moron',
+	'motherfucker',
 	'nigger',
 	'nigga',
 	'penis',
 	'piss',
 	'prick',
 	'pussy',
+	'retard',
 	'shit',
+	'shitty',
 	'slut',
 	'tard',
 	'twat',
-	'wanker'
+	'wanker',
+	'whore'
 ];
 
 const OBSCENE_PATTERN = `\\b(${OBSCENE_WORDS.join('|')})\\b`;
@@ -36,6 +49,7 @@ const OBSCENE_PATTERN = `\\b(${OBSCENE_WORDS.join('|')})\\b`;
 const OBSCENE_REGEX = new RegExp(OBSCENE_PATTERN, 'gi');
 const OBSCENE_TEST_REGEX = new RegExp(OBSCENE_PATTERN, 'i');
 
+/** Mask profanity in text that other members can read. */
 export function censor(text: string, replacement = '***') {
 	return text.replace(OBSCENE_REGEX, replacement);
 }

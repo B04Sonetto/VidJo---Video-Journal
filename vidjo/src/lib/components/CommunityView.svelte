@@ -827,7 +827,7 @@
 
 						{#if post.title}
 							<h3 class="mt-3 font-hand text-[24px] leading-[1.1] font-bold text-ink">
-								{post.title}
+								{censor(post.title)}
 							</h3>
 						{/if}
 
@@ -887,7 +887,7 @@
 								class="mt-2.5 rounded border border-line/70 bg-[#FFFDF6] paper-lined [background-position:0_6px] px-2.5 py-1.5"
 							>
 								<p class="font-hand text-[17px] leading-[32px] whitespace-pre-wrap text-ink">
-									{post.mind}
+									{censor(post.mind)}
 								</p>
 							</div>
 						{/if}
@@ -903,7 +903,7 @@
 									<span class="block font-ui text-[10px] font-semibold text-accent">Reflection</span
 									>
 									<p class="mt-0.5 font-hand text-base leading-snug font-semibold text-ink">
-										{post.refl}
+										{censor(post.refl)}
 									</p>
 								</div>
 							</div>

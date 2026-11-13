@@ -13,6 +13,20 @@ export function parseDate(value: string) {
 
 export const TODAY = dateKey(new Date());
 
+/** The local date right now. Unlike `TODAY`, this does not go stale overnight. */
+export function todayKey() {
+	return dateKey(new Date());
+}
+
+/**
+ * True when an ISO date key (`YYYY-MM-DD`) is after the user's local today.
+ * String comparison is safe because the keys are zero-padded.
+ */
+export function isFutureDate(value: string) {
+	if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+	return value > todayKey();
+}
+
 export function uid() {
 	return 's' + Math.random().toString(36).slice(2, 9);
 }

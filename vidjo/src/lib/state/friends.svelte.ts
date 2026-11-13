@@ -13,6 +13,7 @@ import type {
 } from '#lib/types';
 import { profile } from '#lib/state/profile.svelte';
 import { journal } from '#lib/state/journal.svelte';
+import { moderation } from '#lib/state/moderation.svelte';
 import { auth } from '#lib/state/auth.svelte';
 import { cleanDisplayName, normalizeImageUrl } from '#lib/avatar';
 
@@ -1102,7 +1103,8 @@ class FriendsState {
 	}
 
 	async addComment(postId: string, text: string) {
-		const clean = censor(text.trim());
+		const raw = text.trim();
+		const clean = censor(raw);
 		if (!clean) return;
 
 		const post = this.posts.find((item) => item.id === postId);
@@ -1133,7 +1135,9 @@ class FriendsState {
 				post_date: post.date,
 				context: 'friends',
 				author_id: auth.user.id,
-				body: clean
+				// Send the raw text so the database trigger can detect direct
+				// abuse and issue a warning, then mask it before storage.
+				body: raw
 			})
 			.select('id')
 			.single();
@@ -1145,6 +1149,8 @@ class FriendsState {
 		}
 
 		track('comment_posted', { surface: 'friends' });
+		// The trigger may have issued a warning. Surface it right away.
+		void moderation.refresh();
 		const savedId = (data?.id as string) || temp.id;
 		this.commentMap = {
 			...this.commentMap,

@@ -83,7 +83,7 @@ export interface Profile {
 	bio: string;
 	avatar_url: string | null;
 	banner_url: string | null;
-	user_role: 'user' | 'admin';
+	user_role: 'user' | 'admin' | 'banned';
 	friend_code?: string;
 	accent_color?: string;
 	theme?: 'classic' | 'sunset' | 'midnight';

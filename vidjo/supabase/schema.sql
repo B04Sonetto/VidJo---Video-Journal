@@ -1779,3 +1779,498 @@ $$;
 revoke all on function public.vidjo_admin_overview(int) from public;
 revoke all on function public.vidjo_admin_overview(int) from anon;
 grant execute on function public.vidjo_admin_overview(int) to authenticated;
+
+-- ---------------------------------------------------------------------------
+-- Moderation: warnings, bans, and time-safe journal days
+-- ---------------------------------------------------------------------------
+-- Warnings are additive: a warning never deletes a page or comment. Bans flip
+-- `user_role` to 'banned' but leave every journal row, video, friend, and
+-- comment in place. The metadata columns explain a ban to the member.
+alter table public.vidjo_profiles add column if not exists ban_reason text;
+alter table public.vidjo_profiles add column if not exists banned_at timestamptz;
+alter table public.vidjo_profiles add column if not exists banned_by uuid references auth.users(id) on delete set null;
+
+create table if not exists public.vidjo_warnings (
+	id uuid primary key default gen_random_uuid(),
+	user_id uuid not null references auth.users(id) on delete cascade,
+	reason text not null,
+	message text not null default '',
+	source_type text not null default 'manual',
+	source_id text,
+	issued_by uuid references auth.users(id) on delete set null,
+	created_at timestamptz not null default now(),
+	acknowledged_at timestamptz
+);
+
+-- A reported comment or a shared page can only generate one warning per source,
+-- even if the author edits the text several times.
+create unique index if not exists vidjo_warnings_source_idx
+	on public.vidjo_warnings (user_id, source_type, source_id)
+	where source_id is not null;
+
+create index if not exists vidjo_warnings_user_created_idx
+	on public.vidjo_warnings (user_id, created_at desc);
+
+alter table public.vidjo_warnings enable row level security;
+
+drop policy if exists "vidjo warnings select own" on public.vidjo_warnings;
+create policy "vidjo warnings select own" on public.vidjo_warnings
+	for select to authenticated
+	using (auth.uid() = user_id);
+
+drop policy if exists "vidjo warnings select admin" on public.vidjo_warnings;
+create policy "vidjo warnings select admin" on public.vidjo_warnings
+	for select to authenticated
+	using (
+		exists (
+			select 1 from public.vidjo_profiles
+			where user_id = auth.uid() and user_role = 'admin'
+		)
+	);
+
+revoke all on public.vidjo_warnings from anon;
+grant select on public.vidjo_warnings to authenticated;
+
+-- Detect an insult aimed at a person. This is intentionally conservative:
+-- second-person wording must sit next to an insult or threat. Private journal
+-- text is never scanned; only comments and text the author chose to share.
+create or replace function public.vidjo_has_direct_abuse(input text)
+returns boolean
+language plpgsql
+immutable
+set search_path = public
+as $$
+declare
+	text_value text := lower(coalesce(input, ''));
+begin
+	if char_length(text_value) < 3 then
+		return false;
+	end if;
+
+	if text_value ~* '\m(you|youre|you''re|your|u|ur|yourself)\M[^\n]{0,40}\m(idiot|stupid|dumb|moron|loser|worthless|useless|pathetic|ugly|fat|freak|trash|garbage|disgusting|nasty|suck|slut|whore|bitch|bastard|asshole|cunt|retard|faggot|nigger)\M' then
+		return true;
+	end if;
+
+	if text_value ~* '\m(idiot|stupid|dumb|moron|loser|worthless|useless|pathetic|ugly|fat|freak|trash|garbage|disgusting|nasty|suck|slut|whore|bitch|bastard|asshole|cunt|retard|faggot|nigger)\M[^\n]{0,20}\m(you|u|your|ur)\M' then
+		return true;
+	end if;
+
+	if text_value ~* '\m(fuck|screw|piss)\M[^\n]{0,10}\m(you|u|off)\M' then
+		return true;
+	end if;
+
+	if text_value ~* '\m(shut up|nobody likes you|no one likes you|i hate you|kill yourself|go die|drop dead|go to hell)\M' then
+		return true;
+	end if;
+
+	return false;
+end;
+$$;
+
+revoke all on function public.vidjo_has_direct_abuse(text) from public;
+revoke all on function public.vidjo_has_direct_abuse(text) from anon;
+revoke all on function public.vidjo_has_direct_abuse(text) from authenticated;
+
+-- Keep the server mask in sync with src/lib/censor.ts. This runs for comments
+-- only. Shared page text is masked when it is displayed, so a private page that
+-- was never shared keeps its original words.
+create or replace function public.vidjo_censor_text(input text)
+returns text
+language plpgsql
+immutable
+set search_path = public
+as $$
+declare
+	result text := coalesce(input, '');
+	word text;
+	words text[] := array[
+		'arse', 'ass', 'asshole', 'bastard', 'bitch', 'bullshit', 'crap', 'cunt',
+		'damn', 'dick', 'dickhead', 'douche', 'douchebag', 'dumbass', 'faggot',
+		'fuck', 'fucked', 'fucker', 'fucking', 'hell', 'idiot', 'jerk', 'moron',
+		'motherfucker', 'nigger', 'nigga', 'penis', 'piss', 'prick', 'pussy',
+		'retard', 'shit', 'shitty', 'slut', 'tard', 'twat', 'wanker', 'whore'
+	];
+begin
+	foreach word in array words loop
+		result := regexp_replace(result, '\m' || word || '\M', '***', 'gi');
+	end loop;
+	return result;
+end;
+$$;
+
+create or replace function public.vidjo_censor_comment()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+	raw_body text := coalesce(new.body, '');
+begin
+	if public.vidjo_has_direct_abuse(raw_body) then
+		insert into public.vidjo_warnings (user_id, reason, message, source_type, source_id)
+		values (
+			new.author_id,
+			'Comment insulted another member',
+			'One of your comments was flagged for insulting another member. The comment was kept, but the insulting words are masked. Repeated abuse can lead to a ban.',
+			'comment',
+			new.id::text
+		)
+		on conflict do nothing;
+	end if;
+
+	new.body := public.vidjo_censor_text(raw_body);
+	return new;
+end;
+$$;
+
+-- Shared pages are scanned when they become visible to friends or a community.
+-- The page is never modified or removed; the author only receives a warning.
+create or replace function public.vidjo_warn_shared_entry()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+	target_user uuid := public.vidjo_try_uuid(new.owner_id);
+	text_blob text;
+	shared boolean :=
+		new.privacy in ('friends', 'community')
+		or coalesce(new.share_with_friends, false);
+begin
+	if target_user is null
+		or not exists (select 1 from auth.users where id = target_user) then
+		return new;
+	end if;
+
+	if not shared then
+		return new;
+	end if;
+
+	text_blob := concat_ws(E'\n', new.title, new.mind, new.refl);
+
+	if public.vidjo_has_direct_abuse(text_blob) then
+		insert into public.vidjo_warnings (user_id, reason, message, source_type, source_id)
+		values (
+			target_user,
+			'Shared page insulted another member',
+			'One of your shared pages was flagged for insulting another member. The page was kept, but swear words are hidden from friends and Community. Repeated abuse can lead to a ban.',
+			'entry',
+			new.owner_id || ':' || new.entry_date::text
+		)
+		on conflict do nothing;
+	end if;
+
+	return new;
+end;
+$$;
+
+drop trigger if exists vidjo_warn_shared_entry on public.vidjo_entries;
+create trigger vidjo_warn_shared_entry
+	after insert or update of title, mind, refl, privacy, share_with_friends
+	on public.vidjo_entries
+	for each row execute function public.vidjo_warn_shared_entry();
+
+-- One VidJo per day means every day up to today, never a future day. This is
+-- enforced in the database so a direct API call cannot create tomorrow's page.
+create or replace function public.vidjo_reject_future_entry()
+returns trigger
+language plpgsql
+set search_path = public
+as $$
+begin
+	if new.entry_date > current_date then
+		raise exception 'VidJo pages can only be created for today or an earlier date.'
+			using errcode = 'P0001';
+	end if;
+	return new;
+end;
+$$;
+
+drop trigger if exists vidjo_reject_future_entry on public.vidjo_entries;
+create trigger vidjo_reject_future_entry
+	before insert or update of entry_date on public.vidjo_entries
+	for each row execute function public.vidjo_reject_future_entry();
+
+revoke all on function public.vidjo_reject_future_entry() from public;
+revoke all on function public.vidjo_reject_future_entry() from anon;
+revoke all on function public.vidjo_reject_future_entry() from authenticated;
+
+-- Admin-only moderation actions. They validate the caller inside the database,
+-- so hiding the buttons in the UI is not the only protection.
+create or replace function public.vidjo_admin_warn_user(
+	p_user_id uuid,
+	p_reason text,
+	p_message text default ''
+)
+returns uuid
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+	warning_id uuid;
+begin
+	if not exists (
+		select 1 from public.vidjo_profiles
+		where user_id = auth.uid() and user_role = 'admin'
+	) then
+		raise exception 'Admin access required.' using errcode = '42501';
+	end if;
+
+	if not exists (select 1 from auth.users where id = p_user_id) then
+		raise exception 'That member could not be found.' using errcode = 'P0001';
+	end if;
+
+	insert into public.vidjo_warnings (user_id, reason, message, source_type, issued_by)
+	values (
+		p_user_id,
+		coalesce(nullif(trim(p_reason), ''), 'Community guidelines'),
+		coalesce(
+			nullif(trim(p_message), ''),
+			'A moderator warned you about your recent activity. Your journal and posts have not been deleted. Please keep VidJo kind and respectful.'
+		),
+		'manual',
+		auth.uid()
+	)
+	returning id into warning_id;
+
+	return warning_id;
+end;
+$$;
+
+revoke all on function public.vidjo_admin_warn_user(uuid, text, text) from public;
+revoke all on function public.vidjo_admin_warn_user(uuid, text, text) from anon;
+grant execute on function public.vidjo_admin_warn_user(uuid, text, text) to authenticated;
+
+create or replace function public.vidjo_admin_ban_user(p_user_id uuid, p_reason text default '')
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+	if not exists (
+		select 1 from public.vidjo_profiles
+		where user_id = auth.uid() and user_role = 'admin'
+	) then
+		raise exception 'Admin access required.' using errcode = '42501';
+	end if;
+
+	if p_user_id = auth.uid() then
+		raise exception 'You cannot ban your own admin account.' using errcode = 'P0001';
+	end if;
+
+	if exists (
+		select 1 from public.vidjo_profiles
+		where user_id = p_user_id and user_role = 'admin'
+	) then
+		raise exception 'Admin accounts cannot be banned.' using errcode = 'P0001';
+	end if;
+
+	-- Only the role and ban metadata change. No journal row, comment, friend,
+	-- reaction, or video is deleted.
+	update public.vidjo_profiles
+	set
+		user_role = 'banned',
+		ban_reason = coalesce(nullif(trim(p_reason), ''), 'Repeated or serious community guideline violations.'),
+		banned_at = now(),
+		banned_by = auth.uid(),
+		updated_at = now()
+	where user_id = p_user_id;
+
+	if not found then
+		raise exception 'That member could not be found.' using errcode = 'P0001';
+	end if;
+end;
+$$;
+
+revoke all on function public.vidjo_admin_ban_user(uuid, text) from public;
+revoke all on function public.vidjo_admin_ban_user(uuid, text) from anon;
+grant execute on function public.vidjo_admin_ban_user(uuid, text) to authenticated;
+
+create or replace function public.vidjo_admin_unban_user(p_user_id uuid)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+	if not exists (
+		select 1 from public.vidjo_profiles
+		where user_id = auth.uid() and user_role = 'admin'
+	) then
+		raise exception 'Admin access required.' using errcode = '42501';
+	end if;
+
+	update public.vidjo_profiles
+	set
+		user_role = 'user',
+		ban_reason = null,
+		banned_at = null,
+		banned_by = null,
+		updated_at = now()
+	where user_id = p_user_id and user_role <> 'admin';
+
+	if not found then
+		raise exception 'That member is not banned.' using errcode = 'P0001';
+	end if;
+end;
+$$;
+
+revoke all on function public.vidjo_admin_unban_user(uuid) from public;
+revoke all on function public.vidjo_admin_unban_user(uuid) from anon;
+grant execute on function public.vidjo_admin_unban_user(uuid) to authenticated;
+
+-- Status RPC used by the app shell. It is SECURITY DEFINER and does not require
+-- `vidjo_is_member()`, so a banned member can still read the reason and sign out.
+create or replace function public.vidjo_moderation_status()
+returns jsonb
+language plpgsql
+stable
+security definer
+set search_path = public
+as $$
+declare
+	curr_user uuid := auth.uid();
+	result jsonb;
+	warning_rows jsonb;
+begin
+	if curr_user is null then
+		return jsonb_build_object(
+			'user_role', 'user',
+			'ban_reason', null,
+			'banned_at', null,
+			'warnings', '[]'::jsonb
+		);
+	end if;
+
+	select coalesce(
+		jsonb_agg(
+			jsonb_build_object(
+				'id', w.id,
+				'reason', w.reason,
+				'message', w.message,
+				'source_type', w.source_type,
+				'created_at', w.created_at,
+				'acknowledged_at', w.acknowledged_at
+			)
+			order by w.created_at desc
+		),
+		'[]'::jsonb
+	)
+	into warning_rows
+	from (
+		select *
+		from public.vidjo_warnings
+		where user_id = curr_user
+		order by (acknowledged_at is null) desc, created_at desc
+		limit 20
+	) w;
+
+	select jsonb_build_object(
+		'user_role', coalesce(p.user_role, 'user'),
+		'ban_reason', p.ban_reason,
+		'banned_at', p.banned_at,
+		'warnings', warning_rows
+	)
+	into result
+	from (select 1) as seed
+	left join public.vidjo_profiles p on p.user_id = curr_user;
+
+	return result;
+end;
+$$;
+
+revoke all on function public.vidjo_moderation_status() from public;
+revoke all on function public.vidjo_moderation_status() from anon;
+grant execute on function public.vidjo_moderation_status() to authenticated;
+
+create or replace function public.vidjo_ack_warning(p_warning_id uuid)
+returns boolean
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+	changed int;
+begin
+	update public.vidjo_warnings
+	set acknowledged_at = now()
+	where id = p_warning_id
+		and user_id = auth.uid()
+		and acknowledged_at is null;
+
+	get diagnostics changed = row_count;
+	return changed > 0;
+end;
+$$;
+
+revoke all on function public.vidjo_ack_warning(uuid) from public;
+revoke all on function public.vidjo_ack_warning(uuid) from anon;
+grant execute on function public.vidjo_ack_warning(uuid) to authenticated;
+
+-- Add the comment author id so admins can warn/ban directly from a report.
+drop function if exists public.vidjo_admin_list_reports(int);
+create or replace function public.vidjo_admin_list_reports(max_rows int default 50)
+returns table (
+	id uuid,
+	comment_id uuid,
+	reason text,
+	created_at timestamptz,
+	reporter_name text,
+	reported_user text,
+	comment_body text,
+	reported_user_id uuid
+)
+language plpgsql
+stable
+security definer
+set search_path = public
+as $$
+begin
+	if not exists (
+		select 1 from public.vidjo_profiles
+		where user_id = auth.uid() and user_role = 'admin'
+	) then
+		raise exception 'Admin access required.' using errcode = '42501';
+	end if;
+
+	return query
+	select
+		r.id,
+		r.comment_id,
+		r.reason,
+		r.created_at,
+		coalesce(nullif(rp.display_name, ''), rp.username, 'Unknown') as reporter_name,
+		coalesce(nullif(ap.display_name, ''), ap.username, 'Unknown') as reported_user,
+		c.body as comment_body,
+		c.author_id as reported_user_id
+	from public.vidjo_comment_reports r
+	left join public.vidjo_profiles rp on rp.user_id = r.reporter_id
+	left join public.vidjo_comments c on c.id = r.comment_id
+	left join public.vidjo_profiles ap on ap.user_id = c.author_id
+	order by r.created_at desc
+	limit greatest(1, least(coalesce(max_rows, 50), 200));
+end;
+$$;
+
+revoke all on function public.vidjo_admin_list_reports(int) from public;
+grant execute on function public.vidjo_admin_list_reports(int) to authenticated;
+
+-- Realtime warning delivery is optional; RLS limits a member to their own rows.
+do $$
+begin
+	if exists (select 1 from pg_publication where pubname = 'supabase_realtime')
+		and not exists (
+			select 1
+			from pg_publication_tables
+			where pubname = 'supabase_realtime'
+				and schemaname = 'public'
+				and tablename = 'vidjo_warnings'
+		) then
+		execute 'alter publication supabase_realtime add table public.vidjo_warnings';
+	end if;
+end;
+$$;

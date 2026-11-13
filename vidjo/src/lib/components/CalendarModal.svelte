@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { tick } from 'svelte';
 	import { MOOD_BY_KEY, type MoodDef } from '#lib/data/moods';
-	import { pad, parseDate, TODAY } from '#lib/dates';
+	import { isFutureDate, pad, parseDate, TODAY } from '#lib/dates';
 	import { journal } from '#lib/state/journal.svelte';
 	import { nav } from '#lib/state/navigation.svelte';
 	import type { Entry } from '#lib/types';
@@ -17,6 +17,7 @@
 		mood?: MoodDef;
 		isToday: boolean;
 		isCurrent: boolean;
+		isFuture: boolean;
 		hasVideo: boolean;
 	}
 
@@ -66,6 +67,7 @@
 				has: false,
 				isToday: false,
 				isCurrent: false,
+				isFuture: false,
 				hasVideo: false
 			});
 		}
@@ -83,6 +85,7 @@
 				mood: entry?.mood ? MOOD_BY_KEY[entry.mood] : undefined,
 				isToday: key === TODAY,
 				isCurrent: key === journal.current,
+				isFuture: isFutureDate(key),
 				hasVideo: Boolean(journal.videoFor(key))
 			});
 		}
@@ -116,6 +119,10 @@
 	}
 
 	function pick(date: string) {
+		if (isFutureDate(date)) {
+			journal.toast('Future pages are locked. You can write today or an earlier day.');
+			return;
+		}
 		journal.ensureEntry(date);
 		nav.jump(date);
 		onClose();
@@ -123,6 +130,7 @@
 
 	function dayAria(cell: DayCell) {
 		const base = `${cell.day} ${monthName}`;
+		if (cell.isFuture) return `${base}, future date, locked`;
 		if (!cell.has) return `${base}, empty page`;
 		const title = cell.entry?.title || 'untitled VidJo';
 		const mood = cell.mood ? `, feeling ${cell.mood.l.toLowerCase()}` : '';
@@ -246,28 +254,51 @@
 						{:else}
 							<button
 								type="button"
-								class="relative flex aspect-[1/1.05] min-w-0 flex-col items-start rounded-xl border-[1.5px] p-1 font-hand text-base font-bold text-ink hover:border-accent hover:bg-light {cell.isCurrent
-									? 'border-accent bg-[#E4D8F6]'
-									: 'border-line bg-[#FFFDF6]'}"
+								class="relative flex aspect-[1/1.05] min-w-0 flex-col items-start rounded-xl border-[1.5px] p-1 font-hand text-base font-bold text-ink {cell.isFuture
+									? 'cursor-not-allowed border-line/60 bg-[#F4EFE6] text-ink-soft/70'
+									: cell.isCurrent
+										? 'border-accent bg-[#E4D8F6] hover:bg-light'
+										: 'border-line bg-[#FFFDF6] hover:border-accent hover:bg-light'}"
 								class:ring-2={cell.isToday}
 								class:ring-gold={cell.isToday}
-								style:background-color={cell.mood ? `${cell.mood.c}55` : undefined}
+								style:background-color={!cell.isFuture && cell.mood
+									? `${cell.mood.c}55`
+									: undefined}
+								disabled={cell.isFuture}
+								aria-disabled={cell.isFuture}
 								aria-label={dayAria(cell)}
+								title={cell.isFuture ? 'Future pages are locked' : undefined}
 								onclick={() => pick(cell.key)}
 							>
 								{cell.day}
-								{#if cell.hasVideo}
+								{#if cell.isFuture}
+									<span class="m-auto text-ink-soft/60" aria-hidden="true">
+										<svg
+											width="15"
+											height="15"
+											viewBox="0 0 24 24"
+											fill="none"
+											stroke="currentColor"
+											stroke-width="2"
+											stroke-linecap="round"
+											stroke-linejoin="round"
+										>
+											<rect x="5" y="11" width="14" height="10" rx="2"></rect>
+											<path d="M8 11V7a4 4 0 0 1 8 0v4"></path>
+										</svg>
+									</span>
+								{:else if cell.hasVideo}
 									<i
 										class="absolute top-[5px] right-[5px] size-[9px] rounded-full bg-accent"
 										title="Has a video"
 									></i>
 								{/if}
-								{#if cell.mood}
+								{#if !cell.isFuture && cell.mood}
 									<span class="m-auto w-[70%] max-w-[34px] [&>svg]:size-full">
 										<!-- eslint-disable-next-line svelte/no-at-html-tags -- static SVG from data/moods.ts -->
 										{@html cell.mood.svg}
 									</span>
-								{:else if cell.has}
+								{:else if !cell.isFuture && cell.has}
 									<span class="m-auto w-[70%] max-w-[34px] [&>svg]:size-full">
 										<!-- eslint-disable-next-line svelte/no-at-html-tags -- static SVG constant -->
 										{@html pencil}

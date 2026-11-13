@@ -306,7 +306,7 @@
 									{/if}
 									<span class="min-w-0">
 										<span class="block truncate font-hand text-lg leading-tight text-ink">
-											{entry.title || 'Untitled page'}
+											{censor(entry.title || 'Untitled page')}
 										</span>
 										<span class="block font-ui text-[10px] text-ink-soft"
 											>{entry.dateFormatted}</span
@@ -349,7 +349,7 @@
 
 						{#if page.title}
 							<h3 class="mt-3 font-display text-3xl leading-tight font-bold text-ink">
-								{page.title}
+								{censor(page.title)}
 							</h3>
 						{/if}
 
@@ -400,7 +400,7 @@
 								class="mt-4 rounded-xl border border-line bg-[#FFFDF6] paper-lined [background-position:0_12px] px-4 py-3"
 							>
 								<p class="font-hand text-[22px] leading-[32px] whitespace-pre-wrap text-ink">
-									{page.mind}
+									{censor(page.mind)}
 								</p>
 							</div>
 						{/if}
@@ -417,7 +417,9 @@
 								<div>
 									<span class="block font-ui text-[10px] font-semibold text-accent">Reflection</span
 									>
-									<p class="mt-0.5 font-hand text-lg leading-snug text-ink">{page.refl}</p>
+									<p class="mt-0.5 font-hand text-lg leading-snug text-ink">
+										{censor(page.refl)}
+									</p>
 								</div>
 							</div>
 						{/if}

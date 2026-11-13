@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { censor } from '#lib/censor';
 	import { friends } from '#lib/state/friends.svelte';
 	import { nav } from '#lib/state/navigation.svelte';
 	import { TODAY } from '#lib/dates';
@@ -299,7 +300,7 @@
 											<p class="mt-0.5 font-ui text-[12.5px] leading-snug text-ink-soft">
 												commented on
 												<span class="font-semibold text-ink"
-													>“{comment.postTitle || 'your page'}”</span
+													>“{censor(comment.postTitle || 'your page')}”</span
 												>
 											</p>
 
@@ -307,7 +308,7 @@
 												<blockquote
 													class="mt-2.5 rounded-r-xl border-l-[3px] border-gold/70 bg-[#FFFDF6] px-3 py-2 font-hand text-[18px] leading-snug break-words text-ink"
 												>
-													{comment.text}
+													{censor(comment.text)}
 												</blockquote>
 											{/if}
 

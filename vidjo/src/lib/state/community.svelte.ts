@@ -1,6 +1,7 @@
 import { track } from '#lib/analytics';
 import { auth } from '#lib/state/auth.svelte';
 import { journal } from '#lib/state/journal.svelte';
+import { moderation } from '#lib/state/moderation.svelte';
 import { profile } from '#lib/state/profile.svelte';
 import { isSupabaseConfigured, supabase, VIDEO_BUCKET } from '#lib/supabase';
 import { censor } from '#lib/censor';
@@ -688,7 +689,8 @@ class CommunityState {
 	}
 
 	async addComment(post: FriendPost, text: string) {
-		const clean = censor(text.trim());
+		const raw = text.trim();
+		const clean = censor(raw);
 		if (!clean) return;
 
 		const key = postKey(post.authorId, post.date);
@@ -716,13 +718,17 @@ class CommunityState {
 						post_date: post.date,
 						context: 'community',
 						author_id: auth.user.id,
-						body: clean
+						// Send the raw text so the database trigger can detect direct
+						// abuse and issue a warning, then mask it before storage.
+						body: raw
 					})
 					.select('id')
 					.single();
 
 				if (error) throw error;
 				track('comment_posted', { surface: 'community' });
+				// The trigger may have issued a warning. Surface it right away.
+				void moderation.refresh();
 				this.commentMap = {
 					...this.commentMap,
 					[key]: (this.commentMap[key] ?? []).map((comment) =>

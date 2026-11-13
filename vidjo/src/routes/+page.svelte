@@ -8,6 +8,7 @@
 	import FriendsView from '#lib/components/FriendsView.svelte';
 	import Header from '#lib/components/Header.svelte';
 	import LoginScreen from '#lib/components/LoginScreen.svelte';
+	import ModerationNotice from '#lib/components/ModerationNotice.svelte';
 	import NotificationsView from '#lib/components/NotificationsView.svelte';
 	import ProfilePage from '#lib/components/ProfilePage.svelte';
 	import StickerTray from '#lib/components/StickerTray.svelte';
@@ -15,6 +16,7 @@
 	import { track } from '#lib/analytics';
 	import { auth } from '#lib/state/auth.svelte';
 	import { journal } from '#lib/state/journal.svelte';
+	import { moderation } from '#lib/state/moderation.svelte';
 	import { profile } from '#lib/state/profile.svelte';
 	import { friends } from '#lib/state/friends.svelte';
 	import { community } from '#lib/state/community.svelte';
@@ -57,6 +59,7 @@
 		if (!auth.active) {
 			activeOwner = '';
 			initSeq += 1;
+			moderation.reset();
 			friends.reset();
 			community.reset();
 			return;
@@ -67,8 +70,14 @@
 
 		activeOwner = ownerId;
 		const seq = ++initSeq;
+		moderation.reset();
 
 		void (async () => {
+			// Banned members can still read their status through a SECURITY
+			// DEFINER RPC, but their journal and profile are blocked by RLS.
+			await moderation.init();
+			if (seq !== initSeq || moderation.banned) return;
+
 			await journal.init(ownerId, auth.signedIn);
 			await profile.init(ownerId);
 			if (seq !== initSeq) return;
@@ -204,6 +213,20 @@
 	</main>
 {:else if !auth.active}
 	<LoginScreen />
+{:else if moderation.checking || !moderation.ready}
+	<main>
+		<div class="mx-auto flex max-w-[1240px] items-center justify-center py-24">
+			<div
+				class="rounded-3xl bg-paper px-10 py-14 text-center font-hand text-ink shadow-[0_30px_60px_rgba(0,0,0,.45)]"
+			>
+				<p class="font-display text-3xl font-bold">Checking your account…</p>
+				<p class="mt-2 text-ink-soft">Making sure everything is in order.</p>
+			</div>
+		</div>
+	</main>
+{:else if moderation.banned}
+	<!-- ModerationNotice renders the suspension screen above the app shell. -->
+	<div class="min-h-[100dvh]" aria-hidden="true"></div>
 {:else if profileCompletion}
 	<main
 		class="mx-auto flex min-h-[100dvh] w-full max-w-[620px] items-center justify-center px-4 py-10 min-[420px]:px-6"
@@ -336,4 +359,5 @@
 	<CalendarModal open={calendarOpen} onClose={() => (calendarOpen = false)} />
 {/if}
 
+<ModerationNotice />
 <Toast />
