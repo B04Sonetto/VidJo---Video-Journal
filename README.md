@@ -1,118 +1,102 @@
 # VidJo — Video Journal
 
-VidJo is a privacy-aware, student-focused video journal and social platform built with SvelteKit. Users can record or upload short videos, add a mood, write reflections, decorate entries with stickers, and revisit past journal moments in a calendar-driven book interface.
+<p align="center">
+  <img src="https://img.shields.io/badge/SvelteKit-FF3E00?style=for-the-badge&logo=svelte&logoColor=white" alt="SvelteKit" />
+  <img src="https://img.shields.io/badge/TypeScript-3178C6?style=for-the-badge&logo=typescript&logoColor=white" alt="TypeScript" />
+  <img src="https://img.shields.io/badge/Supabase-3ECF8E?style=for-the-badge&logo=supabase&logoColor=white" alt="Supabase" />
+  <img src="https://img.shields.io/badge/IndexedDB-7B61FF?style=for-the-badge&logo=googlechrome&logoColor=white" alt="IndexedDB" />
+</p>
 
-The app is designed for personal storytelling, but also includes friend and community features, profile pages, admin moderation tools, and optional Supabase-powered persistence and social sharing.
+<p align="center">
+  <strong>Record your life in motion.</strong>
+  <br />
+  A privacy-aware, student-first video journal built for reflection, memory, and meaningful social connection.
+</p>
 
-## What this app does
+<p align="center">
+  <a href="#getting-started">Get started</a>
+  ·
+  <a href="#features">Features</a>
+  ·
+  <a href="#architecture">Architecture</a>
+  ·
+  <a href="#supabase-setup">Supabase</a>
+</p>
 
-VidJo lets users:
+---
 
-- Record video directly in the browser or upload an existing clip
-- Write journal entries with titles, reflections, and mood selection
-- Save entries locally and sync them to Supabase when available
-- Browse past entries in a paper-like book layout and calendar view
-- Share entries with private, friends-only, or community privacy levels
-- Build a profile with username, avatar, bio, stats, and friend code
-- Connect with friends and explore community feeds
-- Moderate content and manage account activity through admin tools
-- Keep working offline with local fallback storage
+## Why VidJo?
 
-## Core features
+VidJo turns everyday moments into journal entries that feel human and personal.
 
-### Video journaling
-- Browser-based video recording using the MediaRecorder API
-- Front/back camera toggle and retake flow
-- Optional upload fallback when record-on-device is not available
-- IndexedDB storage for media caching so recordings are not lost
-- Poster thumbnail generation for journal cards and previews
-- Private video storage with signed URLs in Supabase-backed setups
+Instead of plain text alone, you can:
 
-### Journal experience
-- Digital book layout with page-turn motion and responsive design
-- Mood selection with hand-drawn style mood states
-- Journal writing with title, reflection, prompts, and character tracking
-- Sticker layer editing, resizing, rotation, and drag support
-- Calendar-based browsing of previous entries by date
-- Offline-first behavior with localStorage persistence
+- record a short video from your camera
+- add a mood and a reflection
+- decorate the page with stickers and visual context
+- revisit memories through a calendar and paper-like journal layout
+- share selectively with friends or communities
+- keep everything local and resilient when the network is unreliable
 
-### Social features
-- User profiles and unique handles
-- Friend requests and friend-only post visibility
-- Community discovery, memberships, reactions, and comments
-- Social feeds with trending and “for you” views
-- Privacy controls around content visibility and sharing
+It blends personal journaling, social connection, and modern web app polish into one experience.
 
-### Admin and moderation
-- Moderation panel for comment/report checks
-- Rule-based member and usage overview
-- Admin visibility into aggregated account activity without exposing journal content
+---
 
-### Authentication and storage
-- Email/password sign-in and email code sign-in flow
-- Optional Google OAuth support
-- Supabase-powered account storage and authorization
-- Graceful fallback to local device-only mode when backend configuration is unavailable
+## Highlights
+
+- Video journaling with browser recording and upload support
+- Privacy modes: private, friends, or community
+- Journal book experience with paper-style interface and page flips
+- Mood-based entries and emotional reflection prompts
+- Friend requests, profiles, and community feeds
+- Offline-first storage for entries and captured video media
+- Supabase-powered persistence for multi-device accounts
+- Admin moderation and activity overview tools
+
+---
+
+## Feature overview
+
+| Area | What it does |
+| --- | --- |
+| Journal | Write, save, and review entries with title, mood, reflection, and media |
+| Video | Record in-browser or upload an existing clip with poster thumbnails |
+| Privacy | Keep entries private, share with friends, or post into communities |
+| Social | Add friends, create profiles, and participate in social feeds |
+| Offline | Store entries and media locally using device storage and IndexedDB |
+| Admin | View moderation and usage analytics in an admin console |
+| Auth | Support email/password sign-in, magic-link flows, and optional Google OAuth |
+
+---
+
+## App experience
+
+VidJo is designed like a thoughtful digital journal rather than a generic social app.
+
+- A warm, personal interface inspired by paper notebooks and memory keeping
+- Calendar-based navigation to revisit old moments
+- Book-style reading flow for past entries
+- Sticker layering and customization for expressive journaling
+- Community discovery without losing the personal journal feel
+
+---
 
 ## Tech stack
 
 - SvelteKit
 - Svelte 5
 - TypeScript
-- Vite
 - Tailwind CSS
+- Vite
 - Supabase
-- Optional Sentry error monitoring
-- IndexedDB for local media storage
+- IndexedDB for media fallback
+- Optional Sentry error tracking
 
-## Repository layout
-
-This repo contains the main app under the `vidjo/` directory.
-
-```text
-.
-├── README.md
-├── Community.dc.html
-├── Friends.dc.html
-├── package-lock.json
-├── vidjo/
-│   ├── README.md
-│   ├── package.json
-│   ├── src/
-│   │   ├── app.html
-│   │   ├── env.ts
-│   │   ├── hooks.client.ts
-│   │   ├── hooks.server.ts
-│   │   ├── lib/
-│   │   │   ├── components/
-│   │   │   ├── data/
-│   │   │   ├── state/
-│   │   │   ├── authCallback.ts
-│   │   │   ├── authErrors.ts
-│   │   │   ├── avatar.ts
-│   │   │   ├── dates.ts
-│   │   │   ├── imageUpload.ts
-│   │   │   ├── observability.ts
-│   │   │   ├── supabase.ts
-│   │   │   ├── types.ts
-│   │   │   ├── videoStore.ts
-│   │   │   └── videoThumb.ts
-│   │   └── routes/
-│   ├── static/
-│   ├── supabase/
-│   │   ├── README.md
-│   │   └── schema.sql
-│   ├── docs/
-│   │   ├── moderation-test-report.md
-│   │   ├── video-moderation-plan.md
-│   │   └── video-transcoding-plan.md
-│   └── vite.config.ts
-└── .kilo/
-```
+---
 
 ## Getting started
 
-From the repo root:
+From the project directory:
 
 ```bash
 cd vidjo
@@ -120,18 +104,28 @@ npm install
 npm run dev
 ```
 
-Then open the local URL printed by Vite in the browser.
+Then open the local URL printed by Vite in your browser.
+
+### Production build
+
+```bash
+cd vidjo
+npm run build
+node build
+```
+
+---
 
 ## Environment variables
 
-Create a `.env` file inside `vidjo/` with values like:
+Create a `.env` file inside `vidjo/`:
 
 ```bash
 PUBLIC_SUPABASE_URL=https://your-project.supabase.co
 PUBLIC_SUPABASE_PUBLISHABLE_KEY=sb_publishable_xxxxxxxxxxxxxxxxx
 ```
 
-Optional values:
+Optional:
 
 ```bash
 PUBLIC_SENTRY_DSN=https://your-key@your-sentry-host/1
@@ -139,27 +133,80 @@ PUBLIC_SENTRY_ENVIRONMENT=production
 PUBLIC_APP_RELEASE=vidjo@1.0.0
 ```
 
-If Supabase is not configured, the app can still run in device-only mode using local storage.
+If Supabase is not configured, the app can continue in device-only mode with local fallbacks.
+
+---
 
 ## Supabase setup
 
-The project includes a database schema and setup guidance in `vidjo/supabase/schema.sql` and `vidjo/supabase/README.md`.
+The app includes schema and setup documentation in:
 
-The schema creates:
+- `vidjo/supabase/schema.sql`
+- `vidjo/supabase/README.md`
 
-- `vidjo_entries` for video journal entries
-- `vidjo_profiles` for profile data and user metadata
-- `vidjo_friends` and request tables
-- `vidjo_communities` and community membership data
-- `vidjo_reactions` and `vidjo_comments`
-- private storage bucket rules for video uploads
-- analytics and admin-related database functions
+The schema creates the core social and journal tables, including:
 
-Before using social features, run the schema in your Supabase SQL editor and make sure your environment variables are set correctly.
+- user profiles and account metadata
+- journal entries and media references
+- friends and friend requests
+- community membership and feed content
+- reactions and comments
+- private video storage buckets and access rules
+- admin and analytics helpers
+
+> Run the schema in your Supabase SQL editor before using the social features.
+
+---
+
+## Architecture
+
+```text
+vidjo/
+├── src/
+│   ├── app.html
+│   ├── env.ts
+│   ├── hooks.client.ts
+│   ├── hooks.server.ts
+│   ├── lib/
+│   │   ├── components/
+│   │   ├── data/
+│   │   ├── state/
+│   │   ├── authCallback.ts
+│   │   ├── authErrors.ts
+│   │   ├── avatar.ts
+│   │   ├── dates.ts
+│   │   ├── imageUpload.ts
+│   │   ├── observability.ts
+│   │   ├── supabase.ts
+│   │   ├── types.ts
+│   │   ├── videoStore.ts
+│   │   └── videoThumb.ts
+│   └── routes/
+├── static/
+├── supabase/
+│   ├── README.md
+│   └── schema.sql
+├── docs/
+│   ├── moderation-test-report.md
+│   ├── video-moderation-plan.md
+│   └── video-transcoding-plan.md
+├── package.json
+├── README.md
+├── vite.config.ts
+└── tsconfig.json
+```
+
+### Runtime model
+
+1. Users sign in or start in local-only mode.
+2. New entries are recorded or uploaded.
+3. Metadata and media are stored locally and synced when the backend is ready.
+4. Privacy rules decide who can view the journal entry.
+5. Calendar, profile, friends, and community views read from the same data model.
+
+---
 
 ## Development scripts
-
-Inside `vidjo/`:
 
 ```bash
 npm run dev
@@ -170,56 +217,32 @@ npm run lint
 npm run format
 ```
 
-## Deployment
+---
 
-The app uses SvelteKit adapters:
+## Why this project stands out
 
-- `adapter-vercel` when running in Vercel
-- `adapter-node` otherwise
+VidJo is more than a journal app — it is a thoughtful, expressive digital memory space.
 
-This lets the project work cleanly on Vercel and also supports local Node builds.
+It blends:
 
-To build and run the production server:
+- personal storytelling
+- emotional reflection
+- social sharing
+- privacy awareness
+- a polished product aesthetic
 
-```bash
-cd vidjo
-npm run build
-node build
-```
+This makes it especially good for student life tracking, personal growth, and low-pressure social connection.
 
-## How the application works
-
-VidJo is structured around a journal-first experience with optional social features.
-
-1. Users sign in or continue in device-only mode.
-2. They create or upload a short video entry.
-3. They choose a mood and write their reflection.
-4. They decorate the page with stickers and set privacy.
-5. Entries are stored locally and synced to Supabase if configured.
-6. Past entries can be viewed through the book and calendar.
-7. Friends and communities can view shared content based on privacy settings.
-
-This makes the app useful both as a personal diary and as a connected social journaling experience.
-
-## Privacy and data model
-
-VidJo is designed with privacy in mind:
-
-- Private entries are owner-scoped
-- Friends-only posts are viewable by accepted friends only
-- Community posts are visible within opted-in communities
-- Video files are kept private when using Supabase storage
-- localStorage is used for journaling fallback and cache management
-- optional analytics are limited and filtered to avoid storing sensitive content
+---
 
 ## Notes
 
-- The main app is located in `vidjo/`.
-- The repo root is used as a project container and includes some additional artifacts.
-- The project is already documented in detail in `vidjo/README.md` and `vidjo/supabase/README.md`.
+- The main application lives in the `vidjo/` directory.
+- The repository root contains project-level metadata and supporting artifacts.
+- Detailed app documentation is also available in `vidjo/README.md` and `vidjo/supabase/README.md`.
 
-## Summary
+---
 
-VidJo is a complete digital video journaling app with personal reflection tools, community sharing, profile management, secure storage, and social functionality. It is built for a student audience but is flexible enough for personal use, journaling, and lightweight social network interactions.
-
-If you want, I can also turn this into a more polished GitHub landing-page style README with badges, screenshots placeholders, and a more marketing-focused intro.
+<p align="center">
+  <strong>Built for memory, reflection, and connection.</strong>
+</p>
