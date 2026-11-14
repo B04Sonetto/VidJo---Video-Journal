@@ -137,7 +137,7 @@
 	</div>
 
 	<div
-		class="video-frame relative mt-1.5 h-[260px] shrink-0 rotate-[-.8deg] rounded bg-white p-2.5 pb-11 shadow-[0_3px_10px_rgba(60,40,20,.26)] min-[480px]:h-[300px] min-[900px]:p-3"
+		class="video-frame relative mt-1.5 flex h-[260px] shrink-0 rotate-[-.8deg] flex-col rounded bg-white p-2.5 shadow-[0_3px_10px_rgba(60,40,20,.26)] min-[480px]:h-[300px] min-[900px]:p-3"
 	>
 		<span
 			class="absolute -top-3 left-[-18px] z-[2] h-7 w-[92px] rotate-[-34deg] bg-lav/[.85] [background-image:repeating-linear-gradient(90deg,rgba(255,255,255,.35)_0_6px,transparent_6px_12px)] shadow-[0_1px_2px_rgba(0,0,0,.15)]"
@@ -148,7 +148,7 @@
 			aria-hidden="true"
 		></span>
 		<div
-			class="relative flex h-full items-center justify-center overflow-hidden rounded-[2px] bg-[radial-gradient(circle_at_30%_30%,#38215C,#150A26_70%)]"
+			class="relative flex min-h-0 flex-1 items-center justify-center overflow-hidden rounded-[2px] bg-[radial-gradient(circle_at_30%_30%,#38215C,#150A26_70%)]"
 		>
 			{#if videoUrl}
 				{#key videoUrl}
@@ -231,7 +231,7 @@
 		</div>
 
 		<div
-			class="absolute right-3 bottom-1.5 left-3 z-[2] flex h-10 items-center justify-between gap-2 font-hand text-lg font-bold text-ink min-[900px]:text-xl"
+			class="relative z-[2] mt-1.5 flex h-9 shrink-0 items-center justify-between gap-2 px-0.5 font-hand text-lg font-bold text-ink min-[900px]:text-xl"
 		>
 			<span class="min-w-0 truncate pr-1">{caption}</span>
 			{#if videoUrl && !preview}
