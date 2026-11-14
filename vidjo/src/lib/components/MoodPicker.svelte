@@ -21,7 +21,7 @@
 	{#each MOODS as item (item.k)}
 		<button
 			type="button"
-			class="group flex min-w-0 flex-col items-center gap-1 rounded-xl border-0 bg-transparent px-0.5 py-0.5 font-hand text-[10px] leading-none text-ink transition-colors hover:text-accent disabled:pointer-events-none min-[480px]:text-[12px]"
+			class="group flex min-w-0 flex-col items-center gap-1 rounded-xl border-0 bg-transparent px-0.5 py-0.5 font-hand text-[9px] leading-none text-ink transition-colors hover:text-accent disabled:pointer-events-none min-[420px]:text-[10px] min-[480px]:text-[12px]"
 			class:font-bold={mood === item.k}
 			aria-pressed={mood === item.k}
 			aria-label={item.l}

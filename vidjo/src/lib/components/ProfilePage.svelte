@@ -8,6 +8,7 @@
 	import { friends } from '#lib/state/friends.svelte';
 	import { community } from '#lib/state/community.svelte';
 	import { nav, type ProfileTab } from '#lib/state/navigation.svelte';
+	import { pwa } from '#lib/state/pwa.svelte';
 	import { isSupabaseConfigured, supabase, VIDEO_BUCKET } from '#lib/supabase';
 	import { normalizeImageUrl, optimizedBannerUrl } from '#lib/avatar';
 	import { captureError } from '#lib/observability';
@@ -1002,6 +1003,45 @@
 					<Button class="w-full" variant="danger" icon="trash" onclick={deleteAccount}>
 						Delete my account
 					</Button>
+				</div>
+			</div>
+
+			<div
+				class="rounded-[26px] border border-[#4D366D] bg-desk-2 p-6 text-white shadow-[0_18px_44px_rgba(0,0,0,.38)] lg:col-span-2"
+			>
+				<div class="flex flex-wrap items-start justify-between gap-4">
+					<div class="max-w-[560px]">
+						<h2 class="font-display text-xl font-bold">Install VidJo</h2>
+						<p class="mt-1 font-ui text-sm text-[#BBA8E0]">
+							Add VidJo to your home screen for a full-screen journal that opens without the
+							browser, and keeps saved pages available offline.
+						</p>
+					</div>
+
+					{#if pwa.installed}
+						<span
+							class="inline-flex min-h-11 items-center gap-2 rounded-xl border border-[#3F7A4F]/60 bg-[#3F7A4F]/20 px-4 font-ui text-sm font-bold text-[#9BE0AC]"
+						>
+							<CommunityIcon name="check" size={15} />
+							Installed
+						</span>
+					{:else if pwa.canInstall}
+						<Button icon="rocket" onclick={() => void pwa.promptInstall()}>Install VidJo</Button>
+					{:else if pwa.showIosHint}
+						<p
+							class="rounded-xl border border-white/10 bg-white/5 px-4 py-3 font-ui text-xs leading-relaxed text-[#D6CBEC]"
+						>
+							In Safari, tap <b class="text-white">Share</b>, then
+							<b class="text-white">Add to Home Screen</b>.
+						</p>
+					{:else}
+						<p
+							class="rounded-xl border border-white/10 bg-white/5 px-4 py-3 font-ui text-xs leading-relaxed text-[#D6CBEC]"
+						>
+							Open your browser menu and choose <b class="text-white">Install app</b> or
+							<b class="text-white">Add to Home Screen</b>.
+						</p>
+					{/if}
 				</div>
 			</div>
 		</div>

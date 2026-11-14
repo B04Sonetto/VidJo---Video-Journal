@@ -1,0 +1,189 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+		<meta name="theme-color" content="#1B102B" />
+		<meta name="robots" content="noindex" />
+		<title>VidJo — Offline</title>
+		<style>
+			:root {
+				color-scheme: dark;
+				--desk: #1b102b;
+				--desk-2: #2a1b3d;
+				--cover: #43296b;
+				--paper: #fbf4e4;
+				--ink: #2a1b3d;
+				--ink-soft: #6f5d8a;
+				--gold: #d4a24c;
+				--lav: #c9b8e8;
+			}
+
+			* {
+				box-sizing: border-box;
+			}
+
+			html,
+			body {
+				min-height: 100%;
+			}
+
+			body {
+				margin: 0;
+				display: grid;
+				place-items: center;
+				padding: max(20px, env(safe-area-inset-top)) max(20px, env(safe-area-inset-right))
+					max(20px, env(safe-area-inset-bottom)) max(20px, env(safe-area-inset-left));
+				background-color: var(--desk);
+				background-image:
+					radial-gradient(1200px 600px at 50% 0, #33204f 0, transparent 70%),
+					radial-gradient(circle at 20% 80%, rgb(212 162 76 / 0.1), transparent 40%);
+				color: #ede6f7;
+				font-family:
+					'DM Sans',
+					system-ui,
+					-apple-system,
+					'Segoe UI',
+					sans-serif;
+			}
+
+			main {
+				width: min(100%, 420px);
+				border: 1px solid #5a4580;
+				border-radius: 28px;
+				background: var(--desk-2);
+				box-shadow: 0 30px 80px rgb(0 0 0 / 0.55);
+				padding: 28px 24px 24px;
+				text-align: center;
+			}
+
+			.seal {
+				display: grid;
+				place-items: center;
+				width: 68px;
+				height: 68px;
+				margin: 0 auto;
+				border-radius: 50%;
+				background: rgb(212 162 76 / 0.16);
+				color: var(--gold);
+			}
+
+			.brand {
+				margin: 18px 0 0;
+				font-family: Georgia, 'Times New Roman', serif;
+				font-size: 30px;
+				font-weight: 700;
+				letter-spacing: 0.01em;
+			}
+
+			h1 {
+				margin: 10px 0 0;
+				font-family: Georgia, 'Times New Roman', serif;
+				font-size: 23px;
+				line-height: 1.2;
+			}
+
+			p {
+				margin: 10px 0 0;
+				color: #d6cbec;
+				font-size: 14px;
+				line-height: 1.6;
+			}
+
+			.note {
+				margin-top: 18px;
+				border: 1px solid rgb(201 184 232 / 0.22);
+				border-radius: 16px;
+				background: rgb(27 16 43 / 0.55);
+				padding: 12px 14px;
+				color: #bba8e0;
+				font-size: 12.5px;
+				line-height: 1.55;
+				text-align: left;
+			}
+
+			button {
+				margin-top: 20px;
+				width: 100%;
+				min-height: 48px;
+				border: 0;
+				border-radius: 14px;
+				background: var(--gold);
+				color: #2a1b3f;
+				font: inherit;
+				font-size: 15px;
+				font-weight: 700;
+				cursor: pointer;
+			}
+
+			button:active {
+				transform: scale(0.99);
+			}
+
+			button:focus-visible {
+				outline: 3px solid var(--paper);
+				outline-offset: 2px;
+			}
+
+			.status {
+				min-height: 18px;
+				margin-top: 12px;
+				color: #9e8cc0;
+				font-size: 12px;
+			}
+		</style>
+	</head>
+	<body>
+		<main>
+			<span class="seal" aria-hidden="true">
+				<svg
+					width="30"
+					height="30"
+					viewBox="0 0 24 24"
+					fill="none"
+					stroke="currentColor"
+					stroke-width="1.8"
+					stroke-linecap="round"
+					stroke-linejoin="round"
+				>
+					<path d="M5 12.5a7 7 0 0 1 14 0"></path>
+					<path d="M8.5 15.5a3.5 3.5 0 0 1 7 0"></path>
+					<path d="M12 19h.01"></path>
+					<path d="M2 2l20 20"></path>
+				</svg>
+			</span>
+
+			<p class="brand">VidJo</p>
+			<h1>Your journal is offline</h1>
+			<p>
+				VidJo could not reach the internet. Pages already saved on this device are still in your
+				journal — reopen the app from your home screen to read them.
+			</p>
+
+			<div class="note">
+				<strong>Heads up:</strong> new pages and video uploads need a connection. Anything you
+				write offline stays on this device and can sync once you are back online.
+			</div>
+
+			<button type="button" id="retry">Try again</button>
+			<p class="status" id="status" role="status" aria-live="polite"></p>
+		</main>
+
+		<script>
+			const status = document.getElementById('status');
+			const retry = document.getElementById('retry');
+
+			function reload() {
+				status.textContent = navigator.onLine ? 'Reconnecting…' : 'Still offline. Check your connection.';
+				if (navigator.onLine) location.reload();
+			}
+
+			retry.addEventListener('click', reload);
+
+			window.addEventListener('online', () => {
+				status.textContent = 'Back online — reopening VidJo…';
+				setTimeout(() => location.reload(), 600);
+			});
+		</script>
+	</body>
+</html>

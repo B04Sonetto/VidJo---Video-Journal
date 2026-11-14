@@ -364,10 +364,12 @@
 	</div>
 </div>
 
-<div class="mx-auto mt-[18px] flex max-w-[1160px] items-center justify-center gap-4">
+<div
+	class="mx-auto mt-[18px] flex max-w-[1160px] items-center justify-center gap-2 min-[480px]:gap-4"
+>
 	<button
 		type="button"
-		class="flex size-12 items-center justify-center rounded-full border-[1.5px] border-[#5A4580] bg-desk-2 text-white shadow-[0_4px_14px_rgba(0,0,0,.35)] transition-colors hover:bg-[#3A2A55] disabled:cursor-default disabled:opacity-35 disabled:hover:bg-desk-2"
+		class="flex size-10 shrink-0 items-center justify-center rounded-full border-[1.5px] border-[#5A4580] bg-desk-2 text-white shadow-[0_4px_14px_rgba(0,0,0,.35)] transition-colors hover:bg-[#3A2A55] disabled:cursor-default disabled:opacity-35 disabled:hover:bg-desk-2 min-[480px]:size-12"
 		disabled={atStart}
 		aria-label="Previous page"
 		onclick={() => go(-1)}
@@ -376,7 +378,7 @@
 	</button>
 
 	<div
-		class="min-w-[160px] text-center font-ui text-[15px] font-medium text-[#D6CBEC] tabular-nums"
+		class="min-w-0 flex-1 text-center font-ui text-[13px] font-medium text-[#D6CBEC] tabular-nums min-[480px]:min-w-[160px] min-[480px]:flex-none min-[480px]:text-[15px]"
 		aria-live="polite"
 	>
 		{pageLabel}
@@ -384,7 +386,7 @@
 
 	<button
 		type="button"
-		class="flex size-12 items-center justify-center rounded-full border-[1.5px] border-[#5A4580] bg-desk-2 text-white shadow-[0_4px_14px_rgba(0,0,0,.35)] transition-colors hover:bg-[#3A2A55] disabled:cursor-default disabled:opacity-35 disabled:hover:bg-desk-2"
+		class="flex size-10 shrink-0 items-center justify-center rounded-full border-[1.5px] border-[#5A4580] bg-desk-2 text-white shadow-[0_4px_14px_rgba(0,0,0,.35)] transition-colors hover:bg-[#3A2A55] disabled:cursor-default disabled:opacity-35 disabled:hover:bg-desk-2 min-[480px]:size-12"
 		disabled={atEnd}
 		aria-label="Next page"
 		onclick={() => go(1)}
@@ -394,7 +396,7 @@
 
 	<button
 		type="button"
-		class="flex size-12 items-center justify-center rounded-full border-[1.5px] border-[#D19A9A] bg-desk-2 text-white shadow-[0_4px_14px_rgba(0,0,0,.35)] transition-colors hover:bg-[#3A222B] disabled:cursor-default disabled:opacity-35 disabled:hover:bg-desk-2"
+		class="flex size-10 shrink-0 items-center justify-center rounded-full border-[1.5px] border-[#D19A9A] bg-desk-2 text-white shadow-[0_4px_14px_rgba(0,0,0,.35)] transition-colors hover:bg-[#3A222B] disabled:cursor-default disabled:opacity-35 disabled:hover:bg-desk-2 min-[480px]:size-12"
 		aria-label="Delete this page"
 		onclick={deletePage}
 	>
