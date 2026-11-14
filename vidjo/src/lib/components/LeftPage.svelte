@@ -137,7 +137,7 @@
 	</div>
 
 	<div
-		class="relative mt-1.5 h-[260px] shrink-0 rotate-[-.8deg] rounded bg-white p-2.5 pb-11 shadow-[0_3px_10px_rgba(60,40,20,.26)] min-[480px]:h-[300px] min-[900px]:p-3"
+		class="video-frame relative mt-1.5 h-[260px] shrink-0 rotate-[-.8deg] rounded bg-white p-2.5 pb-11 shadow-[0_3px_10px_rgba(60,40,20,.26)] min-[480px]:h-[300px] min-[900px]:p-3"
 	>
 		<span
 			class="absolute -top-3 left-[-18px] z-[2] h-7 w-[92px] rotate-[-34deg] bg-lav/[.85] [background-image:repeating-linear-gradient(90deg,rgba(255,255,255,.35)_0_6px,transparent_6px_12px)] shadow-[0_1px_2px_rgba(0,0,0,.15)]"
@@ -231,33 +231,19 @@
 		</div>
 
 		<div
-			class="absolute right-3 bottom-1.5 left-3 flex h-10 items-center justify-between gap-2 font-hand text-lg font-bold text-ink min-[900px]:text-xl"
+			class="absolute right-3 bottom-1.5 left-3 z-[2] flex h-10 items-center justify-between gap-2 font-hand text-lg font-bold text-ink min-[900px]:text-xl"
 		>
 			<span class="min-w-0 truncate pr-1">{caption}</span>
 			{#if videoUrl && !preview}
-				<span class="flex flex-none gap-1.5">
-					<button
-						type="button"
-						class="min-h-9 rounded-lg border border-[#CDBBE9] bg-light px-2 font-ui text-xs font-medium text-accent transition-colors hover:bg-[#E8DCF8] min-[900px]:text-[13px]"
-						onclick={() => (recordOpen = true)}
-					>
-						Record
-					</button>
-					<button
-						type="button"
-						class="min-h-9 rounded-lg border border-[#CDBBE9] bg-light px-2 font-ui text-xs font-medium text-accent transition-colors hover:bg-[#E8DCF8] min-[900px]:text-[13px]"
-						onclick={() => uploadInput?.click()}
-					>
-						Upload
-					</button>
-					<button
-						type="button"
-						class="min-h-9 rounded-lg border border-[#CDBBE9] bg-light px-2 font-ui text-xs font-medium text-accent transition-colors hover:bg-[#E8DCF8] min-[900px]:text-[13px]"
-						onclick={askRemove}
-					>
-						Remove
-					</button>
-				</span>
+				<button
+					type="button"
+					class="video-remove flex size-9 flex-none items-center justify-center rounded-lg border border-[#CDBBE9] bg-light text-accent hover:border-danger/50 hover:bg-[#F7E3E3] hover:text-danger"
+					aria-label="Remove video"
+					title="Remove video"
+					onclick={askRemove}
+				>
+					<CommunityIcon name="trash" size={15} />
+				</button>
 			{/if}
 		</div>
 	</div>
@@ -337,6 +323,26 @@
 		pointer-events: none;
 		border-radius: inherit;
 		background: linear-gradient(to left, rgb(70 45 20 / 0.26), rgb(70 45 20 / 0) 52px);
+	}
+
+	/* Keep the Remove action out of the way until the photo is hovered or focused. */
+	.video-remove {
+		transition:
+			opacity 0.15s ease,
+			border-color 0.15s ease,
+			background-color 0.15s ease,
+			color 0.15s ease;
+	}
+
+	@media (hover: hover) and (pointer: fine) {
+		.video-remove {
+			opacity: 0;
+		}
+
+		.video-frame:hover .video-remove,
+		.video-frame:focus-within .video-remove {
+			opacity: 1;
+		}
 	}
 
 	.enter {
