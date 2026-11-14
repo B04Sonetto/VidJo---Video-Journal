@@ -95,18 +95,18 @@
 
 {#snippet envelope(large: boolean)}
 	<div
-		class="relative rotate-[-5deg] rounded-[6px] border border-[#D8C8A2] bg-[#FFF9EC] shadow-[0_12px_24px_rgba(0,0,0,.35)] {large
+		class="relative rotate-[-5deg] rounded-[6px] border border-line bg-book-bg shadow-[0_12px_24px_rgba(0,0,0,.35)] {large
 			? 'h-[104px] w-[150px]'
 			: 'h-[74px] w-[108px]'}"
 		aria-hidden="true"
 	>
 		<span
-			class="absolute inset-x-0 top-0 rounded-t-[5px] border-b border-[#E4D3AE] bg-[#F5E7C9] [clip-path:polygon(0_0,100%_0,50%_100%)] {large
+			class="absolute inset-x-0 top-0 rounded-t-[5px] border-b border-line/70 bg-paper-deep [clip-path:polygon(0_0,100%_0,50%_100%)] {large
 				? 'h-[56px]'
 				: 'h-[40px]'}"
 		></span>
 		<span
-			class="absolute left-1/2 flex -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-[radial-gradient(circle_at_32%_28%,#E7BE6B,#A97827_70%)] text-[#2A1B3D] shadow-[0_3px_8px_rgba(0,0,0,.4),inset_0_1px_0_rgba(255,255,255,.35)] {large
+			class="absolute left-1/2 flex -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-[radial-gradient(circle_at_32%_28%,#E7BE6B,#A97827_70%)] text-book-ink shadow-[0_3px_8px_rgba(0,0,0,.4),inset_0_1px_0_rgba(255,255,255,.35)] {large
 				? 'top-[52px] size-12'
 				: 'top-[36px] size-9'}"
 		>
@@ -140,29 +140,31 @@
 	{#if friends.notifications.length === 0}
 		<!-- Empty tray -->
 		<div
-			class="relative mt-7 overflow-hidden rounded-[24px] bg-paper px-6 py-14 text-center text-ink shadow-[0_16px_34px_rgba(0,0,0,.4)] min-[720px]:py-16"
+			class="relative mt-7 overflow-hidden rounded-[24px] bg-book-bg px-6 py-14 text-center text-book-ink shadow-[0_16px_34px_rgba(0,0,0,.4)] min-[720px]:py-16"
 		>
 			<span
-				class="pointer-events-none absolute -top-16 -left-12 size-52 rounded-full border border-dashed border-gold/20"
+				class="pointer-events-none absolute -top-16 -left-12 size-52 rounded-full border border-dashed border-book-accent/20"
 				aria-hidden="true"
 			></span>
 			<span
-				class="pointer-events-none absolute -right-14 -bottom-20 size-56 rounded-full border border-gold/10"
+				class="pointer-events-none absolute -right-14 -bottom-20 size-56 rounded-full border border-book-accent/10"
 				aria-hidden="true"
 			></span>
 
 			<div class="relative mx-auto w-fit">{@render envelope(true)}</div>
 
-			<h2 class="relative mt-6 font-display text-[32px] leading-tight font-bold text-ink">
+			<h2 class="relative mt-6 font-display text-[32px] leading-tight font-bold">
 				All quiet for now
 			</h2>
-			<p class="relative mx-auto mt-2 max-w-[440px] font-hand text-xl leading-snug text-ink-soft">
+			<p
+				class="relative mx-auto mt-2 max-w-[440px] font-hand text-xl leading-snug text-book-ink/70"
+			>
 				The tray is empty. When someone asks to be friends or leaves a note on one of your pages, it
 				will land right here.
 			</p>
 			<div class="relative mt-6 flex flex-wrap justify-center gap-2.5">
 				<Button icon="book" onclick={() => nav.setView('journal')}>Back to my journal</Button>
-				<Button variant="paper" icon="users" onclick={() => nav.setView('friends')}>
+				<Button variant="note" icon="users" onclick={() => nav.setView('friends')}>
 					Visit the friend shelf
 				</Button>
 			</div>
@@ -203,7 +205,7 @@
 				<div class="flex w-full gap-2.5 min-[720px]:w-auto" role="group" aria-label="Quick filters">
 					<button
 						type="button"
-						class="flex min-w-[104px] flex-1 flex-col items-center gap-1 rounded-[6px] border border-dashed border-[#B99A5E] bg-paper px-3 py-2.5 text-ink shadow-[0_6px_14px_rgba(0,0,0,.28)] transition duration-150 hover:-translate-y-0.5 hover:shadow-[0_10px_18px_rgba(0,0,0,.35)] min-[720px]:flex-none {filter ===
+						class="flex min-w-[104px] flex-1 flex-col items-center gap-1 rounded-[6px] border border-dashed border-book-accent/70 bg-book-bg px-3 py-2.5 text-book-ink shadow-[0_6px_14px_rgba(0,0,0,.28)] transition duration-150 hover:-translate-y-0.5 hover:shadow-[0_10px_18px_rgba(0,0,0,.35)] min-[720px]:flex-none {filter ===
 						'requests'
 							? 'ring-2 ring-gold ring-offset-2 ring-offset-desk-2'
 							: ''}"
@@ -212,21 +214,21 @@
 						aria-label={`Show ${requestNotifications.length} friend requests`}
 					>
 						<span
-							class="flex size-7 items-center justify-center rounded-full bg-gold/20 text-[#8A5A12]"
+							class="note-accent flex size-7 items-center justify-center rounded-full bg-book-accent/20"
 						>
 							<CommunityIcon name="users" size={14} />
 						</span>
-						<span class="font-display text-[26px] leading-none font-bold text-ink tabular-nums">
+						<span class="font-display text-[26px] leading-none font-bold tabular-nums">
 							{requestNotifications.length}
 						</span>
-						<span class="font-ui text-[9px] font-bold tracking-[.16em] text-ink-muted uppercase">
+						<span class="font-ui text-[9px] font-bold tracking-[.16em] text-book-ink/70 uppercase">
 							Requests
 						</span>
 					</button>
 
 					<button
 						type="button"
-						class="flex min-w-[104px] flex-1 flex-col items-center gap-1 rounded-[6px] border border-dashed border-[#8B6FD0] bg-paper px-3 py-2.5 text-ink shadow-[0_6px_14px_rgba(0,0,0,.28)] transition duration-150 hover:-translate-y-0.5 hover:shadow-[0_10px_18px_rgba(0,0,0,.35)] min-[720px]:flex-none {filter ===
+						class="flex min-w-[104px] flex-1 flex-col items-center gap-1 rounded-[6px] border border-dashed border-book-ink/25 bg-book-bg px-3 py-2.5 text-book-ink shadow-[0_6px_14px_rgba(0,0,0,.28)] transition duration-150 hover:-translate-y-0.5 hover:shadow-[0_10px_18px_rgba(0,0,0,.35)] min-[720px]:flex-none {filter ===
 						'comments'
 							? 'ring-2 ring-gold ring-offset-2 ring-offset-desk-2'
 							: ''}"
@@ -235,14 +237,14 @@
 						aria-label={`Show ${commentNotifications.length} comments`}
 					>
 						<span
-							class="flex size-7 items-center justify-center rounded-full bg-accent/10 text-accent"
+							class="flex size-7 items-center justify-center rounded-full bg-book-ink/10 text-book-ink/70"
 						>
 							<CommunityIcon name="pen" size={14} />
 						</span>
-						<span class="font-display text-[26px] leading-none font-bold text-ink tabular-nums">
+						<span class="font-display text-[26px] leading-none font-bold tabular-nums">
 							{commentNotifications.length}
 						</span>
-						<span class="font-ui text-[9px] font-bold tracking-[.16em] text-ink-muted uppercase">
+						<span class="font-ui text-[9px] font-bold tracking-[.16em] text-book-ink/70 uppercase">
 							Comments
 						</span>
 					</button>
@@ -264,7 +266,7 @@
 					<button
 						type="button"
 						class="-mb-px inline-flex shrink-0 items-center gap-1.5 rounded-t-[10px] border border-b-0 px-3.5 pt-2 pb-2 font-ui text-xs font-bold transition-colors {active
-							? 'border-[#CDBBE9] bg-paper text-ink'
+							? 'border-line bg-book-bg text-book-ink'
 							: 'border-[#4D366D] text-[#CFC3E6] hover:text-white'}"
 						onclick={() => (filter = item.key)}
 						aria-pressed={active}
@@ -276,7 +278,7 @@
 						{item.label}
 						<span
 							class="rounded-full px-1.5 py-0.5 text-[10px] tabular-nums {active
-								? 'bg-[#E9DFC6] text-ink-soft'
+								? 'bg-book-edge text-book-ink/70'
 								: 'bg-white/10 text-[#BBA8E0]'}"
 						>
 							{item.count}
@@ -327,13 +329,13 @@
 							{#each visibleRequests as request (request.id)}
 								{@const busy = busyAction === request.id}
 								<article
-									class="note-card relative rounded-[16px] border border-line bg-paper p-4 text-ink shadow-[0_10px_24px_rgba(0,0,0,.32)] min-[540px]:pl-5"
+									class="note-card relative rounded-[16px] border border-line bg-book-bg p-4 text-book-ink shadow-[0_10px_24px_rgba(0,0,0,.32)] min-[540px]:pl-5"
 								>
 									<span class="tape tape-gold" aria-hidden="true"></span>
 									<div class="flex flex-wrap items-center gap-3.5">
 										<div class="relative shrink-0">
 											<span
-												class="absolute -inset-1 rounded-full border border-dashed border-gold/60"
+												class="absolute -inset-1 rounded-full border border-dashed border-book-accent/60"
 												aria-hidden="true"
 											></span>
 											<Avatar
@@ -341,24 +343,26 @@
 												name={request.fromUserName}
 												className="size-12"
 												textClass="text-xl"
-												ring="ring-2 ring-gold/50"
+												ring="ring-2 ring-book-accent/50"
 											/>
 										</div>
 
 										<div class="min-w-0 flex-1">
 											<div class="flex flex-wrap items-center gap-x-2 gap-y-1">
-												<p class="truncate font-hand text-[23px] leading-tight font-bold text-ink">
+												<p
+													class="truncate font-hand text-[23px] leading-tight font-bold text-book-ink"
+												>
 													{request.fromUserName || 'VidJo student'}
 												</p>
 												<span
-													class="inline-flex rotate-[-4deg] items-center rounded-[3px] border border-gold/70 px-1.5 py-0.5 font-ui text-[8px] font-bold tracking-[.16em] text-[#8A5A12] uppercase"
+													class="note-accent inline-flex rotate-[-4deg] items-center rounded-[3px] border border-book-accent/70 px-1.5 py-0.5 font-ui text-[8px] font-bold tracking-[.16em] uppercase"
 												>
 													Friend request
 												</span>
 											</div>
-											<p class="mt-0.5 font-ui text-[12px] text-ink-soft">
+											<p class="mt-0.5 font-ui text-[12px] text-book-ink/70">
 												wants to read your shared pages
-												<span class="font-semibold text-[#8A5A12]"
+												<span class="note-accent font-semibold"
 													>· {formatDate(request.createdAt)}</span
 												>
 											</p>
@@ -380,7 +384,7 @@
 											</Button>
 											<Button
 												size="sm"
-												variant="paper"
+												variant="note"
 												icon="x"
 												class="flex-1 min-[560px]:flex-none"
 												disabled={Boolean(busyAction)}
@@ -430,13 +434,13 @@
 						<div class="space-y-3.5">
 							{#each visibleComments as comment (comment.id)}
 								<article
-									class="note-card relative rounded-[16px] border border-line bg-paper p-4 text-ink shadow-[0_10px_24px_rgba(0,0,0,.32)] min-[540px]:pl-5"
+									class="note-card relative rounded-[16px] border border-line bg-book-bg p-4 text-book-ink shadow-[0_10px_24px_rgba(0,0,0,.32)] min-[540px]:pl-5"
 								>
 									<span class="tape tape-lav" aria-hidden="true"></span>
 									<div class="flex items-start gap-3.5">
 										<div class="relative shrink-0">
 											<span
-												class="absolute -inset-1 rounded-full border border-dashed border-lav/70"
+												class="absolute -inset-1 rounded-full border border-dashed border-book-ink/25"
 												aria-hidden="true"
 											></span>
 											<Avatar
@@ -444,36 +448,38 @@
 												name={comment.fromUserName}
 												className="size-11"
 												textClass="text-lg"
-												ring="ring-2 ring-lav/50"
+												ring="ring-2 ring-book-ink/25"
 											/>
 										</div>
 
 										<div class="min-w-0 flex-1">
 											<div class="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
-												<p class="truncate font-hand text-[21px] leading-tight font-bold text-ink">
+												<p
+													class="truncate font-hand text-[21px] leading-tight font-bold text-book-ink"
+												>
 													{comment.fromUserName || 'VidJo student'}
 												</p>
 												<time
-													class="shrink-0 font-ui text-[11px] text-ink-soft tabular-nums"
+													class="shrink-0 font-ui text-[11px] text-book-ink/70 tabular-nums"
 													datetime={comment.createdAt}
 												>
 													{formatDate(comment.createdAt)}
 												</time>
 											</div>
 
-											<p class="mt-0.5 font-ui text-[12.5px] leading-snug text-ink-soft">
+											<p class="mt-0.5 font-ui text-[12.5px] leading-snug text-book-ink/70">
 												left a note on
-												<span class="font-semibold text-ink"
+												<span class="font-semibold text-book-ink"
 													>“{censor(comment.postTitle || 'your page')}”</span
 												>
 											</p>
 
 											{#if comment.text}
 												<blockquote
-													class="relative mt-3 overflow-hidden rounded-l-[3px] rounded-r-lg border-l-[3px] border-gold/70 bg-[#FFFDF6] py-2.5 pr-7 pl-3.5 font-hand text-[18px] leading-snug break-words text-ink shadow-[0_2px_5px_rgba(42,27,61,.08)]"
+													class="note-scrap relative mt-3 overflow-hidden rounded-l-[3px] rounded-r-lg border-l-[3px] border-book-accent/70 py-2.5 pr-7 pl-3.5 font-hand text-[18px] leading-snug break-words text-book-ink shadow-[0_2px_5px_rgba(0,0,0,.06)]"
 												>
 													<span
-														class="absolute top-0 right-0 size-0 border-b-[12px] border-l-[12px] border-b-[#EFE2C4] border-l-transparent"
+														class="note-fold absolute top-0 right-0 size-0 border-b-[12px] border-l-[12px] border-l-transparent"
 														aria-hidden="true"
 													></span>
 													{censor(comment.text)}
@@ -529,18 +535,18 @@
 			<!-- Sidebar -->
 			<aside class="space-y-4">
 				<section
-					class="relative overflow-hidden rounded-[20px] bg-paper p-5 text-ink shadow-[0_10px_26px_rgba(0,0,0,.35)]"
+					class="relative overflow-hidden rounded-[20px] bg-book-bg p-5 text-book-ink shadow-[0_10px_26px_rgba(0,0,0,.35)]"
 				>
 					<span
-						class="pointer-events-none absolute -top-10 -right-10 size-28 rounded-full border border-dashed border-gold/30"
+						class="pointer-events-none absolute -top-10 -right-10 size-28 rounded-full border border-dashed border-book-accent/30"
 						aria-hidden="true"
 					></span>
 					<div class="relative flex items-start justify-between gap-3">
-						<h2 class="font-display text-[23px] leading-tight font-bold text-ink">
+						<h2 class="font-display text-[23px] leading-tight font-bold text-book-ink">
 							How the tray works
 						</h2>
 						<span
-							class="mt-1 inline-flex shrink-0 rotate-3 items-center rounded-[3px] border border-gold/70 px-1.5 py-0.5 font-ui text-[8px] font-bold tracking-[.16em] text-[#8A5A12] uppercase"
+							class="note-accent mt-1 inline-flex shrink-0 rotate-3 items-center rounded-[3px] border border-book-accent/70 px-1.5 py-0.5 font-ui text-[8px] font-bold tracking-[.16em] uppercase"
 						>
 							No likes
 						</span>
@@ -549,26 +555,26 @@
 					<ul class="relative mt-4 space-y-3">
 						<li class="flex gap-3">
 							<span
-								class="flex size-9 shrink-0 items-center justify-center rounded-full bg-gold/20 text-[#8A5A12]"
+								class="note-accent flex size-9 shrink-0 items-center justify-center rounded-full bg-book-accent/20"
 							>
 								<CommunityIcon name="users" size={16} />
 							</span>
 							<div class="min-w-0">
-								<p class="font-ui text-[13px] font-semibold text-ink">Invitations</p>
-								<p class="font-hand text-[16px] leading-tight text-ink-soft">
+								<p class="font-ui text-[13px] font-semibold text-book-ink">Invitations</p>
+								<p class="font-hand text-[16px] leading-tight text-book-ink/70">
 									Someone asked to read the pages you share.
 								</p>
 							</div>
 						</li>
 						<li class="flex gap-3">
 							<span
-								class="flex size-9 shrink-0 items-center justify-center rounded-full bg-accent/10 text-accent"
+								class="flex size-9 shrink-0 items-center justify-center rounded-full bg-book-ink/10 text-book-ink/70"
 							>
 								<CommunityIcon name="pen" size={16} />
 							</span>
 							<div class="min-w-0">
-								<p class="font-ui text-[13px] font-semibold text-ink">Margin notes</p>
-								<p class="font-hand text-[16px] leading-tight text-ink-soft">
+								<p class="font-ui text-[13px] font-semibold text-book-ink">Margin notes</p>
+								<p class="font-hand text-[16px] leading-tight text-book-ink/70">
 									A comment on one of your shared pages.
 								</p>
 							</div>
@@ -576,7 +582,7 @@
 					</ul>
 
 					<p
-						class="relative mt-4 border-t border-dashed border-line pt-3 font-ui text-[11px] leading-relaxed text-ink-soft"
+						class="relative mt-4 border-t border-dashed border-line pt-3 font-ui text-[11px] leading-relaxed text-book-ink/70"
 					>
 						Opening this page marks the tray as read. There are no emails, badges, or streaks.
 					</p>
@@ -590,7 +596,7 @@
 						aria-hidden="true"
 					></span>
 					<div
-						class="absolute top-4 right-4 rotate-3 rounded-[3px] border border-dashed border-gold/60 bg-paper px-2 py-1.5 text-center text-[#8A5A12]"
+						class="note-accent absolute top-4 right-4 rotate-3 rounded-[3px] border border-dashed border-book-accent/60 bg-book-bg px-2 py-1.5 text-center"
 						aria-hidden="true"
 					>
 						<CommunityIcon name="mail" size={14} class="mx-auto" />
@@ -651,11 +657,11 @@
 	}
 
 	.tape-gold {
-		background-color: rgb(212 162 76 / 0.85);
+		background-color: color-mix(in srgb, var(--color-book-accent) 82%, transparent);
 	}
 
 	.tape-lav {
-		background-color: rgb(201 184 232 / 0.9);
+		background-color: color-mix(in srgb, var(--color-book-ink) 32%, var(--color-book-bg));
 	}
 
 	@media (min-width: 720px) {

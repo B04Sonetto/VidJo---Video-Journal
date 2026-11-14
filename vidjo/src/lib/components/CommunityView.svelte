@@ -369,30 +369,30 @@
 
 	{#if community.loading && community.communities.length === 0}
 		<div
-			class="mt-7 rounded-[10px] bg-paper px-6 py-14 text-center text-ink shadow-[0_16px_34px_rgba(0,0,0,.4)]"
+			class="mt-7 rounded-[10px] note-scrap px-6 py-14 text-center text-book-ink shadow-[0_16px_34px_rgba(0,0,0,.4)]"
 			role="status"
 		>
-			<Spinner size={36} class="mx-auto text-accent" />
-			<p class="mt-4 font-ui text-sm font-medium text-ink-soft">Finding communities…</p>
+			<Spinner size={36} class="mx-auto text-book-accent" />
+			<p class="mt-4 font-ui text-sm font-medium text-book-ink/70">Finding communities…</p>
 		</div>
 	{:else if !community.hasJoined || showDiscovery}
 		<!-- Discovery / join view -->
 		<section class="relative mt-7">
 			<div
-				class="pointer-events-none absolute inset-0 bg-gradient-to-br from-[#D4A24C]/10 to-[#51397A]/20"
+				class="pointer-events-none absolute inset-0 bg-gradient-to-br from-book-accent/10 to-cover/30"
 			></div>
 			<div class="relative z-10 flex flex-wrap items-end justify-between gap-3">
 				<div>
-					<h2 class="font-display text-3xl font-bold text-white min-[720px]:text-4xl">
+					<h2 class="font-display text-3xl font-bold text-book-bg min-[720px]:text-4xl">
 						Communities to join
 					</h2>
-					<p class="mt-1 max-w-[640px] font-ui text-sm leading-relaxed text-[#CFC3E6]">
+					<p class="mt-1 max-w-[640px] font-ui text-sm leading-relaxed text-book-bg/65">
 						Pick as many as you like. You can leave any time. Your journal pages stay private until
 						you choose to share one with a community.
 					</p>
 				</div>
 				<div class="flex items-center gap-3">
-					<span class="font-ui text-xs text-[#BBA8E0] tabular-nums">
+					<span class="font-ui text-xs text-book-bg/60 tabular-nums">
 						{community.communities.length} available
 					</span>
 					{#if community.hasJoined}
@@ -412,7 +412,7 @@
 				{#each community.communities as item, index (item.slug)}
 					{@const tilt = DISCOVERY_TILTS[index % DISCOVERY_TILTS.length]}
 					<article
-						class="group relative flex min-w-0 flex-col overflow-hidden rounded-[8px] bg-paper text-ink shadow-[0_12px_26px_rgba(0,0,0,.42)] transition-all duration-200 hover:-translate-y-1 hover:rotate-0 hover:shadow-[0_18px_34px_rgba(0,0,0,.5)] {tilt}"
+						class="group relative flex min-w-0 flex-col overflow-hidden rounded-[8px] note-scrap text-book-ink shadow-[0_12px_26px_rgba(0,0,0,.42)] transition-all duration-200 hover:-translate-y-1 hover:rotate-0 hover:shadow-[0_18px_34px_rgba(0,0,0,.5)] {tilt}"
 					>
 						<div class="h-2 w-full" style="background: {item.color}" aria-hidden="true"></div>
 						<div class="flex flex-1 flex-col p-5">
@@ -482,10 +482,10 @@
 		<!-- Prompt + mood browser -->
 		<div class="mt-7 grid gap-6 min-[940px]:grid-cols-[minmax(0,380px)_minmax(0,1fr)]">
 			<section
-				class="mx-auto w-full max-w-[470px] rounded-[6px] bg-paper px-6 py-6 text-ink shadow-[0_12px_24px_rgba(0,0,0,.4)] min-[940px]:mx-0"
+				class="mx-auto w-full max-w-[470px] rounded-[6px] note-scrap px-6 py-6 text-book-ink shadow-[0_12px_24px_rgba(0,0,0,.4)] min-[940px]:mx-0"
 			>
-				<p class="font-ui text-xs font-semibold text-[#8A5A12]">Today's prompt</p>
-				<p class="mt-2 font-hand text-[28px] leading-[1.2] font-bold text-balance text-ink">
+				<p class="font-ui text-xs font-semibold note-accent">Today's prompt</p>
+				<p class="mt-2 font-hand text-[28px] leading-[1.2] font-bold text-balance text-book-ink">
 					{todaysPrompt}
 				</p>
 				<Button class="mt-4" trailingIcon="arrow-right" onclick={() => nav.jump(TODAY)}>
@@ -497,11 +497,11 @@
 				<div class="flex flex-wrap items-end justify-between gap-2">
 					<div>
 						<h2
-							class="font-display text-2xl leading-tight font-bold text-white min-[720px]:text-[28px]"
+							class="font-display text-2xl leading-tight font-bold text-book-bg min-[720px]:text-[28px]"
 						>
 							Browse by mood
 						</h2>
-						<p class="mt-0.5 font-ui text-sm text-[#CFC3E6]">
+						<p class="mt-0.5 font-ui text-sm text-book-bg/65">
 							Showing {activeMood === 'all' ? 'every mood' : MOOD_BY_KEY[activeMood].l} ·
 							{feedMode === 'trending' ? 'trending first' : 'newest first'}
 						</p>

@@ -2,7 +2,7 @@
 	import type { Snippet } from 'svelte';
 	import CommunityIcon from '#lib/components/CommunityIcon.svelte';
 
-	type Variant = 'primary' | 'outline' | 'paper' | 'ghost' | 'danger';
+	type Variant = 'primary' | 'outline' | 'paper' | 'note' | 'ghost' | 'danger';
 	type Size = 'sm' | 'md' | 'lg';
 
 	let {
@@ -45,6 +45,7 @@
 			'border border-[#5A4580] bg-desk-2 text-[#EDE6F7] hover:border-lav/70 hover:bg-[#34214E]',
 		paper:
 			'border-[1.5px] border-line bg-[#FFFDF6] text-ink hover:border-[#BFAE86] hover:bg-[#FBF3DF]',
+		note: 'border-[1.5px] border-line bg-book-bg text-book-ink hover:border-book-accent/60 hover:bg-paper-deep',
 		ghost: 'text-[#CFC3E6] hover:bg-white/[.08] hover:text-white',
 		danger: 'border border-[#D19A9A]/60 bg-[#3A222B] text-white hover:bg-[#4A2A32]'
 	};

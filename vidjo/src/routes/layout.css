@@ -168,6 +168,19 @@ html[data-theme='midnight'] body {
 	color: var(--color-ink);
 }
 
+/* Theme-derived paper details: notes keep their material feel in every journal theme. */
+@utility note-scrap {
+	background-color: color-mix(in srgb, var(--color-book-bg) 55%, #fff);
+}
+
+@utility note-fold {
+	border-bottom-color: color-mix(in srgb, var(--color-book-bg) 45%, var(--color-line));
+}
+
+@utility note-accent {
+	color: color-mix(in srgb, var(--color-book-accent) 52%, var(--color-book-ink));
+}
+
 @utility skeleton {
 	position: relative;
 	overflow: hidden;

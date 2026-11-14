@@ -266,25 +266,25 @@
 	>
 		<!-- Shelf -->
 		<section
-			class="rounded-[22px] border border-[#4A3670] bg-desk-2 p-5 shadow-[0_14px_30px_rgba(0,0,0,.35)] min-[720px]:p-7"
+			class="rounded-[22px] border border-cover-edge bg-desk-2 p-5 shadow-[0_14px_30px_rgba(0,0,0,.35)] min-[720px]:p-7"
 		>
 			<div class="flex flex-wrap items-center justify-between gap-3">
 				<div class="flex items-baseline gap-3">
-					<h2 class="font-display text-[26px] leading-none font-bold text-white">The shelf</h2>
-					<span class="font-ui text-sm text-[#BBA8E0] tabular-nums">
+					<h2 class="font-display text-[26px] leading-none font-bold text-book-bg">The shelf</h2>
+					<span class="font-ui text-sm text-book-bg/65 tabular-nums">
 						{friends.friendCount}
 						{friends.friendCount === 1 ? 'friend' : 'friends'}
 					</span>
 				</div>
 
-				<div class="flex items-center gap-1 rounded-full border border-[#4D366D] bg-desk/60 p-1">
+				<div class="flex items-center gap-1 rounded-full border border-cover-edge bg-desk/60 p-1">
 					{#each FILTERS as filter (filter.key)}
 						<button
 							type="button"
 							class="rounded-full px-3 py-1.5 font-ui text-[11px] font-bold transition-colors {friends.activeFilter ===
 							filter.key
-								? 'bg-accent text-white'
-								: 'text-[#D6CBEC] hover:text-white'}"
+								? 'bg-cta text-cta-text'
+								: 'text-book-bg/70 hover:text-book-bg'}"
 							onclick={() => friends.setFilter(filter.key)}
 							aria-pressed={friends.activeFilter === filter.key}
 						>
@@ -312,18 +312,18 @@
 									{#if item.kind === 'add'}
 										<button
 											type="button"
-											class="flex aspect-[3/4] w-full flex-col items-center justify-center gap-2.5 rounded-lg border border-[#8B6FD0] p-3 text-center text-[#D6CBEC] transition-colors hover:border-gold hover:bg-white/[.03] hover:text-white"
+											class="flex aspect-[3/4] w-full flex-col items-center justify-center gap-2.5 rounded-lg border border-cover p-3 text-center text-book-bg/70 transition-colors hover:border-book-accent hover:bg-cover/30 hover:text-book-bg"
 											onclick={openAddFriend}
 											aria-label="Add a friend with a friend code"
 										>
 											<span
-												class="flex size-9 items-center justify-center rounded-full border border-[#8B6FD0] text-gold"
+												class="flex size-9 items-center justify-center rounded-full border border-cover text-book-accent"
 												aria-hidden="true"
 											>
 												<CommunityIcon name="plus" size={16} />
 											</span>
 											<span class="font-hand text-xl leading-tight font-bold">Add a friend</span>
-											<span class="font-ui text-[10px] leading-tight text-[#BBA8E0]">
+											<span class="font-ui text-[10px] leading-tight text-book-bg/60">
 												with a friend code
 											</span>
 										</button>
@@ -393,7 +393,7 @@
 											</button>
 
 											<div
-												class="mt-3 flex items-center justify-center gap-2 text-[13px] leading-tight text-[#D6CBEC]"
+												class="mt-3 flex items-center justify-center gap-2 text-[13px] leading-tight text-book-bg/70"
 											>
 												{#if moodPost?.mood && MOOD_BY_KEY[moodPost.mood]}
 													<span class="size-5 shrink-0 [&>svg]:size-full" aria-hidden="true">
@@ -432,7 +432,7 @@
 							</div>
 
 							<div
-								class="mx-[-8px] mt-2 h-4 rounded-[4px] bg-[linear-gradient(#4A3470,#33224F)] shadow-[0_8px_12px_rgba(0,0,0,.4)]"
+								class="mx-[-8px] mt-2 h-4 rounded-[4px] bg-[linear-gradient(var(--color-cover),var(--color-cover-edge))] shadow-[0_8px_12px_rgba(0,0,0,.4)]"
 								aria-hidden="true"
 							></div>
 						</div>
@@ -441,7 +441,7 @@
 			</div>
 
 			{#if !friends.loading && friends.friendCount === 0}
-				<p class="mt-6 text-center font-ui text-sm leading-relaxed text-[#C9B8E8]">
+				<p class="mt-6 text-center font-ui text-sm leading-relaxed text-book-bg/65">
 					Your shelf is waiting. Add a friend with their code and their notebook will appear here.
 				</p>
 			{/if}
@@ -450,18 +450,18 @@
 		<!-- Sidebar -->
 		<aside class="space-y-4">
 			<!-- Moods -->
-			<section class="rounded-[20px] bg-paper p-5 text-ink shadow-[0_10px_26px_rgba(0,0,0,.35)]">
-				<h2 class="font-display text-[23px] leading-tight font-bold text-ink">
+			<section class="note-scrap rounded-[20px] p-5 text-book-ink shadow-[0_10px_26px_rgba(0,0,0,.35)]">
+				<h2 class="font-display text-[23px] leading-tight font-bold text-book-ink">
 					How everyone's feeling
 				</h2>
-				<p class="mt-1 font-hand text-lg leading-tight text-ink-soft">Only the mood. No details.</p>
+				<p class="mt-1 font-hand text-lg leading-tight text-book-ink/70">Only the mood. No details.</p>
 
 				{#if moodPeek.length > 0}
 					<div class="mt-4 flex flex-wrap gap-x-3 gap-y-4">
 						{#each moodPeek as item (item.key)}
 							<div class="flex min-w-[60px] flex-col items-center gap-1 text-center">
 								<div
-									class="flex size-14 items-center justify-center rounded-full shadow-[0_0_0_1px_#E0D4EE]"
+									class="flex size-14 items-center justify-center rounded-full shadow-[0_0_0_1px_var(--color-line)]"
 									style="background: {item.mood.c}88"
 								>
 									<span class="size-10 [&>svg]:size-full" aria-hidden="true">
@@ -470,36 +470,36 @@
 									</span>
 								</div>
 								<span
-									class="max-w-[68px] truncate font-hand text-lg leading-none font-bold text-ink"
+									class="max-w-[68px] truncate font-hand text-lg leading-none font-bold text-book-ink"
 								>
 									{firstName(item.friend.displayName)}
 								</span>
-								<span class="font-hand text-[13px] leading-none text-ink-soft">
+								<span class="font-hand text-[13px] leading-none text-book-ink/70">
 									{item.when.toLowerCase()}
 								</span>
 							</div>
 						{/each}
 					</div>
 				{:else}
-					<p class="mt-4 font-hand text-base leading-snug text-ink-soft">
+					<p class="mt-4 font-hand text-base leading-snug text-book-ink/70">
 						No moods shared yet. When friends post, their weather shows up here.
 					</p>
 				{/if}
 			</section>
 
 			<!-- Requests -->
-			<section class="rounded-[20px] bg-paper p-5 text-ink shadow-[0_10px_26px_rgba(0,0,0,.35)]">
+			<section class="note-scrap rounded-[20px] p-5 text-book-ink shadow-[0_10px_26px_rgba(0,0,0,.35)]">
 				<div class="flex items-start justify-between gap-2">
-					<h2 class="font-display text-[23px] leading-tight font-bold text-ink">Friend requests</h2>
+					<h2 class="font-display text-[23px] leading-tight font-bold text-book-ink">Friend requests</h2>
 					{#if friends.pendingCount > 0}
 						<span
-							class="rounded-full bg-gold/25 px-2 py-0.5 font-ui text-[11px] font-bold text-[#7A5618]"
+							class="rounded-full bg-book-accent/20 px-2 py-0.5 font-ui text-[11px] font-bold note-accent"
 						>
 							{friends.pendingCount}
 						</span>
 					{/if}
 				</div>
-				<p class="mt-1 font-hand text-lg leading-tight text-ink-soft">
+				<p class="mt-1 font-hand text-lg leading-tight text-book-ink/70">
 					{#if friends.incomingRequests.length > 0}
 						{friends.incomingRequests.length}
 						{friends.incomingRequests.length === 1 ? 'person wants' : 'people want'} to read your shared
@@ -521,24 +521,24 @@
 									ring="ring-2 ring-gold/40"
 								/>
 								<div class="min-w-[90px] flex-1">
-									<div class="truncate font-hand text-xl leading-tight font-bold text-ink">
+									<div class="truncate font-hand text-xl leading-tight font-bold text-book-ink">
 										{request.fromDisplayName || 'VidJo student'}
 									</div>
-									<div class="truncate font-ui text-[11px] text-ink-soft">
+									<div class="truncate font-ui text-[11px] text-book-ink/70">
 										@{request.fromUsername}
 									</div>
 								</div>
 								<div class="flex gap-1.5">
 									<button
 										type="button"
-										class="min-h-9 rounded-lg bg-accent px-3 font-ui text-xs font-semibold text-white transition-colors hover:bg-[#624690]"
+										class="min-h-9 rounded-lg bg-cta px-3 font-ui text-xs font-semibold text-cta-text transition-colors hover:bg-cta-hover"
 										onclick={() => friends.acceptFriendRequest(request.id)}
 									>
 										Accept
 									</button>
 									<button
 										type="button"
-										class="min-h-9 rounded-lg border-[1.5px] border-[#CDBBE9] px-3 font-ui text-xs font-semibold text-accent transition-colors hover:bg-light"
+										class="min-h-9 rounded-lg border-[1.5px] border-line px-3 font-ui text-xs font-semibold text-book-ink/80 transition-colors hover:bg-paper-deep"
 										onclick={() => friends.declineFriendRequest(request.id)}
 									>
 										Decline
@@ -548,7 +548,7 @@
 						{/each}
 
 						{#if friends.incomingRequests.length > incoming.length}
-							<p class="font-ui text-[11px] text-ink-soft">
+							<p class="font-ui text-[11px] text-book-ink/70">
 								+{friends.incomingRequests.length - incoming.length} more waiting below in the list.
 							</p>
 						{/if}
@@ -563,14 +563,14 @@
 									ring="ring-2 ring-lav/40"
 								/>
 								<div class="min-w-[90px] flex-1">
-									<div class="truncate font-hand text-lg leading-tight font-bold text-ink">
+									<div class="truncate font-hand text-lg leading-tight font-bold text-book-ink">
 										{request.toDisplayName || 'Request sent'}
 									</div>
-									<div class="font-ui text-[11px] text-ink-soft">Waiting to be accepted</div>
+									<div class="font-ui text-[11px] text-book-ink/70">Waiting to be accepted</div>
 								</div>
 								<button
 									type="button"
-									class="min-h-9 rounded-lg border border-line px-2.5 font-ui text-[11px] font-semibold text-ink-soft transition-colors hover:bg-light hover:text-ink"
+									class="min-h-9 rounded-lg border border-line px-2.5 font-ui text-[11px] font-semibold text-book-ink/70 transition-colors hover:bg-paper-deep hover:text-book-ink"
 									onclick={() => friends.cancelFriendRequest(request.id)}
 								>
 									Cancel
@@ -579,16 +579,16 @@
 						{/each}
 					</div>
 				{:else}
-					<p class="mt-3 font-hand text-base leading-snug text-ink-soft">
+					<p class="mt-3 font-hand text-base leading-snug text-book-ink/70">
 						Share your friend code below to get discovered by classmates.
 					</p>
 				{/if}
 			</section>
 
 			<!-- Friend code -->
-			<section class="rounded-[20px] bg-paper p-5 text-ink shadow-[0_10px_26px_rgba(0,0,0,.35)]">
-				<h2 class="font-display text-[23px] leading-tight font-bold text-ink">Invite a friend</h2>
-				<p class="mt-1 font-hand text-lg leading-tight text-ink-soft">
+			<section class="note-scrap rounded-[20px] p-5 text-book-ink shadow-[0_10px_26px_rgba(0,0,0,.35)]">
+				<h2 class="font-display text-[23px] leading-tight font-bold text-book-ink">Invite a friend</h2>
+				<p class="mt-1 font-hand text-lg leading-tight text-book-ink/70">
 					Friends add you with your friend code. Usernames and links will not work.
 				</p>
 
@@ -598,11 +598,11 @@
 						id="my-friend-code"
 						readonly
 						value={friends.myFriendCode}
-						class="h-11 min-w-0 flex-1 rounded-xl border border-line bg-[#FFFDF6] px-3.5 font-hand text-lg font-bold tracking-wide text-ink select-all"
+						class="h-11 min-w-0 flex-1 rounded-xl border border-line bg-book-bg px-3.5 font-hand text-lg font-bold tracking-wide text-book-ink select-all"
 					/>
 					<button
 						type="button"
-						class="min-h-11 rounded-xl bg-accent px-4 font-ui text-sm font-semibold text-white transition-colors hover:bg-[#624690]"
+						class="min-h-11 rounded-xl bg-cta px-4 font-ui text-sm font-semibold text-cta-text transition-colors hover:bg-cta-hover"
 						onclick={copyMyCode}
 					>
 						{copied ? 'Copied!' : 'Copy code'}
@@ -611,7 +611,7 @@
 
 				<div class="mt-3 flex items-start gap-2 border-t border-line pt-3">
 					<svg
-						class="mt-0.5 size-4 shrink-0 text-[#8A5A12]"
+						class="mt-0.5 size-4 shrink-0 note-accent"
 						viewBox="0 0 24 24"
 						fill="none"
 						stroke="currentColor"
@@ -623,7 +623,7 @@
 						<circle cx="8" cy="15" r="4"></circle>
 						<path d="m10.85 12.15 8.65-8.65M18 5l3 3M15 8l3 3"></path>
 					</svg>
-					<p class="font-ui text-[11px] leading-relaxed text-ink-soft">
+					<p class="font-ui text-[11px] leading-relaxed text-book-ink/70">
 						Share your code only with classmates you want on your shelf. Nothing else about your
 						journal becomes visible.
 					</p>
@@ -649,18 +649,18 @@
 		></button>
 
 		<div
-			class="relative z-10 w-full max-w-[440px] overflow-hidden rounded-[26px] border border-[#4E396E] bg-paper text-ink shadow-[0_25px_60px_rgba(0,0,0,.55)]"
+			class="relative z-10 w-full max-w-[440px] overflow-hidden rounded-[26px] border border-cover-edge note-scrap text-book-ink shadow-[0_25px_60px_rgba(0,0,0,.55)]"
 		>
 			<div
-				class="relative flex items-center justify-between gap-3 bg-[linear-gradient(135deg,#34214E,#231438)] px-5 py-4 text-white"
+				class="relative flex items-center justify-between gap-3 bg-[linear-gradient(135deg,var(--color-cover-edge),var(--color-desk))] px-5 py-4 text-book-bg"
 			>
 				<div>
 					<h2 id="add-friend-title" class="font-display text-xl font-bold">Add a friend</h2>
-					<p class="font-ui text-[11px] text-[#C9B8E8]">Friend codes only</p>
+					<p class="font-ui text-[11px] text-book-bg/65">Friend codes only</p>
 				</div>
 				<button
 					type="button"
-					class="flex size-9 items-center justify-center rounded-full bg-white/10 text-white/80 transition-colors hover:bg-white/20 hover:text-white"
+					class="flex size-9 items-center justify-center rounded-full bg-white/10 text-book-bg/80 transition-colors hover:bg-white/20 hover:text-book-bg"
 					onclick={() => (addOpen = false)}
 					aria-label="Close"
 				>
@@ -669,7 +669,7 @@
 			</div>
 
 			<form class="p-5" onsubmit={submitAddFriend}>
-				<label for="friend-code-input" class="block font-ui text-xs font-semibold text-ink-soft">
+				<label for="friend-code-input" class="block font-ui text-xs font-semibold text-book-ink/70">
 					Their friend code
 				</label>
 				<input
@@ -678,12 +678,12 @@
 					type="text"
 					placeholder="VJ-7K9M2P"
 					maxlength="16"
-					class="mt-1.5 h-12 w-full rounded-xl border-2 border-line bg-[#FFFDF6] px-3.5 font-mono text-base font-bold tracking-wider text-ink uppercase placeholder:text-ink-soft/50 focus:border-accent focus:outline-none"
+					class="mt-1.5 h-12 w-full rounded-xl border-2 border-line bg-book-bg px-3.5 font-mono text-base font-bold tracking-wider text-book-ink uppercase placeholder:text-book-ink/45 focus:border-book-accent focus:outline-none"
 					disabled={addBusy}
 					autocomplete="off"
 					spellcheck="false"
 				/>
-				<p class="mt-2 font-hand text-base leading-snug text-ink-soft">
+				<p class="mt-2 font-hand text-base leading-snug text-book-ink/70">
 					Ask your friend for the code on their profile. Usernames and invite links cannot be used.
 				</p>
 
@@ -703,7 +703,7 @@
 				{/if}
 
 				<div class="mt-5 flex items-center justify-between gap-2 border-t border-line pt-4">
-					<Button variant="paper" onclick={() => (addOpen = false)}>Cancel</Button>
+					<Button variant="note" onclick={() => (addOpen = false)}>Cancel</Button>
 					<Button
 						type="submit"
 						icon="mail"
@@ -715,17 +715,17 @@
 				</div>
 			</form>
 
-			<div class="border-t border-line bg-light/70 px-5 py-3">
-				<p class="font-ui text-[11px] font-semibold text-ink-soft">Your friend code</p>
+			<div class="border-t border-line bg-paper-deep/70 px-5 py-3">
+				<p class="font-ui text-[11px] font-semibold text-book-ink/70">Your friend code</p>
 				<div class="mt-1 flex items-center gap-2">
 					<code
-						class="rounded-md bg-paper px-2 py-1 font-mono text-xs font-bold text-accent tabular-nums"
+						class="rounded-md bg-book-bg px-2 py-1 font-mono text-xs font-bold note-accent tabular-nums"
 					>
 						{friends.myFriendCode}
 					</code>
 					<button
 						type="button"
-						class="inline-flex items-center gap-1 font-ui text-xs font-semibold text-accent hover:underline"
+						class="inline-flex items-center gap-1 font-ui text-xs font-semibold note-accent hover:underline"
 						onclick={copyMyCode}
 					>
 						<CommunityIcon name="copy" size={12} />
