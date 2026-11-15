@@ -431,16 +431,16 @@
 	}
 
 	function toneClasses(tone: Badge['tone']) {
-		if (tone === 'gold') return 'border-gold/40 bg-gold/15 text-gold';
+		if (tone === 'gold') return 'border-book-accent/40 bg-book-accent/15 text-book-accent';
 		if (tone === 'green') return 'border-[#3F7A4F]/40 bg-[#3F7A4F]/15 text-[#8BE2A4]';
-		return 'border-lav/40 bg-lav/15 text-lav';
+		return 'border-cover bg-cover/25 text-book-bg/75';
 	}
 </script>
 
 <div class="mx-auto w-full max-w-[1100px] px-4 py-6 min-[900px]:px-6">
 	<!-- ── Profile hero ── -->
 	<div
-		class="relative overflow-hidden rounded-[32px] border border-[#523A7A] shadow-[0_28px_70px_rgba(0,0,0,.5)]"
+		class="relative overflow-hidden rounded-[32px] border border-cover-edge shadow-[0_28px_70px_rgba(0,0,0,.5)]"
 	>
 		<div class="relative h-44 min-[720px]:h-52">
 			{#if bannerSrc && !bannerFailed}
@@ -454,7 +454,7 @@
 				/>
 			{:else}
 				<div
-					class="absolute inset-0 bg-[radial-gradient(ellipse_at_top,#7D58C2_0%,#3A2360_60%,#24143D_100%)]"
+					class="absolute inset-0 bg-[radial-gradient(ellipse_at_top,var(--color-cover)_0%,var(--color-cover-edge)_60%,var(--color-desk)_100%)]"
 				></div>
 			{/if}
 			<div
@@ -474,39 +474,39 @@
 					name={profile.displayName}
 					className="size-32"
 					textClass="text-5xl"
-					ring="border-4 border-gold/60 shadow-[0_20px_40px_rgba(0,0,0,.45)]"
+					ring="border-4 border-book-accent/60 shadow-[0_20px_40px_rgba(0,0,0,.45)]"
 				/>
 			</div>
 		</div>
 
 		<div class="bg-desk-2 px-6 pt-20 pb-8 text-center min-[720px]:px-10">
-			<h1 class="font-display text-3xl font-bold text-white min-[720px]:text-4xl">
+			<h1 class="font-display text-3xl font-bold text-book-bg min-[720px]:text-4xl">
 				{profile.nickname}
 			</h1>
-			<p class="mt-1 font-ui text-sm font-semibold text-lav">@{profile.username}</p>
-			<p class="mt-1 font-ui text-xs text-[#BBA8E0]">
+			<p class="mt-1 font-ui text-sm font-semibold text-book-bg/70">@{profile.username}</p>
+			<p class="mt-1 font-ui text-xs text-book-bg/65">
 				{#if isSupabaseConfigured && auth.email}
 					{auth.email} •
 				{/if}
 				Member since {profile.memberSince}
 			</p>
 			{#if profile.bio}
-				<p class="mx-auto mt-4 max-w-[560px] font-hand text-lg text-[#EDE6F7]">“{profile.bio}”</p>
+				<p class="mx-auto mt-4 max-w-[560px] font-hand text-lg text-book-bg/90">“{profile.bio}”</p>
 			{:else}
-				<p class="mx-auto mt-4 max-w-[560px] font-hand text-lg text-[#BBA8E0]">
+				<p class="mx-auto mt-4 max-w-[560px] font-hand text-lg text-book-bg/65">
 					Small videos, big thoughts.
 				</p>
 			{/if}
 
 			<div class="mt-5 flex flex-wrap items-center justify-center gap-2">
 				<span
-					class="rounded-full bg-white/10 px-3 py-1 font-mono text-xs font-bold tracking-wider text-gold tabular-nums"
+					class="rounded-full bg-cover/35 px-3 py-1 font-mono text-xs font-bold tracking-wider text-book-accent tabular-nums"
 				>
 					{profile.friendCode}
 				</span>
 				<button
 					type="button"
-					class="inline-flex items-center gap-1.5 rounded-full bg-white/10 px-3 py-1 font-ui text-xs font-semibold text-white transition-colors hover:bg-white/20"
+					class="inline-flex items-center gap-1.5 rounded-full bg-cover/35 px-3 py-1 font-ui text-xs font-semibold text-book-bg transition-colors hover:bg-cover/50"
 					onclick={copyFriendCode}
 				>
 					{#if copied}
@@ -520,30 +520,30 @@
 			</div>
 
 			<div class="mt-6 grid grid-cols-2 gap-3 min-[640px]:grid-cols-4">
-				<div class="rounded-2xl border border-[#4D366D] bg-white/[.04] p-4">
-					<p class="font-display text-2xl font-bold text-white tabular-nums">{totalPages}</p>
-					<p class="font-ui text-xs text-[#BBA8E0]">Pages written</p>
+				<div class="rounded-2xl border border-cover-edge bg-cover/15 p-4">
+					<p class="font-display text-2xl font-bold text-book-bg tabular-nums">{totalPages}</p>
+					<p class="font-ui text-xs text-book-bg/65">Pages written</p>
 				</div>
-				<div
-					class="rounded-2xl border border-gold/40 bg-[linear-gradient(135deg,rgba(212,162,76,.18),transparent)] p-4"
-				>
+				<div class="rounded-2xl border border-book-accent/40 bg-book-accent/10 p-4">
 					<p
-						class="flex items-center justify-center gap-1.5 font-display text-2xl font-bold text-gold tabular-nums"
+						class="flex items-center justify-center gap-1.5 font-display text-2xl font-bold text-book-accent tabular-nums"
 					>
 						<CommunityIcon name="flame" size={20} />
 						{streak}
 					</p>
-					<p class="font-ui text-xs text-[#BBA8E0]">Day streak</p>
+					<p class="font-ui text-xs text-book-bg/65">Day streak</p>
 				</div>
-				<div class="rounded-2xl border border-[#4D366D] bg-white/[.04] p-4">
+				<div class="rounded-2xl border border-cover-edge bg-cover/15 p-4">
 					<p class="font-display text-2xl font-bold text-[#8BE2A4] tabular-nums">
 						{friends.friendCount}
 					</p>
-					<p class="font-ui text-xs text-[#BBA8E0]">Friends</p>
+					<p class="font-ui text-xs text-book-bg/65">Friends</p>
 				</div>
-				<div class="rounded-2xl border border-[#4D366D] bg-white/[.04] p-4">
-					<p class="font-display text-2xl font-bold text-lav tabular-nums">{badges.length}</p>
-					<p class="font-ui text-xs text-[#BBA8E0]">Badges</p>
+				<div class="rounded-2xl border border-cover-edge bg-cover/15 p-4">
+					<p class="font-display text-2xl font-bold text-book-bg/70 tabular-nums">
+						{badges.length}
+					</p>
+					<p class="font-ui text-xs text-book-bg/65">Badges</p>
 				</div>
 			</div>
 		</div>
@@ -552,15 +552,15 @@
 	<!-- ── Tabs ── -->
 	<div class="mt-6 flex justify-center">
 		<div
-			class="flex max-w-full items-center gap-1 overflow-x-auto rounded-full border border-[#4D366D] bg-desk-2 p-1"
+			class="flex max-w-full items-center gap-1 overflow-x-auto rounded-full border border-cover-edge bg-desk-2 p-1"
 		>
 			{#each tabs as tab (tab.id)}
 				<button
 					type="button"
 					class="shrink-0 rounded-full px-4 py-2 font-ui text-sm font-semibold transition-all {nav.profileTab ===
 					tab.id
-						? 'bg-accent text-white shadow-sm'
-						: 'text-[#D6CBEC] hover:text-white'}"
+						? 'bg-cta text-cta-text shadow-sm'
+						: 'text-book-bg/70 hover:text-book-bg'}"
 					onclick={() => setTab(tab.id)}
 				>
 					{tab.label}
@@ -572,55 +572,55 @@
 	{#if nav.profileTab === 'overview'}
 		<div class="mt-6 grid gap-6 lg:grid-cols-[1.1fr_.9fr]">
 			<div
-				class="rounded-[26px] border border-[#4D366D] bg-desk-2 p-6 text-white shadow-[0_18px_44px_rgba(0,0,0,.38)]"
+				class="rounded-[26px] border border-cover-edge bg-desk-2 p-6 text-book-bg shadow-[0_18px_44px_rgba(0,0,0,.38)]"
 			>
 				<h2 class="font-display text-xl font-bold">About</h2>
 				<dl class="mt-4 grid gap-2.5 font-ui text-sm">
 					<div class="flex items-center justify-between gap-4">
-						<dt class="text-[#BBA8E0]">Nickname</dt>
-						<dd class="font-semibold text-white">{profile.nickname}</dd>
+						<dt class="text-book-bg/65">Nickname</dt>
+						<dd class="font-semibold text-book-bg">{profile.nickname}</dd>
 					</div>
 					<div class="flex items-center justify-between gap-4">
-						<dt class="text-[#BBA8E0]">Username</dt>
-						<dd class="font-semibold text-lav">@{profile.username}</dd>
+						<dt class="text-book-bg/65">Username</dt>
+						<dd class="font-semibold text-book-bg/70">@{profile.username}</dd>
 					</div>
 					<div class="flex items-center justify-between gap-4">
-						<dt class="text-[#BBA8E0]">Member since</dt>
-						<dd class="font-semibold text-white">{profile.memberSince}</dd>
+						<dt class="text-book-bg/65">Member since</dt>
+						<dd class="font-semibold text-book-bg">{profile.memberSince}</dd>
 					</div>
 					<div class="flex items-center justify-between gap-4">
-						<dt class="text-[#BBA8E0]">Communities</dt>
-						<dd class="font-semibold text-white tabular-nums">
+						<dt class="text-book-bg/65">Communities</dt>
+						<dd class="font-semibold text-book-bg tabular-nums">
 							{community.joinedCommunities.length}
 						</dd>
 					</div>
 				</dl>
 				{#if profile.bio}
-					<p class="mt-4 rounded-xl bg-white/5 p-4 font-hand text-lg text-[#EDE6F7]">
+					<p class="mt-4 rounded-xl bg-cover/20 p-4 font-hand text-lg text-book-bg/90">
 						“{profile.bio}”
 					</p>
 				{:else}
-					<p class="mt-4 rounded-xl bg-white/5 p-4 font-ui text-sm text-[#BBA8E0]">
+					<p class="mt-4 rounded-xl bg-cover/20 p-4 font-ui text-sm text-book-bg/65">
 						Add a short bio so friends and communities know what you're about.
 					</p>
 				{/if}
 			</div>
 
 			<div
-				class="rounded-[26px] border border-[#4D366D] bg-desk-2 p-6 text-white shadow-[0_18px_44px_rgba(0,0,0,.38)]"
+				class="rounded-[26px] border border-cover-edge bg-desk-2 p-6 text-book-bg shadow-[0_18px_44px_rgba(0,0,0,.38)]"
 			>
 				<div class="flex items-center justify-between">
 					<h2 class="font-display text-xl font-bold">Recent badges</h2>
 					<button
 						type="button"
-						class="font-ui text-xs font-semibold text-gold hover:underline"
+						class="font-ui text-xs font-semibold text-book-accent hover:underline"
 						onclick={() => setTab('achievements')}
 					>
 						View all
 					</button>
 				</div>
 				{#if badges.length === 0}
-					<p class="mt-4 font-ui text-sm text-[#BBA8E0]">
+					<p class="mt-4 font-ui text-sm text-book-bg/65">
 						Write a page or make a friend to start earning badges.
 					</p>
 				{:else}
@@ -642,53 +642,53 @@
 				<div class="mt-3 grid gap-2">
 					<button
 						type="button"
-						class="flex items-center justify-between rounded-xl bg-white/5 px-4 py-3 text-left hover:bg-white/10"
+						class="flex items-center justify-between rounded-xl bg-cover/20 px-4 py-3 text-left hover:bg-cover/35"
 						onclick={() => nav.jump(journal.current)}
 					>
 						<span class="font-ui text-sm">Write today's page</span>
-						<CommunityIcon name="arrow-right" size={15} class="text-gold" />
+						<CommunityIcon name="arrow-right" size={15} class="text-book-accent" />
 					</button>
 					<button
 						type="button"
-						class="flex items-center justify-between rounded-xl bg-white/5 px-4 py-3 text-left hover:bg-white/10"
+						class="flex items-center justify-between rounded-xl bg-cover/20 px-4 py-3 text-left hover:bg-cover/35"
 						onclick={() => nav.setView('friends')}
 					>
 						<span class="font-ui text-sm">Go to friends</span>
-						<CommunityIcon name="arrow-right" size={15} class="text-gold" />
+						<CommunityIcon name="arrow-right" size={15} class="text-book-accent" />
 					</button>
 					<button
 						type="button"
-						class="flex items-center justify-between rounded-xl bg-white/5 px-4 py-3 text-left hover:bg-white/10"
+						class="flex items-center justify-between rounded-xl bg-cover/20 px-4 py-3 text-left hover:bg-cover/35"
 						onclick={() => nav.setView('community')}
 					>
 						<span class="font-ui text-sm">Explore communities</span>
-						<CommunityIcon name="arrow-right" size={15} class="text-gold" />
+						<CommunityIcon name="arrow-right" size={15} class="text-book-accent" />
 					</button>
 				</div>
 			</div>
 
 			<div
-				class="rounded-[26px] border border-[#4D366D] bg-desk-2 p-6 text-white shadow-[0_18px_44px_rgba(0,0,0,.38)] lg:col-span-2"
+				class="rounded-[26px] border border-cover-edge bg-desk-2 p-6 text-book-bg shadow-[0_18px_44px_rgba(0,0,0,.38)] lg:col-span-2"
 			>
 				<div class="flex items-center justify-between">
 					<h2 class="font-display text-xl font-bold">Recently shared</h2>
 					<button
 						type="button"
-						class="font-ui text-xs font-semibold text-gold hover:underline"
+						class="font-ui text-xs font-semibold text-book-accent hover:underline"
 						onclick={() => setTab('portfolio')}
 					>
 						Full portfolio
 					</button>
 				</div>
 				{#if recentlyShared.length === 0}
-					<div class="rounded-2xl border border-[#4D366D] bg-white/5 p-8 text-center">
+					<div class="rounded-2xl border border-cover-edge bg-cover/20 p-8 text-center">
 						<p class="font-display text-lg font-bold">Nothing shared yet</p>
-						<p class="mt-1 font-ui text-sm text-[#BBA8E0]">
+						<p class="mt-1 font-ui text-sm text-book-bg/65">
 							Set a page to Friends or Community to build your portfolio.
 						</p>
 						<button
 							type="button"
-							class="mt-3 rounded-xl bg-accent px-4 py-2 font-ui text-sm font-bold text-white hover:bg-[#624690]"
+							class="mt-3 rounded-xl bg-cta px-4 py-2 font-ui text-sm font-bold text-cta-text hover:bg-cta-hover"
 							onclick={() => nav.jump(journal.current)}
 						>
 							Create a page
@@ -699,25 +699,25 @@
 						{#each recentlyShared as post (post.date)}
 							<button
 								type="button"
-								class="group rounded-2xl border border-white/10 bg-white/10 p-4 text-left text-white transition-all hover:-translate-y-0.5 hover:shadow-md"
+								class="group rounded-2xl border border-cover-edge bg-cover/35 p-4 text-left text-book-bg transition-all hover:-translate-y-0.5 hover:shadow-md"
 								onclick={() => nav.jump(post.date)}
 							>
 								<div class="flex items-center justify-between gap-2">
 									<span
-										class="rounded-full bg-accent/10 px-2 py-0.5 font-ui text-[10px] font-semibold text-gold"
+										class="rounded-full bg-book-accent/15 px-2 py-0.5 font-ui text-[10px] font-semibold text-book-accent"
 									>
 										{post.communityTag || post.privacy}
 									</span>
 									{#if post.hasVideo}
-										<CommunityIcon name="video" size={14} class="text-[#BBA8E0]" />
+										<CommunityIcon name="video" size={14} class="text-book-bg/65" />
 									{/if}
 								</div>
 								<p
-									class="mt-2 truncate font-display text-base font-bold text-white group-hover:text-gold"
+									class="mt-2 truncate font-display text-base font-bold text-book-bg group-hover:text-book-accent"
 								>
 									{censor(post.title)}
 								</p>
-								<p class="mt-1 font-ui text-xs text-[#BBA8E0]">{post.date}</p>
+								<p class="mt-1 font-ui text-xs text-book-bg/65">{post.date}</p>
 							</button>
 						{/each}
 					</div>
@@ -726,29 +726,30 @@
 		</div>
 	{:else if nav.profileTab === 'portfolio'}
 		<div
-			class="mt-6 rounded-[26px] border border-[#4D366D] bg-desk-2 p-6 text-white shadow-[0_18px_44px_rgba(0,0,0,.38)]"
+			class="mt-6 rounded-[26px] border border-cover-edge bg-desk-2 p-6 text-book-bg shadow-[0_18px_44px_rgba(0,0,0,.38)]"
 		>
 			<div class="flex flex-wrap items-center justify-between gap-2">
 				<div>
 					<h2 class="font-display text-xl font-bold">My posts portfolio</h2>
-					<p class="mt-1 font-ui text-sm text-[#BBA8E0]">
+					<p class="mt-1 font-ui text-sm text-book-bg/65">
 						Every page you've shared with friends or a community.
 					</p>
 				</div>
-				<span class="rounded-full bg-accent/10 px-3 py-1 font-ui text-xs font-semibold text-accent"
+				<span
+					class="rounded-full bg-book-accent/15 px-3 py-1 font-ui text-xs font-semibold text-book-accent"
 					>{myPosts.length} shared</span
 				>
 			</div>
 
 			{#if myPosts.length === 0}
-				<div class="rounded-2xl border border-[#4D366D] bg-white/5 p-10 text-center">
+				<div class="rounded-2xl border border-cover-edge bg-cover/20 p-10 text-center">
 					<p class="font-display text-lg font-bold">No shared posts yet</p>
-					<p class="mt-1 font-ui text-sm text-[#BBA8E0]">
+					<p class="mt-1 font-ui text-sm text-book-bg/65">
 						Turn on Friends, Community, or both in the sharing picker on any page.
 					</p>
 					<button
 						type="button"
-						class="mt-3 rounded-xl bg-accent px-4 py-2 font-ui text-sm font-bold text-white hover:bg-[#624690]"
+						class="mt-3 rounded-xl bg-cta px-4 py-2 font-ui text-sm font-bold text-cta-text hover:bg-cta-hover"
 						onclick={() => nav.jump(journal.current)}
 					>
 						Write a page
@@ -759,25 +760,25 @@
 					{#each myPosts as post (post.date)}
 						<button
 							type="button"
-							class="group rounded-2xl border border-white/10 bg-white/10 p-4 text-left text-white transition-all hover:-translate-y-0.5 hover:shadow-md"
+							class="group rounded-2xl border border-cover-edge bg-cover/35 p-4 text-left text-book-bg transition-all hover:-translate-y-0.5 hover:shadow-md"
 							onclick={() => nav.jump(post.date)}
 						>
 							<div class="flex items-center justify-between gap-2">
 								<span
-									class="rounded-full bg-accent/10 px-2 py-0.5 font-ui text-[10px] font-semibold text-gold"
+									class="rounded-full bg-book-accent/15 px-2 py-0.5 font-ui text-[10px] font-semibold text-book-accent"
 								>
 									{post.communityTag || post.privacy}
 								</span>
 								{#if post.hasVideo}
-									<CommunityIcon name="video" size={14} class="text-[#BBA8E0]" />
+									<CommunityIcon name="video" size={14} class="text-book-bg/65" />
 								{/if}
 							</div>
 							<p
-								class="mt-2 truncate font-display text-base font-bold text-white group-hover:text-gold"
+								class="mt-2 truncate font-display text-base font-bold text-book-bg group-hover:text-book-accent"
 							>
 								{post.title}
 							</p>
-							<p class="mt-1 font-ui text-xs text-[#BBA8E0]">{post.date}</p>
+							<p class="mt-1 font-ui text-xs text-book-bg/65">{post.date}</p>
 						</button>
 					{/each}
 				</div>
@@ -785,24 +786,25 @@
 		</div>
 	{:else if nav.profileTab === 'achievements'}
 		<div
-			class="mt-6 rounded-[26px] border border-[#4D366D] bg-desk-2 p-6 text-white shadow-[0_18px_44px_rgba(0,0,0,.38)]"
+			class="mt-6 rounded-[26px] border border-cover-edge bg-desk-2 p-6 text-book-bg shadow-[0_18px_44px_rgba(0,0,0,.38)]"
 		>
 			<div class="flex flex-wrap items-center justify-between gap-2">
 				<div>
 					<h2 class="font-display text-xl font-bold">Achievements</h2>
-					<p class="mt-1 font-ui text-sm text-[#BBA8E0]">
+					<p class="mt-1 font-ui text-sm text-book-bg/65">
 						Little milestones from your journal and your circle.
 					</p>
 				</div>
-				<span class="rounded-full bg-white/10 px-3 py-1 font-ui text-xs font-semibold text-lav"
+				<span
+					class="rounded-full bg-cover/35 px-3 py-1 font-ui text-xs font-semibold text-book-bg/70"
 					>{badges.length} earned</span
 				>
 			</div>
 
 			{#if badges.length === 0}
-				<div class="mt-5 rounded-2xl border border-white/10 bg-white/5 p-8 text-center">
+				<div class="mt-5 rounded-2xl border border-cover-edge bg-cover/20 p-8 text-center">
 					<p class="font-display text-lg font-bold">Your first badge is close</p>
-					<p class="mt-1 font-ui text-sm text-[#BBA8E0]">
+					<p class="mt-1 font-ui text-sm text-book-bg/65">
 						Save a page, join a community, or add a friend to get started.
 					</p>
 				</div>
@@ -811,7 +813,7 @@
 					{#each badges as badge (badge.id)}
 						<div class="flex items-start gap-3 rounded-2xl border p-4 {toneClasses(badge.tone)}">
 							<span
-								class="flex size-10 shrink-0 items-center justify-center rounded-full bg-white/10"
+								class="flex size-10 shrink-0 items-center justify-center rounded-full bg-cover/35"
 							>
 								<CommunityIcon name={badge.icon} size={20} />
 							</span>
@@ -827,21 +829,21 @@
 	{:else if nav.profileTab === 'settings'}
 		<div class="mt-6 grid gap-6 lg:grid-cols-2">
 			<div
-				class="rounded-[26px] border border-[#4D366D] bg-desk-2 p-6 text-white shadow-[0_18px_44px_rgba(0,0,0,.38)]"
+				class="rounded-[26px] border border-cover-edge bg-desk-2 p-6 text-book-bg shadow-[0_18px_44px_rgba(0,0,0,.38)]"
 			>
 				<h2 class="font-display text-xl font-bold">Appearance</h2>
-				<p class="mt-1 font-ui text-sm text-[#BBA8E0]">
+				<p class="mt-1 font-ui text-sm text-book-bg/65">
 					Your accent color follows you across the app.
 				</p>
 
-				<p class="mt-5 font-ui text-xs font-semibold text-gold">Accent color</p>
+				<p class="mt-5 font-ui text-xs font-semibold text-book-accent">Accent color</p>
 				<div class="mt-2 flex flex-wrap gap-2.5">
 					{#each accentChoices as color (color)}
 						<button
 							type="button"
 							class="size-10 rounded-full border-2 transition-transform hover:scale-105 {profile.accentColor ===
 							color
-								? 'border-white'
+								? 'border-book-bg'
 								: 'border-transparent'}"
 							style="background: {color}"
 							aria-label={`Use accent color ${color}`}
@@ -850,7 +852,7 @@
 						></button>
 					{/each}
 					<label
-						class="flex size-10 cursor-pointer items-center justify-center rounded-full border-2 border-white/30 text-white/70 transition-colors hover:border-white/60 hover:text-white"
+						class="flex size-10 cursor-pointer items-center justify-center rounded-full border-2 border-cover text-book-bg/70 transition-colors hover:border-cover hover:text-book-bg"
 					>
 						<input
 							type="color"
@@ -862,20 +864,20 @@
 					</label>
 				</div>
 
-				<p class="mt-6 font-ui text-xs font-semibold text-gold">Journal theme</p>
+				<p class="mt-6 font-ui text-xs font-semibold text-book-accent">Journal theme</p>
 				<div class="mt-2 grid gap-2">
 					{#each themes as theme (theme.id)}
 						<button
 							type="button"
 							class="flex items-center justify-between rounded-xl px-4 py-3 transition-colors {profile.theme ===
 							theme.id
-								? 'bg-accent'
-								: 'bg-white/5 hover:bg-white/10'}"
+								? 'bg-cta text-cta-text'
+								: 'bg-cover/20 hover:bg-cover/35'}"
 							onclick={() => (profile.theme = theme.id)}
 						>
 							<span class="flex items-center gap-2.5 font-ui text-sm">
 								<span
-									class="size-4 rounded-full ring-2 ring-white/30"
+									class="size-4 rounded-full ring-2 ring-book-bg/30"
 									style="background: {theme.swatch}"
 								></span>
 								{theme.label}
@@ -887,15 +889,15 @@
 					{/each}
 				</div>
 
-				<p class="mt-6 font-ui text-xs font-semibold text-gold">Default paper style</p>
+				<p class="mt-6 font-ui text-xs font-semibold text-book-accent">Default paper style</p>
 				<div class="mt-2 grid gap-2">
 					{#each ['lined', 'dotted', 'grid', 'plain'] as const as style (style)}
 						<button
 							type="button"
 							class="flex items-center justify-between rounded-xl px-4 py-3 transition-colors {profile.paperStyle ===
 							style
-								? 'bg-accent'
-								: 'bg-white/5 hover:bg-white/10'}"
+								? 'bg-cta text-cta-text'
+								: 'bg-cover/20 hover:bg-cover/35'}"
 							onclick={() => (profile.paperStyle = style)}
 						>
 							<span class="flex items-center gap-2.5 font-ui text-sm">
@@ -906,7 +908,7 @@
 										: style === 'grid'
 											? 'Grid'
 											: 'Plain'}
-								<span class="text-xs text-[#BBA8E0]">{style}</span>
+								<span class="text-xs text-book-bg/65">{style}</span>
 							</span>
 							{#if profile.paperStyle === style}
 								<CommunityIcon name="check" size={16} />
@@ -915,69 +917,69 @@
 					{/each}
 				</div>
 
-				<p class="mt-6 font-ui text-xs font-semibold text-gold">Text size</p>
+				<p class="mt-6 font-ui text-xs font-semibold text-book-accent">Text size</p>
 				<div class="mt-2 flex items-center gap-4">
-					<span class="font-ui text-xs text-[#BBA8E0]">A</span>
+					<span class="font-ui text-xs text-book-bg/65">A</span>
 					<select
 						bind:value={profile.fontSize}
-						class="rounded-lg border border-white/15 bg-[#2A1B3F] px-3 py-2 font-ui text-sm text-white focus:border-accent focus:outline-none"
+						class="rounded-lg border border-cover-edge bg-desk px-3 py-2 font-ui text-sm text-book-bg focus:border-book-accent focus:outline-none"
 					>
 						<option value="sm">Small</option>
 						<option value="base">Default</option>
 						<option value="lg">Large</option>
 					</select>
-					<span class="font-ui text-xs text-[#BBA8E0]">A</span>
+					<span class="font-ui text-xs text-book-bg/65">A</span>
 				</div>
 			</div>
 
 			<div
-				class="rounded-[26px] border border-[#4D366D] bg-desk-2 p-6 text-white shadow-[0_18px_44px_rgba(0,0,0,.38)]"
+				class="rounded-[26px] border border-cover-edge bg-desk-2 p-6 text-book-bg shadow-[0_18px_44px_rgba(0,0,0,.38)]"
 			>
 				<h2 class="font-display text-xl font-bold">Privacy</h2>
-				<p class="mt-1 font-ui text-sm text-[#BBA8E0]">Control who sees new pages and requests.</p>
+				<p class="mt-1 font-ui text-sm text-book-bg/65">Control who sees new pages and requests.</p>
 
 				<div class="mt-5 space-y-3">
-					<div class="flex items-center justify-between gap-3 rounded-xl bg-white/5 p-4">
+					<div class="flex items-center justify-between gap-3 rounded-xl bg-cover/20 p-4">
 						<div>
 							<p class="font-ui text-sm font-semibold">New page default</p>
-							<p class="font-ui text-xs text-[#BBA8E0]">
+							<p class="font-ui text-xs text-book-bg/65">
 								A starting point — each page can still go to friends and a community together
 							</p>
 						</div>
 						<select
 							bind:value={profile.defaultPrivacy}
-							class="rounded-lg border border-white/15 bg-[#2A1B3F] px-3 py-2 font-ui text-sm text-white"
+							class="rounded-lg border border-cover-edge bg-desk px-3 py-2 font-ui text-sm text-book-bg"
 						>
 							<option value="private">Only me</option>
 							<option value="friends">Friends</option>
 							<option value="community">Community</option>
 						</select>
 					</div>
-					<div class="flex items-center justify-between gap-3 rounded-xl bg-white/5 p-4">
+					<div class="flex items-center justify-between gap-3 rounded-xl bg-cover/20 p-4">
 						<div>
 							<p class="font-ui text-sm font-semibold">Allow friend requests</p>
-							<p class="font-ui text-xs text-[#BBA8E0]">Let others send you requests by code</p>
+							<p class="font-ui text-xs text-book-bg/65">Let others send you requests by code</p>
 						</div>
 						<button
 							type="button"
 							class="rounded-full px-4 py-1.5 font-ui text-xs font-semibold transition-colors {profile.allowFriendRequests
-								? 'bg-[#3F7A4F] text-white'
-								: 'bg-white/20 text-white/80'}"
+								? 'bg-[#3F7A4F] text-book-bg'
+								: 'bg-cover/50 text-book-bg/80'}"
 							onclick={() => (profile.allowFriendRequests = !profile.allowFriendRequests)}
 						>
 							{profile.allowFriendRequests ? 'Enabled' : 'Disabled'}
 						</button>
 					</div>
-					<div class="flex items-center justify-between gap-3 rounded-xl bg-white/5 p-4">
+					<div class="flex items-center justify-between gap-3 rounded-xl bg-cover/20 p-4">
 						<div>
 							<p class="font-ui text-sm font-semibold">Clear cache on sign out</p>
-							<p class="font-ui text-xs text-[#BBA8E0]">Remove local pages from shared devices</p>
+							<p class="font-ui text-xs text-book-bg/65">Remove local pages from shared devices</p>
 						</div>
 						<button
 							type="button"
 							class="rounded-full px-4 py-1.5 font-ui text-xs font-semibold transition-colors {profile.clearCacheOnSignOut
-								? 'bg-[#3F7A4F] text-white'
-								: 'bg-white/20 text-white/80'}"
+								? 'bg-[#3F7A4F] text-book-bg'
+								: 'bg-cover/50 text-book-bg/80'}"
 							onclick={() => (profile.clearCacheOnSignOut = !profile.clearCacheOnSignOut)}
 						>
 							{profile.clearCacheOnSignOut ? 'Enabled' : 'Disabled'}
@@ -996,7 +998,7 @@
 					Clear local journal cache
 				</Button>
 
-				<div class="mt-6 space-y-2 border-t border-white/10 pt-6">
+				<div class="mt-6 space-y-2 border-t border-cover-edge pt-6">
 					<Button class="w-full" variant="outline" icon="upload" onclick={exportJournal}>
 						Export journal data
 					</Button>
@@ -1007,12 +1009,12 @@
 			</div>
 
 			<div
-				class="rounded-[26px] border border-[#4D366D] bg-desk-2 p-6 text-white shadow-[0_18px_44px_rgba(0,0,0,.38)] lg:col-span-2"
+				class="rounded-[26px] border border-cover-edge bg-desk-2 p-6 text-book-bg shadow-[0_18px_44px_rgba(0,0,0,.38)] lg:col-span-2"
 			>
 				<div class="flex flex-wrap items-start justify-between gap-4">
 					<div class="max-w-[560px]">
 						<h2 class="font-display text-xl font-bold">Install VidJo</h2>
-						<p class="mt-1 font-ui text-sm text-[#BBA8E0]">
+						<p class="mt-1 font-ui text-sm text-book-bg/65">
 							Add VidJo to your home screen for a full-screen journal that opens without the
 							browser, and keeps saved pages available offline.
 						</p>
@@ -1029,17 +1031,17 @@
 						<Button icon="rocket" onclick={() => void pwa.promptInstall()}>Install VidJo</Button>
 					{:else if pwa.showIosHint}
 						<p
-							class="rounded-xl border border-white/10 bg-white/5 px-4 py-3 font-ui text-xs leading-relaxed text-[#D6CBEC]"
+							class="rounded-xl border border-cover-edge bg-cover/20 px-4 py-3 font-ui text-xs leading-relaxed text-book-bg/70"
 						>
-							In Safari, tap <b class="text-white">Share</b>, then
-							<b class="text-white">Add to Home Screen</b>.
+							In Safari, tap <b class="text-book-bg">Share</b>, then
+							<b class="text-book-bg">Add to Home Screen</b>.
 						</p>
 					{:else}
 						<p
-							class="rounded-xl border border-white/10 bg-white/5 px-4 py-3 font-ui text-xs leading-relaxed text-[#D6CBEC]"
+							class="rounded-xl border border-cover-edge bg-cover/20 px-4 py-3 font-ui text-xs leading-relaxed text-book-bg/70"
 						>
-							Open your browser menu and choose <b class="text-white">Install app</b> or
-							<b class="text-white">Add to Home Screen</b>.
+							Open your browser menu and choose <b class="text-book-bg">Install app</b> or
+							<b class="text-book-bg">Add to Home Screen</b>.
 						</p>
 					{/if}
 				</div>
@@ -1048,31 +1050,31 @@
 	{:else if nav.profileTab === 'edit'}
 		<div class="mx-auto mt-6 max-w-[680px]">
 			<form
-				class="rounded-[26px] border border-[#4D366D] bg-desk-2 p-6 text-white shadow-[0_18px_44px_rgba(0,0,0,.38)]"
+				class="rounded-[26px] border border-cover-edge bg-desk-2 p-6 text-book-bg shadow-[0_18px_44px_rgba(0,0,0,.38)]"
 				onsubmit={saveEdits}
 			>
 				<h2 class="font-display text-xl font-bold">Edit profile</h2>
-				<p class="mt-1 font-ui text-sm text-[#BBA8E0]">
+				<p class="mt-1 font-ui text-sm text-book-bg/65">
 					Your nickname is what friends see. Your @username is your unique handle.
 				</p>
 
 				<div class="mt-5 grid gap-4">
 					<label class="grid gap-1.5">
-						<span class="font-ui text-xs font-semibold text-gold">Nickname</span>
+						<span class="font-ui text-xs font-semibold text-book-accent">Nickname</span>
 						<input
 							bind:value={editNickname}
 							type="text"
 							maxlength="32"
 							placeholder="Rice Shower"
-							class="h-11 rounded-xl border border-white/15 bg-[#24143D] px-3.5 font-ui text-sm text-white placeholder:text-[#9B8CB5] focus:border-gold/60 focus:outline-none"
+							class="h-11 rounded-xl border border-cover-edge bg-desk px-3.5 font-ui text-sm text-book-bg placeholder:text-book-bg/45 focus:border-book-accent/60 focus:outline-none"
 						/>
 					</label>
 
 					<label class="grid gap-1.5">
-						<span class="font-ui text-xs font-semibold text-gold">Username</span>
+						<span class="font-ui text-xs font-semibold text-book-accent">Username</span>
 						<div class="relative">
 							<span
-								class="absolute top-1/2 left-3.5 -translate-y-1/2 font-ui text-sm text-[#9B8CB5]"
+								class="absolute top-1/2 left-3.5 -translate-y-1/2 font-ui text-sm text-book-bg/45"
 								>@</span
 							>
 							<input
@@ -1081,33 +1083,33 @@
 								maxlength="24"
 								autocomplete="username"
 								placeholder="rice_shower"
-								class="h-11 w-full rounded-xl border border-white/15 bg-[#24143D] pr-3.5 pl-8 font-ui text-sm text-white placeholder:text-[#9B8CB5] focus:border-gold/60 focus:outline-none"
+								class="h-11 w-full rounded-xl border border-cover-edge bg-desk pr-3.5 pl-8 font-ui text-sm text-book-bg placeholder:text-book-bg/45 focus:border-book-accent/60 focus:outline-none"
 							/>
 						</div>
-						<span class="font-ui text-[11px] text-[#BBA8E0]"
+						<span class="font-ui text-[11px] text-book-bg/65"
 							>2–24 characters. Letters, numbers, dots, dashes, underscores.</span
 						>
 					</label>
 
 					<label class="grid gap-1.5">
-						<span class="font-ui text-xs font-semibold text-gold">Bio</span>
+						<span class="font-ui text-xs font-semibold text-book-accent">Bio</span>
 						<textarea
 							bind:value={editBio}
 							maxlength="200"
 							rows="3"
 							placeholder="A sentence about you…"
-							class="w-full resize-none rounded-xl border border-white/15 bg-[#24143D] px-3.5 py-2.5 font-ui text-sm text-white placeholder:text-[#9B8CB5] focus:border-gold/60 focus:outline-none"
+							class="w-full resize-none rounded-xl border border-cover-edge bg-desk px-3.5 py-2.5 font-ui text-sm text-book-bg placeholder:text-book-bg/45 focus:border-book-accent/60 focus:outline-none"
 						></textarea>
-						<span class="text-right font-ui text-[11px] text-[#BBA8E0]">{editBio.length}/200</span>
+						<span class="text-right font-ui text-[11px] text-book-bg/65">{editBio.length}/200</span>
 					</label>
 
 					<div class="grid gap-1.5">
-						<span class="font-ui text-xs font-semibold text-gold">Profile picture</span>
-						<span class="font-ui text-[11px] text-[#BBA8E0]"
+						<span class="font-ui text-xs font-semibold text-book-accent">Profile picture</span>
+						<span class="font-ui text-[11px] text-book-bg/65"
 							>Upload a PNG, JPG, GIF, or WebP image (max 5 MB).</span
 						>
 						<label
-							class="flex cursor-pointer items-center gap-2 rounded-xl border border-white/15 bg-[#24143D] px-3.5 py-2 font-ui text-xs text-[#D6CBEC] hover:bg-[#3A2A55]"
+							class="flex cursor-pointer items-center gap-2 rounded-xl border border-cover-edge bg-desk px-3.5 py-2 font-ui text-xs text-book-bg/70 hover:bg-cover/50"
 						>
 							Upload photo
 							<input
@@ -1123,7 +1125,7 @@
 							/>
 						</label>
 						{#if avatarFile}
-							<span class="font-ui text-[11px] text-lav">Selected: {avatarFile.name}</span>
+							<span class="font-ui text-[11px] text-book-bg/70">Selected: {avatarFile.name}</span>
 						{:else if editAvatar}
 							<button
 								type="button"
@@ -1139,12 +1141,12 @@
 					</div>
 
 					<div class="grid gap-1.5">
-						<span class="font-ui text-xs font-semibold text-gold">Profile banner</span>
-						<span class="font-ui text-[11px] text-[#BBA8E0]"
+						<span class="font-ui text-xs font-semibold text-book-accent">Profile banner</span>
+						<span class="font-ui text-[11px] text-book-bg/65"
 							>Upload a PNG, JPG, GIF, or WebP image (max 5 MB).</span
 						>
 						<label
-							class="flex cursor-pointer items-center gap-2 rounded-xl border border-white/15 bg-[#24143D] px-3.5 py-2 font-ui text-xs text-[#D6CBEC] hover:bg-[#3A2A55]"
+							class="flex cursor-pointer items-center gap-2 rounded-xl border border-cover-edge bg-desk px-3.5 py-2 font-ui text-xs text-book-bg/70 hover:bg-cover/50"
 						>
 							Upload banner
 							<input
@@ -1160,7 +1162,7 @@
 							/>
 						</label>
 						{#if bannerFile}
-							<span class="font-ui text-[11px] text-lav">Selected: {bannerFile.name}</span>
+							<span class="font-ui text-[11px] text-book-bg/70">Selected: {bannerFile.name}</span>
 						{:else if editBanner}
 							<button
 								type="button"

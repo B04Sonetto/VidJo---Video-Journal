@@ -424,7 +424,7 @@
 									<CommunityIcon name={item.icon} size={24} />
 								</span>
 								<span
-									class="rounded-full bg-light px-2.5 py-1 font-ui text-[10px] font-semibold text-ink-soft tabular-nums"
+									class="rounded-full bg-paper-deep px-2.5 py-1 font-ui text-[10px] font-semibold text-book-ink/70 tabular-nums"
 								>
 									{item.memberCount}
 									{item.memberCount === 1 ? 'member' : 'members'}
@@ -442,15 +442,15 @@
 									</span>
 								{/if}
 							</div>
-							<p class="font-ui text-xs font-semibold text-ink-soft">{item.name}</p>
-							<p class="mt-2 flex-1 font-ui text-sm leading-relaxed text-ink-soft">
+							<p class="font-ui text-xs font-semibold text-book-ink/70">{item.name}</p>
+							<p class="mt-2 flex-1 font-ui text-sm leading-relaxed text-book-ink/70">
 								{item.description}
 							</p>
 
 							<div
-								class="mt-3 flex items-center gap-1.5 font-ui text-sm text-ink-soft tabular-nums"
+								class="mt-3 flex items-center gap-1.5 font-ui text-sm text-book-ink/70 tabular-nums"
 							>
-								<CommunityIcon name="video" size={14} class="text-ink-muted" />
+								<CommunityIcon name="video" size={14} class="text-book-ink/45" />
 								{slugCounts[item.slug] ?? 0}
 								{(slugCounts[item.slug] ?? 0) === 1 ? 'shared page' : 'shared pages'}
 								visible to you
@@ -459,7 +459,7 @@
 							{#if item.joined}
 								<div class="mt-4 grid grid-cols-2 gap-2">
 									<Button size="sm" onclick={() => openCommunity(item.slug)}>Open feed</Button>
-									<Button size="sm" variant="paper" onclick={() => leaveCommunity(item.slug)}>
+									<Button size="sm" variant="note" onclick={() => leaveCommunity(item.slug)}>
 										Leave
 									</Button>
 								</div>
@@ -509,7 +509,7 @@
 					{#if activeMood !== 'all'}
 						<button
 							type="button"
-							class="font-ui text-xs font-semibold text-gold hover:underline"
+							class="font-ui text-xs font-semibold text-book-accent hover:underline"
 							onclick={() => (activeMood = 'all')}
 						>
 							Clear mood
@@ -522,12 +522,12 @@
 						type="button"
 						class="flex min-h-11 items-center gap-2 rounded-full border-2 px-3.5 font-hand text-[18px] leading-none font-bold transition-colors {activeMood ===
 						'all'
-							? 'border-gold bg-paper text-ink'
-							: 'border-[#5A4580] text-[#EDE6F7] hover:border-lav hover:text-white'}"
+							? 'border-book-accent bg-book-bg text-book-ink'
+							: 'border-cover text-book-bg/75 hover:border-book-accent hover:text-book-bg'}"
 						onclick={() => (activeMood = 'all')}
 						aria-pressed={activeMood === 'all'}
 					>
-						<CommunityIcon name="sparkles" size={17} class="text-gold" />
+						<CommunityIcon name="sparkles" size={17} class="text-book-accent" />
 						All moods
 						<span class="font-ui text-[10px] tabular-nums opacity-60">{basePosts.length}</span>
 					</button>
@@ -537,8 +537,8 @@
 							type="button"
 							class="flex min-h-11 items-center gap-1.5 rounded-full border-2 py-1 pr-3 pl-2 font-hand text-[18px] leading-none font-bold transition-colors {activeMood ===
 							mood.k
-								? 'border-gold bg-paper text-ink'
-								: 'border-[#5A4580] text-[#EDE6F7] hover:border-lav hover:text-white'}"
+								? 'border-book-accent bg-book-bg text-book-ink'
+								: 'border-cover text-book-bg/75 hover:border-book-accent hover:text-book-bg'}"
 							onclick={() => (activeMood = activeMood === mood.k ? 'all' : mood.k)}
 							aria-pressed={activeMood === mood.k}
 						>
@@ -558,11 +558,11 @@
 
 		<!-- Joined community rail -->
 		<div
-			class="sticky top-2 z-20 -mx-4 mt-6 overflow-x-auto border-y border-[#4A3670] bg-desk/90 px-4 py-2 backdrop-blur-sm min-[900px]:mx-0 min-[900px]:rounded-[18px] min-[900px]:border min-[900px]:px-2.5"
+			class="sticky top-2 z-20 -mx-4 mt-6 overflow-x-auto border-y border-cover-edge bg-desk/90 px-4 py-2 backdrop-blur-sm min-[900px]:mx-0 min-[900px]:rounded-[18px] min-[900px]:border min-[900px]:px-2.5"
 		>
 			<div class="flex items-center gap-2">
 				<span
-					class="hidden shrink-0 pr-1 font-ui text-[10px] font-semibold text-[#9B8CB5] min-[900px]:block"
+					class="hidden shrink-0 pr-1 font-ui text-[10px] font-semibold text-book-bg/45 min-[900px]:block"
 				>
 					Your communities
 				</span>
@@ -570,8 +570,8 @@
 					type="button"
 					class="flex shrink-0 items-center gap-2 rounded-full border px-3.5 py-2 font-ui text-xs font-bold transition-colors {activeSlug ===
 					'all'
-						? 'border-gold bg-paper text-ink'
-						: 'border-[#4D366D] bg-desk-2 text-[#D6CBEC] hover:bg-[#3A275A] hover:text-white'}"
+						? 'border-book-accent bg-book-bg text-book-ink'
+						: 'border-cover-edge bg-desk-2 text-book-bg/70 hover:bg-cover/40 hover:text-book-bg'}"
 					onclick={() => (activeSlug = 'all')}
 					aria-pressed={activeSlug === 'all'}
 				>
@@ -585,8 +585,8 @@
 						type="button"
 						class="flex shrink-0 items-center gap-2 rounded-full border px-3.5 py-2 font-ui text-xs font-bold transition-colors {activeSlug ===
 						item.slug
-							? 'border-gold bg-paper text-ink'
-							: 'border-[#4D366D] bg-desk-2 text-[#D6CBEC] hover:bg-[#3A275A] hover:text-white'}"
+							? 'border-book-accent bg-book-bg text-book-ink'
+							: 'border-cover-edge bg-desk-2 text-book-bg/70 hover:bg-cover/40 hover:text-book-bg'}"
 						onclick={() => (activeSlug = item.slug)}
 						aria-pressed={activeSlug === item.slug}
 					>
@@ -598,7 +598,7 @@
 
 				<button
 					type="button"
-					class="ml-auto flex shrink-0 items-center gap-1.5 rounded-full border border-[#6A5490] px-3 py-2 font-ui text-xs font-semibold text-[#C9B8E8] transition-colors hover:border-gold/60 hover:text-white"
+					class="ml-auto flex shrink-0 items-center gap-1.5 rounded-full border border-cover px-3 py-2 font-ui text-xs font-semibold text-book-bg/65 transition-colors hover:border-book-accent/60 hover:text-book-bg"
 					onclick={() => (showDiscovery = true)}
 				>
 					<CommunityIcon name="plus" size={13} />
@@ -611,7 +611,7 @@
 		<div class="mt-5 flex flex-wrap items-center justify-between gap-3">
 			<div class="flex flex-wrap items-center gap-3">
 				<div
-					class="inline-flex items-center gap-1 rounded-full border border-[#4D366D] bg-desk-2 p-1"
+					class="inline-flex items-center gap-1 rounded-full border border-cover-edge bg-desk-2 p-1"
 					role="group"
 					aria-label="Sort community pages"
 				>
@@ -619,8 +619,8 @@
 						type="button"
 						class="inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 font-ui text-xs font-bold transition-colors {feedMode ===
 						'trending'
-							? 'bg-accent text-white shadow-sm'
-							: 'text-[#D6CBEC] hover:text-white'}"
+							? 'bg-cta text-cta-text shadow-sm'
+							: 'text-book-bg/70 hover:text-book-bg'}"
 						onclick={() => (feedMode = 'trending')}
 						aria-pressed={feedMode === 'trending'}
 					>
@@ -631,8 +631,8 @@
 						type="button"
 						class="inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 font-ui text-xs font-bold transition-colors {feedMode ===
 						'newest'
-							? 'bg-accent text-white shadow-sm'
-							: 'text-[#D6CBEC] hover:text-white'}"
+							? 'bg-cta text-cta-text shadow-sm'
+							: 'text-book-bg/70 hover:text-book-bg'}"
 						onclick={() => (feedMode = 'newest')}
 						aria-pressed={feedMode === 'newest'}
 					>
@@ -652,7 +652,7 @@
 						Newest
 					</button>
 				</div>
-				<span class="font-ui text-xs text-[#BBA8E0] tabular-nums">
+				<span class="font-ui text-xs text-book-bg/60 tabular-nums">
 					{filteredPosts.length}
 					{filteredPosts.length === 1 ? 'page' : 'pages'}
 				</span>
@@ -660,7 +660,7 @@
 
 			<div class="relative w-full min-[520px]:w-[300px]">
 				<svg
-					class="pointer-events-none absolute top-1/2 left-3.5 size-[17px] -translate-y-1/2 text-[#9B8CB5]"
+					class="pointer-events-none absolute top-1/2 left-3.5 size-[17px] -translate-y-1/2 text-book-bg/45"
 					viewBox="0 0 24 24"
 					fill="none"
 					stroke="currentColor"
@@ -677,7 +677,7 @@
 					type="text"
 					aria-label="Search shared community pages"
 					placeholder="Search shared pages…"
-					class="h-11 w-full rounded-full border border-[#4D366D] bg-desk-2 pr-4 pl-10 font-ui text-sm text-white placeholder:text-[#9B8CB5] focus:border-gold/60 focus:outline-none"
+					class="h-11 w-full rounded-full border border-cover-edge bg-desk-2 pr-4 pl-10 font-ui text-sm text-book-bg placeholder:text-book-bg/40 focus:border-book-accent/60 focus:outline-none"
 				/>
 			</div>
 		</div>
@@ -688,7 +688,7 @@
 				class="mt-8 grid items-start gap-x-6 gap-y-10 min-[640px]:grid-cols-2 min-[1180px]:grid-cols-3"
 			>
 				{#each [0, 1, 2, 3, 4, 5] as slot (slot)}
-					<div class="rounded-[5px] bg-paper p-3 pb-3.5 shadow-[0_12px_24px_rgba(0,0,0,.45)]">
+					<div class="rounded-[5px] note-scrap p-3 pb-3.5 shadow-[0_12px_24px_rgba(0,0,0,.45)]">
 						<Skeleton class="aspect-[4/3] w-full rounded-[2px]" />
 						<Skeleton class="mt-3 h-4 w-3/4" />
 						<Skeleton class="mt-2 h-3 w-1/2" />
@@ -698,10 +698,10 @@
 			</div>
 		{:else if filteredPosts.length === 0}
 			<div
-				class="mx-auto mt-8 max-w-[620px] rounded-[10px] bg-paper px-6 py-10 text-center text-ink shadow-[0_16px_34px_rgba(0,0,0,.4)]"
+				class="mx-auto mt-8 max-w-[620px] rounded-[10px] note-scrap px-6 py-10 text-center text-book-ink shadow-[0_16px_34px_rgba(0,0,0,.4)]"
 			>
 				<span
-					class="mx-auto flex size-16 items-center justify-center rounded-full bg-light"
+					class="mx-auto flex size-16 items-center justify-center rounded-full bg-paper-deep"
 					style={activeMood !== 'all' ? `background: ${MOOD_BY_KEY[activeMood].c}80` : ''}
 				>
 					{#if activeMood !== 'all'}
@@ -710,11 +710,11 @@
 							{@html MOOD_BY_KEY[activeMood].svg}
 						</span>
 					{:else}
-						<CommunityIcon name="globe" size={28} class="text-accent" />
+						<CommunityIcon name="globe" size={28} class="text-book-accent" />
 					{/if}
 				</span>
 				<p class="mt-4 font-display text-2xl font-bold">No pages here yet</p>
-				<p class="mx-auto mt-2 max-w-[420px] font-ui text-sm leading-relaxed text-ink-soft">
+				<p class="mx-auto mt-2 max-w-[420px] font-ui text-sm leading-relaxed text-book-ink/70">
 					{#if searchQuery.trim()}
 						Nothing matched “{searchQuery}”. Try a different search or clear your filters.
 					{:else if activeMood !== 'all'}
@@ -727,7 +727,7 @@
 				</p>
 				<div class="mt-5 flex flex-wrap justify-center gap-2.5">
 					{#if searchQuery.trim() || activeMood !== 'all' || activeSlug !== 'all'}
-						<Button variant="paper" size="sm" onclick={clearFilters}>Clear filters</Button>
+						<Button variant="note" size="sm" onclick={clearFilters}>Clear filters</Button>
 					{/if}
 					<Button size="sm" trailingIcon="arrow-right" onclick={() => nav.jump(TODAY)}>
 						Write today's page
@@ -744,14 +744,14 @@
 					{@const stickers = stickersFor(post)}
 					<article
 						id="community-page-{post.id}"
-						class="group relative min-w-0 rounded-[5px] bg-paper p-3 pb-3.5 text-ink shadow-[0_12px_24px_rgba(0,0,0,.45)] transition-all duration-200 hover:-translate-y-1 hover:rotate-0 hover:shadow-[0_18px_34px_rgba(0,0,0,.5)] {tilt} {focusPostId ===
+						class="group relative min-w-0 rounded-[5px] note-scrap p-3 pb-3.5 text-book-ink shadow-[0_12px_24px_rgba(0,0,0,.45)] transition-all duration-200 hover:-translate-y-1 hover:rotate-0 hover:shadow-[0_18px_34px_rgba(0,0,0,.5)] {tilt} {focusPostId ===
 						post.id
-							? 'ring-4 ring-gold ring-offset-2 ring-offset-desk'
+							? 'ring-4 ring-book-accent ring-offset-2 ring-offset-desk'
 							: ''}"
 					>
 						<!-- Media / cover -->
 						{#if post.videoUrl}
-							<div class="relative overflow-hidden rounded-[2px] border border-line bg-[#120A20]">
+							<div class="relative overflow-hidden rounded-[2px] border border-line bg-desk">
 								<!-- svelte-ignore a11y_media_has_caption -->
 								<video
 									src={post.videoUrl}
@@ -761,22 +761,22 @@
 									class="max-h-[290px] w-full bg-black object-contain"
 								></video>
 								<span
-									class="pointer-events-none absolute top-2 left-2 rounded-full bg-[#2A1B3D]/80 px-2 py-0.5 font-ui text-[9px] font-bold text-white backdrop-blur-sm"
+									class="pointer-events-none absolute top-2 left-2 rounded-full bg-desk/80 px-2 py-0.5 font-ui text-[9px] font-bold text-book-bg backdrop-blur-sm"
 								>
 									{post.tag}
 								</span>
 							</div>
 						{:else if post.videoPath || post.videoName}
 							<div
-								class="relative flex aspect-[4/3] flex-col items-center justify-center overflow-hidden rounded-[2px] border border-line bg-[radial-gradient(ellipse_at_center,#4A2F7A_0%,#190E2B_85%)] text-center text-white"
+								class="relative flex aspect-[4/3] flex-col items-center justify-center overflow-hidden rounded-[2px] border border-line bg-[radial-gradient(ellipse_at_center,var(--color-cover)_0%,var(--color-desk)_85%)] text-center text-book-bg"
 							>
 								<span
-									class="absolute top-2 left-2 rounded-full bg-white/15 px-2 py-0.5 font-ui text-[9px] font-bold text-white backdrop-blur-sm"
+									class="absolute top-2 left-2 rounded-full bg-cover/50 px-2 py-0.5 font-ui text-[9px] font-bold text-book-bg backdrop-blur-sm"
 								>
 									{post.tag}
 								</span>
 								<span
-									class="flex size-12 items-center justify-center rounded-full bg-white/95 text-accent shadow-lg"
+									class="flex size-12 items-center justify-center rounded-full bg-book-bg/95 text-book-ink shadow-lg"
 								>
 									<CommunityIcon name="play" size={22} />
 								</span>
@@ -787,10 +787,10 @@
 						{:else if mood}
 							<div
 								class="relative flex aspect-[4/3] flex-col items-center justify-center overflow-hidden rounded-[2px] border border-line"
-								style="background: radial-gradient(circle at 50% 32%, {mood.c} 0%, #FBF4E4 80%)"
+								style="background: radial-gradient(circle at 50% 32%, {mood.c} 0%, var(--color-book-bg) 80%)"
 							>
 								<span
-									class="absolute top-2 left-2 rounded-full bg-[#2A1B3D]/75 px-2 py-0.5 font-ui text-[9px] font-bold text-white backdrop-blur-sm"
+									class="absolute top-2 left-2 rounded-full bg-desk/75 px-2 py-0.5 font-ui text-[9px] font-bold text-book-bg backdrop-blur-sm"
 								>
 									{post.tag}
 								</span>
@@ -801,32 +801,32 @@
 									<!-- eslint-disable-next-line svelte/no-at-html-tags -- trusted static mood SVG from app data -->
 									{@html mood.svg}
 								</span>
-								<span class="mt-2 font-hand text-xl leading-none font-bold text-ink">
+								<span class="mt-2 font-hand text-xl leading-none font-bold text-book-ink">
 									feeling {mood.l.toLowerCase()}
 								</span>
 							</div>
 						{:else}
 							<div
-								class="relative flex aspect-[4/3] flex-col items-center justify-center overflow-hidden rounded-[2px] border border-line bg-[linear-gradient(135deg,#F3ECFA,#E4D8F2)]"
+								class="relative flex aspect-[4/3] flex-col items-center justify-center overflow-hidden rounded-[2px] border border-line bg-[linear-gradient(135deg,var(--color-paper-deep),var(--color-book-edge))]"
 							>
 								<span
-									class="absolute top-2 left-2 rounded-full bg-[#2A1B3D]/75 px-2 py-0.5 font-ui text-[9px] font-bold text-white backdrop-blur-sm"
+									class="absolute top-2 left-2 rounded-full bg-desk/75 px-2 py-0.5 font-ui text-[9px] font-bold text-book-bg backdrop-blur-sm"
 								>
 									{post.tag}
 								</span>
 								<span
-									class="flex size-16 items-center justify-center rounded-full bg-paper/80 text-accent shadow-sm"
+									class="flex size-16 items-center justify-center rounded-full bg-book-bg/80 text-book-ink shadow-sm"
 								>
 									<CommunityIcon name={community.iconFor(post.communitySlug)} size={30} />
 								</span>
-								<span class="mt-2 font-hand text-xl font-bold text-ink">
+								<span class="mt-2 font-hand text-xl font-bold text-book-ink">
 									{community.nameFor(post.communitySlug)}
 								</span>
 							</div>
 						{/if}
 
 						{#if post.title}
-							<h3 class="mt-3 font-hand text-[24px] leading-[1.1] font-bold text-ink">
+							<h3 class="mt-3 font-hand text-[24px] leading-[1.1] font-bold text-book-ink">
 								{censor(post.title)}
 							</h3>
 						{/if}
@@ -851,7 +851,7 @@
 								<div class="flex min-w-0 items-center gap-1.5">
 									<button
 										type="button"
-										class="truncate font-hand text-lg leading-tight font-bold text-ink hover:text-accent"
+										class="truncate font-hand text-lg leading-tight font-bold text-book-ink hover:text-book-accent"
 										onclick={() => openProfile(post.authorId)}
 									>
 										{post.authorName}
@@ -864,13 +864,13 @@
 										</span>
 									{/if}
 								</div>
-								<p class="truncate font-ui text-[10px] text-ink-soft">
+								<p class="truncate font-ui text-[10px] text-book-ink/70">
 									@{post.authorUsername} · {post.dateFormatted}
 								</p>
 							</div>
 							{#if mood}
 								<span
-									class="inline-flex shrink-0 items-center gap-1 rounded-full border px-2 py-1 font-ui text-[9px] font-bold text-ink"
+									class="inline-flex shrink-0 items-center gap-1 rounded-full border px-2 py-1 font-ui text-[9px] font-bold text-book-ink"
 									style="background: {mood.c}66; border-color: {mood.c}"
 								>
 									<span class="size-4 [&>svg]:size-full" aria-hidden="true">
@@ -884,9 +884,9 @@
 
 						{#if post.mind}
 							<div
-								class="mt-2.5 rounded border border-line/70 bg-[#FFFDF6] paper-lined [background-position:0_6px] px-2.5 py-1.5"
+								class="mt-2.5 rounded border border-line/70 bg-book-bg paper-lined [background-position:0_6px] px-2.5 py-1.5"
 							>
-								<p class="font-hand text-[17px] leading-[32px] whitespace-pre-wrap text-ink">
+								<p class="font-hand text-[17px] leading-[32px] whitespace-pre-wrap text-book-ink">
 									{censor(post.mind)}
 								</p>
 							</div>
@@ -894,15 +894,16 @@
 
 						{#if post.refl}
 							<div
-								class="mt-2 flex items-start gap-2 rounded border border-line bg-light/80 px-2.5 py-2"
+								class="mt-2 flex items-start gap-2 rounded border border-line bg-paper-deep/80 px-2.5 py-2"
 							>
-								<span class="text-sm font-bold text-gold" aria-hidden="true">
+								<span class="text-sm font-bold text-book-accent" aria-hidden="true">
 									<CommunityIcon name="star" size={14} />
 								</span>
 								<div class="min-w-0">
-									<span class="block font-ui text-[10px] font-semibold text-accent">Reflection</span
+									<span class="block font-ui text-[10px] font-semibold text-book-accent"
+										>Reflection</span
 									>
-									<p class="mt-0.5 font-hand text-base leading-snug font-semibold text-ink">
+									<p class="mt-0.5 font-hand text-base leading-snug font-semibold text-book-ink">
 										{censor(post.refl)}
 									</p>
 								</div>
@@ -938,7 +939,7 @@
 											reaction.key
 										)
 											? reaction.active
-											: 'border-line bg-[#FFFDF6] text-ink-soft hover:bg-light'}"
+											: 'border-line bg-book-bg text-book-ink/70 hover:bg-paper-deep'}"
 										onclick={() => community.toggleReaction(post, reaction.key)}
 										aria-label={reaction.label}
 										aria-pressed={post.userReactions.includes(reaction.key)}
@@ -950,7 +951,7 @@
 							</div>
 							<button
 								type="button"
-								class="inline-flex items-center gap-1.5 rounded-full border border-line bg-[#FFFDF6] px-2.5 py-1 font-ui text-[10px] font-bold text-accent transition-colors hover:bg-light"
+								class="inline-flex items-center gap-1.5 rounded-full border border-line bg-book-bg px-2.5 py-1 font-ui text-[10px] font-bold text-book-accent transition-colors hover:bg-paper-deep"
 								onclick={() => toggleComments(post.id)}
 								aria-expanded={openComments === post.id}
 							>
@@ -971,7 +972,7 @@
 							{#if post.isOwner || post.authorId === auth.ownerId}
 								<button
 									type="button"
-									class="inline-flex items-center gap-1.5 rounded-full border border-[#D19A9A] bg-[#FFFDF6] px-2.5 py-1 font-ui text-[10px] font-bold text-[#9A5B5B] transition-colors hover:bg-[#FBEAEA]"
+									class="inline-flex items-center gap-1.5 rounded-full border border-[#D19A9A] bg-book-bg px-2.5 py-1 font-ui text-[10px] font-bold text-[#9A5B5B] transition-colors hover:bg-[#FBEAEA]"
 									onclick={() => requestDelete(post)}
 									aria-label="Remove page from this community"
 									title="Remove page from this community"
@@ -983,16 +984,16 @@
 						</div>
 
 						{#if openComments === post.id}
-							<div class="mt-2.5 rounded-xl border border-line bg-[#FFFDF6]">
+							<div class="mt-2.5 rounded-xl border border-line bg-book-bg">
 								<div class="p-2.5">
-									<span class="mb-2 block font-ui text-[10px] font-semibold text-ink-soft">
+									<span class="mb-2 block font-ui text-[10px] font-semibold text-book-ink/70">
 										Community notes
 									</span>
 
 									{#if post.comments.length > 0}
 										<div class="mb-2.5 max-h-[240px] space-y-2 overflow-y-auto pr-1">
 											{#each post.comments as comment (comment.id)}
-												<div class="flex items-start gap-2 rounded-lg bg-light/80 p-2">
+												<div class="flex items-start gap-2 rounded-lg bg-paper-deep/80 p-2">
 													<Avatar
 														src={comment.authorAvatar}
 														name={comment.authorName}
@@ -1005,24 +1006,24 @@
 															<div class="flex min-w-0 items-baseline gap-1.5">
 																<button
 																	type="button"
-																	class="truncate font-ui text-[11px] font-semibold text-ink hover:underline"
+																	class="truncate font-ui text-[11px] font-semibold text-book-ink hover:underline"
 																	onclick={() => openProfile(comment.authorId)}
 																>
 																	{comment.authorName}
 																</button>
 																{#if comment.authorId === auth.ownerId}
 																	<span
-																		class="rounded-full bg-accent/15 px-1.5 py-0.5 font-ui text-[8px] font-bold text-accent"
+																		class="rounded-full bg-book-accent/15 px-1.5 py-0.5 font-ui text-[8px] font-bold text-book-accent"
 																		>You</span
 																	>
 																{/if}
 															</div>
-															<time class="shrink-0 font-ui text-[9px] text-ink-soft"
+															<time class="shrink-0 font-ui text-[9px] text-book-ink/70"
 																>{comment.time}</time
 															>
 														</div>
 														<p
-															class="mt-0.5 font-hand text-base leading-tight break-words text-ink"
+															class="mt-0.5 font-hand text-base leading-tight break-words text-book-ink"
 														>
 															{censor(comment.text)}
 														</p>
@@ -1043,7 +1044,7 @@
 																			</button>
 																			<button
 																				type="button"
-																				class="rounded-md border border-line px-1.5 py-0.5 font-ui text-[9px] font-semibold text-ink-soft hover:bg-light"
+																				class="rounded-md border border-line px-1.5 py-0.5 font-ui text-[9px] font-semibold text-book-ink/70 hover:bg-paper-deep"
 																				onclick={() => (commentConfirmId = null)}
 																			>
 																				Cancel
@@ -1052,7 +1053,7 @@
 																	{:else}
 																		<button
 																			type="button"
-																			class="font-ui text-[9px] text-ink-soft hover:text-red-600"
+																			class="font-ui text-[9px] text-book-ink/70 hover:text-red-600"
 																			onclick={() => (commentConfirmId = comment.id)}
 																		>
 																			Delete
@@ -1061,7 +1062,7 @@
 																{:else}
 																	<button
 																		type="button"
-																		class="font-ui text-[9px] text-ink-soft hover:text-accent"
+																		class="font-ui text-[9px] text-book-ink/70 hover:text-book-accent"
 																		onclick={() => reportComment(post, comment.id)}
 																	>
 																		Report
@@ -1074,7 +1075,7 @@
 											{/each}
 										</div>
 									{:else}
-										<p class="mb-2.5 font-hand text-base leading-snug text-ink-soft">
+										<p class="mb-2.5 font-hand text-base leading-snug text-book-ink/70">
 											No notes yet. Be the first to cheer them on.
 										</p>
 									{/if}
@@ -1089,11 +1090,11 @@
 											aria-label="Leave a note on {firstName(post.authorName)}'s page"
 											placeholder="Cheer them on…"
 											maxlength="140"
-											class="h-9 min-w-0 flex-1 rounded-lg border border-line bg-paper px-2.5 font-ui text-[11px] text-ink placeholder:text-ink-soft/70 focus:border-accent focus:outline-none"
+											class="h-9 min-w-0 flex-1 rounded-lg border border-line bg-book-bg px-2.5 font-ui text-[11px] text-book-ink placeholder:text-book-ink/45 focus:border-book-accent focus:outline-none"
 										/>
 										<button
 											type="submit"
-											class="h-9 rounded-lg bg-accent px-3 font-ui text-[11px] font-bold text-white transition-colors hover:bg-[#624690] disabled:opacity-50"
+											class="h-9 rounded-lg bg-cta px-3 font-ui text-[11px] font-bold text-cta-text transition-colors hover:bg-cta-hover disabled:opacity-50"
 											disabled={!commentInput[post.id]?.trim()}
 										>
 											Send
@@ -1109,12 +1110,12 @@
 
 		<!-- Share callout -->
 		<div
-			class="mx-auto mt-12 max-w-[760px] rounded-[8px] bg-paper px-6 py-7 text-center text-ink shadow-[0_14px_30px_rgba(0,0,0,.4)]"
+			class="mx-auto mt-12 max-w-[760px] rounded-[8px] note-scrap px-6 py-7 text-center text-book-ink shadow-[0_14px_30px_rgba(0,0,0,.4)]"
 		>
 			<h2 class="font-display text-2xl font-bold">Want your page in the feed?</h2>
-			<p class="mx-auto mt-2 max-w-[520px] font-ui text-sm leading-relaxed text-ink-soft">
-				Set a journal page to <span class="font-semibold text-accent">Community</span>, then pick
-				one of your joined communities. You choose what gets shared.
+			<p class="mx-auto mt-2 max-w-[520px] font-ui text-sm leading-relaxed text-book-ink/70">
+				Set a journal page to <span class="font-semibold text-book-accent">Community</span>, then
+				pick one of your joined communities. You choose what gets shared.
 			</p>
 			<Button class="mt-4" trailingIcon="arrow-right" onclick={() => nav.jump(TODAY)}>
 				Go to today's page
@@ -1124,9 +1125,9 @@
 
 	<!-- Safety note -->
 	<p
-		class="mx-auto mt-10 flex max-w-[760px] items-start gap-2.5 font-ui text-xs leading-relaxed text-[#CFC3E6]"
+		class="mx-auto mt-10 flex max-w-[760px] items-start gap-2.5 font-ui text-xs leading-relaxed text-book-bg/60"
 	>
-		<CommunityIcon name="shield" size={18} class="mt-0.5 shrink-0 text-gold" />
+		<CommunityIcon name="shield" size={18} class="mt-0.5 shrink-0 text-book-accent" />
 		<span>
 			Be kind. If a note feels unsafe, use its Report link. Community pages are only visible to
 			members of the communities they were shared with.
@@ -1150,18 +1151,18 @@
 		></button>
 
 		<div
-			class="relative z-10 w-full max-w-[430px] overflow-hidden rounded-[26px] border border-[#4E396E] bg-paper text-ink shadow-[0_25px_60px_rgba(0,0,0,.55)]"
+			class="relative z-10 w-full max-w-[430px] overflow-hidden rounded-[26px] border border-cover-edge note-scrap text-book-ink shadow-[0_25px_60px_rgba(0,0,0,.55)]"
 		>
 			<div
-				class="relative flex items-center justify-between gap-3 bg-[linear-gradient(135deg,#34214E,#231438)] px-5 py-4 text-white"
+				class="relative flex items-center justify-between gap-3 bg-[linear-gradient(135deg,var(--color-cover-edge),var(--color-desk))] px-5 py-4 text-book-bg"
 			>
 				<div>
 					<h2 id="remove-page-title" class="font-display text-xl font-bold">Remove this page?</h2>
-					<p class="font-ui text-[11px] text-[#C9B8E8]">Only the community copy is removed</p>
+					<p class="font-ui text-[11px] text-book-bg/65">Only the community copy is removed</p>
 				</div>
 				<button
 					type="button"
-					class="flex size-9 items-center justify-center rounded-full bg-white/10 text-white/80 transition-colors hover:bg-white/20 hover:text-white"
+					class="flex size-9 items-center justify-center rounded-full bg-white/10 text-book-bg/80 transition-colors hover:bg-white/20 hover:text-book-bg"
 					onclick={() => (deleteTarget = null)}
 					aria-label="Close"
 				>
@@ -1170,25 +1171,25 @@
 			</div>
 
 			<div class="p-5">
-				<div class="rounded-xl border border-line bg-[#FFFDF6] p-3">
-					<p class="font-ui text-[10px] font-semibold text-ink-soft">
+				<div class="rounded-xl border border-line bg-book-bg p-3">
+					<p class="font-ui text-[10px] font-semibold text-book-ink/70">
 						{deleteTarget.dateFormatted}
 					</p>
-					<p class="mt-1 font-display text-lg leading-tight font-bold text-ink">
+					<p class="mt-1 font-display text-lg leading-tight font-bold text-book-ink">
 						{deleteTarget.title || 'Untitled page'}
 					</p>
 					{#if deleteTarget.communitySlug}
-						<p class="mt-1 font-ui text-[11px] text-ink-soft">{deleteTarget.tag}</p>
+						<p class="mt-1 font-ui text-[11px] text-book-ink/70">{deleteTarget.tag}</p>
 					{/if}
 				</div>
 
-				<p class="mt-4 font-ui text-sm leading-relaxed text-ink-soft">
+				<p class="mt-4 font-ui text-sm leading-relaxed text-book-ink/70">
 					This page will stop appearing in the community feed. Your journal entry, video, and
 					stickers stay exactly where they are.
 				</p>
 
 				<div class="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-					<Button variant="paper" onclick={() => (deleteTarget = null)}>Keep it posted</Button>
+					<Button variant="note" onclick={() => (deleteTarget = null)}>Keep it posted</Button>
 					<Button
 						variant="danger"
 						icon="trash"

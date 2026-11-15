@@ -100,11 +100,11 @@
 		></button>
 
 		<div
-			class="relative z-10 flex max-h-[90vh] w-full max-w-[620px] flex-col overflow-hidden rounded-3xl border border-[#4E396E] bg-paper text-ink shadow-[0_25px_60px_rgba(0,0,0,0.5)]"
+			class="relative z-10 flex max-h-[90vh] w-full max-w-[620px] flex-col overflow-hidden rounded-3xl border border-cover-edge note-scrap text-book-ink shadow-[0_25px_60px_rgba(0,0,0,0.5)]"
 		>
 			<!-- Header -->
 			<div
-				class="relative border-b border-line bg-[linear-gradient(135deg,#34214E,#231438)] px-6 pt-5 pb-4 text-white"
+				class="relative border-b border-line bg-[linear-gradient(135deg,var(--color-cover-edge),var(--color-desk))] px-6 pt-5 pb-4 text-book-bg"
 			>
 				<div class="flex items-center justify-between">
 					<div class="flex items-center gap-2.5">
@@ -117,7 +117,7 @@
 					</div>
 					<button
 						type="button"
-						class="flex size-8 items-center justify-center rounded-full bg-white/10 text-white/80 transition-colors hover:bg-white/20 hover:text-white"
+						class="flex size-8 items-center justify-center rounded-full bg-white/10 text-book-bg/80 transition-colors hover:bg-white/20 hover:text-book-bg"
 						onclick={onClose}
 						aria-label="Close"
 					>
@@ -131,25 +131,25 @@
 						type="button"
 						class="flex items-center gap-2 rounded-xl px-4 py-2 font-ui text-sm font-semibold transition-all {currentTab ===
 						'friends'
-							? 'bg-accent text-white shadow'
-							: 'bg-white/10 text-[#C9B8E8] hover:bg-white/15'}"
+							? 'bg-cta text-cta-text shadow'
+							: 'bg-cover/35 text-book-bg/70 hover:bg-cover/50'}"
 						onclick={() => (currentTab = 'friends')}
 					>
 						<CommunityIcon name="users" size={16} />
 						Friends
-						<span class="rounded-full bg-white/20 px-2 py-0.5 text-[11px]">Next up!</span>
+						<span class="rounded-full bg-cover/50 px-2 py-0.5 text-[11px]">Next up!</span>
 					</button>
 					<button
 						type="button"
 						class="flex items-center gap-2 rounded-xl px-4 py-2 font-ui text-sm font-semibold transition-all {currentTab ===
 						'community'
-							? 'bg-accent text-white shadow'
-							: 'bg-white/10 text-[#C9B8E8] hover:bg-white/15'}"
+							? 'bg-cta text-cta-text shadow'
+							: 'bg-cover/35 text-book-bg/70 hover:bg-cover/50'}"
 						onclick={() => (currentTab = 'community')}
 					>
 						<CommunityIcon name="globe" size={16} />
 						Campus Community
-						<span class="rounded-full bg-white/20 px-2 py-0.5 text-[11px]">Sneak peek</span>
+						<span class="rounded-full bg-cover/50 px-2 py-0.5 text-[11px]">Sneak peek</span>
 					</button>
 				</div>
 			</div>
@@ -161,21 +161,21 @@
 					<div class="flex flex-col gap-5">
 						<!-- Your Handle banner -->
 						<div
-							class="bg-paper-2 flex items-center justify-between rounded-2xl border border-lav/40 p-3.5"
+							class="flex items-center justify-between rounded-2xl border border-line bg-paper-deep p-3.5"
 						>
 							<div class="flex items-center gap-3">
 								<div
-									class="flex size-10 items-center justify-center rounded-full bg-lav/30 font-display text-base font-bold text-accent"
+									class="flex size-10 items-center justify-center rounded-full bg-book-accent/15 font-display text-base font-bold text-book-accent"
 								>
 									{profile.initials}
 								</div>
 								<div>
-									<div class="font-ui text-xs text-ink-soft">Your Shareable Handle</div>
-									<div class="font-display font-bold text-ink">@{profile.username}</div>
+									<div class="font-ui text-xs text-book-ink/70">Your Shareable Handle</div>
+									<div class="font-display font-bold text-book-ink">@{profile.username}</div>
 								</div>
 							</div>
 							<span
-								class="rounded-full bg-gold/20 px-3 py-1 font-ui text-xs font-semibold text-[#7A5618]"
+								class="rounded-full bg-book-accent/20 px-3 py-1 font-ui text-xs font-semibold note-accent"
 							>
 								Ready for Friends
 							</span>
@@ -183,60 +183,64 @@
 
 						<!-- Search bar mockup -->
 						<div class="relative">
-							<span class="absolute inset-y-0 left-3.5 flex items-center text-ink-soft">
+							<span class="absolute inset-y-0 left-3.5 flex items-center text-book-ink/70">
 								<CommunityIcon name="search" size={14} />
 							</span>
 							<input
 								type="text"
 								bind:value={searchQuery}
 								placeholder="Find classmates by @username or name…"
-								class="w-full rounded-xl border border-line bg-paper py-2.5 pr-4 pl-10 font-ui text-sm text-ink transition outline-none focus:border-accent focus:ring-2 focus:ring-lav/30"
+								class="w-full rounded-xl border border-line bg-book-bg py-2.5 pr-4 pl-10 font-ui text-sm text-book-ink transition outline-none focus:border-book-accent focus:ring-2 focus:ring-book-accent/25"
 							/>
 						</div>
 
 						<div>
 							<div class="flex items-center justify-between">
-								<span class="font-ui text-xs font-semibold text-ink-soft">
+								<span class="font-ui text-xs font-semibold text-book-ink/70">
 									Friend entries preview
 								</span>
-								<span class="font-ui text-xs text-accent"> Sharing: "Friends + Community" </span>
+								<span class="font-ui text-xs text-book-accent">
+									Sharing: "Friends + Community"
+								</span>
 							</div>
 
 							<div class="mt-3 flex flex-col gap-3">
 								{#each SAMPLE_FRIENDS as friend (friend.username)}
 									<div
-										class="flex items-center justify-between rounded-2xl border border-line bg-light/70 p-4 transition-all hover:border-lav/60 hover:shadow-sm"
+										class="flex items-center justify-between rounded-2xl border border-line bg-paper-deep/70 p-4 transition-all hover:border-book-accent/40 hover:shadow-sm"
 									>
 										<div class="flex items-center gap-3.5">
 											<div
-												class="flex size-12 items-center justify-center rounded-2xl bg-paper text-2xl shadow-sm"
+												class="flex size-12 items-center justify-center rounded-2xl bg-book-bg text-2xl shadow-sm"
 											>
 												{friend.avatar}
 											</div>
 											<div>
 												<div class="flex items-center gap-2">
-													<b class="font-display text-sm font-bold text-ink">{friend.name}</b>
-													<span class="font-ui text-xs text-ink-soft">@{friend.username}</span>
+													<b class="font-display text-sm font-bold text-book-ink">{friend.name}</b>
+													<span class="font-ui text-xs text-book-ink/70">@{friend.username}</span>
 												</div>
-												<p class="font-ui text-xs text-ink-soft">{friend.bio}</p>
+												<p class="font-ui text-xs text-book-ink/70">{friend.bio}</p>
 												<div class="mt-1 flex items-center gap-2 text-[11px]">
-													<span class="rounded-md bg-paper px-2 py-0.5 text-ink-soft shadow-inner">
+													<span
+														class="rounded-md bg-book-bg px-2 py-0.5 text-book-ink/70 shadow-inner"
+													>
 														{MOOD_EMOJIS[friend.latestMood] || friend.latestMood}
 													</span>
 													{#if friend.sharedVideo}
-														<span class="flex items-center gap-1 font-medium text-accent">
+														<span class="flex items-center gap-1 font-medium text-book-accent">
 															<CommunityIcon name="video" size={14} />
 															Video shared
 														</span>
 													{/if}
-													<span class="text-ink-soft">• {friend.latestDate}</span>
+													<span class="text-book-ink/70">• {friend.latestDate}</span>
 												</div>
 											</div>
 										</div>
 
 										<button
 											type="button"
-											class="rounded-xl border border-line bg-paper px-3 py-1.5 font-ui text-xs font-semibold text-accent shadow-sm hover:bg-lav/20"
+											class="rounded-xl border border-line bg-book-bg px-3 py-1.5 font-ui text-xs font-semibold text-book-accent shadow-sm hover:bg-book-accent/10"
 										>
 											View Journal
 										</button>
@@ -248,33 +252,34 @@
 				{:else}
 					<!-- COMMUNITY VIEW -->
 					<div class="flex flex-col gap-5">
-						<div class="bg-paper-2 rounded-2xl border border-line p-4">
-							<b class="font-display text-base font-bold text-ink">Campus Community Reel</b>
-							<p class="mt-1 font-ui text-xs leading-relaxed text-ink-soft">
-								Turn on <span class="font-semibold text-accent">"Community"</span> to post a page to
-								the campus reel, and <span class="font-semibold text-accent">"Friends"</span> at the same
-								time to share it with your friends too.
+						<div class="rounded-2xl border border-line bg-paper-deep p-4">
+							<b class="font-display text-base font-bold text-book-ink">Campus Community Reel</b>
+							<p class="mt-1 font-ui text-xs leading-relaxed text-book-ink/70">
+								Turn on <span class="font-semibold text-book-accent">"Community"</span> to post a
+								page to the campus reel, and
+								<span class="font-semibold text-book-accent">"Friends"</span> at the same time to share
+								it with your friends too.
 							</p>
 						</div>
 
 						<div>
-							<span class="font-ui text-xs font-semibold text-ink-soft">
+							<span class="font-ui text-xs font-semibold text-book-ink/70">
 								Trending campus topics & prompts
 							</span>
 							<div class="mt-2.5 flex flex-col gap-3">
 								{#each COMMUNITY_PROMPTS as topic (topic.tag)}
 									<div
-										class="rounded-2xl border border-line bg-light/70 p-4 transition-all hover:border-lav/60"
+										class="rounded-2xl border border-line bg-paper-deep/70 p-4 transition-all hover:border-book-accent/40"
 									>
 										<div class="flex items-center justify-between">
-											<span class="font-ui text-xs font-bold text-accent">{topic.tag}</span>
+											<span class="font-ui text-xs font-bold text-book-accent">{topic.tag}</span>
 											<span
-												class="rounded-full bg-paper px-2.5 py-0.5 font-ui text-[11px] text-ink-soft"
+												class="rounded-full bg-book-bg px-2.5 py-0.5 font-ui text-[11px] text-book-ink/70"
 											>
 												{topic.entriesCount} student responses
 											</span>
 										</div>
-										<p class="mt-2 font-hand text-lg text-ink">
+										<p class="mt-2 font-hand text-lg text-book-ink">
 											“{topic.prompt}”
 										</p>
 									</div>
@@ -286,14 +291,14 @@
 			</div>
 
 			<!-- Footer -->
-			<div class="bg-paper-2 flex items-center justify-between border-t border-line px-6 py-4">
-				<p class="flex items-center gap-1 font-ui text-xs text-ink-soft">
+			<div class="flex items-center justify-between border-t border-line bg-paper-deep px-6 py-4">
+				<p class="flex items-center gap-1 font-ui text-xs text-book-ink/70">
 					<CommunityIcon name="sparkles" size={12} />
 					Friends and Community features are in active development!
 				</p>
 				<button
 					type="button"
-					class="rounded-xl bg-accent px-4 py-2 font-ui text-sm font-semibold text-white shadow hover:bg-[#624690]"
+					class="rounded-xl bg-cta px-4 py-2 font-ui text-sm font-semibold text-cta-text shadow hover:bg-cta-hover"
 					onclick={onClose}
 				>
 					Got it

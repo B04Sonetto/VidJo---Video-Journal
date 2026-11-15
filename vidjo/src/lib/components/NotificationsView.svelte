@@ -214,7 +214,7 @@
 						aria-label={`Show ${requestNotifications.length} friend requests`}
 					>
 						<span
-							class="note-accent flex size-7 items-center justify-center rounded-full bg-book-accent/20"
+							class="flex size-7 items-center justify-center rounded-full bg-book-accent/20 note-accent"
 						>
 							<CommunityIcon name="users" size={14} />
 						</span>
@@ -355,14 +355,14 @@
 													{request.fromUserName || 'VidJo student'}
 												</p>
 												<span
-													class="note-accent inline-flex rotate-[-4deg] items-center rounded-[3px] border border-book-accent/70 px-1.5 py-0.5 font-ui text-[8px] font-bold tracking-[.16em] uppercase"
+													class="inline-flex rotate-[-4deg] items-center rounded-[3px] border border-book-accent/70 px-1.5 py-0.5 font-ui text-[8px] font-bold tracking-[.16em] note-accent uppercase"
 												>
 													Friend request
 												</span>
 											</div>
 											<p class="mt-0.5 font-ui text-[12px] text-book-ink/70">
 												wants to read your shared pages
-												<span class="note-accent font-semibold"
+												<span class="font-semibold note-accent"
 													>· {formatDate(request.createdAt)}</span
 												>
 											</p>
@@ -476,10 +476,10 @@
 
 											{#if comment.text}
 												<blockquote
-													class="note-scrap relative mt-3 overflow-hidden rounded-l-[3px] rounded-r-lg border-l-[3px] border-book-accent/70 py-2.5 pr-7 pl-3.5 font-hand text-[18px] leading-snug break-words text-book-ink shadow-[0_2px_5px_rgba(0,0,0,.06)]"
+													class="relative mt-3 overflow-hidden rounded-l-[3px] rounded-r-lg border-l-[3px] border-book-accent/70 note-scrap py-2.5 pr-7 pl-3.5 font-hand text-[18px] leading-snug break-words text-book-ink shadow-[0_2px_5px_rgba(0,0,0,.06)]"
 												>
 													<span
-														class="note-fold absolute top-0 right-0 size-0 border-b-[12px] border-l-[12px] border-l-transparent"
+														class="absolute top-0 right-0 size-0 border-b-[12px] border-l-[12px] note-fold border-l-transparent"
 														aria-hidden="true"
 													></span>
 													{censor(comment.text)}
@@ -546,7 +546,7 @@
 							How the tray works
 						</h2>
 						<span
-							class="note-accent mt-1 inline-flex shrink-0 rotate-3 items-center rounded-[3px] border border-book-accent/70 px-1.5 py-0.5 font-ui text-[8px] font-bold tracking-[.16em] uppercase"
+							class="mt-1 inline-flex shrink-0 rotate-3 items-center rounded-[3px] border border-book-accent/70 px-1.5 py-0.5 font-ui text-[8px] font-bold tracking-[.16em] note-accent uppercase"
 						>
 							No likes
 						</span>
@@ -555,7 +555,7 @@
 					<ul class="relative mt-4 space-y-3">
 						<li class="flex gap-3">
 							<span
-								class="note-accent flex size-9 shrink-0 items-center justify-center rounded-full bg-book-accent/20"
+								class="flex size-9 shrink-0 items-center justify-center rounded-full bg-book-accent/20 note-accent"
 							>
 								<CommunityIcon name="users" size={16} />
 							</span>
@@ -596,7 +596,7 @@
 						aria-hidden="true"
 					></span>
 					<div
-						class="note-accent absolute top-4 right-4 rotate-3 rounded-[3px] border border-dashed border-book-accent/60 bg-book-bg px-2 py-1.5 text-center"
+						class="absolute top-4 right-4 rotate-3 rounded-[3px] border border-dashed border-book-accent/60 bg-book-bg px-2 py-1.5 text-center note-accent"
 						aria-hidden="true"
 					>
 						<CommunityIcon name="mail" size={14} class="mx-auto" />

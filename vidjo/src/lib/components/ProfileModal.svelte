@@ -237,21 +237,23 @@
 		></button>
 
 		<div
-			class="relative z-10 flex max-h-[90vh] w-full max-w-[540px] flex-col overflow-hidden rounded-3xl border border-[#4E396E] bg-paper text-ink shadow-[0_25px_60px_rgba(0,0,0,0.5)]"
+			class="relative z-10 flex max-h-[90vh] w-full max-w-[540px] flex-col overflow-hidden rounded-3xl border border-cover-edge note-scrap text-book-ink shadow-[0_25px_60px_rgba(0,0,0,0.5)]"
 		>
 			<!-- Top banner with cute paper tape / ribbon -->
 			<div
-				class="relative flex items-center justify-between border-b border-line bg-[linear-gradient(135deg,#34214E,#231438)] px-6 py-5 text-white"
+				class="relative flex items-center justify-between border-b border-line bg-[linear-gradient(135deg,var(--color-cover-edge),var(--color-desk))] px-6 py-5 text-book-bg"
 			>
 				<div class="flex items-center gap-3">
-					<div class="flex size-9 items-center justify-center rounded-xl bg-lav/20 text-gold">
+					<div
+						class="flex size-9 items-center justify-center rounded-xl bg-book-accent/20 text-book-accent"
+					>
 						<CommunityIcon name="user" size={18} />
 					</div>
 					<div>
 						<h2 id="profile-title" class="font-display text-xl font-bold tracking-wide">
 							{mode === 'view' ? 'Student Profile' : 'Edit Profile'}
 						</h2>
-						<p class="font-ui text-xs text-[#C9B8E8]">
+						<p class="font-ui text-xs text-book-bg/65">
 							{mode === 'view'
 								? 'Visible to friends and the VidJo community'
 								: 'Customize your identity and handle'}
@@ -261,7 +263,7 @@
 
 				<button
 					type="button"
-					class="flex size-9 items-center justify-center rounded-full bg-white/10 text-white/80 transition-colors hover:bg-white/20 hover:text-white"
+					class="flex size-9 items-center justify-center rounded-full bg-white/10 text-book-bg/80 transition-colors hover:bg-white/20 hover:text-book-bg"
 					onclick={onClose}
 					aria-label="Close"
 				>
@@ -292,18 +294,18 @@
 							<!-- Names & Handle -->
 							<div class="mt-3 flex-1 sm:mt-0">
 								<div class="flex flex-wrap items-center justify-center gap-2 sm:justify-start">
-									<h3 class="font-display text-2xl font-bold text-ink">
+									<h3 class="font-display text-2xl font-bold text-book-ink">
 										{modalName}
 									</h3>
 									<span
-										class="rounded-full bg-lav/30 px-2.5 py-0.5 font-ui text-xs font-semibold text-accent"
+										class="rounded-full bg-book-accent/15 px-2.5 py-0.5 font-ui text-xs font-semibold text-book-accent"
 									>
 										@{modalUsername}
 									</span>
 								</div>
 
 								{#if isOwnProfile && auth.email}
-									<p class="mt-0.5 font-ui text-xs text-ink-soft">
+									<p class="mt-0.5 font-ui text-xs text-book-ink/70">
 										{auth.email}
 									</p>
 								{/if}
@@ -311,15 +313,15 @@
 								<!-- Friend Code -->
 								{#if isOwnProfile}
 									<div class="mt-2 flex items-center justify-center gap-2 sm:justify-start">
-										<span class="font-ui text-xs text-ink-soft">Friend Code:</span>
+										<span class="font-ui text-xs text-book-ink/70">Friend Code:</span>
 										<code
-											class="rounded-md bg-accent/10 px-2 py-0.5 font-mono text-xs font-bold text-accent select-all"
+											class="rounded-md bg-book-accent/15 px-2 py-0.5 font-mono text-xs font-bold text-book-accent select-all"
 										>
 											{modalFriendCode}
 										</code>
 										<button
 											type="button"
-											class="font-ui text-xs font-semibold text-accent hover:underline"
+											class="font-ui text-xs font-semibold text-book-accent hover:underline"
 											onclick={() => {
 												const code = modalFriendCode;
 												if (!code) return;
@@ -333,13 +335,13 @@
 								{/if}
 
 								<!-- Bio -->
-								<div class="mt-3 rounded-2xl border border-line bg-light/60 p-3 text-left">
+								<div class="mt-3 rounded-2xl border border-line bg-paper-deep/60 p-3 text-left">
 									{#if modalBio}
-										<p class="font-hand text-lg leading-relaxed text-ink">
+										<p class="font-hand text-lg leading-relaxed text-book-ink">
 											“{modalBio}”
 										</p>
 									{:else}
-										<p class="font-ui text-xs leading-relaxed text-ink-soft">
+										<p class="font-ui text-xs leading-relaxed text-book-ink/70">
 											{#if isOwnProfile}
 												No bio yet. Click "Edit Profile" below to share a few words with your
 												classmates and community!
@@ -356,56 +358,56 @@
 							<!-- Quick Stats Strip -->
 							<div class="grid grid-cols-4 gap-2 min-[480px]:gap-3">
 								<div
-									class="bg-paper-2 flex flex-col items-center rounded-2xl border border-line p-3 text-center"
+									class="flex flex-col items-center rounded-2xl border border-line bg-paper-deep p-3 text-center"
 								>
-									<span class="font-display text-xl font-bold text-accent">{totalPages}</span>
-									<span class="font-ui text-[10px] text-ink-soft min-[480px]:text-[11px]"
+									<span class="font-display text-xl font-bold text-book-accent">{totalPages}</span>
+									<span class="font-ui text-[10px] text-book-ink/70 min-[480px]:text-[11px]"
 										>Pages</span
 									>
 								</div>
 								<div
-									class="flex flex-col items-center rounded-2xl border border-[#E6D9B8] bg-[linear-gradient(135deg,#FFF8E7,#F7F2FD)] p-3 text-center"
+									class="flex flex-col items-center rounded-2xl border border-book-accent/40 bg-book-accent/10 p-3 text-center"
 								>
 									<span
-										class="flex items-center gap-1 font-display text-xl font-bold text-gold tabular-nums"
+										class="flex items-center gap-1 font-display text-xl font-bold text-book-accent tabular-nums"
 									>
 										<CommunityIcon name="flame" size={16} />
 										{streak}
 									</span>
-									<span class="font-ui text-[10px] text-ink-soft min-[480px]:text-[11px]"
+									<span class="font-ui text-[10px] text-book-ink/70 min-[480px]:text-[11px]"
 										>Day streak</span
 									>
 								</div>
 								<div
-									class="bg-paper-2 flex flex-col items-center rounded-2xl border border-line p-3 text-center"
+									class="flex flex-col items-center rounded-2xl border border-line bg-paper-deep p-3 text-center"
 								>
 									<span class="font-display text-xl font-bold text-[#3F7A4F]"
 										>{friends.friendCount}</span
 									>
-									<span class="font-ui text-[10px] text-ink-soft min-[480px]:text-[11px]"
+									<span class="font-ui text-[10px] text-book-ink/70 min-[480px]:text-[11px]"
 										>Friends</span
 									>
 								</div>
 								<div
-									class="bg-paper-2 flex flex-col items-center rounded-2xl border border-line p-3 text-center"
+									class="flex flex-col items-center rounded-2xl border border-line bg-paper-deep p-3 text-center"
 								>
-									<span class="font-display text-xl font-bold text-lav">{badges.length}</span>
-									<span class="font-ui text-[10px] text-ink-soft min-[480px]:text-[11px]"
+									<span class="font-display text-xl font-bold text-book-ink">{badges.length}</span>
+									<span class="font-ui text-[10px] text-book-ink/70 min-[480px]:text-[11px]"
 										>Badges</span
 									>
 								</div>
 							</div>
 
 							<!-- Badges -->
-							<div class="bg-paper-2 rounded-2xl border border-line p-4">
+							<div class="rounded-2xl border border-line bg-paper-deep p-4">
 								<div class="flex items-center justify-between">
-									<span class="font-ui text-xs font-semibold text-accent">Achievements</span>
-									<span class="font-ui text-[11px] text-ink-soft">{badges.length} earned</span>
+									<span class="font-ui text-xs font-semibold text-book-accent">Achievements</span>
+									<span class="font-ui text-[11px] text-book-ink/70">{badges.length} earned</span>
 								</div>
 								<div class="mt-3 flex flex-wrap gap-2">
 									{#if badges.includes('first-post')}
 										<span
-											class="inline-flex items-center gap-1.5 rounded-full border border-[#D5C6E8] bg-light px-3 py-1 font-ui text-xs font-semibold text-accent"
+											class="inline-flex items-center gap-1.5 rounded-full border border-line bg-paper-deep px-3 py-1 font-ui text-xs font-semibold text-book-accent"
 										>
 											<CommunityIcon name="sparkles" size={13} />
 											First Page
@@ -413,7 +415,7 @@
 									{/if}
 									{#if badges.includes('five-pages')}
 										<span
-											class="inline-flex items-center gap-1.5 rounded-full border border-[#D5C6E8] bg-light px-3 py-1 font-ui text-xs font-semibold text-accent"
+											class="inline-flex items-center gap-1.5 rounded-full border border-line bg-paper-deep px-3 py-1 font-ui text-xs font-semibold text-book-accent"
 										>
 											<CommunityIcon name="book" size={13} />
 											Scribbler
@@ -421,7 +423,7 @@
 									{/if}
 									{#if badges.includes('ten-pages')}
 										<span
-											class="inline-flex items-center gap-1.5 rounded-full border border-[#D5C6E8] bg-light px-3 py-1 font-ui text-xs font-semibold text-accent"
+											class="inline-flex items-center gap-1.5 rounded-full border border-line bg-paper-deep px-3 py-1 font-ui text-xs font-semibold text-book-accent"
 										>
 											<CommunityIcon name="book" size={13} />
 											Storyteller
@@ -429,7 +431,7 @@
 									{/if}
 									{#if badges.includes('three-day-streak')}
 										<span
-											class="inline-flex items-center gap-1.5 rounded-full border border-[#F0D9A8] bg-[#FFF8E7] px-3 py-1 font-ui text-xs font-semibold text-[#7A5618]"
+											class="inline-flex items-center gap-1.5 rounded-full border border-book-accent/40 bg-book-accent/10 px-3 py-1 font-ui text-xs font-semibold note-accent"
 										>
 											<CommunityIcon name="flame" size={13} />
 											3-day streak
@@ -437,7 +439,7 @@
 									{/if}
 									{#if badges.includes('week-streak')}
 										<span
-											class="inline-flex items-center gap-1.5 rounded-full border border-[#F0D9A8] bg-[#FFF8E7] px-3 py-1 font-ui text-xs font-semibold text-[#7A5618]"
+											class="inline-flex items-center gap-1.5 rounded-full border border-book-accent/40 bg-book-accent/10 px-3 py-1 font-ui text-xs font-semibold note-accent"
 										>
 											<CommunityIcon name="flame" size={13} />
 											Week streak
@@ -460,7 +462,7 @@
 										</span>
 									{/if}
 									{#if badges.length === 0}
-										<p class="font-ui text-xs text-ink-soft">
+										<p class="font-ui text-xs text-book-ink/70">
 											Start writing pages and making friends to earn badges!
 										</p>
 									{/if}
@@ -469,23 +471,24 @@
 						{/if}
 
 						<!-- Friends & Community Preview Card -->
-						<div class="bg-paper-2 rounded-2xl border border-line p-4">
+						<div class="rounded-2xl border border-line bg-paper-deep p-4">
 							<div class="flex items-center justify-between">
-								<span class="font-ui text-xs font-semibold text-accent">Community preview</span>
+								<span class="font-ui text-xs font-semibold text-book-accent">Community preview</span
+								>
 								<span
-									class="rounded-md bg-gold/20 px-2 py-0.5 font-ui text-[11px] font-medium text-[#7A5618]"
+									class="rounded-md bg-book-accent/20 px-2 py-0.5 font-ui text-[11px] font-medium note-accent"
 								>
 									Public Profile
 								</span>
 							</div>
-							<p class="mt-1 font-ui text-xs text-ink-soft">
+							<p class="mt-1 font-ui text-xs text-book-ink/70">
 								Here is how your profile card will appear to friends and in the student community
 								directory:
 							</p>
 
 							<!-- Preview mockup card -->
 							<div
-								class="mt-3 flex items-center gap-3 rounded-xl border border-line bg-paper p-3 shadow-sm"
+								class="mt-3 flex items-center gap-3 rounded-xl border border-line bg-book-bg p-3 shadow-sm"
 							>
 								<Avatar
 									src={modalAvatar}
@@ -496,15 +499,15 @@
 								/>
 								<div class="min-w-0 flex-1">
 									<div class="flex items-center gap-1.5">
-										<b class="truncate font-display text-sm font-bold text-ink">{modalName}</b>
-										<span class="text-xs text-ink-soft">@{modalUsername}</span>
+										<b class="truncate font-display text-sm font-bold text-book-ink">{modalName}</b>
+										<span class="text-xs text-book-ink/70">@{modalUsername}</span>
 									</div>
-									<p class="truncate font-hand text-sm text-ink-soft">
+									<p class="truncate font-hand text-sm text-book-ink/70">
 										{modalBio || 'Small videos, big thoughts.'}
 									</p>
 								</div>
 								<span
-									class="rounded-full bg-lav/20 px-2.5 py-1 font-ui text-xs font-medium text-accent"
+									class="rounded-full bg-book-accent/15 px-2.5 py-1 font-ui text-xs font-medium text-book-accent"
 								>
 									Friend
 								</span>
@@ -514,12 +517,12 @@
 						{#if isOwnProfile}
 							<!-- Device & Shared Browser Security notice -->
 							<div
-								class="rounded-2xl border border-[#E4D7F5] bg-[#F7F2FD] p-4 text-xs text-ink-soft"
+								class="rounded-2xl border border-line bg-paper-deep p-4 text-xs text-book-ink/70"
 							>
 								<div class="flex items-start gap-2.5">
-									<CommunityIcon name="shield" size={16} class="mt-0.5 shrink-0 text-accent" />
+									<CommunityIcon name="shield" size={16} class="mt-0.5 shrink-0 text-book-accent" />
 									<div class="flex-1">
-										<b class="font-ui text-ink">Shared computer security</b>
+										<b class="font-ui text-book-ink">Shared computer security</b>
 										<p class="mt-0.5 font-ui leading-normal">
 											On shared computers, you can clear cached journal pages from this browser so
 											other visitors cannot view them.
@@ -528,7 +531,7 @@
 											<div class="mt-2.5 flex items-center gap-2">
 												<button
 													type="button"
-													class="rounded-lg bg-red-600 px-3 py-1 font-ui text-xs font-semibold text-white hover:bg-red-700"
+													class="rounded-lg bg-red-600 px-3 py-1 font-ui text-xs font-semibold text-book-bg hover:bg-red-700"
 													onclick={clearDeviceCache}
 												>
 													Confirm: Clear local cache now
@@ -544,7 +547,7 @@
 										{:else}
 											<button
 												type="button"
-												class="mt-2 text-xs font-medium text-accent underline hover:text-ink"
+												class="mt-2 text-xs font-medium text-book-accent underline hover:text-book-ink"
 												onclick={() => (clearCacheConfirm = true)}
 											>
 												Clear local journal pages from this browser
@@ -557,10 +560,10 @@
 
 						{#if isOwnProfile}
 							<!-- Journal theme -->
-							<div class="rounded-2xl border border-line bg-light/60 p-4">
+							<div class="rounded-2xl border border-line bg-paper-deep/60 p-4">
 								<div class="mb-3 flex items-center justify-between">
-									<span class="font-ui text-xs font-semibold text-accent">Journal theme</span>
-									<span class="font-ui text-[11px] text-ink-soft">
+									<span class="font-ui text-xs font-semibold text-book-accent">Journal theme</span>
+									<span class="font-ui text-[11px] text-book-ink/70">
 										{profile.theme.charAt(0).toUpperCase() + profile.theme.slice(1)}
 									</span>
 								</div>
@@ -570,8 +573,8 @@
 											type="button"
 											class="flex items-center justify-center rounded-xl border p-3 transition-all {profile.theme ===
 											theme.id
-												? 'border-accent bg-accent/20 ring-2 ring-accent'
-												: 'border-white/10 text-ink-soft hover:border-white/20'}"
+												? 'border-book-accent bg-book-accent/20 ring-2 ring-book-accent'
+												: 'border-line text-book-ink/70 hover:border-book-accent/40'}"
 											onclick={() => {
 												profile.theme = theme.id;
 												void profile.savePreferences();
@@ -582,7 +585,7 @@
 												style="background: {theme.swatch}"
 												aria-hidden="true"
 											></span>
-											<span class="font-ui text-[11px] font-semibold text-ink">
+											<span class="font-ui text-[11px] font-semibold text-book-ink">
 												{theme.label}
 											</span>
 										</button>
@@ -604,7 +607,7 @@
 
 						<!-- Avatar selection -->
 						<div>
-							<span class="block font-ui text-xs font-semibold text-ink-soft">
+							<span class="block font-ui text-xs font-semibold text-book-ink/70">
 								Choose your avatar
 							</span>
 							<div class="mt-2 flex flex-wrap items-center gap-2">
@@ -626,7 +629,7 @@
 								{/each}
 								<button
 									type="button"
-									class="hover:bg-paper-2 rounded-full border border-line px-3 py-1 font-ui text-xs text-ink-soft"
+									class="rounded-full border border-line px-3 py-1 font-ui text-xs text-book-ink/70 hover:bg-paper-deep"
 									onclick={() => (editAvatar = null)}
 								>
 									Initials only
@@ -638,7 +641,7 @@
 						<div>
 							<label
 								for="edit-display-name"
-								class="block font-ui text-xs font-semibold text-ink-soft"
+								class="block font-ui text-xs font-semibold text-book-ink/70"
 							>
 								Display name
 							</label>
@@ -648,9 +651,9 @@
 								bind:value={editDisplayName}
 								placeholder="e.g. Maya Lin"
 								maxlength="32"
-								class="mt-1.5 w-full rounded-xl border border-line bg-paper px-3.5 py-2.5 font-ui text-sm text-ink shadow-inner transition outline-none focus:border-accent focus:ring-2 focus:ring-lav/40"
+								class="mt-1.5 w-full rounded-xl border border-line bg-book-bg px-3.5 py-2.5 font-ui text-sm text-book-ink shadow-inner transition outline-none focus:border-book-accent focus:ring-2 focus:ring-book-accent/30"
 							/>
-							<span class="mt-1 block font-ui text-[11px] text-ink-soft">
+							<span class="mt-1 block font-ui text-[11px] text-book-ink/70">
 								How friends will know you across VidJo.
 							</span>
 						</div>
@@ -659,11 +662,11 @@
 						<div>
 							<label
 								for="edit-username"
-								class="flex items-center justify-between font-ui text-xs font-semibold text-ink-soft"
+								class="flex items-center justify-between font-ui text-xs font-semibold text-book-ink/70"
 							>
 								<span>Unique username</span>
 								{#if usernameStatus.checking}
-									<span class="text-accent">Checking availability…</span>
+									<span class="text-book-accent">Checking availability…</span>
 								{:else if usernameStatus.available === true}
 									<span class="flex items-center gap-1 text-[#3F7A4F]">
 										<CommunityIcon name="check" size={11} />
@@ -675,7 +678,7 @@
 							</label>
 							<div class="relative mt-1.5">
 								<span
-									class="absolute inset-y-0 left-3.5 flex items-center font-ui text-sm text-ink-soft"
+									class="absolute inset-y-0 left-3.5 flex items-center font-ui text-sm text-book-ink/70"
 								>
 									@
 								</span>
@@ -686,10 +689,10 @@
 									oninput={(e) => onUsernameInput(e.currentTarget.value)}
 									placeholder="username"
 									maxlength="24"
-									class="w-full rounded-xl border border-line bg-paper py-2.5 pr-3.5 pl-8 font-ui text-sm text-ink shadow-inner transition outline-none focus:border-accent focus:ring-2 focus:ring-lav/40"
+									class="w-full rounded-xl border border-line bg-book-bg py-2.5 pr-3.5 pl-8 font-ui text-sm text-book-ink shadow-inner transition outline-none focus:border-book-accent focus:ring-2 focus:ring-book-accent/30"
 								/>
 							</div>
-							<span class="mt-1 block font-ui text-[11px] text-ink-soft">
+							<span class="mt-1 block font-ui text-[11px] text-book-ink/70">
 								Letters, numbers, underscores, dots, or dashes (2–24 characters). Must be globally
 								unique.
 							</span>
@@ -698,10 +701,10 @@
 						<!-- Bio -->
 						<div>
 							<div class="flex items-center justify-between">
-								<label for="edit-bio" class="block font-ui text-xs font-semibold text-ink-soft">
+								<label for="edit-bio" class="block font-ui text-xs font-semibold text-book-ink/70">
 									Bio / About you
 								</label>
-								<span class="font-ui text-[11px] text-ink-soft">
+								<span class="font-ui text-[11px] text-book-ink/70">
 									{editBio.length}/200
 								</span>
 							</div>
@@ -711,7 +714,7 @@
 								rows="3"
 								maxlength="200"
 								placeholder="Share a short note about yourself, your hobbies, or what inspires your journal entries..."
-								class="mt-1.5 w-full resize-none rounded-xl border border-line bg-paper px-3.5 py-2.5 font-hand text-base text-ink shadow-inner transition outline-none focus:border-accent focus:ring-2 focus:ring-lav/40"
+								class="mt-1.5 w-full resize-none rounded-xl border border-line bg-book-bg px-3.5 py-2.5 font-hand text-base text-book-ink shadow-inner transition outline-none focus:border-book-accent focus:ring-2 focus:ring-book-accent/30"
 							></textarea>
 						</div>
 					</div>
@@ -719,14 +722,14 @@
 			</div>
 
 			<!-- Modal Footer -->
-			<div class="bg-paper-2 flex items-center justify-between border-t border-line px-6 py-4">
+			<div class="flex items-center justify-between border-t border-line bg-paper-deep px-6 py-4">
 				{#if mode === 'view'}
-					<Button variant="paper" onclick={onClose}>Close</Button>
+					<Button variant="note" onclick={onClose}>Close</Button>
 					{#if isOwnProfile}
 						<Button icon="pen" onclick={startEdit}>Edit profile</Button>
 					{/if}
 				{:else}
-					<Button variant="paper" onclick={cancelEdit} disabled={profile.saving}>Cancel</Button>
+					<Button variant="note" onclick={cancelEdit} disabled={profile.saving}>Cancel</Button>
 					<Button
 						icon="check"
 						loading={profile.saving}

@@ -450,11 +450,15 @@
 		<!-- Sidebar -->
 		<aside class="space-y-4">
 			<!-- Moods -->
-			<section class="note-scrap rounded-[20px] p-5 text-book-ink shadow-[0_10px_26px_rgba(0,0,0,.35)]">
+			<section
+				class="rounded-[20px] note-scrap p-5 text-book-ink shadow-[0_10px_26px_rgba(0,0,0,.35)]"
+			>
 				<h2 class="font-display text-[23px] leading-tight font-bold text-book-ink">
 					How everyone's feeling
 				</h2>
-				<p class="mt-1 font-hand text-lg leading-tight text-book-ink/70">Only the mood. No details.</p>
+				<p class="mt-1 font-hand text-lg leading-tight text-book-ink/70">
+					Only the mood. No details.
+				</p>
 
 				{#if moodPeek.length > 0}
 					<div class="mt-4 flex flex-wrap gap-x-3 gap-y-4">
@@ -488,9 +492,13 @@
 			</section>
 
 			<!-- Requests -->
-			<section class="note-scrap rounded-[20px] p-5 text-book-ink shadow-[0_10px_26px_rgba(0,0,0,.35)]">
+			<section
+				class="rounded-[20px] note-scrap p-5 text-book-ink shadow-[0_10px_26px_rgba(0,0,0,.35)]"
+			>
 				<div class="flex items-start justify-between gap-2">
-					<h2 class="font-display text-[23px] leading-tight font-bold text-book-ink">Friend requests</h2>
+					<h2 class="font-display text-[23px] leading-tight font-bold text-book-ink">
+						Friend requests
+					</h2>
 					{#if friends.pendingCount > 0}
 						<span
 							class="rounded-full bg-book-accent/20 px-2 py-0.5 font-ui text-[11px] font-bold note-accent"
@@ -586,8 +594,12 @@
 			</section>
 
 			<!-- Friend code -->
-			<section class="note-scrap rounded-[20px] p-5 text-book-ink shadow-[0_10px_26px_rgba(0,0,0,.35)]">
-				<h2 class="font-display text-[23px] leading-tight font-bold text-book-ink">Invite a friend</h2>
+			<section
+				class="rounded-[20px] note-scrap p-5 text-book-ink shadow-[0_10px_26px_rgba(0,0,0,.35)]"
+			>
+				<h2 class="font-display text-[23px] leading-tight font-bold text-book-ink">
+					Invite a friend
+				</h2>
 				<p class="mt-1 font-hand text-lg leading-tight text-book-ink/70">
 					Friends add you with your friend code. Usernames and links will not work.
 				</p>
