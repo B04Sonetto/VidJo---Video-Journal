@@ -97,6 +97,90 @@ html[data-theme='midnight'] body {
 		radial-gradient(circle at 20% 80%, rgb(120 170 255 / 0.08), transparent 40%);
 }
 
+html[data-theme='evergreen'] {
+	--color-desk: #101a15;
+	--color-desk-2: #1b2a22;
+	--color-cover: #2f4a3a;
+	--color-cover-edge: #1c2e25;
+	--color-paper: #f4f0df;
+	--color-paper-deep: #e7e0c8;
+	--color-paper-edge: #ded6bc;
+	--color-line: #c9c0a2;
+
+	--color-book-bg: #f6f2e2;
+	--color-book-ink: #22302a;
+	--color-book-accent: #b8863b;
+	--color-book-shadow: #dcd4b8;
+	--color-book-edge: #cfc6a8;
+
+	--color-cta: #3e6b52;
+	--color-cta-hover: #4a7c60;
+	--color-cta-text: #f7fbf6;
+	--color-cta-shadow: rgb(62 107 82 / 0.34);
+}
+
+html[data-theme='evergreen'] body {
+	background-image:
+		radial-gradient(1200px 600px at 50% 0, #23402f 0, transparent 70%),
+		radial-gradient(circle at 20% 80%, rgb(184 134 59 / 0.08), transparent 40%);
+}
+
+html[data-theme='rosewood'] {
+	--color-desk: #1f1116;
+	--color-desk-2: #2e1a20;
+	--color-cover: #7a3348;
+	--color-cover-edge: #4e1f2c;
+	--color-paper: #fbf0ec;
+	--color-paper-deep: #f0dcd4;
+	--color-paper-edge: #e7d0c7;
+	--color-line: #d9bdb2;
+
+	--color-book-bg: #fcf1ec;
+	--color-book-ink: #3a1f26;
+	--color-book-accent: #b25a6e;
+	--color-book-shadow: #e5d2c9;
+	--color-book-edge: #d8c0b6;
+
+	--color-cta: #a8435c;
+	--color-cta-hover: #b8526a;
+	--color-cta-text: #fff6f7;
+	--color-cta-shadow: rgb(168 67 92 / 0.32);
+}
+
+html[data-theme='rosewood'] body {
+	background-image:
+		radial-gradient(1200px 600px at 50% 0, #5a2436 0, transparent 70%),
+		radial-gradient(circle at 20% 80%, rgb(178 90 110 / 0.1), transparent 40%);
+}
+
+html[data-theme='harbor'] {
+	--color-desk: #0b171c;
+	--color-desk-2: #142530;
+	--color-cover: #2c4e5e;
+	--color-cover-edge: #16303a;
+	--color-paper: #eef4f3;
+	--color-paper-deep: #dce7e5;
+	--color-paper-edge: #d2dfdd;
+	--color-line: #b7c9c7;
+
+	--color-book-bg: #f0f5f4;
+	--color-book-ink: #12262c;
+	--color-book-accent: #3e8e86;
+	--color-book-shadow: #d3e0de;
+	--color-book-edge: #c3d3d1;
+
+	--color-cta: #2f7c74;
+	--color-cta-hover: #368c83;
+	--color-cta-text: #f4fcfb;
+	--color-cta-shadow: rgb(47 124 116 / 0.32);
+}
+
+html[data-theme='harbor'] body {
+	background-image:
+		radial-gradient(1200px 600px at 50% 0, #1b3d4a 0, transparent 70%),
+		radial-gradient(circle at 20% 80%, rgb(62 142 134 / 0.1), transparent 40%);
+}
+
 @layer base {
 	html {
 		color-scheme: dark;
