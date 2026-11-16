@@ -171,16 +171,6 @@ class FriendsState {
 
 		await this.loadCommentNotifications();
 		this.subscribeToFriendRequests();
-
-		try {
-			const pending = localStorage.getItem('vidjo-pending-friendcode');
-			if (pending) {
-				localStorage.removeItem('vidjo-pending-friendcode');
-				await this.addFriendByCode(pending);
-			}
-		} catch {
-			// Ignore local storage restrictions.
-		}
 	}
 
 	/** Re-fetch friends, shared pages, and notifications from Supabase. */
@@ -1103,9 +1093,11 @@ class FriendsState {
 	}
 
 	async addComment(postId: string, text: string) {
-		const raw = text.trim();
+		// Keep the text exactly as typed (including repeated spaces and line
+		// breaks); only use trim() to decide whether it is empty.
+		const raw = text;
+		if (!raw.trim()) return;
 		const clean = censor(raw);
-		if (!clean) return;
 
 		const post = this.posts.find((item) => item.id === postId);
 		if (!post) return;
@@ -1168,6 +1160,76 @@ class FriendsState {
 					}
 				: item
 		);
+	}
+
+	async updateComment(postId: string, commentId: string, text: string): Promise<boolean> {
+		if (!text.trim()) return false;
+		const post = this.posts.find((item) => item.id === postId);
+		if (!post) return false;
+
+		const clean = censor(text);
+		const key = postKey(post.authorId, post.date);
+		const previous =
+			(this.commentMap[key] ?? []).find((c) => c.id === commentId) ??
+			post.comments.find((c) => c.id === commentId);
+		if (!previous) return false;
+
+		this.commentMap = {
+			...this.commentMap,
+			[key]: (this.commentMap[key] ?? []).map((comment) =>
+				comment.id === commentId ? { ...comment, text: clean } : comment
+			)
+		};
+		this.posts = this.posts.map((item) =>
+			item.id === postId
+				? {
+						...item,
+						comments: item.comments.map((comment) =>
+							comment.id === commentId ? { ...comment, text: clean } : comment
+						)
+					}
+				: item
+		);
+
+		if (
+			!isSupabaseConfigured ||
+			!auth.user ||
+			!isUuid(post.authorId) ||
+			commentId.startsWith('local-')
+		) {
+			return true;
+		}
+
+		const { error } = await supabase
+			.from('vidjo_comments')
+			.update({ body: text })
+			.eq('id', commentId)
+			.eq('author_id', auth.user.id)
+			.eq('context', 'friends');
+
+		if (error) {
+			console.warn('[VidJo] Could not edit the comment.', error);
+			// Roll the optimistic edit back so the UI matches the server.
+			this.commentMap = {
+				...this.commentMap,
+				[key]: (this.commentMap[key] ?? []).map((comment) =>
+					comment.id === commentId ? { ...comment, text: previous.text } : comment
+				)
+			};
+			this.posts = this.posts.map((item) =>
+				item.id === postId
+					? {
+							...item,
+							comments: item.comments.map((comment) =>
+								comment.id === commentId ? { ...comment, text: previous.text } : comment
+							)
+						}
+					: item
+			);
+			return false;
+		}
+
+		return true;
 	}
 
 	async deleteComment(postId: string, commentId: string): Promise<boolean> {

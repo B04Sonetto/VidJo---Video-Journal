@@ -23,9 +23,11 @@
 	import { nav } from '#lib/state/navigation.svelte';
 	import { viewport } from '#lib/state/viewport.svelte';
 	import { supabase } from '#lib/supabase';
+	import { isPlaceholderUsername, USERNAME_MAX, validateUsername } from '#lib/username';
 
 	let calendarOpen = $state(false);
 	let activeOwner = $state('');
+	let profileReady = $state(false);
 	let initSeq = 0;
 
 	// Profile completion after OAuth sign-in (e.g. Google new-user flow).
@@ -58,6 +60,7 @@
 
 		if (!auth.active) {
 			activeOwner = '';
+			profileReady = false;
 			initSeq += 1;
 			moderation.reset();
 			friends.reset();
@@ -69,6 +72,7 @@
 		if (!ownerId || ownerId === activeOwner) return;
 
 		activeOwner = ownerId;
+		profileReady = false;
 		const seq = ++initSeq;
 		moderation.reset();
 
@@ -81,6 +85,8 @@
 			await journal.init(ownerId, auth.signedIn);
 			await profile.init(ownerId);
 			if (seq !== initSeq) return;
+			journal.setPaper(profile.paperStyle);
+			profileReady = true;
 			await Promise.all([friends.init(ownerId), community.init(ownerId)]);
 		})();
 	});
@@ -110,35 +116,30 @@
 		track('view_changed', { view });
 	});
 
-	// After the profile loads, detect the placeholder username created for
-	// OAuth accounts and prompt the user to finish their profile.
+	// After the profile loads, detect accounts that have no profile row or only a
+	// placeholder username and prompt them to finish their profile. This is the
+	// only place a Google/OAuth account gets a real username.
 	$effect(() => {
-		if (!auth.active || !profile.profile || profileCompletion) return;
-		const username = (profile.profile.username || '').trim();
-		const generated = generatedUsername();
-		if (generated && username.toLowerCase() === generated.toLowerCase()) {
-			profileCompletion = true;
-			completionEmail = auth.email || '';
-			completionUsername = username;
-			completionNickname = profile.profile.display_name || '';
-		}
-	});
+		if (!auth.active || !profileReady || profileCompletion) return;
+		const username = (profile.profile?.username || '').trim();
+		const needsCompletion = !profile.profile || !username || isPlaceholderUsername(username);
+		if (!needsCompletion) return;
 
-	/** The placeholder username the database trigger assigns to OAuth accounts. */
-	function generatedUsername() {
-		const userId = auth.user?.id ?? '';
-		return userId ? `user_${userId.slice(0, 8)}` : '';
-	}
+		profileCompletion = true;
+		completionEmail = auth.email || '';
+		completionUsername = isPlaceholderUsername(username) ? '' : username;
+		completionNickname = profile.profile?.display_name || '';
+	});
 
 	async function completeProfile() {
 		completionError = '';
 		const cleanUsername = completionUsername.trim();
-		if (!cleanUsername || !/^[a-zA-Z0-9_.-]{2,24}$/.test(cleanUsername)) {
-			completionError = 'Username must be 2–24 letters, numbers, dots, dashes, or underscores.';
+		const usernameError = validateUsername(cleanUsername);
+		if (usernameError) {
+			completionError = usernameError;
 			return;
 		}
-		const generated = generatedUsername();
-		if (generated && cleanUsername.toLowerCase() === generated.toLowerCase()) {
+		if (isPlaceholderUsername(cleanUsername)) {
 			completionError = 'Choose your own username — the automatic one is just a placeholder.';
 			return;
 		}
@@ -189,6 +190,15 @@
 
 	$effect(() => {
 		document.documentElement.dataset.theme = profile.theme;
+	});
+
+	$effect(() => {
+		document.documentElement.dataset.textSize = profile.fontSize;
+	});
+
+	// New pages start with the privacy chosen in Profile → Settings.
+	$effect(() => {
+		journal.defaultPrivacy = profile.defaultPrivacy;
 	});
 </script>
 
@@ -281,12 +291,12 @@
 					bind:value={completionUsername}
 					type="text"
 					placeholder="e.g. mara"
-					maxlength="24"
+					maxlength={USERNAME_MAX}
 					class="mt-1.5 h-12 w-full rounded-xl border-2 border-line bg-[#FFFDF6] px-3.5 font-ui text-base text-ink transition-colors placeholder:text-[#9B8CB5] focus:border-accent focus:outline-none"
 					autocomplete="username"
 				/>
 				<p class="mt-1 font-ui text-[11px] text-ink-soft">
-					Unique name for your journal, friends, and community.
+					Unique name for your journal, friends, and community (2–{USERNAME_MAX} characters).
 				</p>
 
 				<label

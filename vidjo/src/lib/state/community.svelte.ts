@@ -689,9 +689,11 @@ class CommunityState {
 	}
 
 	async addComment(post: FriendPost, text: string) {
-		const raw = text.trim();
+		// Keep the text exactly as typed (including repeated spaces and line
+		// breaks); only use trim() to decide whether it is empty.
+		const raw = text;
+		if (!raw.trim()) return;
 		const clean = censor(raw);
-		if (!clean) return;
 
 		const key = postKey(post.authorId, post.date);
 		const temp: FriendComment = {
@@ -741,6 +743,77 @@ class CommunityState {
 				console.warn('[VidJo] Could not save the comment.', error);
 			}
 		}
+	}
+
+	async updateComment(post: FriendPost, commentId: string, text: string): Promise<boolean> {
+		if (!text.trim()) return false;
+		const clean = censor(text);
+		const key = postKey(post.authorId, post.date);
+		const previous =
+			(this.commentMap[key] ?? []).find((c) => c.id === commentId) ??
+			post.comments.find((c) => c.id === commentId);
+		const previousPostComment = this.posts
+			.find((p) => p.id === post.id)
+			?.comments.find((c) => c.id === commentId);
+		if (!previous) return false;
+
+		this.commentMap = {
+			...this.commentMap,
+			[key]: (this.commentMap[key] ?? []).map((comment) =>
+				comment.id === commentId ? { ...comment, text: clean } : comment
+			)
+		};
+		this.posts = this.posts.map((p) =>
+			p.id === post.id
+				? {
+						...p,
+						comments: p.comments.map((comment) =>
+							comment.id === commentId ? { ...comment, text: clean } : comment
+						)
+					}
+				: p
+		);
+
+		if (
+			!isSupabaseConfigured ||
+			!auth.user ||
+			!isUuid(post.authorId) ||
+			commentId.startsWith('local-')
+		) {
+			return true;
+		}
+
+		const { error } = await supabase
+			.from('vidjo_comments')
+			.update({ body: text })
+			.eq('id', commentId)
+			.eq('author_id', auth.user.id)
+			.eq('context', 'community');
+
+		if (error) {
+			console.warn('[VidJo] Could not edit the comment.', error);
+			// Roll the optimistic edit back so the UI matches the server.
+			const restore = previousPostComment ?? previous;
+			this.commentMap = {
+				...this.commentMap,
+				[key]: (this.commentMap[key] ?? []).map((comment) =>
+					comment.id === commentId ? { ...comment, text: restore.text } : comment
+				)
+			};
+			this.posts = this.posts.map((p) =>
+				p.id === post.id
+					? {
+							...p,
+							comments: p.comments.map((comment) =>
+								comment.id === commentId ? { ...comment, text: restore.text } : comment
+							)
+						}
+					: p
+			);
+			return false;
+		}
+
+		return true;
 	}
 
 	async deleteComment(post: FriendPost, commentId: string): Promise<boolean> {

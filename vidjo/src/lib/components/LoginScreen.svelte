@@ -4,6 +4,7 @@
 	import { profile } from '#lib/state/profile.svelte';
 	import CommunityIcon from '#lib/components/CommunityIcon.svelte';
 	import Button from '#lib/components/ui/Button.svelte';
+	import { USERNAME_MAX, validateUsername } from '#lib/username';
 
 	type View = 'signin' | 'signup' | 'signup-2' | 'code';
 
@@ -13,7 +14,6 @@
 	let nickname = $state('');
 	let password = $state('');
 	let confirmPassword = $state('');
-	let friendInviteCode = $state('');
 	let digits = $state<string[]>(['', '', '', '', '', '']);
 	let busy = $state(false);
 	let error = $state('');
@@ -49,7 +49,7 @@
 		if (!clean) return;
 
 		if (!validUsername(clean)) {
-			usernameError = '2–24 letters, numbers, dots, dashes, or underscores';
+			usernameError = validateUsername(clean);
 			return;
 		}
 
@@ -132,7 +132,7 @@
 	}
 
 	function validUsername(value: string) {
-		return /^[a-zA-Z0-9_.-]{2,24}$/.test(value.trim());
+		return validateUsername(value) === '';
 	}
 
 	function switchView(next: View) {
@@ -164,7 +164,7 @@
 			return;
 		}
 		if (!validUsername(username)) {
-			error = 'Choose a username with 2–24 letters, numbers, dots, dashes, or underscores.';
+			error = validateUsername(username);
 			return;
 		}
 		if (usernameChecking) {
@@ -392,7 +392,7 @@
 
 		// Re-validate everything (in case user navigated directly)
 		if (!validUsername(username)) {
-			error = 'Choose a username with 2–24 letters, numbers, dots, dashes, or underscores.';
+			error = validateUsername(username);
 			view = 'signup';
 			return;
 		}
@@ -425,7 +425,6 @@
 			return;
 		}
 
-		const pendingInvite = friendInviteCode.trim().toUpperCase();
 		busy = true;
 		try {
 			const result = await auth.signUp(
@@ -437,16 +436,6 @@
 			if (result.error) {
 				error = result.error;
 				return;
-			}
-
-			// Only remember the invite once the account actually exists, so a
-			// failed signup cannot silently join a friend on a later login.
-			if (pendingInvite) {
-				try {
-					localStorage.setItem('vidjo-pending-friendcode', pendingInvite);
-				} catch {
-					// Ignore storage issue
-				}
 			}
 
 			if (result.needsConfirmation) {
@@ -738,7 +727,7 @@
 						name="email"
 						autocomplete="email"
 						inputmode="email"
-						placeholder="you@school.edu"
+						placeholder="you@example.com"
 						class="mt-1.5 h-12 w-full rounded-xl border-2 border-line bg-[#FFFDF6] px-3.5 font-ui text-base text-ink transition-colors placeholder:text-[#9B8CB5] focus:border-accent focus:outline-none"
 						disabled={busy}
 						required
@@ -773,14 +762,15 @@
 							name="username"
 							autocomplete="username"
 							placeholder="e.g. mara"
-							maxlength="24"
+							maxlength={USERNAME_MAX}
 							class="h-12 w-full rounded-xl border-2 border-line bg-[#FFFDF6] pr-3.5 pl-8 font-ui text-base text-ink transition-colors placeholder:text-[#9B8CB5] focus:border-accent focus:outline-none"
 							disabled={busy}
 							required
 						/>
 					</div>
 					<p class="mt-1 font-ui text-[11px] text-ink-soft">
-						Choose a unique username for your journal, friends, and community.
+						Choose a unique username (2–{USERNAME_MAX} characters) for your journal, friends, and
+						community.
 					</p>
 
 					<label class="mt-4 block font-ui text-[13px] font-bold text-ink" for="vidjo-nickname">
@@ -873,22 +863,6 @@
 						required
 					/>
 
-					<label class="mt-4 block font-ui text-[13px] font-bold text-ink" for="vidjo-friendcode">
-						Friend invite code <span class="text-xs font-normal text-ink-soft">(optional)</span>
-					</label>
-					<input
-						bind:value={friendInviteCode}
-						id="vidjo-friendcode"
-						type="text"
-						name="friendcode"
-						placeholder="e.g. VJ-7K9M2P"
-						class="mt-1.5 h-12 w-full rounded-xl border-2 border-line bg-[#FFFDF6] px-3.5 font-ui text-base text-ink uppercase transition-colors placeholder:text-[#9B8CB5] focus:border-accent focus:outline-none"
-						disabled={busy}
-					/>
-					<p class="mt-1 font-ui text-[11px] text-ink-soft">
-						Have a classmate's invite code? Enter it here to connect immediately.
-					</p>
-
 					<Button type="submit" size="lg" class="mt-5 w-full" loading={busy} disabled={busy}>
 						{busy ? busyLabel : primaryLabel}
 					</Button>
@@ -905,7 +879,7 @@
 						name="email"
 						autocomplete="email"
 						inputmode="email"
-						placeholder="you@school.edu"
+						placeholder="you@example.com"
 						class="mt-1.5 h-12 w-full rounded-xl border-2 border-line bg-[#FFFDF6] px-3.5 font-ui text-base text-ink transition-colors placeholder:text-[#9B8CB5] focus:border-accent focus:outline-none"
 						disabled={busy}
 						required
@@ -1034,7 +1008,7 @@
 							</p>
 						{:else}
 							<p class="mt-2 text-center font-ui text-[11px] text-ink-soft">
-								Google works for accounts that already signed up with email.
+								New Google accounts choose a username before opening the journal.
 							</p>
 						{/if}
 					{/if}
@@ -1057,13 +1031,6 @@
 					</p>
 				{/if}
 			</form>
-
-			<div
-				class="mt-7 flex items-center gap-2 border-t border-line pt-4 font-ui text-[11px] text-ink-soft"
-			>
-				<CommunityIcon name="lock" size={14} class="shrink-0" />
-				Private by default. Only you can read your pages.
-			</div>
 		</div>
 	</div>
 </section>

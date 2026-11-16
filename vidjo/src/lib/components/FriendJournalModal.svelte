@@ -36,7 +36,11 @@
 	let unfriendOpen = $state(false);
 	let unfriendBusy = $state(false);
 	let noteConfirmId = $state<string | null>(null);
+	let editingNoteId = $state<string | null>(null);
+	let editNoteText = $state('');
 	let openedFor: string | null = null;
+
+	const NOTE_MAX = 140;
 
 	const REACTIONS: {
 		key: 'love' | 'spark' | 'warm' | 'proud';
@@ -110,8 +114,8 @@
 	function submitNote(event: SubmitEvent) {
 		event.preventDefault();
 		if (!page) return;
-		const text = noteInput.trim();
-		if (!text) return;
+		const text = noteInput;
+		if (!text.trim()) return;
 		void friends.addComment(page.id, text);
 		noteInput = '';
 	}
@@ -120,6 +124,29 @@
 		noteConfirmId = null;
 		const ok = await friends.deleteComment(postId, commentId);
 		journal.toast(ok ? 'Note deleted' : 'Could not delete the note. Please try again.');
+	}
+
+	function startEditNote(commentId: string, text: string) {
+		noteConfirmId = null;
+		editingNoteId = commentId;
+		editNoteText = text;
+	}
+
+	function cancelEditNote() {
+		editingNoteId = null;
+		editNoteText = '';
+	}
+
+	async function saveEditNote(postId: string, commentId: string) {
+		if (!editNoteText.trim()) return;
+		const ok = await friends.updateComment(postId, commentId, editNoteText);
+		if (ok) {
+			editingNoteId = null;
+			editNoteText = '';
+			journal.toast('Note updated');
+		} else {
+			journal.toast('Could not update the note. Please try again.');
+		}
 	}
 
 	function openReport(postId: string, commentId: string) {
@@ -348,7 +375,9 @@
 						</div>
 
 						{#if page.title}
-							<h3 class="mt-3 font-display text-3xl leading-tight font-bold text-ink">
+							<h3
+								class="mt-3 line-clamp-2 font-display text-3xl leading-tight font-bold break-words text-ink [overflow-wrap:anywhere]"
+							>
 								{censor(page.title)}
 							</h3>
 						{/if}
@@ -502,11 +531,51 @@
 															>{comment.time}</time
 														>
 													</div>
-													<p class="mt-0.5 font-hand text-base leading-tight break-words text-ink">
+													{#if editingNoteId === comment.id}
+														<div class="mt-1">
+															<textarea
+																bind:value={editNoteText}
+																rows="2"
+																maxlength={NOTE_MAX}
+																aria-label="Edit your note"
+																class="w-full resize-none rounded-lg border border-line bg-paper px-2 py-1.5 font-ui text-[11px] text-ink focus:border-accent focus:outline-none"
+															></textarea>
+															<div class="mt-1 flex items-center justify-between gap-2">
+																<span class="font-ui text-[9px] text-ink-soft tabular-nums">
+																	{editNoteText.length}/{NOTE_MAX}
+																</span>
+																<div class="flex items-center gap-2">
+																	<button
+																		type="button"
+																		class="rounded-md bg-accent px-1.5 py-0.5 font-ui text-[10px] font-bold text-white hover:bg-[#624690] disabled:opacity-50"
+																		onclick={() => saveEditNote(page.id, comment.id)}
+																		disabled={!editNoteText.trim()}
+																	>
+																		Save
+																	</button>
+																	<button
+																		type="button"
+																		class="rounded-md border border-line px-1.5 py-0.5 font-ui text-[10px] font-semibold text-ink-soft hover:bg-light"
+																		onclick={cancelEditNote}
+																	>
+																		Cancel
+																	</button>
+																</div>
+															</div>
+														</div>
+													{/if}
+													<p
+														class="mt-0.5 font-hand text-base leading-tight break-words whitespace-pre-wrap text-ink {editingNoteId ===
+														comment.id
+															? 'hidden'
+															: ''}"
+													>
 														{censor(comment.text)}
 													</p>
 													{#if !comment.id.startsWith('local-')}
-														<div class="mt-1">
+														<div
+															class="mt-1 {editingNoteId === comment.id ? 'hidden' : ''}"
+														>
 															{#if comment.authorId === auth.ownerId}
 																{#if noteConfirmId === comment.id}
 																	<div class="flex flex-wrap items-center gap-2">
@@ -529,6 +598,13 @@
 																		</button>
 																	</div>
 																{:else}
+																	<button
+																		type="button"
+																		class="font-ui text-[10px] text-ink-soft hover:text-accent"
+																		onclick={() => startEditNote(comment.id, comment.text)}
+																	>
+																		Edit
+																	</button>
 																	<button
 																		type="button"
 																		class="font-ui text-[10px] text-ink-soft hover:text-red-600"
@@ -559,9 +635,12 @@
 										bind:value={noteInput}
 										type="text"
 										placeholder="Leave {friend.displayName.split(' ')[0]} a kind note…"
-										maxlength="140"
+										maxlength={NOTE_MAX}
 										class="h-9 flex-1 rounded-lg border border-line bg-paper px-3 font-ui text-xs text-ink placeholder:text-ink-soft/70 focus:border-accent focus:outline-none"
 									/>
+									<span class="shrink-0 font-ui text-[9px] text-ink-soft tabular-nums" aria-hidden="true">
+										{noteInput.length}/{NOTE_MAX}
+									</span>
 									<button
 										type="submit"
 										class="h-9 rounded-lg bg-accent px-3.5 font-ui text-xs font-bold text-white transition-colors hover:bg-[#624690] disabled:opacity-50"

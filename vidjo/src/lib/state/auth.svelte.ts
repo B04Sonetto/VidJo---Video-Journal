@@ -115,11 +115,10 @@ class Auth {
 	}
 
 	get avatarUrl() {
-		if (profile.profile?.avatar_url) return profile.profile.avatar_url;
-		const metadata = (this.user?.user_metadata ?? {}) as Record<string, unknown>;
-		const avatar = typeof metadata.avatar_url === 'string' ? metadata.avatar_url : '';
-		const picture = typeof metadata.picture === 'string' ? metadata.picture : '';
-		return avatar || picture;
+		// Never fall back to a Google profile picture (or any other OAuth
+		// provider image). Everyone gets the same initial-letter avatar until
+		// they upload their own picture in profile settings.
+		return '';
 	}
 
 	async init() {
@@ -383,6 +382,17 @@ class Auth {
 					? 'Too many attempts. Wait a minute, then try again.'
 					: friendlyAuthError(error.message);
 			return { error: message, needsConfirmation: false };
+		}
+
+		// With email confirmation enabled, Supabase does not return an error when
+		// the address is already registered. It returns a user with no identities
+		// instead, so detect that and tell the person to sign in rather than
+		// pretending a new account was created.
+		if (data.user && Array.isArray(data.user.identities) && data.user.identities.length === 0) {
+			return {
+				error: 'An account with this email already exists. Sign in with your password instead.',
+				needsConfirmation: false
+			};
 		}
 
 		if (data.session?.user) {

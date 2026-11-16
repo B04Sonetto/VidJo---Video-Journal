@@ -32,6 +32,10 @@
 	let deleteTarget = $state<CommunityPost | null>(null);
 	let deleteBusy = $state(false);
 	let commentConfirmId = $state<string | null>(null);
+	let editingCommentId = $state<string | null>(null);
+	let editCommentText = $state('');
+
+	const COMMENT_MAX = 140;
 
 	onMount(() => {
 		void community.refresh();
@@ -243,8 +247,8 @@
 
 	function submitComment(post: CommunityPost, event: SubmitEvent) {
 		event.preventDefault();
-		const text = commentInput[post.id]?.trim();
-		if (!text) return;
+		const text = commentInput[post.id] ?? '';
+		if (!text.trim()) return;
 
 		const now = Date.now();
 		const last = lastCommentTime[post.id] ?? 0;
@@ -284,6 +288,29 @@
 		commentConfirmId = null;
 		const ok = await community.deleteComment(post, commentId);
 		journal.toast(ok ? 'Note deleted' : 'Could not delete the note. Please try again.');
+	}
+
+	function startEditComment(commentId: string, text: string) {
+		commentConfirmId = null;
+		editingCommentId = commentId;
+		editCommentText = text;
+	}
+
+	function cancelEditComment() {
+		editingCommentId = null;
+		editCommentText = '';
+	}
+
+	async function saveEditComment(post: CommunityPost, commentId: string) {
+		if (!editCommentText.trim()) return;
+		const ok = await community.updateComment(post, commentId, editCommentText);
+		if (ok) {
+			editingCommentId = null;
+			editCommentText = '';
+			journal.toast('Note updated');
+		} else {
+			journal.toast('Could not update the note. Please try again.');
+		}
 	}
 
 	async function reportComment(post: CommunityPost, commentId: string) {
@@ -558,7 +585,7 @@
 
 		<!-- Joined community rail -->
 		<div
-			class="sticky top-2 z-20 -mx-4 mt-6 overflow-x-auto border-y border-cover-edge bg-desk/90 px-4 py-2 backdrop-blur-sm min-[900px]:mx-0 min-[900px]:rounded-[18px] min-[900px]:border min-[900px]:px-2.5"
+			class="sticky top-2 z-20 -mx-4 mt-6 border-y border-cover-edge bg-desk/90 px-4 py-2 backdrop-blur-sm min-[900px]:mx-0 min-[900px]:rounded-[18px] min-[900px]:border min-[900px]:px-2.5"
 		>
 			<div class="flex items-center gap-2">
 				<span
@@ -566,39 +593,43 @@
 				>
 					Your communities
 				</span>
-				<button
-					type="button"
-					class="flex shrink-0 items-center gap-2 rounded-full border px-3.5 py-2 font-ui text-xs font-bold transition-colors {activeSlug ===
-					'all'
-						? 'border-book-accent bg-book-bg text-book-ink'
-						: 'border-cover-edge bg-desk-2 text-book-bg/70 hover:bg-cover/40 hover:text-book-bg'}"
-					onclick={() => (activeSlug = 'all')}
-					aria-pressed={activeSlug === 'all'}
-				>
-					<CommunityIcon name="globe" size={14} />
-					All joined
-					<span class="text-[10px] tabular-nums opacity-60">{memberPosts.length}</span>
-				</button>
-
-				{#each community.joinedCommunities as item (item.slug)}
+				<div class="flex min-w-0 flex-1 items-center gap-2 overflow-x-auto pb-0.5">
 					<button
 						type="button"
 						class="flex shrink-0 items-center gap-2 rounded-full border px-3.5 py-2 font-ui text-xs font-bold transition-colors {activeSlug ===
-						item.slug
+						'all'
 							? 'border-book-accent bg-book-bg text-book-ink'
 							: 'border-cover-edge bg-desk-2 text-book-bg/70 hover:bg-cover/40 hover:text-book-bg'}"
-						onclick={() => (activeSlug = item.slug)}
-						aria-pressed={activeSlug === item.slug}
+						onclick={() => (activeSlug = 'all')}
+						aria-pressed={activeSlug === 'all'}
 					>
-						<CommunityIcon name={item.icon} size={14} />
-						{item.tag}
-						<span class="text-[10px] tabular-nums opacity-60">{slugCounts[item.slug] ?? 0}</span>
+						<CommunityIcon name="globe" size={14} />
+						All joined
+						<span class="text-[10px] tabular-nums opacity-60">{memberPosts.length}</span>
 					</button>
-				{/each}
 
+					{#each community.joinedCommunities as item (item.slug)}
+						<button
+							type="button"
+							class="flex shrink-0 items-center gap-2 rounded-full border px-3.5 py-2 font-ui text-xs font-bold transition-colors {activeSlug ===
+							item.slug
+								? 'border-book-accent bg-book-bg text-book-ink'
+								: 'border-cover-edge bg-desk-2 text-book-bg/70 hover:bg-cover/40 hover:text-book-bg'}"
+							onclick={() => (activeSlug = item.slug)}
+							aria-pressed={activeSlug === item.slug}
+						>
+							<CommunityIcon name={item.icon} size={14} />
+							{item.tag}
+							<span class="text-[10px] tabular-nums opacity-60">{slugCounts[item.slug] ?? 0}</span>
+						</button>
+					{/each}
+				</div>
+
+				<!-- Kept outside the scrolling row so Discover is always visible,
+				     even when many communities are joined. -->
 				<button
 					type="button"
-					class="ml-auto flex shrink-0 items-center gap-1.5 rounded-full border border-cover px-3 py-2 font-ui text-xs font-semibold text-book-bg/65 transition-colors hover:border-book-accent/60 hover:text-book-bg"
+					class="flex shrink-0 items-center gap-1.5 rounded-full bg-[#2563EB] px-3.5 py-2 font-ui text-xs font-bold text-white shadow-sm transition-colors hover:bg-[#1D4ED8]"
 					onclick={() => (showDiscovery = true)}
 				>
 					<CommunityIcon name="plus" size={13} />
@@ -826,7 +857,9 @@
 						{/if}
 
 						{#if post.title}
-							<h3 class="mt-3 font-hand text-[24px] leading-[1.1] font-bold text-book-ink">
+							<h3
+								class="mt-3 line-clamp-2 font-hand text-[24px] leading-[1.1] font-bold break-words text-book-ink [overflow-wrap:anywhere]"
+							>
 								{censor(post.title)}
 							</h3>
 						{/if}
@@ -1022,13 +1055,51 @@
 																>{comment.time}</time
 															>
 														</div>
+														{#if editingCommentId === comment.id}
+															<div class="mt-1">
+																<textarea
+																	bind:value={editCommentText}
+																	rows="2"
+																	maxlength={COMMENT_MAX}
+																	aria-label="Edit your note"
+																	class="w-full resize-none rounded-lg border border-line bg-book-bg px-2 py-1.5 font-ui text-[11px] text-book-ink focus:border-book-accent focus:outline-none"
+																></textarea>
+																<div class="mt-1 flex items-center justify-between gap-2">
+																	<span class="font-ui text-[9px] text-book-ink/60 tabular-nums">
+																		{editCommentText.length}/{COMMENT_MAX}
+																	</span>
+																	<div class="flex items-center gap-2">
+																		<button
+																			type="button"
+																			class="rounded-md bg-book-accent px-1.5 py-0.5 font-ui text-[9px] font-bold text-book-bg hover:opacity-90 disabled:opacity-50"
+																			onclick={() => saveEditComment(post, comment.id)}
+																			disabled={!editCommentText.trim()}
+																		>
+																			Save
+																		</button>
+																		<button
+																			type="button"
+																			class="rounded-md border border-line px-1.5 py-0.5 font-ui text-[9px] font-semibold text-book-ink/70 hover:bg-paper-deep"
+																			onclick={cancelEditComment}
+																		>
+																			Cancel
+																		</button>
+																	</div>
+																</div>
+															</div>
+														{/if}
 														<p
-															class="mt-0.5 font-hand text-base leading-tight break-words text-book-ink"
+															class="mt-0.5 font-hand text-base leading-tight break-words whitespace-pre-wrap text-book-ink {editingCommentId ===
+															comment.id
+																? 'hidden'
+																: ''}"
 														>
 															{censor(comment.text)}
 														</p>
 														{#if !comment.id.startsWith('local-')}
-															<div class="mt-1">
+															<div
+																class="mt-1 {editingCommentId === comment.id ? 'hidden' : ''}"
+															>
 																{#if comment.authorId === auth.ownerId}
 																	{#if commentConfirmId === comment.id}
 																		<div class="flex flex-wrap items-center gap-2">
@@ -1051,6 +1122,13 @@
 																			</button>
 																		</div>
 																	{:else}
+																		<button
+																			type="button"
+																			class="font-ui text-[9px] text-book-ink/70 hover:text-book-accent"
+																			onclick={() => startEditComment(comment.id, comment.text)}
+																		>
+																			Edit
+																		</button>
 																		<button
 																			type="button"
 																			class="font-ui text-[9px] text-book-ink/70 hover:text-red-600"
@@ -1089,9 +1167,15 @@
 											type="text"
 											aria-label="Leave a note on {firstName(post.authorName)}'s page"
 											placeholder="Cheer them on…"
-											maxlength="140"
+											maxlength={COMMENT_MAX}
 											class="h-9 min-w-0 flex-1 rounded-lg border border-line bg-book-bg px-2.5 font-ui text-[11px] text-book-ink placeholder:text-book-ink/45 focus:border-book-accent focus:outline-none"
 										/>
+										<span
+											class="shrink-0 font-ui text-[9px] text-book-ink/60 tabular-nums"
+											aria-hidden="true"
+										>
+											{commentInput[post.id]?.length ?? 0}/{COMMENT_MAX}
+										</span>
 										<button
 											type="submit"
 											class="h-9 rounded-lg bg-cta px-3 font-ui text-[11px] font-bold text-cta-text transition-colors hover:bg-cta-hover disabled:opacity-50"

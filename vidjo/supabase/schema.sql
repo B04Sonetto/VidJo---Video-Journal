@@ -348,7 +348,11 @@ $$;
 revoke all on function public.is_username_available(text) from public;
 grant execute on function public.is_username_available(text) to anon, authenticated;
 
--- Trigger to automatically create a profile row when a new user registers
+-- Trigger to automatically create a profile row when a new user registers.
+-- Accounts without a real username (for example, a first-time Google sign-in)
+-- deliberately get no profile row: the app shows the completion screen so the
+-- person chooses their own username. Provider photos are never copied, so every
+-- account starts with the same initial-letter avatar.
 create or replace function public.vidjo_handle_new_user()
 returns trigger
 language plpgsql
@@ -358,17 +362,34 @@ as $$
 declare
 	raw_user text := coalesce(new.raw_user_meta_data->>'username', new.raw_user_meta_data->>'user_name', '');
 	clean_user text := trim(raw_user);
-	display text := coalesce(new.raw_user_meta_data->>'full_name', new.raw_user_meta_data->>'display_name', clean_user);
-	candidate text := clean_user;
+	display text := coalesce(
+		nullif(trim(new.raw_user_meta_data->>'nickname'), ''),
+		nullif(trim(new.raw_user_meta_data->>'display_name'), ''),
+		nullif(trim(new.raw_user_meta_data->>'full_name'), ''),
+		clean_user
+	);
+	candidate text;
+	base text;
 	counter integer := 1;
 begin
-	if candidate = '' then
-		candidate := 'user_' || substr(new.id::text, 1, 8);
+	if clean_user = ''
+		or char_length(clean_user) < 2
+		or char_length(clean_user) > 10
+		or clean_user !~ '^[A-Za-z0-9_.-]{2,10}$'
+	then
+		return new;
 	end if;
 
-	-- If username candidate conflicts, append a suffix
-	while exists (select 1 from public.vidjo_profiles where lower(username) = lower(candidate) and user_id <> new.id) loop
-		candidate := clean_user || counter::text;
+	base := substr(clean_user, 1, 10);
+	candidate := base;
+
+	-- If the username is already taken, add a numeric suffix without exceeding
+	-- the 10-character limit.
+	while exists (
+		select 1 from public.vidjo_profiles
+		where lower(username) = lower(candidate) and user_id <> new.id
+	) loop
+		candidate := substr(base, 1, greatest(1, 10 - char_length(counter::text))) || counter::text;
 		counter := counter + 1;
 	end loop;
 
@@ -376,19 +397,11 @@ begin
 		display := candidate;
 	end if;
 
-	insert into public.vidjo_profiles (user_id, username, display_name, avatar_url, banner_url, user_role)
-	values (
-		new.id,
-		candidate,
-		display,
-		coalesce(new.raw_user_meta_data->>'avatar_url', new.raw_user_meta_data->>'picture', null),
-		coalesce(new.raw_user_meta_data->>'banner_url', null),
-		'user'
-	)
+	insert into public.vidjo_profiles (user_id, username, display_name, user_role)
+	values (new.id, candidate, display, 'user')
 	on conflict (user_id) do update set
 		username = excluded.username,
 		display_name = excluded.display_name,
-		banner_url = excluded.banner_url,
 		updated_at = now();
 
 	return new;
@@ -400,18 +413,115 @@ create trigger on_auth_user_created_profile
 	after insert on auth.users
 	for each row execute function public.vidjo_handle_new_user();
 
--- Backfill existing users into vidjo_profiles
-insert into public.vidjo_profiles (user_id, username, display_name, avatar_url, banner_url, user_role)
+-- Backfill existing users into vidjo_profiles. Only accounts that already have a
+-- real username are inserted; unfinished OAuth accounts stay profile-less until
+-- they complete the setup screen.
+insert into public.vidjo_profiles (user_id, username, display_name, user_role)
 select
 	u.id,
-	coalesce(nullif(trim(u.raw_user_meta_data->>'username'), ''), 'user_' || substr(u.id::text, 1, 8)),
-	coalesce(nullif(trim(u.raw_user_meta_data->>'full_name'), ''), nullif(trim(u.raw_user_meta_data->>'username'), ''), 'Friend'),
-	coalesce(u.raw_user_meta_data->>'avatar_url', u.raw_user_meta_data->>'picture', null),
-	coalesce(u.raw_user_meta_data->>'banner_url', null),
+	trim(u.raw_user_meta_data->>'username'),
+	coalesce(
+		nullif(trim(u.raw_user_meta_data->>'nickname'), ''),
+		nullif(trim(u.raw_user_meta_data->>'display_name'), ''),
+		nullif(trim(u.raw_user_meta_data->>'full_name'), ''),
+		trim(u.raw_user_meta_data->>'username')
+	),
 	'user'
 from auth.users u
-where u.raw_app_meta_data->>'vidjo_registered' = 'true'
+where (
+		u.raw_app_meta_data->>'vidjo_registered' = 'true'
+		or u.raw_user_meta_data->>'vidjo_registered' = 'true'
+	)
+	and nullif(trim(u.raw_user_meta_data->>'username'), '') is not null
+	and char_length(trim(u.raw_user_meta_data->>'username')) between 2 and 10
+	and trim(u.raw_user_meta_data->>'username') ~ '^[A-Za-z0-9_.-]{2,10}$'
 on conflict (user_id) do nothing;
+
+-- Username rules shared with src/lib/username.ts. The client validates first so
+-- people get a friendly message, and this trigger enforces the same rules for
+-- any direct API call. Only new or changed usernames are checked, so existing
+-- rows are never rewritten just because the schema is re-run.
+create or replace function public.vidjo_is_obscene_name(input text)
+returns boolean
+language plpgsql
+immutable
+set search_path = public
+as $$
+declare
+	plain text := lower(coalesce(input, ''));
+	collapsed text;
+	word text;
+	stems text[] := array[
+		'fuck', 'shit', 'cunt', 'bitch', 'pussy', 'whore', 'slut', 'faggot',
+		'retard', 'penis', 'bastard', 'asshole', 'wanker', 'twat', 'prick',
+		'dickhead', 'douche', 'bullshit', 'motherfucker'
+	];
+	whole_words text[] := array[
+		'arse', 'ass', 'crap', 'damn', 'dick', 'hell', 'idiot', 'jerk', 'moron',
+		'nigga', 'nigger', 'piss', 'tard'
+	];
+begin
+	-- Swap common lookalikes back to letters, then drop separators.
+	plain := translate(plain, '0134578@$!', 'oieastbasi');
+	plain := regexp_replace(plain, '[^a-z]', '', 'g');
+	if plain = '' then
+		return false;
+	end if;
+
+	-- Collapse repeated letters so "fuuuck" and "sweaaaaars" still match.
+	collapsed := regexp_replace(plain, '(.)\1+', '\1', 'g');
+
+	if plain like '%nigg%' then
+		return true;
+	end if;
+
+	foreach word in array stems loop
+		if plain like '%' || word || '%'
+			or collapsed like '%' || regexp_replace(word, '(.)\1+', '\1', 'g') || '%'
+		then
+			return true;
+		end if;
+	end loop;
+
+	foreach word in array whole_words loop
+		if plain = word or collapsed = regexp_replace(word, '(.)\1+', '\1', 'g') then
+			return true;
+		end if;
+	end loop;
+
+	return false;
+end;
+$$;
+
+create or replace function public.vidjo_validate_username()
+returns trigger
+language plpgsql
+set search_path = public
+as $$
+begin
+	new.username := trim(new.username);
+
+	if char_length(new.username) < 2
+		or char_length(new.username) > 10
+		or new.username !~ '^[A-Za-z0-9_.-]{2,10}$'
+	then
+		raise exception 'Username must be 2-10 letters, numbers, dots, dashes, or underscores.'
+			using errcode = '23514';
+	end if;
+
+	if public.vidjo_is_obscene_name(new.username) then
+		raise exception 'That username is not allowed. Please choose another.'
+			using errcode = '23514';
+	end if;
+
+	return new;
+end;
+$$;
+
+drop trigger if exists vidjo_profiles_validate_username on public.vidjo_profiles;
+create trigger vidjo_profiles_validate_username
+	before insert or update of username on public.vidjo_profiles
+	for each row execute function public.vidjo_validate_username();
 
 -- ---------------------------------------------------------------------------
 -- One-time migration of pre-account device rows
@@ -1261,10 +1371,23 @@ create policy "vidjo comments delete own" on public.vidjo_comments
 		and auth.uid() = author_id
 	);
 
+drop policy if exists "vidjo comments update own" on public.vidjo_comments;
+create policy "vidjo comments update own" on public.vidjo_comments
+	for update to authenticated
+	using (
+		public.vidjo_is_member()
+		and auth.uid() = author_id
+	)
+	with check (
+		public.vidjo_is_member()
+		and auth.uid() = author_id
+		and public.vidjo_can_view_post(post_owner_id, post_date)
+	);
+
 alter table public.vidjo_comments add column if not exists context text not null default 'friends';
 
 revoke all on public.vidjo_comments from anon;
-grant select, insert, delete on public.vidjo_comments to authenticated;
+grant select, insert, update, delete on public.vidjo_comments to authenticated;
 
 -- Server-side profanity masking. The client also masks display text
 -- (src/lib/censor.ts), but a direct API call could otherwise store unfiltered

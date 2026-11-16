@@ -13,7 +13,7 @@ import {
 	getStoredVideo,
 	putStoredVideo
 } from '#lib/videoStore';
-import type { Entry, EntryRow, MoodKey, PaperStyle, Side, Sticker } from '#lib/types';
+import type { Entry, EntryRow, MoodKey, PaperStyle, Privacy, Side, Sticker } from '#lib/types';
 
 const STORAGE_PREFIX = 'vidjo-journal-v3';
 const LEGACY_STORAGE_KEY = 'vidjo-journal-v2';
@@ -99,14 +99,14 @@ function readPaper(): PaperStyle {
 	return 'lined';
 }
 
-export function blankEntry(date: string): Entry {
+export function blankEntry(date: string, privacy: Privacy = 'private'): Entry {
 	return {
 		date,
 		mood: '',
 		title: '',
 		mind: '',
 		refl: '',
-		privacy: 'private',
+		privacy,
 		communitySlug: '',
 		stickers: [],
 		saved: false,
@@ -169,6 +169,8 @@ function entryToRow(ownerId: string, entry: Entry): EntryRow {
 class Journal {
 	entries = $state<Record<string, Entry>>({});
 	paper = $state<PaperStyle>('lined');
+	/** Privacy assigned to newly created pages (Profile → Settings). */
+	defaultPrivacy = $state<Privacy>('private');
 	current = $state(TODAY);
 	side = $state<Side>('L');
 	selected = $state<string[]>([]);
@@ -278,7 +280,7 @@ class Journal {
 		this.persistLocal();
 
 		if (!this.entries[TODAY]) {
-			this.entries[TODAY] = blankEntry(TODAY);
+			this.entries[TODAY] = blankEntry(TODAY, this.defaultPrivacy);
 		}
 
 		this.current = TODAY;
@@ -510,7 +512,6 @@ class Journal {
 	isBlank(entry: Entry) {
 		return (
 			!entry.saved &&
-			entry.privacy === 'private' &&
 			!entry.communitySlug &&
 			entry.includedFriendIds.length === 0 &&
 			entry.excludedFriendIds.length === 0 &&
@@ -567,7 +568,7 @@ class Journal {
 		let target = neighbour && this.entries[neighbour] ? neighbour : this.sortedDates[0];
 		if (!target) {
 			target = TODAY;
-			this.entries[target] = blankEntry(target);
+			this.entries[target] = blankEntry(target, this.defaultPrivacy);
 			this.persistLocal();
 		}
 
@@ -586,7 +587,7 @@ class Journal {
 			this.toast('Future pages are locked. You can write today or an earlier day.');
 			return null;
 		}
-		if (!this.entries[date]) this.entries[date] = blankEntry(date);
+		if (!this.entries[date]) this.entries[date] = blankEntry(date, this.defaultPrivacy);
 		return this.entries[date];
 	}
 

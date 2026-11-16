@@ -181,6 +181,20 @@ html[data-theme='harbor'] body {
 		radial-gradient(circle at 20% 80%, rgb(62 142 134 / 0.1), transparent 40%);
 }
 
+/* Text size selected from Profile → Settings. Tailwind uses rem units, so
+   changing the root font size scales the whole interface consistently. */
+html[data-text-size='sm'] {
+	font-size: 87.5%;
+}
+
+html[data-text-size='base'] {
+	font-size: 100%;
+}
+
+html[data-text-size='lg'] {
+	font-size: 115%;
+}
+
 @layer base {
 	html {
 		color-scheme: dark;

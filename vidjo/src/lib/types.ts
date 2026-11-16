@@ -87,7 +87,7 @@ export interface Profile {
 	user_role: 'user' | 'admin' | 'banned';
 	friend_code?: string;
 	accent_color?: string;
-	theme?: 'classic' | 'sunset' | 'midnight';
+	theme?: 'classic' | 'sunset' | 'midnight' | 'evergreen' | 'rosewood' | 'harbor';
 	default_privacy?: Privacy;
 	allow_friend_requests?: boolean;
 	created_at: string;

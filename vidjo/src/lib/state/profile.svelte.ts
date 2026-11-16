@@ -5,6 +5,7 @@ import { auth } from '#lib/state/auth.svelte';
 import { cleanDisplayName, normalizeImageUrl } from '#lib/avatar';
 import { detectRasterImageMime } from '#lib/imageUpload';
 import { captureError } from '#lib/observability';
+import { isPlaceholderUsername, validateUsername } from '#lib/username';
 
 export function generateFriendCode(userId: string): string {
 	if (!userId) return 'VJ-DEMO01';
@@ -26,7 +27,7 @@ export function generateFriendCode(userId: string): string {
 const PROFILE_STORAGE_KEY = 'vidjo-profile';
 const PREFERENCES_STORAGE_KEY = 'vidjo-profile-preferences';
 
-type ThemeName = 'classic' | 'sunset' | 'midnight';
+export type ThemeName = 'classic' | 'sunset' | 'midnight' | 'evergreen' | 'rosewood' | 'harbor';
 
 interface Preferences {
 	accentColor: string;
@@ -156,6 +157,26 @@ class ProfileState {
 					remote.avatar_url = normalizeImageUrl(remote.avatar_url);
 					remote.banner_url = normalizeImageUrl(remote.banner_url);
 
+					// Older builds copied the Google profile picture into the profile
+					// row. Clear it so every account starts with the same initial-letter
+					// avatar until the person uploads their own picture.
+					const providerPicture = auth.user?.user_metadata?.picture;
+					if (
+						remote.avatar_url &&
+						typeof providerPicture === 'string' &&
+						providerPicture &&
+						remote.avatar_url === providerPicture
+					) {
+						remote.avatar_url = null;
+						const { error: avatarRepairError } = await supabase
+							.from('vidjo_profiles')
+							.update({ avatar_url: null })
+							.eq('user_id', userId);
+						if (avatarRepairError) {
+							console.warn('[VidJo] Could not clear the provider profile picture.', avatarRepairError);
+						}
+					}
+
 					// Older rows may not have a friend code yet. Preserve the code the
 					// user already saw on this device, otherwise generate one.
 					if (!remote.friend_code) {
@@ -173,38 +194,17 @@ class ProfileState {
 					this.applyProfile(remote);
 					this.persistLocal(userId);
 				} else {
-					// Seed profile from auth metadata if the database row does not exist.
-					const initialUsername = auth.username || `user_${userId.slice(0, 8)}`;
-					const initialName = auth.displayName || initialUsername;
-
-					const newProfile: Profile = {
-						user_id: userId,
-						username: initialUsername,
-						display_name: initialName,
-						bio: '',
-						avatar_url: normalizeImageUrl(auth.avatarUrl || null),
-						banner_url: null,
-						user_role: 'user',
-						friend_code: cached?.friend_code || generateFriendCode(userId),
-						accent_color: this.accentColor,
-						theme: this.theme,
-						default_privacy: this.defaultPrivacy,
-						allow_friend_requests: this.allowFriendRequests,
-						created_at: cached?.created_at || new Date().toISOString(),
-						updated_at: new Date().toISOString()
-					};
-
-					const { error: seedError } = await supabase
-						.from('vidjo_profiles')
-						.upsert(newProfile, { onConflict: 'user_id' });
-					if (seedError) throw seedError;
-
-					this.profile = newProfile;
-					this.persistLocal(userId);
+					// No profile row yet. This is an unfinished account (for example,
+					// someone who just signed in with Google). Do not invent a
+					// placeholder profile: the completion screen must ask them to
+					// choose a username first. A previously cached, real profile is
+					// still usable while the row is being repaired.
+					this.profile =
+						cached && !isPlaceholderUsername(cached.username) ? cached : null;
 				}
 			} catch (err) {
 				console.warn('[VidJo] Could not load profile from Supabase, using local fallback.', err);
-				if (!this.profile) {
+				if (!this.profile && cached) {
 					this.profile = this.localProfile(userId, cached);
 				}
 			}
@@ -250,7 +250,14 @@ class ProfileState {
 			if (!raw) return;
 			const parsed = JSON.parse(raw) as Partial<Preferences>;
 			if (typeof parsed.accentColor === 'string') this.accentColor = parsed.accentColor;
-			if (parsed.theme === 'classic' || parsed.theme === 'sunset' || parsed.theme === 'midnight') {
+			if (
+				parsed.theme === 'classic' ||
+				parsed.theme === 'sunset' ||
+				parsed.theme === 'midnight' ||
+				parsed.theme === 'evergreen' ||
+				parsed.theme === 'rosewood' ||
+				parsed.theme === 'harbor'
+			) {
 				this.theme = parsed.theme;
 			}
 			if (
@@ -303,17 +310,12 @@ class ProfileState {
 	}
 
 	async checkUsernameAvailable(candidate: string): Promise<{ available: boolean; error?: string }> {
-		const clean = candidate.trim().toLowerCase();
-		if (!clean) return { available: false, error: 'Enter a username' };
-		if (!/^[a-zA-Z0-9_.-]{2,24}$/.test(clean)) {
-			return {
-				available: false,
-				error: '2–24 characters (letters, numbers, _, ., -)'
-			};
-		}
+		const clean = candidate.trim();
+		const validation = validateUsername(clean);
+		if (validation) return { available: false, error: validation };
 
 		// Current user's own username is always valid for them
-		if (this.profile && this.profile.username.toLowerCase() === clean) {
+		if (this.profile && this.profile.username.toLowerCase() === clean.toLowerCase()) {
 			return { available: true };
 		}
 
@@ -417,8 +419,9 @@ class ProfileState {
 			return { error: 'Profile banners must be a PNG, JPG, GIF, or WebP image.' };
 		}
 
-		if (!/^[a-zA-Z0-9_.-]{2,24}$/.test(cleanUsername)) {
-			return { error: 'Username must be 2–24 letters, numbers, dots, dashes, or underscores.' };
+		const usernameError = validateUsername(cleanUsername);
+		if (usernameError) {
+			return { error: usernameError };
 		}
 
 		if (!cleanDisplayName) {
@@ -505,6 +508,11 @@ class ProfileState {
 			this.profile.updated_at = new Date().toISOString();
 		}
 
+		// Always keep the full preference set on this device. Paper style, text
+		// size, and the sign-out cache choice are device-level settings, so they
+		// must survive even when the profile row cannot be updated.
+		if (userId) this.persistLocal(userId);
+
 		if (isSupabaseConfigured && userId) {
 			const { error } = await supabase
 				.from('vidjo_profiles')
@@ -522,7 +530,6 @@ class ProfileState {
 			}
 		}
 
-		if (userId) this.persistLocal(userId);
 		return { error: '' };
 	}
 

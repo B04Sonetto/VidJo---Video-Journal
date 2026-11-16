@@ -15,6 +15,7 @@
 	import CommunityIcon from '#lib/components/CommunityIcon.svelte';
 	import Avatar from '#lib/components/Avatar.svelte';
 	import Button from '#lib/components/ui/Button.svelte';
+	import { USERNAME_MAX, validateUsername } from '#lib/username';
 
 	const tabs: { id: ProfileTab; label: string }[] = [
 		{ id: 'overview', label: 'Overview' },
@@ -28,7 +29,17 @@
 	const themes = [
 		{ id: 'classic', label: 'Classic Scrapbook', swatch: '#51397A' },
 		{ id: 'sunset', label: 'Sunset Warmth', swatch: '#B85C43' },
-		{ id: 'midnight', label: 'Midnight Study', swatch: '#1F3557' }
+		{ id: 'midnight', label: 'Midnight Study', swatch: '#1F3557' },
+		{ id: 'evergreen', label: 'Evergreen', swatch: '#3E6B52' },
+		{ id: 'rosewood', label: 'Rosewood', swatch: '#A8435C' },
+		{ id: 'harbor', label: 'Harbor', swatch: '#2F7C74' }
+	] as const;
+
+	const paperStyles = [
+		{ id: 'lined', label: 'Lined' },
+		{ id: 'dotted', label: 'Dotted' },
+		{ id: 'grid', label: 'Grid' },
+		{ id: 'plain', label: 'Plain' }
 	] as const;
 
 	let copied = $state(false);
@@ -51,6 +62,51 @@
 
 	let settingsError = $state('');
 	let settingsSaving = $state(false);
+
+	type SettingsDraft = {
+		accentColor: string;
+		theme: (typeof themes)[number]['id'];
+		defaultPrivacy: 'private' | 'friends' | 'community';
+		allowFriendRequests: boolean;
+		clearCacheOnSignOut: boolean;
+		paperStyle: (typeof paperStyles)[number]['id'];
+		fontSize: 'sm' | 'base' | 'lg';
+	};
+
+	function currentSettings(): SettingsDraft {
+		return {
+			accentColor: profile.accentColor,
+			theme: profile.theme,
+			defaultPrivacy: profile.defaultPrivacy,
+			allowFriendRequests: profile.allowFriendRequests,
+			clearCacheOnSignOut: profile.clearCacheOnSignOut,
+			paperStyle: profile.paperStyle,
+			fontSize: profile.fontSize
+		};
+	}
+
+	let settingsDraft = $state<SettingsDraft>(currentSettings());
+	let settingsSeed = '';
+
+	// Stage changes while the Settings tab is open. Nothing is written to the
+	// profile until Save settings is clicked, and re-entering the tab always
+	// starts from the saved values.
+	$effect(() => {
+		const key = [
+			nav.profileTab,
+			profile.accentColor,
+			profile.theme,
+			profile.defaultPrivacy,
+			profile.allowFriendRequests,
+			profile.clearCacheOnSignOut,
+			profile.paperStyle,
+			profile.fontSize
+		].join('|');
+
+		if (nav.profileTab !== 'settings' || key === settingsSeed) return;
+		settingsSeed = key;
+		settingsDraft = currentSettings();
+	});
 
 	let totalPages = $derived(
 		Object.values(journal.entries).filter(
@@ -302,6 +358,16 @@
 	async function saveSettings() {
 		settingsSaving = true;
 		settingsError = '';
+
+		profile.accentColor = settingsDraft.accentColor;
+		profile.theme = settingsDraft.theme;
+		profile.defaultPrivacy = settingsDraft.defaultPrivacy;
+		profile.allowFriendRequests = settingsDraft.allowFriendRequests;
+		profile.clearCacheOnSignOut = settingsDraft.clearCacheOnSignOut;
+		profile.paperStyle = settingsDraft.paperStyle;
+		profile.fontSize = settingsDraft.fontSize;
+		journal.setPaper(settingsDraft.paperStyle);
+
 		const result = await profile.savePreferences();
 		settingsSaving = false;
 		if (result.error) {
@@ -841,14 +907,14 @@
 					{#each accentChoices as color (color)}
 						<button
 							type="button"
-							class="size-10 rounded-full border-2 transition-transform hover:scale-105 {profile.accentColor ===
+							class="size-10 rounded-full border-2 transition-transform hover:scale-105 {settingsDraft.accentColor ===
 							color
 								? 'border-book-bg'
 								: 'border-transparent'}"
 							style="background: {color}"
 							aria-label={`Use accent color ${color}`}
-							aria-pressed={profile.accentColor === color}
-							onclick={() => (profile.accentColor = color)}
+							aria-pressed={settingsDraft.accentColor === color}
+							onclick={() => (settingsDraft.accentColor = color)}
 						></button>
 					{/each}
 					<label
@@ -857,8 +923,8 @@
 						<input
 							type="color"
 							class="size-0 overflow-hidden opacity-0"
-							value={profile.accentColor}
-							oninput={(event) => (profile.accentColor = event.currentTarget.value)}
+							value={settingsDraft.accentColor}
+							oninput={(event) => (settingsDraft.accentColor = event.currentTarget.value)}
 						/>
 						<CommunityIcon name="plus" size={16} />
 					</label>
@@ -869,11 +935,11 @@
 					{#each themes as theme (theme.id)}
 						<button
 							type="button"
-							class="flex items-center justify-between rounded-xl px-4 py-3 transition-colors {profile.theme ===
+							class="flex items-center justify-between rounded-xl px-4 py-3 transition-colors {settingsDraft.theme ===
 							theme.id
 								? 'bg-cta text-cta-text'
 								: 'bg-cover/20 hover:bg-cover/35'}"
-							onclick={() => (profile.theme = theme.id)}
+							onclick={() => (settingsDraft.theme = theme.id)}
 						>
 							<span class="flex items-center gap-2.5 font-ui text-sm">
 								<span
@@ -882,7 +948,7 @@
 								></span>
 								{theme.label}
 							</span>
-							{#if profile.theme === theme.id}
+							{#if settingsDraft.theme === theme.id}
 								<CommunityIcon name="check" size={16} />
 							{/if}
 						</button>
@@ -890,38 +956,45 @@
 				</div>
 
 				<p class="mt-6 font-ui text-xs font-semibold text-book-accent">Default paper style</p>
-				<div class="mt-2 grid gap-2">
-					{#each ['lined', 'dotted', 'grid', 'plain'] as const as style (style)}
+				<div class="mt-2 grid grid-cols-2 gap-2">
+					{#each paperStyles as option (option.id)}
 						<button
 							type="button"
-							class="flex items-center justify-between rounded-xl px-4 py-3 transition-colors {profile.paperStyle ===
-							style
+							class="flex items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-colors {settingsDraft.paperStyle ===
+							option.id
 								? 'bg-cta text-cta-text'
 								: 'bg-cover/20 hover:bg-cover/35'}"
-							onclick={() => (profile.paperStyle = style)}
+							onclick={() => (settingsDraft.paperStyle = option.id)}
+							aria-pressed={settingsDraft.paperStyle === option.id}
 						>
-							<span class="flex items-center gap-2.5 font-ui text-sm">
-								{style === 'lined'
-									? 'Lined'
-									: style === 'dotted'
-										? 'Dotted'
-										: style === 'grid'
-											? 'Grid'
-											: 'Plain'}
-								<span class="text-xs text-book-bg/65">{style}</span>
+							<span
+								class="h-10 w-14 shrink-0 rounded-md border border-line bg-paper {option.id === 'lined'
+									? 'paper-lined'
+									: option.id === 'dotted'
+										? 'paper-dotted'
+										: option.id === 'grid'
+											? 'paper-grid'
+											: ''}"
+								aria-hidden="true"
+							></span>
+							<span class="flex min-w-0 flex-1 items-center justify-between gap-2">
+								<span class="font-ui text-sm font-semibold">{option.label}</span>
+								{#if settingsDraft.paperStyle === option.id}
+									<CommunityIcon name="check" size={16} />
+								{/if}
 							</span>
-							{#if profile.paperStyle === style}
-								<CommunityIcon name="check" size={16} />
-							{/if}
 						</button>
 					{/each}
 				</div>
+				<p class="mt-2 font-ui text-[11px] text-book-bg/65">
+					Each preview shows the paper texture used on new journal pages.
+				</p>
 
 				<p class="mt-6 font-ui text-xs font-semibold text-book-accent">Text size</p>
 				<div class="mt-2 flex items-center gap-4">
 					<span class="font-ui text-xs text-book-bg/65">A</span>
 					<select
-						bind:value={profile.fontSize}
+						bind:value={settingsDraft.fontSize}
 						class="rounded-lg border border-cover-edge bg-desk px-3 py-2 font-ui text-sm text-book-bg focus:border-book-accent focus:outline-none"
 					>
 						<option value="sm">Small</option>
@@ -947,7 +1020,7 @@
 							</p>
 						</div>
 						<select
-							bind:value={profile.defaultPrivacy}
+							bind:value={settingsDraft.defaultPrivacy}
 							class="rounded-lg border border-cover-edge bg-desk px-3 py-2 font-ui text-sm text-book-bg"
 						>
 							<option value="private">Only me</option>
@@ -962,12 +1035,13 @@
 						</div>
 						<button
 							type="button"
-							class="rounded-full px-4 py-1.5 font-ui text-xs font-semibold transition-colors {profile.allowFriendRequests
+							class="rounded-full px-4 py-1.5 font-ui text-xs font-semibold transition-colors {settingsDraft.allowFriendRequests
 								? 'bg-[#3F7A4F] text-book-bg'
 								: 'bg-cover/50 text-book-bg/80'}"
-							onclick={() => (profile.allowFriendRequests = !profile.allowFriendRequests)}
+							onclick={() =>
+								(settingsDraft.allowFriendRequests = !settingsDraft.allowFriendRequests)}
 						>
-							{profile.allowFriendRequests ? 'Enabled' : 'Disabled'}
+							{settingsDraft.allowFriendRequests ? 'Enabled' : 'Disabled'}
 						</button>
 					</div>
 					<div class="flex items-center justify-between gap-3 rounded-xl bg-cover/20 p-4">
@@ -977,12 +1051,13 @@
 						</div>
 						<button
 							type="button"
-							class="rounded-full px-4 py-1.5 font-ui text-xs font-semibold transition-colors {profile.clearCacheOnSignOut
+							class="rounded-full px-4 py-1.5 font-ui text-xs font-semibold transition-colors {settingsDraft.clearCacheOnSignOut
 								? 'bg-[#3F7A4F] text-book-bg'
 								: 'bg-cover/50 text-book-bg/80'}"
-							onclick={() => (profile.clearCacheOnSignOut = !profile.clearCacheOnSignOut)}
+							onclick={() =>
+								(settingsDraft.clearCacheOnSignOut = !settingsDraft.clearCacheOnSignOut)}
 						>
-							{profile.clearCacheOnSignOut ? 'Enabled' : 'Disabled'}
+							{settingsDraft.clearCacheOnSignOut ? 'Enabled' : 'Disabled'}
 						</button>
 					</div>
 				</div>
@@ -994,6 +1069,9 @@
 				<Button class="mt-5 w-full" loading={settingsSaving} onclick={saveSettings}>
 					Save settings
 				</Button>
+				<p class="mt-2 text-center font-ui text-[11px] text-book-bg/65">
+					Changes apply after you save.
+				</p>
 				<Button class="mt-2 w-full" variant="outline" icon="refresh" onclick={clearCache}>
 					Clear local journal cache
 				</Button>
@@ -1080,14 +1158,14 @@
 							<input
 								bind:value={editUsername}
 								type="text"
-								maxlength="24"
+								maxlength={USERNAME_MAX}
 								autocomplete="username"
 								placeholder="rice_shower"
 								class="h-11 w-full rounded-xl border border-cover-edge bg-desk pr-3.5 pl-8 font-ui text-sm text-book-bg placeholder:text-book-bg/45 focus:border-book-accent/60 focus:outline-none"
 							/>
 						</div>
 						<span class="font-ui text-[11px] text-book-bg/65"
-							>2–24 characters. Letters, numbers, dots, dashes, underscores.</span
+							>2–{USERNAME_MAX} characters. Letters, numbers, dots, dashes, underscores.</span
 						>
 					</label>
 
@@ -1131,6 +1209,7 @@
 								type="button"
 								class="justify-self-start font-ui text-[11px] font-semibold text-[#FF9B9B] hover:underline"
 								onclick={() => {
+									if (!confirm('Do you really want to remove photo?')) return;
 									editAvatar = '';
 									avatarFile = null;
 								}}
@@ -1168,6 +1247,7 @@
 								type="button"
 								class="justify-self-start font-ui text-[11px] font-semibold text-[#FF9B9B] hover:underline"
 								onclick={() => {
+									if (!confirm('Do you really want to remove banner?')) return;
 									editBanner = '';
 									bannerFile = null;
 								}}

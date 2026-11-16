@@ -10,11 +10,15 @@
 	import Button from '#lib/components/ui/Button.svelte';
 	import { onMount } from 'svelte';
 	import { SvelteDate } from 'svelte/reactivity';
+	import { USERNAME_MAX } from '#lib/username';
 
 	const themes = [
 		{ id: 'classic', label: 'Classic Scrapbook', swatch: '#51397A' },
 		{ id: 'sunset', label: 'Sunset Warmth', swatch: '#B85C43' },
-		{ id: 'midnight', label: 'Midnight Study', swatch: '#1F3557' }
+		{ id: 'midnight', label: 'Midnight Study', swatch: '#1F3557' },
+		{ id: 'evergreen', label: 'Evergreen', swatch: '#3E6B52' },
+		{ id: 'rosewood', label: 'Rosewood', swatch: '#A8435C' },
+		{ id: 'harbor', label: 'Harbor', swatch: '#2F7C74' }
 	] as const;
 
 	let { open, onClose, userId }: { open: boolean; onClose: () => void; userId?: string | null } =
@@ -688,12 +692,12 @@
 									value={editUsername}
 									oninput={(e) => onUsernameInput(e.currentTarget.value)}
 									placeholder="username"
-									maxlength="24"
+									maxlength={USERNAME_MAX}
 									class="w-full rounded-xl border border-line bg-book-bg py-2.5 pr-3.5 pl-8 font-ui text-sm text-book-ink shadow-inner transition outline-none focus:border-book-accent focus:ring-2 focus:ring-book-accent/30"
 								/>
 							</div>
 							<span class="mt-1 block font-ui text-[11px] text-book-ink/70">
-								Letters, numbers, underscores, dots, or dashes (2–24 characters). Must be globally
+								Letters, numbers, underscores, dots, or dashes (2–{USERNAME_MAX} characters). Must be globally
 								unique.
 							</span>
 						</div>
