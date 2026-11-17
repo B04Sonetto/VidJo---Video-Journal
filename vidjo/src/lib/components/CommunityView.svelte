@@ -629,7 +629,7 @@
 				     even when many communities are joined. -->
 				<button
 					type="button"
-					class="flex shrink-0 items-center gap-1.5 rounded-full bg-[#2563EB] px-3.5 py-2 font-ui text-xs font-bold text-white shadow-sm transition-colors hover:bg-[#1D4ED8]"
+					class="flex shrink-0 items-center gap-1.5 rounded-full bg-cta px-3.5 py-2 font-ui text-xs font-bold text-cta-text shadow-sm transition-colors hover:bg-cta-hover"
 					onclick={() => (showDiscovery = true)}
 				>
 					<CommunityIcon name="plus" size={13} />
@@ -919,7 +919,9 @@
 							<div
 								class="mt-2.5 rounded border border-line/70 bg-book-bg paper-lined [background-position:0_6px] px-2.5 py-1.5"
 							>
-								<p class="font-hand text-[17px] leading-[32px] whitespace-pre-wrap text-book-ink">
+								<p
+									class="font-hand text-[17px] leading-[32px] [overflow-wrap:anywhere] whitespace-pre-wrap text-book-ink"
+								>
 									{censor(post.mind)}
 								</p>
 							</div>
@@ -936,7 +938,9 @@
 									<span class="block font-ui text-[10px] font-semibold text-book-accent"
 										>Reflection</span
 									>
-									<p class="mt-0.5 font-hand text-base leading-snug font-semibold text-book-ink">
+									<p
+										class="mt-0.5 font-hand text-base leading-snug font-semibold [overflow-wrap:anywhere] whitespace-pre-wrap text-book-ink"
+									>
 										{censor(post.refl)}
 									</p>
 								</div>
@@ -1089,7 +1093,7 @@
 															</div>
 														{/if}
 														<p
-															class="mt-0.5 font-hand text-base leading-tight break-words whitespace-pre-wrap text-book-ink {editingCommentId ===
+															class="mt-0.5 font-hand text-base leading-tight [overflow-wrap:anywhere] whitespace-pre-wrap text-book-ink {editingCommentId ===
 															comment.id
 																? 'hidden'
 																: ''}"

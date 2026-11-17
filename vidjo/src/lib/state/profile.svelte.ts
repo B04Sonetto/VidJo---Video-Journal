@@ -29,6 +29,12 @@ const PREFERENCES_STORAGE_KEY = 'vidjo-profile-preferences';
 
 export type ThemeName = 'classic' | 'sunset' | 'midnight' | 'evergreen' | 'rosewood' | 'harbor';
 
+export type NotebookStyle = 'scrapbook' | 'dark' | 'spread' | 'polaroid';
+
+export function isNotebookStyle(value: unknown): value is NotebookStyle {
+	return value === 'scrapbook' || value === 'dark' || value === 'spread' || value === 'polaroid';
+}
+
 interface Preferences {
 	accentColor: string;
 	theme: ThemeName;
@@ -37,6 +43,7 @@ interface Preferences {
 	clearCacheOnSignOut: boolean;
 	paperStyle: 'lined' | 'dotted' | 'grid' | 'plain';
 	fontSize: 'sm' | 'base' | 'lg';
+	notebookStyle: NotebookStyle;
 }
 
 const DEFAULT_PREFERENCES: Preferences = {
@@ -46,7 +53,8 @@ const DEFAULT_PREFERENCES: Preferences = {
 	allowFriendRequests: true,
 	clearCacheOnSignOut: false,
 	paperStyle: 'lined',
-	fontSize: 'base'
+	fontSize: 'base',
+	notebookStyle: 'scrapbook'
 };
 
 class ProfileState {
@@ -63,6 +71,9 @@ class ProfileState {
 		}[]
 	>([]);
 	viewedProfileLoading = $state(false);
+	/** The user id whose profile finished loading (success or failure). */
+	viewedProfileFor = $state<string | null>(null);
+	private viewedTarget = '';
 	loading = $state(false);
 	saving = $state(false);
 	error = $state('');
@@ -74,6 +85,7 @@ class ProfileState {
 	clearCacheOnSignOut = $state(DEFAULT_PREFERENCES.clearCacheOnSignOut);
 	paperStyle = $state<Preferences['paperStyle']>(DEFAULT_PREFERENCES.paperStyle);
 	fontSize = $state<Preferences['fontSize']>(DEFAULT_PREFERENCES.fontSize);
+	notebookStyle = $state<NotebookStyle>(DEFAULT_PREFERENCES.notebookStyle);
 
 	get username() {
 		return this.profile?.username || auth.username || 'friend';
@@ -286,6 +298,9 @@ class ProfileState {
 			if (parsed.fontSize === 'sm' || parsed.fontSize === 'base' || parsed.fontSize === 'lg') {
 				this.fontSize = parsed.fontSize;
 			}
+			if (isNotebookStyle(parsed.notebookStyle)) {
+				this.notebookStyle = parsed.notebookStyle;
+			}
 		} catch {
 			// Ignore storage errors
 		}
@@ -303,7 +318,8 @@ class ProfileState {
 				allowFriendRequests: this.allowFriendRequests,
 				clearCacheOnSignOut: this.clearCacheOnSignOut,
 				paperStyle: this.paperStyle,
-				fontSize: this.fontSize
+				fontSize: this.fontSize,
+				notebookStyle: this.notebookStyle
 			};
 			localStorage.setItem(`${PREFERENCES_STORAGE_KEY}:${userId}`, JSON.stringify(preferences));
 		} catch {
@@ -541,6 +557,8 @@ class ProfileState {
 			this.viewedProfilePosts = [];
 			return;
 		}
+		this.viewedTarget = userId;
+		this.viewedProfileFor = null;
 		this.viewedProfileLoading = true;
 		this.viewedProfile = null;
 		this.viewedProfilePosts = [];
@@ -561,6 +579,9 @@ class ProfileState {
 
 				if (profileError) throw profileError;
 				if (entriesError) throw entriesError;
+
+				// A newer profile was requested while this one loaded; drop this result.
+				if (this.viewedTarget !== userId) return;
 
 				if (profileData) {
 					const viewed = profileData as Profile;
@@ -591,6 +612,8 @@ class ProfileState {
 			}
 		}
 
+		if (this.viewedTarget !== userId) return;
+		this.viewedProfileFor = userId;
 		this.viewedProfileLoading = false;
 	}
 
@@ -608,6 +631,7 @@ class ProfileState {
 		this.clearCacheOnSignOut = DEFAULT_PREFERENCES.clearCacheOnSignOut;
 		this.paperStyle = DEFAULT_PREFERENCES.paperStyle;
 		this.fontSize = DEFAULT_PREFERENCES.fontSize;
+		this.notebookStyle = DEFAULT_PREFERENCES.notebookStyle;
 	}
 }
 

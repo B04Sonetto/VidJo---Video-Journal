@@ -3,7 +3,7 @@
 	import { SvelteDate } from 'svelte/reactivity';
 	import { censor } from '#lib/censor';
 	import { dateKey } from '#lib/dates';
-	import { profile } from '#lib/state/profile.svelte';
+	import { profile, type NotebookStyle } from '#lib/state/profile.svelte';
 	import { journal } from '#lib/state/journal.svelte';
 	import { friends } from '#lib/state/friends.svelte';
 	import { community } from '#lib/state/community.svelte';
@@ -34,6 +34,13 @@
 		{ id: 'rosewood', label: 'Rosewood', swatch: '#A8435C' },
 		{ id: 'harbor', label: 'Harbor', swatch: '#2F7C74' }
 	] as const;
+
+	const notebookStyles: { id: NotebookStyle; label: string; hint: string }[] = [
+		{ id: 'scrapbook', label: 'Scrapbook', hint: 'A cream note card' },
+		{ id: 'dark', label: 'Dark journal', hint: 'Purple page, gold edge' },
+		{ id: 'spread', label: 'Book spread', hint: 'Two pages, like a book' },
+		{ id: 'polaroid', label: 'Polaroid', hint: 'Taped photo and a note' }
+	];
 
 	const paperStyles = [
 		{ id: 'lined', label: 'Lined' },
@@ -71,6 +78,7 @@
 		clearCacheOnSignOut: boolean;
 		paperStyle: (typeof paperStyles)[number]['id'];
 		fontSize: 'sm' | 'base' | 'lg';
+		notebookStyle: NotebookStyle;
 	};
 
 	function currentSettings(): SettingsDraft {
@@ -81,7 +89,8 @@
 			allowFriendRequests: profile.allowFriendRequests,
 			clearCacheOnSignOut: profile.clearCacheOnSignOut,
 			paperStyle: profile.paperStyle,
-			fontSize: profile.fontSize
+			fontSize: profile.fontSize,
+			notebookStyle: profile.notebookStyle
 		};
 	}
 
@@ -373,6 +382,7 @@
 		profile.clearCacheOnSignOut = settingsDraft.clearCacheOnSignOut;
 		profile.paperStyle = settingsDraft.paperStyle;
 		profile.fontSize = settingsDraft.fontSize;
+		profile.notebookStyle = settingsDraft.notebookStyle;
 		journal.setPaper(settingsDraft.paperStyle);
 
 		const result = await profile.savePreferences();
@@ -1023,6 +1033,78 @@
 				</p>
 				<p class="mt-1 font-ui text-[11px] text-book-bg/65">
 					The preview and your journal writing scale after you save.
+				</p>
+
+				<p class="mt-6 font-ui text-xs font-semibold text-book-accent">Friend notebook style</p>
+				<div class="mt-2 grid grid-cols-2 gap-2">
+					{#each notebookStyles as option (option.id)}
+						<button
+							type="button"
+							class="flex flex-col gap-2 rounded-xl p-2.5 text-left transition-colors {settingsDraft.notebookStyle ===
+							option.id
+								? 'bg-cta text-cta-text'
+								: 'bg-cover/20 hover:bg-cover/35'}"
+							onclick={() => (settingsDraft.notebookStyle = option.id)}
+							aria-pressed={settingsDraft.notebookStyle === option.id}
+						>
+							<span
+								class="relative block h-[72px] w-full overflow-hidden rounded-lg border border-cover-edge bg-desk"
+								aria-hidden="true"
+							>
+								{#if option.id === 'scrapbook'}
+									<span
+										class="absolute inset-x-4 inset-y-2 rotate-[-2deg] rounded-sm note-scrap shadow-md"
+									>
+										<span class="absolute top-2 left-2 h-1.5 w-8 rounded-full bg-book-accent/70"></span>
+										<span class="absolute top-5 left-2 h-1 w-[70%] rounded-full bg-line"></span>
+										<span class="absolute top-7 left-2 h-1 w-[55%] rounded-full bg-line"></span>
+									</span>
+								{:else if option.id === 'dark'}
+									<span
+										class="absolute inset-x-4 inset-y-2 rounded-md border border-book-accent/60 bg-[linear-gradient(160deg,var(--color-cover),var(--color-desk))]"
+									>
+										<span class="absolute top-2 left-2 h-1.5 w-8 rounded-full bg-book-accent"></span>
+										<span class="absolute top-5 left-2 h-1 w-[70%] rounded-full bg-book-accent/40"></span>
+										<span class="absolute top-7 left-2 h-1 w-[55%] rounded-full bg-book-accent/40"></span>
+									</span>
+								{:else if option.id === 'spread'}
+									<span class="absolute inset-x-3 inset-y-2 flex overflow-hidden rounded-sm bg-cover-edge p-0.5">
+										<span class="relative flex-1 note-scrap">
+											<span class="absolute inset-2 rounded-sm bg-cover/50"></span>
+										</span>
+										<span class="relative flex-1 bg-book-bg">
+											<span class="absolute top-2 left-2 h-1 w-[70%] rounded-full bg-line"></span>
+											<span class="absolute top-4 left-2 h-1 w-[55%] rounded-full bg-line"></span>
+											<span class="absolute top-6 left-2 h-1 w-[65%] rounded-full bg-line"></span>
+										</span>
+									</span>
+								{:else}
+									<span
+										class="absolute top-2 left-4 h-[58px] w-[44px] rotate-[-5deg] rounded-[2px] note-scrap shadow-md"
+									>
+										<span class="absolute -top-1 left-2 h-1.5 w-5 rotate-[4deg] bg-book-accent/70"></span>
+										<span class="absolute inset-x-1 top-1.5 h-[36px] bg-cover/60"></span>
+									</span>
+									<span
+										class="absolute top-3 right-3 h-[46px] w-[52px] rotate-[3deg] rounded-[2px] note-scrap shadow-md"
+									>
+										<span class="absolute top-2 left-2 h-1 w-[70%] rounded-full bg-line"></span>
+										<span class="absolute top-4 left-2 h-1 w-[50%] rounded-full bg-line"></span>
+									</span>
+								{/if}
+							</span>
+							<span class="flex items-center justify-between gap-2">
+								<span class="font-ui text-sm font-semibold">{option.label}</span>
+								{#if settingsDraft.notebookStyle === option.id}
+									<CommunityIcon name="check" size={16} />
+								{/if}
+							</span>
+							<span class="-mt-1.5 font-ui text-[11px] opacity-75">{option.hint}</span>
+						</button>
+					{/each}
+				</div>
+				<p class="mt-2 font-ui text-[11px] text-book-bg/65">
+					Changes how a friend's pages look when you open their notebook.
 				</p>
 			</div>
 

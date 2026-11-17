@@ -8,6 +8,7 @@
 	import Avatar from '#lib/components/Avatar.svelte';
 	import CommunityIcon from '#lib/components/CommunityIcon.svelte';
 	import Button from '#lib/components/ui/Button.svelte';
+	import OtherProfile from '#lib/components/OtherProfile.svelte';
 	import { onMount } from 'svelte';
 	import { SvelteDate } from 'svelte/reactivity';
 	import { USERNAME_MAX } from '#lib/username';
@@ -225,7 +226,9 @@
 	}}
 />
 
-{#if open}
+{#if open && isViewingOther && userId}
+	<OtherProfile {userId} {onClose} />
+{:else if open}
 	<div
 		class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm"
 		role="dialog"

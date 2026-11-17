@@ -345,7 +345,7 @@
 											>
 												{#if shelf.newCount > 0}
 													<span
-														class="absolute -top-1.5 -right-1.5 z-10 flex h-[22px] min-w-[22px] items-center justify-center rounded-full bg-gold px-1 font-ui text-[11px] font-bold text-[#2A1B3D] shadow-[0_0_0_3px_#2A1B3D]"
+														class="absolute -top-1.5 -right-1.5 z-10 flex h-[22px] min-w-[22px] items-center justify-center rounded-full bg-gold px-1 font-ui text-[11px] font-bold text-desk shadow-[0_0_0_3px_var(--color-desk-2)]"
 													>
 														{shelf.newCount}
 													</span>
