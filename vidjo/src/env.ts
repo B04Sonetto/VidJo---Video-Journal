@@ -31,5 +31,10 @@ export const variables = defineEnvVars({
 		public: true,
 		description: 'Optional release/version string attached to error reports.',
 		schema: (value) => (value ?? '').trim()
+	},
+	SUPABASE_SECRET_KEY: {
+		public: false,
+		description: 'Supabase secret key used by the server-only username login lookup.',
+		schema: (value) => (value ?? '').trim()
 	}
 });
