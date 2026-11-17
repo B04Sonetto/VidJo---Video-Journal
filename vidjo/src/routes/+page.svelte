@@ -82,8 +82,13 @@
 			await moderation.init();
 			if (seq !== initSeq || moderation.banned) return;
 
-			await journal.init(ownerId, auth.signedIn);
+			// Load preferences first so the first blank page is created with the
+			// saved default privacy instead of always starting as private.
 			await profile.init(ownerId);
+			if (seq !== initSeq) return;
+			journal.defaultPrivacy = profile.defaultPrivacy;
+
+			await journal.init(ownerId, auth.signedIn);
 			if (seq !== initSeq) return;
 			journal.setPaper(profile.paperStyle);
 			profileReady = true;

@@ -122,7 +122,7 @@
 				{dow}
 			</div>
 			<div
-				class="mt-0.5 font-display text-[26px] leading-[1.12] font-bold text-ink min-[900px]:text-[34px] min-[900px]:leading-[1.1]"
+				class="mt-0.5 font-display text-[1.625rem] leading-[1.12] font-bold text-ink min-[900px]:text-[2.125rem] min-[900px]:leading-[1.1]"
 			>
 				{dateText}
 			</div>
@@ -249,7 +249,7 @@
 	</div>
 
 	<div class="my-auto">
-		<h2 class="m-0 text-center font-display text-[20px] leading-tight font-bold text-ink">
+		<h2 class="m-0 text-center font-display text-[1.25rem] leading-tight font-bold text-ink">
 			How are you feeling today?
 		</h2>
 		<span class="mx-auto mt-1.5 mb-2.5 block h-px w-14 bg-[#D9CBEA]" aria-hidden="true"></span>

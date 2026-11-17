@@ -133,7 +133,7 @@
 	<label class="sr-only" for={`${id}-title`}>Title</label>
 	<input
 		id={`${id}-title`}
-		class="h-12 w-full border-0 border-b-2 border-line bg-transparent px-1 pb-1 font-hand text-[26px] font-bold text-ink placeholder:text-[#8E7FAA] focus:border-line focus:ring-0 focus:outline-offset-4 min-[900px]:h-[54px] min-[900px]:text-[32px]"
+		class="h-12 w-full border-0 border-b-2 border-line bg-transparent px-1 pb-1 font-hand text-[1.625rem] font-bold text-ink placeholder:text-[#8E7FAA] focus:border-line focus:ring-0 focus:outline-offset-4 min-[900px]:h-[54px] min-[900px]:text-[2rem]"
 		type="text"
 		maxlength={TITLE_MAX}
 		placeholder="Title (optional): just a random day…"
@@ -146,7 +146,7 @@
 
 	<div class="mt-1.5 flex flex-wrap items-center justify-between gap-x-3 gap-y-1.5">
 		<label
-			class="m-0 flex min-w-0 items-center gap-2 font-display text-[19px] font-bold text-ink min-[900px]:text-[22px]"
+			class="m-0 flex min-w-0 items-center gap-2 font-display text-[1.1875rem] font-bold text-ink min-[900px]:text-[1.375rem]"
 			for={`${id}-mind`}
 		>
 			What's on your mind?
@@ -173,29 +173,30 @@
 		</div>
 	</div>
 
-	{#if prompt && !preview}
-		<div
-			class="mt-2 flex items-start gap-2 rounded-lg border border-gold/60 bg-[#FFF6E0] px-3 py-2 font-hand text-lg text-ink"
-			role="status"
-		>
-			<p class="m-0 mr-auto">{prompt}</p>
-			<button
-				type="button"
-				class="mt-0.5 flex size-7 flex-none items-center justify-center rounded-md text-ink-soft transition-colors hover:bg-[#F2E2BD] hover:text-ink"
-				aria-label="Dismiss prompt"
-				onclick={() => (prompt = '')}
-			>
-				<CommunityIcon name="x" size={15} />
-			</button>
-		</div>
-	{/if}
-
 	<div class="relative mt-3 flex min-h-0 flex-1">
+		{#if prompt && !preview}
+			<div
+				class="pointer-events-none absolute inset-x-0 top-0 z-10 flex items-start gap-2 rounded-lg border border-gold/60 bg-[#FFF6E0] px-3 py-2 font-hand text-base text-ink shadow-sm"
+				role="status"
+			>
+				<p class="m-0 mr-auto line-clamp-2">{prompt}</p>
+				<button
+					type="button"
+					class="pointer-events-auto mt-0.5 flex size-7 flex-none items-center justify-center rounded-md text-ink-soft transition-colors hover:bg-[#F2E2BD] hover:text-ink"
+					aria-label="Dismiss prompt"
+					onclick={() => (prompt = '')}
+				>
+					<CommunityIcon name="x" size={15} />
+				</button>
+			</div>
+		{/if}
+
 		<textarea
 			bind:this={mindEl}
 			id={`${id}-mind`}
-			class="block h-full w-full resize-none border-0 bg-transparent px-1 pb-6 font-hand text-[22px] leading-[32px] text-ink placeholder:text-[#8E7FAA] focus:ring-0 focus:outline-offset-4"
+			class="block h-full w-full resize-none border-0 bg-transparent px-1 pb-6 font-hand text-[1.375rem] leading-[2rem] text-ink placeholder:text-[#8E7FAA] focus:ring-0 focus:outline-offset-4"
 			class:paper-lined={journal.paper === 'lined'}
+			class:pt-20={Boolean(prompt) && !preview}
 			maxlength="500"
 			placeholder="Talk about anything: your thoughts, feelings, experiences, or just what's happening in your day."
 			readonly={preview}
@@ -211,7 +212,7 @@
 
 	<div class="flex items-center justify-between gap-3">
 		<label
-			class="m-0 flex items-center gap-2 font-display text-[19px] font-bold text-ink min-[900px]:text-[22px]"
+			class="m-0 flex items-center gap-2 font-display text-[1.1875rem] font-bold text-ink min-[900px]:text-[1.375rem]"
 			for={`${id}-refl`}
 		>
 			Reflection
@@ -233,7 +234,7 @@
 	<div class="relative">
 		<textarea
 			id={`${id}-refl`}
-			class="block h-24 w-full resize-none border-0 bg-transparent px-1 pb-6 font-hand text-[22px] leading-[32px] text-ink placeholder:text-[#8E7FAA] focus:ring-0 focus:outline-offset-4"
+			class="block h-24 w-full resize-none border-0 bg-transparent px-1 pb-6 font-hand text-[1.375rem] leading-[2rem] text-ink placeholder:text-[#8E7FAA] focus:ring-0 focus:outline-offset-4"
 			class:paper-lined={journal.paper === 'lined'}
 			maxlength="300"
 			placeholder="Any thoughts, lessons, or things you want to remember?"

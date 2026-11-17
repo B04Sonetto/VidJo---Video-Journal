@@ -77,6 +77,9 @@
 	let reports = $state<ReportRow[]>([]);
 	let users = $state<AdminUser[]>([]);
 	let error = $state('');
+	let overviewError = $state('');
+	let reportsError = $state('');
+	let usersError = $state('');
 	let loading = $state(false);
 	let userSearch = $state('');
 	let roleFilter = $state<RoleFilter>('all');
@@ -84,7 +87,17 @@
 	let busyWarn = $state('');
 
 	function isAdmin() {
-		return profile.profile?.user_role === 'admin';
+		return (profile.profile?.user_role ?? '').trim().toLowerCase() === 'admin';
+	}
+
+	function errorText(err: unknown, fallback: string) {
+		if (err instanceof Error && err.message) return err.message;
+		if (typeof err === 'string' && err) return err;
+		if (err && typeof err === 'object' && 'message' in err) {
+			const message = (err as { message?: unknown }).message;
+			if (typeof message === 'string' && message) return message;
+		}
+		return fallback;
 	}
 
 	const tabs = $derived([
@@ -155,35 +168,113 @@
 		}
 	]);
 
+	async function loadOverview() {
+		overviewError = '';
+
+		try {
+			const { data, error: rpcError } = await supabase.rpc('vidjo_admin_overview', { days: 30 });
+			if (rpcError) throw rpcError;
+			overview = (data ?? null) as AdminOverview | null;
+			if (!overview) overviewError = 'The stats function returned no data.';
+		} catch (err) {
+			overview = null;
+			overviewError = errorText(err, 'Could not load the overview.');
+		}
+	}
+
+	async function loadReports() {
+		reportsError = '';
+
+		try {
+			const { data, error: rpcError } = await supabase.rpc('vidjo_admin_list_reports', {
+				max_rows: 50
+			});
+			if (!rpcError) {
+				reports = (data ?? []) as ReportRow[];
+				return;
+			}
+
+			// Older projects may not have the admin RPC yet. The reports table has
+			// its own admin select policy, so a direct read still works.
+			const { data: rows, error: directError } = await supabase
+				.from('vidjo_comment_reports')
+				.select('id, comment_id, reason, created_at')
+				.order('created_at', { ascending: false })
+				.limit(50);
+
+			if (directError) throw rpcError;
+
+			reports = ((rows ?? []) as Partial<ReportRow>[]).map((row) => ({
+				id: String(row.id ?? ''),
+				comment_id: String(row.comment_id ?? ''),
+				reason: row.reason ?? 'other',
+				created_at: row.created_at ?? '',
+				reporter_name: null,
+				reported_user: null,
+				comment_body: null,
+				reported_user_id: null
+			}));
+		} catch (err) {
+			reports = [];
+			reportsError = errorText(err, 'Could not load reports.');
+		}
+	}
+
+	async function loadUsers() {
+		usersError = '';
+
+		try {
+			const columns =
+				'user_id, username, display_name, avatar_url, user_role, created_at, ban_reason, banned_at';
+			const { data, error: queryError } = await supabase
+				.from('vidjo_profiles')
+				.select(columns)
+				.order('created_at', { ascending: false });
+
+			if (!queryError) {
+				users = (data ?? []) as AdminUser[];
+				return;
+			}
+
+			// Older schema without the ban columns: still show the member list.
+			const { data: fallback, error: fallbackError } = await supabase
+				.from('vidjo_profiles')
+				.select('user_id, username, display_name, avatar_url, user_role, created_at')
+				.order('created_at', { ascending: false });
+
+			if (fallbackError) throw queryError;
+
+			users = ((fallback ?? []) as AdminUser[]).map((user) => ({
+				...user,
+				ban_reason: null,
+				banned_at: null
+			}));
+			usersError =
+				'Ban details are unavailable until the latest supabase/schema.sql is applied. Members can still be listed.';
+		} catch (err) {
+			users = [];
+			usersError = errorText(err, 'Could not load members.');
+		}
+	}
+
 	async function loadAll() {
-		if (!isSupabaseConfigured || !isAdmin()) return;
+		if (!isSupabaseConfigured) {
+			error = 'Supabase is not configured for this build.';
+			return;
+		}
+		if (!isAdmin()) {
+			error = `Your profile role is "${profile.profile?.user_role ?? 'unknown'}", so the admin functions will reject this account.`;
+			return;
+		}
 
 		loading = true;
 		error = '';
 
-		try {
-			const [overviewRes, reportsRes, usersRes] = await Promise.all([
-				supabase.rpc('vidjo_admin_overview', { days: 30 }),
-				supabase.rpc('vidjo_admin_list_reports', { max_rows: 50 }),
-				supabase
-					.from('vidjo_profiles')
-					.select(
-						'user_id, username, display_name, avatar_url, user_role, created_at, ban_reason, banned_at'
-					)
-					.order('created_at', { ascending: false })
-			]);
+		// Each section loads on its own so one missing RPC or policy does not
+		// blank the whole console.
+		await Promise.all([loadOverview(), loadReports(), loadUsers()]);
 
-			const failure = overviewRes.error ?? reportsRes.error ?? usersRes.error;
-			if (failure) throw failure;
-
-			overview = (overviewRes.data ?? null) as AdminOverview | null;
-			reports = (reportsRes.data ?? []) as ReportRow[];
-			users = (usersRes.data ?? []) as AdminUser[];
-		} catch (err) {
-			error = err instanceof Error ? err.message : 'Failed to load the admin console.';
-		} finally {
-			loading = false;
-		}
+		loading = false;
 	}
 
 	function askReason(action: 'warn' | 'ban', name: string) {
@@ -423,6 +514,23 @@
 					{/if}
 
 					{#if tab === 'overview'}
+						{#if overviewError}
+							<div
+								class="mb-4 rounded-xl border border-[#D19A9A]/60 bg-[#3A222B] px-4 py-3 font-ui text-sm text-[#FFB4B4]"
+								role="alert"
+							>
+								<p class="font-semibold">Stats unavailable</p>
+								<p class="mt-1 break-words opacity-90">{overviewError}</p>
+								<button
+									type="button"
+									class="mt-2 font-ui text-xs font-bold underline"
+									onclick={() => void loadOverview()}
+								>
+									Try again
+								</button>
+							</div>
+						{/if}
+
 						{#if !overview && loading}
 							<div class="grid grid-cols-2 gap-3 min-[720px]:grid-cols-4">
 								{#each [0, 1, 2, 3] as slot (slot)}
@@ -633,6 +741,23 @@
 							</span>
 						</div>
 
+						{#if reportsError}
+							<div
+								class="mb-4 rounded-xl border border-[#D19A9A]/60 bg-[#3A222B] px-4 py-3 font-ui text-sm text-[#FFB4B4]"
+								role="alert"
+							>
+								<p class="font-semibold">Reports could not be loaded</p>
+								<p class="mt-1 break-words opacity-90">{reportsError}</p>
+								<button
+									type="button"
+									class="mt-2 font-ui text-xs font-bold underline"
+									onclick={() => void loadReports()}
+								>
+									Try again
+								</button>
+							</div>
+						{/if}
+
 						{#if loading && reports.length === 0}
 							<div class="space-y-3">
 								{#each [0, 1, 2] as slot (slot)}
@@ -786,6 +911,23 @@
 								{/each}
 							</div>
 						</div>
+
+						{#if usersError}
+							<div
+								class="mb-4 rounded-xl border border-[#D19A9A]/60 bg-[#3A222B] px-4 py-3 font-ui text-sm text-[#FFB4B4]"
+								role="alert"
+							>
+								<p class="font-semibold">Member list issue</p>
+								<p class="mt-1 break-words opacity-90">{usersError}</p>
+								<button
+									type="button"
+									class="mt-2 font-ui text-xs font-bold underline"
+									onclick={() => void loadUsers()}
+								>
+									Try again
+								</button>
+							</div>
+						{/if}
 
 						{#if loading && users.length === 0}
 							<div class="space-y-2">
@@ -1005,6 +1147,17 @@
 				<h2 class="mt-4 font-display text-xl font-bold">Admin access required</h2>
 				<p class="mt-2 font-ui text-sm text-[#FFB4B4]">
 					Only administrators can open this console.
+				</p>
+				<p class="mt-3 rounded-lg bg-black/20 px-3 py-2 font-ui text-[11px] text-[#E8DCF8]">
+					Signed in as <strong>@{profile.username || 'unknown'}</strong><br />
+					Role:
+					<strong
+						>{profile.profile?.user_role ?? (profile.loading ? 'loading…' : 'not loaded')}</strong
+					>
+				</p>
+				<p class="mt-2 font-ui text-[11px] text-[#C9B8E8]">
+					An admin needs <code class="text-gold">user_role = 'admin'</code> in
+					<code class="text-gold">vidjo_profiles</code>.
 				</p>
 				<Button class="mt-5" variant="outline" onclick={() => (open = false)}>Close</Button>
 			</div>

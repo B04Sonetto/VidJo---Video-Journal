@@ -6,7 +6,7 @@
 	import { friends } from '#lib/state/friends.svelte';
 	import { community } from '#lib/state/community.svelte';
 	import { TODAY } from '#lib/dates';
-	import { isSupabaseConfigured } from '#lib/supabase';
+	import { isSupabaseConfigured, supabase } from '#lib/supabase';
 	import Avatar from '#lib/components/Avatar.svelte';
 	import AdminPanel from '#lib/components/AdminPanel.svelte';
 	import CommunityIcon from '#lib/components/CommunityIcon.svelte';
@@ -15,14 +15,49 @@
 
 	let menuOpen = $state(false);
 	let adminOpen = $state(false);
+	let newReports = $state(0);
 
 	$effect(() => {
 		document.documentElement.setAttribute('data-theme', profile.theme);
 	});
 
 	function isAdmin() {
-		return profile.profile?.user_role === 'admin';
+		return (profile.profile?.user_role ?? '').trim().toLowerCase() === 'admin';
 	}
+
+	/** Badge on the account button so admins notice new reports without opening the console. */
+	async function loadReportBadge() {
+		if (!isSupabaseConfigured || !isAdmin()) {
+			newReports = 0;
+			return;
+		}
+
+		try {
+			const { data, error } = await supabase.rpc('vidjo_admin_overview', { days: 30 });
+			if (!error && data) {
+				const overview = data as { reports_new?: number };
+				newReports = Number(overview.reports_new ?? 0) || 0;
+				return;
+			}
+
+			// Older schema without the admin RPC: the select policy still lets an
+			// admin count report rows directly.
+			const { count } = await supabase
+				.from('vidjo_comment_reports')
+				.select('*', { count: 'exact', head: true });
+			newReports = count ?? 0;
+		} catch {
+			newReports = 0;
+		}
+	}
+
+	$effect(() => {
+		if (!isAdmin()) {
+			newReports = 0;
+			return;
+		}
+		void loadReportBadge();
+	});
 
 	async function signOut() {
 		menuOpen = false;
@@ -157,7 +192,7 @@
 		<div class="relative" data-account-menu>
 			<button
 				type="button"
-				class="flex min-h-11 items-center gap-2 rounded-full border border-[#5A4580] bg-[#33224D] p-1 pr-3 text-left transition-colors hover:bg-[#43306A]"
+				class="relative flex min-h-11 items-center gap-2 rounded-full border border-[#5A4580] bg-[#33224D] p-1 pr-3 text-left transition-colors hover:bg-[#43306A]"
 				aria-haspopup="menu"
 				aria-expanded={menuOpen}
 				aria-label={`Account menu for ${profile.displayName}`}
@@ -170,6 +205,15 @@
 					textClass="text-lg"
 					ring="shadow-[0_0_0_2px_var(--color-gold)]"
 				/>
+				{#if newReports > 0}
+					<span
+						class="absolute -top-0.5 -right-0.5 flex h-[18px] min-w-[18px] items-center justify-center rounded-full border-2 border-[#33224D] bg-[#D9534F] px-1 font-ui text-[9px] font-bold text-white tabular-nums"
+						aria-label={`${newReports} new ${newReports === 1 ? 'report' : 'reports'}`}
+						title={`${newReports} new ${newReports === 1 ? 'report' : 'reports'}`}
+					>
+						{newReports > 9 ? '9+' : newReports}
+					</span>
+				{/if}
 				<div class="hidden max-w-[130px] flex-col min-[1080px]:flex">
 					<span class="truncate font-ui text-sm leading-tight font-semibold text-white">
 						{profile.displayName}

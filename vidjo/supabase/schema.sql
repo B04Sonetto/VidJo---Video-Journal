@@ -1480,6 +1480,9 @@ grant select, insert on public.vidjo_comment_reports to authenticated;
 -- `vidjo_comments` SELECT policy is based on post visibility (not admin role),
 -- so the client cannot reliably join reports, reporters, and comment authors.
 -- This SECURITY DEFINER RPC does the join and verifies the caller is an admin.
+-- Dropped first because the return type gained `reported_user_id`; changing a
+-- function's return type needs a fresh definition.
+drop function if exists public.vidjo_admin_list_reports(int);
 create or replace function public.vidjo_admin_list_reports(max_rows int default 50)
 returns table (
 	id uuid,
@@ -1488,6 +1491,7 @@ returns table (
 	created_at timestamptz,
 	reporter_name text,
 	reported_user text,
+	reported_user_id uuid,
 	comment_body text
 )
 language plpgsql
@@ -1511,6 +1515,7 @@ begin
 		r.created_at,
 		coalesce(nullif(rp.display_name, ''), rp.username, 'Unknown') as reporter_name,
 		coalesce(nullif(ap.display_name, ''), ap.username, 'Unknown') as reported_user,
+		c.author_id as reported_user_id,
 		c.body as comment_body
 	from public.vidjo_comment_reports r
 	left join public.vidjo_profiles rp on rp.user_id = r.reporter_id

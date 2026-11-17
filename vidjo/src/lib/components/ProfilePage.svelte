@@ -1011,6 +1011,19 @@
 					</select>
 					<span class="font-ui text-xs text-book-bg/65">A</span>
 				</div>
+				<p
+					class="mt-2 rounded-lg border border-cover-edge bg-desk px-3 py-2 font-hand leading-snug text-book-bg/90"
+					style:font-size={settingsDraft.fontSize === 'sm'
+						? '0.95rem'
+						: settingsDraft.fontSize === 'lg'
+							? '1.35rem'
+							: '1.1rem'}
+				>
+					Today felt like a page worth keeping.
+				</p>
+				<p class="mt-1 font-ui text-[11px] text-book-bg/65">
+					The preview and your journal writing scale after you save.
+				</p>
 			</div>
 
 			<div
