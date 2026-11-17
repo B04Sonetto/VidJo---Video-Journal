@@ -313,6 +313,7 @@ class Auth {
 		}
 	}
 
+	// Jazz add this==========================================================================================
 	async signInWithEmail(email: string, password: string) {
 		if (!isSupabaseConfigured) return 'Sign-in is not configured for this build.';
 
@@ -336,6 +337,45 @@ class Auth {
 		}
 		return '';
 	}
+
+	async signInWithUsername(username: string, password: string) {
+		if (!isSupabaseConfigured) return 'Sign-in is not configured for this build.';
+
+		try {
+			const response = await fetch('/auth/username-login', {
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json'
+				},
+				body: JSON.stringify({ username, password })
+			});
+
+			const result = await response.json();
+
+			if (!response.ok) {
+				return response.status === 429
+					? 'Too many attempts. Wait a minute, then try again.'
+					: 'Invalid username or password.';
+			}
+
+			const { data, error } = await supabase.auth.setSession({
+				access_token: result.access_token,
+				refresh_token: result.refresh_token
+			});
+
+			if (error) return friendlyAuthError(error.message);
+
+			if (data.user && !this.acceptUser(data.user)) {
+				void supabase.auth.signOut();
+				return UNREGISTERED_ACCOUNT_MESSAGE;
+			}
+
+			return '';
+		} catch {
+			return 'Unable to sign in. Please check your connection and try again.';
+		}
+	}
+// close ==========================================================================================================
 
 	async signUp(
 		email: string,

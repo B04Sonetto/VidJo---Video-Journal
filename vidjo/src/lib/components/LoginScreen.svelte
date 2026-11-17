@@ -352,37 +352,46 @@
 		}
 	}
 
-	async function signIn() {
-		if (busy) return;
+// Jazz modified this function to use the new auth.signInWithEmail and auth.signInWithUsername methods================	
+async function signIn() {
+	if (busy) return;
 
-		error = '';
-		notice = '';
+	error = '';
+	notice = '';
 
-		if (!validEmail(email)) {
-			error = 'Enter a valid email address.';
-			emailInput?.focus();
-			return;
-		}
+	const identifier = email.trim();
 
-		if (!password) {
-			error = 'Enter your password.';
-			return;
-		}
-
-		busy = true;
-		try {
-			const message = await auth.signInWithEmail(email.trim(), password);
-			if (message) {
-				error = message;
-				return;
-			}
-			// Success — onAuthStateChange updates auth state and the page re-renders.
-		} catch {
-			error = 'Could not reach Supabase. Check your connection and try again.';
-		} finally {
-			busy = false;
-		}
+	if (!identifier) {
+		error = 'Enter your email or username.';
+		emailInput?.focus();
+		return;
 	}
+
+	if (!password) {
+		error = 'Enter your password.';
+		return;
+	}
+
+	busy = true;
+
+	try {
+		const message = validEmail(identifier)
+			? await auth.signInWithEmail(identifier, password)
+			: await auth.signInWithUsername(identifier, password);
+
+		if (message) {
+			error = message;
+			return;
+		}
+
+		// Success — onAuthStateChange updates auth state.
+	} catch {
+		error = 'Could not reach Supabase. Check your connection and try again.';
+	} finally {
+		busy = false;
+	}
+}
+// end ======================================================================================
 
 	async function createAccount() {
 		if (busy) return;
@@ -868,20 +877,20 @@
 				{:else}
 					<!-- ── Sign In ── -->
 					<label class="block font-ui text-[13px] font-bold text-ink" for="vidjo-email">
-						Email address
+						Email or username
 					</label>
 					<input
 						bind:this={emailInput}
-						bind:value={email}
-						id="vidjo-email"
-						type="email"
-						name="email"
-						autocomplete="email"
-						inputmode="email"
-						placeholder="you@example.com"
-						class="mt-1.5 h-12 w-full rounded-xl border-2 border-line bg-[#FFFDF6] px-3.5 font-ui text-base text-ink transition-colors placeholder:text-[#9B8CB5] focus:border-accent focus:outline-none"
-						disabled={busy}
-						required
+	                    bind:value={email}
+	                    id="vidjo-email"
+	                    type="text"
+	                    name="identifier"
+	                    autocomplete="username"
+	                    inputmode="text"
+	                    placeholder="Enter your email or username"
+	                    class="mt-1.5 h-12 w-full rounded-xl border-2 border-line bg-[#FFFDF6] px-3.5 font-ui text-base text-ink transition-colors placeholder:text-[#9B8CB5] focus:border-accent focus:outline-none"
+	                    disabled={busy}
+	                    required
 					/>
 
 					{#if !forgotPassword}
