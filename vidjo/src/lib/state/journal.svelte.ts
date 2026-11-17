@@ -20,6 +20,9 @@ const LEGACY_STORAGE_KEY = 'vidjo-journal-v2';
 const CLAIMED_KEY = 'vidjo-claimed-by';
 const PAPER_KEY = 'vidjo-paper';
 
+/** Shared title limit. Keep in sync with the input's `maxlength`. */
+export const TITLE_MAX = 80;
+
 /**
  * Signed video URLs live in memory only. Two hours is long enough for a normal
  * journal session; the player asks for a fresh URL if one expires.
@@ -66,7 +69,7 @@ function normalizeEntry(raw: Partial<Entry> & { date: string; videoUrl?: string 
 	return {
 		date: raw.date,
 		mood: raw.mood ?? '',
-		title: raw.title ?? '',
+		title: (raw.title ?? '').slice(0, TITLE_MAX),
 		mind: raw.mind ?? '',
 		refl: raw.refl ?? '',
 		privacy: raw.privacy ?? 'private',
@@ -601,6 +604,7 @@ class Journal {
 	updateCurrent(patch: Partial<Entry>) {
 		const entry = this.entries[this.current];
 		if (!entry) return;
+		if (typeof patch.title === 'string') patch.title = patch.title.slice(0, TITLE_MAX);
 		Object.assign(entry, patch);
 		if (entry.sample) entry.sample = false;
 		this.queueSave(this.current);

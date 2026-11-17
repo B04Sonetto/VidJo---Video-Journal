@@ -697,8 +697,8 @@
 								/>
 							</div>
 							<span class="mt-1 block font-ui text-[11px] text-book-ink/70">
-								Letters, numbers, underscores, dots, or dashes (2–{USERNAME_MAX} characters). Must be globally
-								unique.
+								Letters, numbers, underscores, dots, or dashes (2–{USERNAME_MAX} characters). Must be
+								globally unique.
 							</span>
 						</div>
 

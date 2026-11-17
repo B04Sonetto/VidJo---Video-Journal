@@ -307,8 +307,15 @@
 	async function saveEdits(event: SubmitEvent) {
 		event.preventDefault();
 		if (editSaving) return;
-		editSaving = true;
 		editError = '';
+
+		const usernameError = validateUsername(editUsername);
+		if (usernameError) {
+			editError = usernameError;
+			return;
+		}
+
+		editSaving = true;
 
 		let avatarUrl = editAvatar.trim() || null;
 		let bannerUrl = editBanner.trim() || null;
@@ -503,7 +510,7 @@
 	}
 </script>
 
-<div class="mx-auto w-full max-w-[1100px] px-4 py-6 min-[900px]:px-6">
+<div class="mx-auto w-full max-w-[1240px] px-4 py-6 min-[900px]:px-6">
 	<!-- ── Profile hero ── -->
 	<div
 		class="relative overflow-hidden rounded-[32px] border border-cover-edge shadow-[0_28px_70px_rgba(0,0,0,.5)]"
@@ -968,7 +975,8 @@
 							aria-pressed={settingsDraft.paperStyle === option.id}
 						>
 							<span
-								class="h-10 w-14 shrink-0 rounded-md border border-line bg-paper {option.id === 'lined'
+								class="h-10 w-14 shrink-0 rounded-md border border-line bg-paper {option.id ===
+								'lined'
 									? 'paper-lined'
 									: option.id === 'dotted'
 										? 'paper-dotted'

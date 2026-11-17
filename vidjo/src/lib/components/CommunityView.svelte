@@ -858,7 +858,7 @@
 
 						{#if post.title}
 							<h3
-								class="mt-3 line-clamp-2 font-hand text-[24px] leading-[1.1] font-bold break-words text-book-ink [overflow-wrap:anywhere]"
+								class="mt-3 line-clamp-2 font-hand text-[24px] leading-[1.1] font-bold [overflow-wrap:anywhere] break-words text-book-ink"
 							>
 								{censor(post.title)}
 							</h3>
@@ -1097,9 +1097,7 @@
 															{censor(comment.text)}
 														</p>
 														{#if !comment.id.startsWith('local-')}
-															<div
-																class="mt-1 {editingCommentId === comment.id ? 'hidden' : ''}"
-															>
+															<div class="mt-1 {editingCommentId === comment.id ? 'hidden' : ''}">
 																{#if comment.authorId === auth.ownerId}
 																	{#if commentConfirmId === comment.id}
 																		<div class="flex flex-wrap items-center gap-2">

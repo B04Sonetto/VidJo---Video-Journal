@@ -8,7 +8,7 @@
 
 	let { open = $bindable(false) }: { open?: boolean } = $props();
 
-	type AdminTab = 'overview' | 'reports' | 'users';
+	type AdminTab = 'overview' | 'reports' | 'users' | 'bans';
 	type RoleFilter = 'all' | 'user' | 'admin' | 'banned';
 
 	type ReportRow = {
@@ -90,7 +90,12 @@
 	const tabs = $derived([
 		{ key: 'overview' as AdminTab, label: 'Overview', count: null as number | null },
 		{ key: 'reports' as AdminTab, label: 'Reports', count: reports.length },
-		{ key: 'users' as AdminTab, label: 'Users', count: users.length }
+		{ key: 'users' as AdminTab, label: 'Users', count: users.length },
+		{
+			key: 'bans' as AdminTab,
+			label: 'Ban list',
+			count: users.filter((user) => user.user_role === 'banned').length
+		}
 	]);
 
 	const filteredUsers = $derived.by(() => {
@@ -116,6 +121,8 @@
 		admin: users.filter((user) => user.user_role === 'admin').length,
 		banned: users.filter((user) => user.user_role === 'banned').length
 	});
+
+	const bannedUsers = $derived(users.filter((user) => user.user_role === 'banned'));
 
 	const kpis = $derived([
 		{
@@ -888,6 +895,91 @@
 												</Button>
 											</div>
 										{/if}
+									</div>
+								{/each}
+							</div>
+						{/if}
+					{:else if tab === 'bans'}
+						<div class="mb-4 flex flex-wrap items-end justify-between gap-3">
+							<div>
+								<h3 class="font-display text-2xl leading-tight font-bold text-white">Ban list</h3>
+								<p class="mt-0.5 font-ui text-xs text-[#9E8CC0]">
+									Accounts that cannot sign in. Restoring keeps all of their pages and posts.
+								</p>
+							</div>
+							<span class="font-ui text-xs text-[#BBA8E0] tabular-nums">
+								{bannedUsers.length}
+								{bannedUsers.length === 1 ? 'account' : 'accounts'}
+							</span>
+						</div>
+
+						{#if loading && users.length === 0}
+							<div class="space-y-2">
+								{#each [0, 1, 2, 3] as slot (slot)}
+									<div
+										class="h-16 animate-pulse rounded-xl border border-[#4D366D] bg-[#24143D]"
+									></div>
+								{/each}
+							</div>
+						{:else if bannedUsers.length === 0}
+							<div
+								class="rounded-2xl border border-[#5A4580] bg-[#24143D]/60 px-6 py-12 text-center"
+							>
+								<CommunityIcon name="shield" size={28} class="mx-auto text-gold/60" />
+								<p class="mt-3 font-ui text-sm font-semibold text-[#D6CBEC]">
+									No banned accounts right now.
+								</p>
+								<p class="mt-1 font-ui text-xs text-[#9E8CC0]">
+									Issue a warning or ban from Reports or the Users tab.
+								</p>
+							</div>
+						{:else}
+							<div class="space-y-2">
+								{#each bannedUsers as user (user.user_id)}
+									<div
+										class="flex flex-wrap items-center gap-3 rounded-xl border border-[#D19A9A]/40 bg-[#2B1720] px-3 py-3"
+									>
+										<Avatar
+											src={user.avatar_url}
+											name={user.display_name || user.username}
+											className="size-10"
+											textClass="text-base"
+											ring="ring-2 ring-[#D19A9A]/40"
+										/>
+
+										<div class="min-w-0 flex-1">
+											<p class="truncate font-ui text-sm font-bold text-white">
+												{user.display_name || user.username}
+											</p>
+											<p class="truncate font-ui text-[11px] text-[#9E8CC0]">@{user.username}</p>
+											<p class="mt-0.5 truncate font-ui text-[10px] text-[#F0A3A3]">
+												Ban reason: {user.ban_reason || 'No reason recorded'}
+											</p>
+											{#if user.banned_at}
+												<p class="font-ui text-[10px] text-[#9E8CC0]">
+													Banned {formatDate(user.banned_at)}
+												</p>
+											{/if}
+										</div>
+
+										<span
+											class="rounded-full border px-2.5 py-0.5 font-ui text-[10px] font-bold capitalize {roleClass(
+												user.user_role
+											)}"
+										>
+											{user.user_role}
+										</span>
+
+										<Button
+											size="sm"
+											variant="outline"
+											icon="check"
+											loading={busyUser === user.user_id}
+											disabled={busyUser === user.user_id}
+											onclick={() => void unbanUser(user)}
+										>
+											Restore
+										</Button>
 									</div>
 								{/each}
 							</div>

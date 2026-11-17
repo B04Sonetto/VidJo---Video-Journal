@@ -1403,13 +1403,20 @@ declare
 	word text;
 	words text[] := array[
 		'arse', 'ass', 'asshole', 'bastard', 'bitch', 'bullshit', 'crap', 'cunt',
-		'damn', 'dick', 'dickhead', 'dumbass', 'faggot', 'hell', 'idiot', 'jerk',
-		'moron', 'nigger', 'nigga', 'penis', 'piss', 'prick', 'pussy', 'shit',
-		'slut', 'tard', 'twat', 'wanker'
+		'damn', 'dick', 'dickhead', 'douche', 'douchebag', 'dumbass', 'faggot',
+		'fuck', 'fucked', 'fucker', 'fucking', 'hell', 'idiot', 'jerk', 'moron',
+		'motherfucker', 'nigger', 'nigga', 'penis', 'piss', 'prick', 'pussy',
+		'retard', 'shit', 'shitty', 'slut', 'tard', 'twat', 'wanker', 'whore'
 	];
 begin
 	foreach word in array words loop
-		result := regexp_replace(result, '\m' || word || '\M', '***', 'gi');
+		-- Allow repeated letters ("shiiit") just like the client pattern.
+		result := regexp_replace(
+			result,
+			'\m' || regexp_replace(word, '(.)', '\1+', 'g') || '\M',
+			'***',
+			'gi'
+		);
 	end loop;
 	return result;
 end;
@@ -2015,7 +2022,13 @@ declare
 	];
 begin
 	foreach word in array words loop
-		result := regexp_replace(result, '\m' || word || '\M', '***', 'gi');
+		-- Allow repeated letters ("shiiit") just like the client pattern.
+		result := regexp_replace(
+			result,
+			'\m' || regexp_replace(word, '(.)', '\1+', 'g') || '\M',
+			'***',
+			'gi'
+		);
 	end loop;
 	return result;
 end;

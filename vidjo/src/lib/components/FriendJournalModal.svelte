@@ -376,7 +376,7 @@
 
 						{#if page.title}
 							<h3
-								class="mt-3 line-clamp-2 font-display text-3xl leading-tight font-bold break-words text-ink [overflow-wrap:anywhere]"
+								class="mt-3 line-clamp-2 font-display text-3xl leading-tight font-bold [overflow-wrap:anywhere] break-words text-ink"
 							>
 								{censor(page.title)}
 							</h3>
@@ -573,9 +573,7 @@
 														{censor(comment.text)}
 													</p>
 													{#if !comment.id.startsWith('local-')}
-														<div
-															class="mt-1 {editingNoteId === comment.id ? 'hidden' : ''}"
-														>
+														<div class="mt-1 {editingNoteId === comment.id ? 'hidden' : ''}">
 															{#if comment.authorId === auth.ownerId}
 																{#if noteConfirmId === comment.id}
 																	<div class="flex flex-wrap items-center gap-2">
@@ -638,7 +636,10 @@
 										maxlength={NOTE_MAX}
 										class="h-9 flex-1 rounded-lg border border-line bg-paper px-3 font-ui text-xs text-ink placeholder:text-ink-soft/70 focus:border-accent focus:outline-none"
 									/>
-									<span class="shrink-0 font-ui text-[9px] text-ink-soft tabular-nums" aria-hidden="true">
+									<span
+										class="shrink-0 font-ui text-[9px] text-ink-soft tabular-nums"
+										aria-hidden="true"
+									>
 										{noteInput.length}/{NOTE_MAX}
 									</span>
 									<button

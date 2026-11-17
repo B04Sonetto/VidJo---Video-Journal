@@ -2,7 +2,7 @@
 	import PrivacyPicker from '#lib/components/PrivacyPicker.svelte';
 	import StickerLayer from '#lib/components/StickerLayer.svelte';
 	import { PROMPTS } from '#lib/data/prompts';
-	import { journal } from '#lib/state/journal.svelte';
+	import { journal, TITLE_MAX } from '#lib/state/journal.svelte';
 	import { friends } from '#lib/state/friends.svelte';
 	import { community } from '#lib/state/community.svelte';
 	import { nav } from '#lib/state/navigation.svelte';
@@ -135,7 +135,7 @@
 		id={`${id}-title`}
 		class="h-12 w-full border-0 border-b-2 border-line bg-transparent px-1 pb-1 font-hand text-[26px] font-bold text-ink placeholder:text-[#8E7FAA] focus:border-line focus:ring-0 focus:outline-offset-4 min-[900px]:h-[54px] min-[900px]:text-[32px]"
 		type="text"
-		maxlength="80"
+		maxlength={TITLE_MAX}
 		placeholder="Title (optional): just a random day…"
 		autocomplete="off"
 		value={entry.title}

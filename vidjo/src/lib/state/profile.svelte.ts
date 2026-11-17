@@ -173,7 +173,10 @@ class ProfileState {
 							.update({ avatar_url: null })
 							.eq('user_id', userId);
 						if (avatarRepairError) {
-							console.warn('[VidJo] Could not clear the provider profile picture.', avatarRepairError);
+							console.warn(
+								'[VidJo] Could not clear the provider profile picture.',
+								avatarRepairError
+							);
 						}
 					}
 
@@ -199,8 +202,7 @@ class ProfileState {
 					// placeholder profile: the completion screen must ask them to
 					// choose a username first. A previously cached, real profile is
 					// still usable while the row is being repaired.
-					this.profile =
-						cached && !isPlaceholderUsername(cached.username) ? cached : null;
+					this.profile = cached && !isPlaceholderUsername(cached.username) ? cached : null;
 				}
 			} catch (err) {
 				console.warn('[VidJo] Could not load profile from Supabase, using local fallback.', err);

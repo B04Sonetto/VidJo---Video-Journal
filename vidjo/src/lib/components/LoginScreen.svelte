@@ -769,8 +769,7 @@
 						/>
 					</div>
 					<p class="mt-1 font-ui text-[11px] text-ink-soft">
-						Choose a unique username (2–{USERNAME_MAX} characters) for your journal, friends, and
-						community.
+						Choose a unique username (2–{USERNAME_MAX} characters) for your journal, friends, and community.
 					</p>
 
 					<label class="mt-4 block font-ui text-[13px] font-bold text-ink" for="vidjo-nickname">
