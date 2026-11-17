@@ -10,6 +10,7 @@
 	import Avatar from '#lib/components/Avatar.svelte';
 	import AdminPanel from '#lib/components/AdminPanel.svelte';
 	import CommunityIcon from '#lib/components/CommunityIcon.svelte';
+	import { THEMES } from '#lib/themes';
 
 	let { onCalendar }: { onCalendar: () => void } = $props();
 
@@ -269,136 +270,123 @@
 
 			{#if menuOpen}
 				<div
-					class="absolute top-[calc(100%+10px)] right-0 z-50 w-[min(300px,calc(100vw-32px))] rounded-2xl border border-line bg-paper p-4 text-ink shadow-[0_18px_40px_rgba(0,0,0,.45)]"
+					class="absolute top-[calc(100%+10px)] right-0 z-50 w-[min(330px,calc(100vw-32px))] overflow-hidden rounded-[24px] border border-cover-edge bg-desk-2 text-book-bg shadow-[0_22px_50px_rgba(0,0,0,.55)]"
 					role="menu"
 					aria-label="Account"
 				>
 					<!-- Clickable user summary card -> opens Profile -->
 					<button
 						type="button"
-						class="flex w-full items-center gap-3 rounded-xl p-2 text-left transition-colors hover:bg-light"
+						class="relative flex w-full items-center gap-3.5 overflow-hidden bg-[radial-gradient(ellipse_at_top,var(--color-cover)_0%,var(--color-cover-edge)_65%,var(--color-desk)_100%)] px-4 py-4 text-left transition-[filter] hover:brightness-110"
 						onclick={() => {
 							menuOpen = false;
 							nav.openProfile('overview');
 						}}
 					>
+						<span
+							class="pointer-events-none absolute inset-0 [background-image:radial-gradient(circle_at_15%_25%,rgba(212,162,76,.4)_0%,transparent_40%),radial-gradient(circle_at_85%_15%,rgba(201,184,232,.3)_0%,transparent_35%)] opacity-40"
+							aria-hidden="true"
+						></span>
 						<Avatar
 							src={profile.avatarUrl}
 							name={profile.displayName}
-							className="size-11"
-							textClass="text-xl"
-							ring="ring-2 ring-gold/50"
+							className="relative size-14"
+							textClass="text-2xl"
+							ring="border-[3px] border-book-accent/60 shadow-[0_10px_22px_rgba(0,0,0,.4)]"
 						/>
-						<div class="min-w-0 flex-1">
-							<b class="block truncate font-display text-base leading-tight"
+						<div class="relative min-w-0 flex-1">
+							<b
+								class="block truncate font-display text-xl leading-tight font-bold text-book-bg"
 								>{profile.displayName}</b
 							>
-							<span class="block truncate font-ui text-xs font-semibold text-accent"
+							<span class="block truncate font-ui text-xs font-semibold text-book-accent"
 								>@{profile.username}</span
 							>
-							<span class="block truncate font-ui text-[11px] text-ink-soft">{auth.email}</span>
+							<span class="block truncate font-ui text-[11px] text-book-bg/65">{auth.email}</span>
 						</div>
+						<CommunityIcon name="arrow-right" size={16} class="relative shrink-0 text-book-bg/60" />
 					</button>
 
-					<div class="mt-2 grid grid-cols-2 gap-2">
-						<button
-							type="button"
-							class="flex min-h-10 items-center justify-center gap-2 rounded-xl bg-accent/10 px-3 font-ui text-xs font-bold text-accent transition-colors hover:bg-accent/20"
-							onclick={() => {
-								menuOpen = false;
-								nav.openProfile('overview');
-							}}
-						>
-							<CommunityIcon name="user" size={15} />
-							Profile
-						</button>
-						<button
-							type="button"
-							class="flex min-h-10 items-center justify-center gap-2 rounded-xl bg-accent/10 px-3 font-ui text-xs font-bold text-accent transition-colors hover:bg-accent/20"
-							onclick={() => {
-								menuOpen = false;
-								nav.openProfile('settings');
-							}}
-						>
-							<CommunityIcon name="settings" size={15} />
-							Settings
-						</button>
-						{#if isAdmin()}
+					<div class="p-4">
+						<div class="grid grid-cols-2 gap-2">
 							<button
 								type="button"
-								class="flex min-h-10 items-center justify-center gap-2 rounded-xl border-[1.5px] border-[#CDBBE9] bg-light px-4 font-ui text-xs font-bold text-accent transition-colors hover:bg-[#E8DCF8]"
+								class="flex min-h-10 items-center justify-center gap-2 rounded-xl border border-cover-edge bg-cover/30 px-3 font-ui text-xs font-bold text-book-bg transition-colors hover:border-book-accent/50 hover:bg-cover/50"
 								onclick={() => {
 									menuOpen = false;
-									markReportsSeen();
-									adminOpen = true;
+									nav.openProfile('overview');
 								}}
 							>
-								<CommunityIcon name="shield" size={15} />
-								Admin
-							</button>
-						{/if}
-					</div>
-
-					<div class="mt-3">
-						<p class="mb-2 block font-ui text-[11px] font-semibold text-ink-soft">Theme</p>
-						<div class="flex flex-wrap gap-2">
-							<button
-								type="button"
-								class={`rounded-lg px-3 py-1.5 font-display text-[11px] font-bold transition-all ${
-									profile.theme === 'classic'
-										? 'bg-[#51397A] text-white shadow-xs'
-										: 'border border-[#4D366D]/40 bg-white/10 text-[#D6CBEC] hover:bg-white/20'
-								}`}
-								onclick={() => {
-									profile.theme = 'classic';
-									menuOpen = false;
-								}}
-								aria-pressed={profile.theme === 'classic'}
-							>
-								Classic
+								<CommunityIcon name="user" size={15} class="text-book-accent" />
+								Profile
 							</button>
 							<button
 								type="button"
-								class={`rounded-lg px-3 py-1.5 font-display text-[11px] font-bold transition-all ${
-									profile.theme === 'sunset'
-										? 'bg-[#B85C43] text-white shadow-xs'
-										: 'border border-[#4D366D]/40 bg-white/10 text-[#D6CBEC] hover:bg-white/20'
-								}`}
+								class="flex min-h-10 items-center justify-center gap-2 rounded-xl border border-cover-edge bg-cover/30 px-3 font-ui text-xs font-bold text-book-bg transition-colors hover:border-book-accent/50 hover:bg-cover/50"
 								onclick={() => {
-									profile.theme = 'sunset';
 									menuOpen = false;
+									nav.openProfile('settings');
 								}}
-								aria-pressed={profile.theme === 'sunset'}
 							>
-								Sunset
+								<CommunityIcon name="settings" size={15} class="text-book-accent" />
+								Settings
 							</button>
-							<button
-								type="button"
-								class={`rounded-lg px-3 py-1.5 font-display text-[11px] font-bold transition-all ${
-									profile.theme === 'midnight'
-										? 'bg-[#1F3557] text-white shadow-xs'
-										: 'border border-[#4D366D]/40 bg-white/10 text-[#D6CBEC] hover:bg-white/20'
-								}`}
-								onclick={() => {
-									profile.theme = 'midnight';
-									menuOpen = false;
-								}}
-								aria-pressed={profile.theme === 'midnight'}
-							>
-								Midnight
-							</button>
+							{#if isAdmin()}
+								<button
+									type="button"
+									class="col-span-2 flex min-h-10 items-center justify-center gap-2 rounded-xl border border-book-accent/40 bg-book-accent/15 px-3 font-ui text-xs font-bold text-book-accent transition-colors hover:bg-book-accent/25"
+									onclick={() => {
+										menuOpen = false;
+										markReportsSeen();
+										adminOpen = true;
+									}}
+								>
+									<CommunityIcon name="shield" size={15} />
+									Admin console
+								</button>
+							{/if}
 						</div>
-					</div>
 
-					<button
-						type="button"
-						class="mt-4 flex min-h-10 w-full items-center justify-center gap-2 rounded-xl border-[1.5px] border-[#CDBBE9] bg-light px-4 font-ui text-xs font-bold text-accent transition-colors hover:bg-[#E8DCF8]"
-						role="menuitem"
-						onclick={signOut}
-					>
-						<CommunityIcon name="logout" size={16} />
-						Sign out
-					</button>
+						<div class="mt-4">
+							<p class="mb-2 font-ui text-xs font-semibold text-book-accent">Journal theme</p>
+							<div class="grid grid-cols-2 gap-1.5">
+								{#each THEMES as theme (theme.id)}
+									<button
+										type="button"
+										class="flex items-center gap-2 rounded-lg px-2.5 py-2 text-left font-ui text-[11px] font-semibold transition-colors {profile.theme ===
+										theme.id
+											? 'bg-cta text-cta-text'
+											: 'bg-cover/20 text-book-bg/85 hover:bg-cover/40'}"
+										onclick={() => {
+											profile.theme = theme.id;
+											void profile.savePreferences();
+										}}
+										aria-pressed={profile.theme === theme.id}
+									>
+										<span
+											class="size-4 shrink-0 rounded-full ring-2 ring-book-bg/30"
+											style="background: {theme.swatch}"
+											aria-hidden="true"
+										></span>
+										<span class="min-w-0 flex-1 truncate">{theme.short}</span>
+										{#if profile.theme === theme.id}
+											<CommunityIcon name="check" size={13} />
+										{/if}
+									</button>
+								{/each}
+							</div>
+						</div>
+
+						<button
+							type="button"
+							class="mt-4 flex min-h-10 w-full items-center justify-center gap-2 rounded-xl border border-[#D19A9A]/60 bg-[#3A222B] px-4 font-ui text-xs font-bold text-white transition-colors hover:bg-[#4A2A32]"
+							role="menuitem"
+							onclick={signOut}
+						>
+							<CommunityIcon name="logout" size={16} />
+							Sign out
+						</button>
+					</div>
 				</div>
 			{/if}
 			{#if adminOpen}
