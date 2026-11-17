@@ -25,6 +25,28 @@
 		return (profile.profile?.user_role ?? '').trim().toLowerCase() === 'admin';
 	}
 
+	function reportsSeenKey() {
+		return `vidjo-admin-reports-seen:${auth.ownerId || 'local'}`;
+	}
+
+	function readReportsSeen() {
+		try {
+			return Number(localStorage.getItem(reportsSeenKey())) || 0;
+		} catch {
+			return 0;
+		}
+	}
+
+	/** Clear the badge when an admin opens the console. */
+	function markReportsSeen() {
+		try {
+			localStorage.setItem(reportsSeenKey(), String(Date.now()));
+		} catch {
+			// Ignore storage access errors.
+		}
+		newReports = 0;
+	}
+
 	/** Badge on the account button so admins notice new reports without opening the console. */
 	async function loadReportBadge() {
 		if (!isSupabaseConfigured || !isAdmin()) {
@@ -32,20 +54,33 @@
 			return;
 		}
 
+		const seen = readReportsSeen();
+
 		try {
-			const { data, error } = await supabase.rpc('vidjo_admin_overview', { days: 30 });
+			// Count reports that arrived after the admin last reviewed the console.
+			const { data, error } = await supabase
+				.from('vidjo_comment_reports')
+				.select('created_at')
+				.order('created_at', { ascending: false })
+				.limit(100);
+
 			if (!error && data) {
-				const overview = data as { reports_new?: number };
-				newReports = Number(overview.reports_new ?? 0) || 0;
+				newReports = data.filter((row) => {
+					const created = Date.parse((row as { created_at?: string }).created_at ?? '');
+					return Number.isFinite(created) && created > seen;
+				}).length;
 				return;
 			}
 
-			// Older schema without the admin RPC: the select policy still lets an
-			// admin count report rows directly.
-			const { count } = await supabase
-				.from('vidjo_comment_reports')
-				.select('*', { count: 'exact', head: true });
-			newReports = count ?? 0;
+			// Older schema without the direct policy: fall back to the RPC count.
+			const { data: overviewData, error: overviewError } = await supabase.rpc(
+				'vidjo_admin_overview',
+				{ days: 30 }
+			);
+			if (!overviewError && overviewData) {
+				const overview = overviewData as { reports_new?: number };
+				newReports = Number(overview.reports_new ?? 0) || 0;
+			}
 		} catch {
 			newReports = 0;
 		}
@@ -196,7 +231,10 @@
 				aria-haspopup="menu"
 				aria-expanded={menuOpen}
 				aria-label={`Account menu for ${profile.displayName}`}
-				onclick={() => (menuOpen = !menuOpen)}
+				onclick={() => {
+					menuOpen = !menuOpen;
+					if (menuOpen && isAdmin()) void loadReportBadge();
+				}}
 			>
 				<Avatar
 					src={profile.avatarUrl}
@@ -291,6 +329,7 @@
 								class="flex min-h-10 items-center justify-center gap-2 rounded-xl border-[1.5px] border-[#CDBBE9] bg-light px-4 font-ui text-xs font-bold text-accent transition-colors hover:bg-[#E8DCF8]"
 								onclick={() => {
 									menuOpen = false;
+									markReportsSeen();
 									adminOpen = true;
 								}}
 							>
