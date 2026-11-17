@@ -74,6 +74,9 @@ export function friendlyAuthError(message: string) {
 	if (lower.includes('access_denied') || lower.includes('access denied')) {
 		return 'Google sign-in was cancelled or blocked. Try again.';
 	}
+	if (lower.includes('deleted vidjo account')) {
+		return 'That email belonged to a deleted VidJo account. Ask a moderator to restore it before creating a new account.';
+	}
 
 	return message;
 }

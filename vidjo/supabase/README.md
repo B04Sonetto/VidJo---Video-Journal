@@ -35,6 +35,7 @@ Open **Dashboard → SQL → New query**, paste all of
 - `public.is_username_available(uname)` RPC callable during signup.
 - The **private** `vidjo-videos` storage bucket and owner-scoped signed-URL policies.
 - `claim_device_entries()` for migrating pre-account rows.
+- `public.vidjo_deleted_accounts` plus `vidjo_remember_deleted_account()` and `vidjo_block_deleted_signup()` for the optional Before User Created hook.
 - `hook_reject_social_signups()`, a pass-through kept for projects that still have the legacy Before User Created hook configured.
 
 The script is safe to re-run. Re-running it on an existing project adds new
@@ -121,7 +122,8 @@ Google is disabled by default in a new Supabase project. To enable it:
 1. In Google Cloud Console, create an OAuth 2.0 Client ID (Web application).
 2. Add authorized redirect URI: `https://<project-ref>.supabase.co/auth/v1/callback`
 3. In Supabase, enable Google under **Authentication → Providers → Google**.
-4. No Before User Created hook is needed. New Google users are asked to choose a username and nickname on their first sign-in. If your project already has the legacy hook configured, re-run `schema.sql` (it now passes social signups through) or remove it under **Authentication → Hooks**.
+4. New Google users are asked to choose a username and nickname on their first sign-in. No profile row is created until they press **Create account**.
+5. To stop a deleted account from silently signing up again, re-run `schema.sql`, then open **Authentication → Hooks → Before User Created**, choose **Postgres function**, and select `public.vidjo_block_deleted_signup`. The app records deleted emails in `public.vidjo_deleted_accounts`. Remove a row from that table if a moderator approves restoring the email.
 
 ## 7. Private video storage (`vidjo-videos`)
 

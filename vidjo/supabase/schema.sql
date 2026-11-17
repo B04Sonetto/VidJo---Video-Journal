@@ -1654,6 +1654,75 @@ revoke all on function public.vidjo_delete_account() from public;
 grant execute on function public.vidjo_delete_account() to authenticated;
 
 -- ---------------------------------------------------------------------------
+-- Deleted-account memory
+-- ---------------------------------------------------------------------------
+-- Supabase creates the `auth.users` row as soon as Google returns, before the
+-- app can show the "choose a username" screen. That means a deleted Google
+-- account can silently recreate itself unless Auth itself rejects the signup.
+-- Remember deleted emails here, then enable the Before User Created auth hook
+-- in the dashboard and point it at public.vidjo_block_deleted_signup().
+create table if not exists public.vidjo_deleted_accounts (
+	email text primary key,
+	user_id uuid,
+	deleted_at timestamptz not null default now()
+);
+
+alter table public.vidjo_deleted_accounts enable row level security;
+-- No policies: only SECURITY DEFINER functions and the service role may use it.
+
+create or replace function public.vidjo_remember_deleted_account()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+	if new.email is not null and new.email <> '' then
+		insert into public.vidjo_deleted_accounts (email, user_id, deleted_at)
+		values (lower(new.email), new.id, now())
+		on conflict (email) do update
+		set user_id = excluded.user_id, deleted_at = excluded.deleted_at;
+	end if;
+	return new;
+end;
+$$;
+
+drop trigger if exists vidjo_remember_deleted_account on auth.users;
+create trigger vidjo_remember_deleted_account
+	before delete on auth.users
+	for each row execute function public.vidjo_remember_deleted_account();
+
+-- Before User Created hook. Enable it in Supabase Dashboard → Authentication →
+-- Hooks → Before User Created and choose this Postgres function. Returning an
+-- error object blocks the signup and shows the message to the client.
+create or replace function public.vidjo_block_deleted_signup(event jsonb)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+	email text := lower(coalesce(event->'user'->>'email', ''));
+begin
+	if email <> '' and exists (
+		select 1 from public.vidjo_deleted_accounts where email = email
+	) then
+		return jsonb_build_object(
+			'error', jsonb_build_object(
+				'message', 'This email belonged to a deleted VidJo account. Ask a moderator to restore it before signing up again.',
+				'http_code', 403
+			)
+		);
+	end if;
+
+	return '{}'::jsonb;
+end;
+$$;
+
+grant execute on function public.vidjo_block_deleted_signup(jsonb) to supabase_auth_admin;
+revoke execute on function public.vidjo_block_deleted_signup(jsonb) from authenticated, anon, public;
+
+-- ---------------------------------------------------------------------------
 -- Realtime publication
 -- ---------------------------------------------------------------------------
 
