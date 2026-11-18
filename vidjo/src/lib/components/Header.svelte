@@ -42,25 +42,61 @@
 	}
 
 	function reportsSeenKey() {
-		return `vidjo-admin-reports-seen:${auth.ownerId || 'local'}`;
+		return `vidjo-admin-reports-seen:v2:${auth.ownerId || 'local'}`;
 	}
 
-	function readReportsSeen() {
+	/**
+	 * The newest report timestamp the admin has already reviewed. Stored as an
+	 * ISO string from the database so it can be compared with `created_at`
+	 * without depending on the browser clock.
+	 */
+	function readReportsSeen(): number {
 		try {
-			return Number(localStorage.getItem(reportsSeenKey())) || 0;
+			const raw = localStorage.getItem(reportsSeenKey()) ?? '';
+			const parsed = Date.parse(raw);
+			return Number.isFinite(parsed) ? parsed : 0;
 		} catch {
 			return 0;
 		}
 	}
 
+	async function fetchReportTimes(): Promise<number[]> {
+		const { data, error } = await supabase
+			.from('vidjo_comment_reports')
+			.select('created_at')
+			.order('created_at', { ascending: false })
+			.limit(200);
+
+		if (!error && data) {
+			return data
+				.map((row) => Date.parse((row as { created_at?: string }).created_at ?? ''))
+				.filter((at) => Number.isFinite(at));
+		}
+
+		// Older schema without the direct policy: the admin RPC still returns
+		// timestamps, so the badge stays clearable.
+		const { data: rpcData, error: rpcError } = await supabase.rpc('vidjo_admin_list_reports', {
+			max_rows: 200
+		});
+		if (rpcError || !Array.isArray(rpcData)) return [];
+
+		return (rpcData as { created_at?: string }[])
+			.map((row) => Date.parse(row.created_at ?? ''))
+			.filter((at) => Number.isFinite(at));
+	}
+
 	/** Clear the badge when an admin opens the console. */
-	function markReportsSeen() {
+	async function markReportsSeen() {
+		newReports = 0;
+
 		try {
-			localStorage.setItem(reportsSeenKey(), String(Date.now()));
+			const times = await fetchReportTimes();
+			if (times.length === 0) return;
+			const newest = new Date(Math.max(...times)).toISOString();
+			localStorage.setItem(reportsSeenKey(), newest);
 		} catch {
 			// Ignore storage access errors.
 		}
-		newReports = 0;
 	}
 
 	/** Badge on the account button so admins notice new reports without opening the console. */
@@ -74,29 +110,8 @@
 
 		try {
 			// Count reports that arrived after the admin last reviewed the console.
-			const { data, error } = await supabase
-				.from('vidjo_comment_reports')
-				.select('created_at')
-				.order('created_at', { ascending: false })
-				.limit(100);
-
-			if (!error && data) {
-				newReports = data.filter((row) => {
-					const created = Date.parse((row as { created_at?: string }).created_at ?? '');
-					return Number.isFinite(created) && created > seen;
-				}).length;
-				return;
-			}
-
-			// Older schema without the direct policy: fall back to the RPC count.
-			const { data: overviewData, error: overviewError } = await supabase.rpc(
-				'vidjo_admin_overview',
-				{ days: 30 }
-			);
-			if (!overviewError && overviewData) {
-				const overview = overviewData as { reports_new?: number };
-				newReports = Number(overview.reports_new ?? 0) || 0;
-			}
+			const times = await fetchReportTimes();
+			newReports = times.filter((at) => at > seen).length;
 		} catch {
 			newReports = 0;
 		}
@@ -274,7 +289,7 @@
 				/>
 				{#if newReports > 0}
 					<span
-						class="absolute -top-0.5 -right-0.5 flex h-[18px] min-w-[18px] items-center justify-center rounded-full border-2 border-desk-2 bg-[#D9534F] px-1 font-ui text-[9px] font-bold text-white tabular-nums"
+						class="absolute -top-0.5 -right-0.5 flex h-[18px] min-w-[18px] items-center justify-center rounded-full border-2 border-desk-2 bg-danger px-1 font-ui text-[9px] font-bold text-book-bg tabular-nums"
 						aria-label={`${newReports} new ${newReports === 1 ? 'report' : 'reports'}`}
 						title={`${newReports} new ${newReports === 1 ? 'report' : 'reports'}`}
 					>
@@ -364,7 +379,7 @@
 									class="col-span-2 flex min-h-10 items-center justify-center gap-2 rounded-xl border border-book-accent/40 bg-book-accent/15 px-3 font-ui text-xs font-bold text-book-accent transition-colors hover:bg-book-accent/25"
 									onclick={() => {
 										menuOpen = false;
-										markReportsSeen();
+										void markReportsSeen();
 										adminOpen = true;
 									}}
 								>
@@ -527,7 +542,7 @@
 		</span>
 		{#if friends.unreadCount > 0}
 			<span
-				class="absolute -top-0.5 right-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-danger px-1 font-ui text-[9px] font-bold text-white tabular-nums"
+				class="absolute -top-0.5 right-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-danger px-1 font-ui text-[9px] font-bold text-book-bg tabular-nums"
 			>
 				{friends.unreadCount > 9 ? '9+' : friends.unreadCount}
 			</span>

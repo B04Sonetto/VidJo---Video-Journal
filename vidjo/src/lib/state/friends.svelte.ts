@@ -60,6 +60,7 @@ class FriendsState {
 	private initializedFor = '';
 	private realtimeChannel: ReturnType<typeof supabase.channel> | null = null;
 	private refreshTimer: ReturnType<typeof setTimeout> | null = null;
+	private pendingNotificationsSeen = 0;
 
 	get myFriendCode() {
 		return profile.friendCode;
@@ -77,17 +78,45 @@ class FriendsState {
 	}
 
 	get unreadCount() {
-		return this.notifications.filter(
-			(item) => new Date(item.createdAt).getTime() > this.notificationsLastSeen
-		).length;
+		return this.notifications.filter((item) => {
+			const at = Date.parse(item.createdAt);
+			return Number.isFinite(at) && at > this.notificationsLastSeen;
+		}).length;
 	}
 
+	/**
+	 * Marks the tray as read using the newest *server* timestamp in the list.
+	 * Using `Date.now()` here made the badge stick whenever the browser clock
+	 * and the database clock disagreed.
+	 */
 	markNotificationsRead() {
-		const now = Date.now();
-		this.notificationsLastSeen = now;
-		if (!this.currentUserId) return;
+		const newest = this.notifications.reduce((latest, item) => {
+			const at = Date.parse(item.createdAt);
+			return Number.isFinite(at) && at > latest ? at : latest;
+		}, 0);
+
+		if (newest <= 0) return;
+
+		this.notificationsLastSeen = Math.max(this.notificationsLastSeen, newest);
+		this.persistNotificationsSeen(this.notificationsLastSeen);
+	}
+
+	private notificationsSeenKey() {
+		return `vidjo-notifications-seen:v2:${this.currentUserId}`;
+	}
+
+	private persistNotificationsSeen(value: number) {
+		if (!Number.isFinite(value) || value <= 0) return;
+
+		// The tray can mount before `init()` knows who is signed in. Remember the
+		// value and write it once the user id is available.
+		if (!this.currentUserId) {
+			this.pendingNotificationsSeen = Math.max(this.pendingNotificationsSeen, value);
+			return;
+		}
+
 		try {
-			localStorage.setItem(`vidjo-notifications-seen:${this.currentUserId}`, String(now));
+			localStorage.setItem(this.notificationsSeenKey(), String(value));
 		} catch {
 			// Read state is a convenience; storage may be blocked.
 		}
@@ -96,9 +125,9 @@ class FriendsState {
 	private readNotificationsSeen(): number {
 		if (!this.currentUserId) return 0;
 		try {
-			const raw = localStorage.getItem(`vidjo-notifications-seen:${this.currentUserId}`);
+			const raw = localStorage.getItem(this.notificationsSeenKey());
 			const parsed = Number(raw);
-			return Number.isFinite(parsed) ? parsed : 0;
+			return Number.isFinite(parsed) && parsed > 0 ? parsed : 0;
 		} catch {
 			return 0;
 		}
@@ -141,7 +170,14 @@ class FriendsState {
 
 		this.initializedFor = userId;
 		this.currentUserId = userId;
-		this.notificationsLastSeen = this.readNotificationsSeen();
+		this.notificationsLastSeen = Math.max(
+			this.readNotificationsSeen(),
+			this.pendingNotificationsSeen
+		);
+		if (this.pendingNotificationsSeen > 0) {
+			this.persistNotificationsSeen(this.notificationsLastSeen);
+			this.pendingNotificationsSeen = 0;
+		}
 		this.loading = true;
 		this.remote = false;
 		this.friends = [];
@@ -1307,6 +1343,7 @@ class FriendsState {
 		this.stories = [];
 		this.notifications = [];
 		this.notificationsLastSeen = 0;
+		this.pendingNotificationsSeen = 0;
 		this.readerAuthorId = null;
 		this.readerDate = null;
 		this.reactionMap = {};

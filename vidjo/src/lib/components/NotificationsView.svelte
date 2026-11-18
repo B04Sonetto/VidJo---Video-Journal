@@ -106,7 +106,7 @@
 				: 'h-[40px]'}"
 		></span>
 		<span
-			class="absolute left-1/2 flex -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-[radial-gradient(circle_at_32%_28%,#E7BE6B,#A97827_70%)] text-book-ink shadow-[0_3px_8px_rgba(0,0,0,.4),inset_0_1px_0_rgba(255,255,255,.35)] {large
+			class="seal absolute left-1/2 flex -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full text-book-ink shadow-[0_3px_8px_rgba(0,0,0,.4),inset_0_1px_0_rgba(255,255,255,.35)] {large
 				? 'top-[52px] size-12'
 				: 'top-[36px] size-9'}"
 		>
@@ -124,7 +124,7 @@
 	>
 		{#snippet meta()}
 			<span class="inline-flex items-center gap-1.5">
-				<CommunityIcon name="mail" size={12} class="text-gold" />
+				<CommunityIcon name="mail" size={12} class="text-book-accent" />
 				{friends.notifications.length}
 				{friends.notifications.length === 1 ? 'note in the tray' : 'notes in the tray'}
 			</span>
@@ -178,11 +178,11 @@
 			aria-labelledby="tray-summary"
 		>
 			<span
-				class="pointer-events-none absolute -top-24 -right-16 size-64 rounded-full border border-dashed border-gold/20"
+				class="pointer-events-none absolute -top-24 -right-16 size-64 rounded-full border border-dashed border-book-accent/20"
 				aria-hidden="true"
 			></span>
 			<span
-				class="pointer-events-none absolute -top-16 -right-10 size-44 rounded-full border border-gold/10"
+				class="pointer-events-none absolute -top-16 -right-10 size-44 rounded-full border border-book-accent/10"
 				aria-hidden="true"
 			></span>
 
@@ -190,12 +190,12 @@
 				<div class="hidden shrink-0 min-[540px]:block">{@render envelope(false)}</div>
 
 				<div class="min-w-0 flex-1">
-					<p class="font-ui text-[10px] font-bold tracking-[.22em] text-gold uppercase">
+					<p class="font-ui text-[10px] font-bold tracking-[.22em] text-lav uppercase">
 						The letter tray
 					</p>
 					<h2
 						id="tray-summary"
-						class="mt-1 font-display text-[26px] leading-tight font-bold text-white"
+						class="mt-1 font-display text-[26px] leading-tight font-bold text-book-bg"
 					>
 						Everything that needs you, in one quiet place.
 					</h2>
@@ -209,7 +209,7 @@
 						type="button"
 						class="flex min-w-[104px] flex-1 flex-col items-center gap-1 rounded-[6px] border border-dashed border-book-accent/70 bg-book-bg px-3 py-2.5 text-book-ink shadow-[0_6px_14px_rgba(0,0,0,.28)] transition duration-150 hover:-translate-y-0.5 hover:shadow-[0_10px_18px_rgba(0,0,0,.35)] min-[720px]:flex-none {filter ===
 						'requests'
-							? 'ring-2 ring-gold ring-offset-2 ring-offset-desk-2'
+							? 'ring-2 ring-book-accent/70 ring-offset-2 ring-offset-desk-2'
 							: ''}"
 						onclick={() => (filter = 'requests')}
 						aria-pressed={filter === 'requests'}
@@ -232,7 +232,7 @@
 						type="button"
 						class="flex min-w-[104px] flex-1 flex-col items-center gap-1 rounded-[6px] border border-dashed border-book-ink/25 bg-book-bg px-3 py-2.5 text-book-ink shadow-[0_6px_14px_rgba(0,0,0,.28)] transition duration-150 hover:-translate-y-0.5 hover:shadow-[0_10px_18px_rgba(0,0,0,.35)] min-[720px]:flex-none {filter ===
 						'comments'
-							? 'ring-2 ring-gold ring-offset-2 ring-offset-desk-2'
+							? 'ring-2 ring-book-accent/70 ring-offset-2 ring-offset-desk-2'
 							: ''}"
 						onclick={() => (filter = 'comments')}
 						aria-pressed={filter === 'comments'}
@@ -269,19 +269,19 @@
 						type="button"
 						class="-mb-px inline-flex shrink-0 items-center gap-1.5 rounded-t-[10px] border border-b-0 px-3.5 pt-2 pb-2 font-ui text-xs font-bold transition-colors {active
 							? 'border-line bg-book-bg text-book-ink'
-							: 'border-cover-edge text-lav hover:text-white'}"
+							: 'border-cover-edge text-lav hover:text-book-bg'}"
 						onclick={() => (filter = item.key)}
 						aria-pressed={active}
 					>
 						<span
-							class="size-1.5 rounded-full {active ? 'bg-gold' : 'bg-lav/50'}"
+							class="size-1.5 rounded-full {active ? 'bg-book-accent' : 'bg-lav/50'}"
 							aria-hidden="true"
 						></span>
 						{item.label}
 						<span
 							class="rounded-full px-1.5 py-0.5 text-[10px] tabular-nums {active
 								? 'bg-book-edge text-book-ink/70'
-								: 'bg-white/10 text-lav/80'}"
+								: 'bg-book-bg/10 text-lav/85'}"
 						>
 							{item.count}
 						</span>
@@ -303,23 +303,23 @@
 					<section aria-labelledby="notifications-requests">
 						<div class="flex items-center gap-2.5">
 							<span
-								class="flex size-8 shrink-0 items-center justify-center rounded-full bg-gold/15 text-gold"
+								class="flex size-8 shrink-0 items-center justify-center rounded-full bg-book-accent/15 text-book-accent"
 							>
 								<CommunityIcon name="users" size={15} />
 							</span>
 							<h2
 								id="notifications-requests"
-								class="font-display text-[25px] leading-none font-bold text-white"
+								class="font-display text-[25px] leading-none font-bold text-book-bg"
 							>
 								Sealed invitations
 							</h2>
 							<span
-								class="rounded-full bg-gold/20 px-2 py-0.5 font-ui text-[11px] font-semibold text-gold tabular-nums"
+								class="rounded-full bg-book-accent/20 px-2 py-0.5 font-ui text-[11px] font-semibold text-book-bg tabular-nums"
 							>
 								{visibleRequests.length}
 							</span>
 							<span
-								class="h-px flex-1 bg-gradient-to-r from-gold/30 to-transparent"
+								class="h-px flex-1 bg-gradient-to-r from-book-accent/30 to-transparent"
 								aria-hidden="true"
 							></span>
 						</div>
@@ -409,23 +409,23 @@
 					<section aria-labelledby="notifications-comments">
 						<div class="flex items-center gap-2.5">
 							<span
-								class="flex size-8 shrink-0 items-center justify-center rounded-full bg-lav/15 text-lav"
+								class="flex size-8 shrink-0 items-center justify-center rounded-full bg-lav/10 text-lav/85"
 							>
 								<CommunityIcon name="pen" size={15} />
 							</span>
 							<h2
 								id="notifications-comments"
-								class="font-display text-[25px] leading-none font-bold text-white"
+								class="font-display text-[25px] leading-none font-bold text-book-bg"
 							>
 								Notes in the margins
 							</h2>
 							<span
-								class="rounded-full bg-lav/20 px-2 py-0.5 font-ui text-[11px] font-semibold text-lav tabular-nums"
+								class="rounded-full bg-lav/15 px-2 py-0.5 font-ui text-[11px] font-semibold text-lav/85 tabular-nums"
 							>
 								{visibleComments.length}
 							</span>
 							<span
-								class="h-px flex-1 bg-gradient-to-r from-lav/30 to-transparent"
+								class="h-px flex-1 bg-gradient-to-r from-lav/20 to-transparent"
 								aria-hidden="true"
 							></span>
 						</div>
@@ -491,7 +491,7 @@
 											{#if comment.postDate}
 												<button
 													type="button"
-													class="mt-3 inline-flex items-center gap-1.5 font-ui text-xs font-bold text-accent underline-offset-4 transition-colors hover:text-accent-strong hover:underline"
+													class="mt-3 inline-flex items-center gap-1.5 font-ui text-xs font-bold text-book-ink underline decoration-book-accent/70 underline-offset-4 transition-colors hover:decoration-book-accent"
 													onclick={() => openCommentPage(comment)}
 												>
 													Open the page
@@ -508,10 +508,10 @@
 
 				{#if filter !== 'all' && visibleCount === 0}
 					<div
-						class="relative overflow-hidden rounded-[20px] border border-dashed border-cover-edge bg-white/[.02] px-6 py-12 text-center"
+						class="relative overflow-hidden rounded-[20px] border border-dashed border-cover-edge bg-book-bg/[.02] px-6 py-12 text-center"
 					>
 						<span
-							class="mx-auto flex size-14 items-center justify-center rounded-full bg-white/[.04] text-gold/70"
+							class="mx-auto flex size-14 items-center justify-center rounded-full bg-book-bg/[.04] text-lav/80"
 						>
 							<CommunityIcon name={filter === 'requests' ? 'users' : 'pen'} size={24} />
 						</span>
@@ -525,7 +525,7 @@
 						</p>
 						<button
 							type="button"
-							class="mt-4 font-ui text-xs font-bold text-gold underline-offset-4 hover:underline"
+							class="mt-4 font-ui text-xs font-bold text-book-bg underline decoration-book-accent/70 underline-offset-4 hover:decoration-book-accent"
 							onclick={() => (filter = 'all')}
 						>
 							Show everything
@@ -594,7 +594,7 @@
 					class="relative overflow-hidden rounded-[20px] border border-cover-edge bg-desk-2 p-5 shadow-[0_10px_26px_rgba(0,0,0,.3)]"
 				>
 					<span
-						class="pointer-events-none absolute -top-8 -right-6 size-24 rounded-full border border-dashed border-gold/20"
+						class="pointer-events-none absolute -top-8 -right-6 size-24 rounded-full border border-dashed border-book-accent/20"
 						aria-hidden="true"
 					></span>
 					<div
@@ -607,11 +607,11 @@
 						</span>
 					</div>
 
-					<p class="relative font-ui text-[10px] font-bold tracking-[.2em] text-gold uppercase">
+					<p class="relative font-ui text-[10px] font-bold tracking-[.2em] text-lav uppercase">
 						A gentle inbox
 					</p>
 					<h2
-						class="relative mt-2 max-w-[210px] font-display text-[24px] leading-tight font-bold text-white"
+						class="relative mt-2 max-w-[210px] font-display text-[24px] leading-tight font-bold text-book-bg"
 					>
 						Only the good stuff.
 					</h2>
@@ -634,6 +634,15 @@
 </div>
 
 <style>
+	/* Wax seal: derived from the active theme instead of a fixed gold. */
+	.seal {
+		background-image: radial-gradient(
+			circle at 32% 28%,
+			color-mix(in srgb, var(--color-book-accent) 55%, #fff),
+			var(--color-book-accent) 72%
+		);
+	}
+
 	.note-card {
 		animation: note-in 0.32s ease-out backwards;
 		transition:

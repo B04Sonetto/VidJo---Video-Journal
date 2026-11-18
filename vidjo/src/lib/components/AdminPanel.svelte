@@ -143,7 +143,7 @@
 			value: overview?.users_total ?? 0,
 			note: `+${overview?.users_new ?? 0} in 30 days`,
 			icon: 'users',
-			chip: 'bg-gold/15 text-gold'
+			chip: 'bg-book-accent/15 text-book-accent'
 		},
 		{
 			label: 'Journal pages',
@@ -157,7 +157,7 @@
 			value: overview?.entries_video ?? 0,
 			note: 'stored privately',
 			icon: 'video',
-			chip: 'bg-gold/15 text-gold'
+			chip: 'bg-book-accent/15 text-book-accent'
 		},
 		{
 			label: 'Reports',
@@ -402,7 +402,7 @@
 	}
 
 	function roleClass(role: string) {
-		if (role === 'admin') return 'border-[#4F9DEB]/40 bg-[#4F9DEB]/15 text-[#7CB8F5]';
+		if (role === 'admin') return 'border-book-accent/40 bg-book-accent/15 text-book-bg';
 		if (role === 'banned') return 'border-danger/40 bg-danger/15 text-danger-soft';
 		return 'border-cover-edge bg-cover-edge/20 text-lav';
 	}
@@ -436,14 +436,14 @@
 			></button>
 
 			<div
-				class="relative flex max-h-[95vh] w-full max-w-[1080px] flex-col overflow-hidden rounded-[26px] border border-cover-edge bg-desk-2 text-white shadow-[0_40px_120px_rgba(0,0,0,.7)]"
+				class="relative flex max-h-[95vh] w-full max-w-[1080px] flex-col overflow-hidden rounded-[26px] border border-cover-edge bg-desk-2 text-book-bg shadow-[0_40px_120px_rgba(0,0,0,.7)]"
 			>
 				<!-- Header -->
 				<header
 					class="flex shrink-0 flex-wrap items-center justify-between gap-4 border-b border-cover-edge bg-desk-2 px-5 py-4 sm:px-7 sm:py-5"
 				>
 					<div class="min-w-0">
-						<h2 class="font-display text-[26px] leading-tight font-bold text-white">
+						<h2 class="font-display text-[26px] leading-tight font-bold text-book-bg">
 							Admin console
 						</h2>
 						<p class="mt-0.5 font-ui text-xs text-lav/80">
@@ -463,7 +463,7 @@
 						</Button>
 						<button
 							type="button"
-							class="flex size-9 items-center justify-center rounded-xl border border-cover-edge bg-cover/25 text-lav transition-colors hover:bg-cover/40 hover:text-white"
+							class="flex size-9 items-center justify-center rounded-xl border border-cover-edge bg-cover/25 text-lav transition-colors hover:bg-cover/40 hover:text-book-bg"
 							aria-label="Close admin console"
 							onclick={() => (open = false)}
 						>
@@ -483,7 +483,7 @@
 							class="inline-flex shrink-0 items-center gap-2 rounded-xl px-4 py-2 font-ui text-sm font-semibold transition-colors {tab ===
 							item.key
 								? 'bg-cta text-cta-text'
-								: 'text-lav/80 hover:bg-white/5 hover:text-white'}"
+								: 'text-lav/80 hover:bg-white/5 hover:text-book-bg'}"
 							aria-current={tab === item.key ? 'page' : undefined}
 							onclick={() => (tab = item.key)}
 						>
@@ -551,11 +551,11 @@
 											</span>
 										</div>
 										<p
-											class="mt-2 font-display text-3xl leading-none font-bold text-white tabular-nums"
+											class="mt-2 font-display text-3xl leading-none font-bold text-book-bg tabular-nums"
 										>
 											{kpi.value.toLocaleString()}
 										</p>
-										<p class="mt-1 font-ui text-[11px] text-lav/60">{kpi.note}</p>
+										<p class="mt-1 font-ui text-[11px] text-lav/70">{kpi.note}</p>
 									</div>
 								{/each}
 							</div>
@@ -564,27 +564,27 @@
 							<section class="mt-4 rounded-2xl border border-cover-edge/70 bg-desk-2 p-5">
 								<div class="flex flex-wrap items-start justify-between gap-3">
 									<div>
-										<h3 class="font-display text-xl leading-tight font-bold text-white">
+										<h3 class="font-display text-xl leading-tight font-bold text-book-bg">
 											Activity, last {overview.window_days} days
 										</h3>
-										<p class="mt-0.5 font-ui text-xs text-lav/60">
+										<p class="mt-0.5 font-ui text-xs text-lav/70">
 											Feature names and counts only. Journal text is never recorded.
 										</p>
 									</div>
 									<div class="flex items-center gap-5">
 										<div class="text-right">
 											<p
-												class="font-display text-2xl leading-none font-bold text-gold tabular-nums"
+												class="font-display text-2xl leading-none font-bold text-book-accent tabular-nums"
 											>
 												{overview.events_total.toLocaleString()}
 											</p>
-											<p class="font-ui text-[11px] text-lav/60">events</p>
+											<p class="font-ui text-[11px] text-lav/70">events</p>
 										</div>
 										<div class="text-right">
 											<p class="font-display text-2xl leading-none font-bold text-lav tabular-nums">
 												{overview.active_users.toLocaleString()}
 											</p>
-											<p class="font-ui text-[11px] text-lav/60">active members</p>
+											<p class="font-ui text-[11px] text-lav/70">active members</p>
 										</div>
 									</div>
 								</div>
@@ -597,13 +597,13 @@
 												title={`${dayLabel(point.day)}: ${point.events} events, ${point.users} members`}
 											>
 												<div
-													class="w-full rounded-t-[3px] bg-gradient-to-t from-accent to-gold transition-opacity group-hover:opacity-80"
+													class="w-full rounded-t-[3px] bg-gradient-to-t from-book-accent/55 to-book-accent transition-opacity group-hover:opacity-80"
 													style={`height: ${Math.max(2, (point.events / maxDaily) * 100)}%`}
 												></div>
 											</div>
 										{/each}
 									</div>
-									<div class="mt-2 flex justify-between font-ui text-[10px] text-accent">
+									<div class="mt-2 flex justify-between font-ui text-[10px] text-lav/70">
 										<span>{dayLabel(overview.daily[0]?.day)}</span>
 										<span>Today</span>
 									</div>
@@ -611,11 +611,11 @@
 									<div
 										class="mt-4 rounded-xl border border-cover-edge bg-desk-2/60 px-4 py-8 text-center"
 									>
-										<CommunityIcon name="trending" size={26} class="mx-auto text-gold/60" />
+										<CommunityIcon name="trending" size={26} class="mx-auto text-lav/70" />
 										<p class="mt-2 font-ui text-sm font-semibold text-lav">
 											No activity recorded yet.
 										</p>
-										<p class="mt-1 font-ui text-xs text-lav/60">
+										<p class="mt-1 font-ui text-xs text-lav/70">
 											Events appear here as members use VidJo. Only feature names and counts are
 											stored.
 										</p>
@@ -627,10 +627,10 @@
 								<!-- Top features -->
 								<section class="rounded-2xl border border-cover-edge/70 bg-desk-2 p-5">
 									<div class="flex items-baseline justify-between gap-3">
-										<h3 class="font-display text-xl leading-tight font-bold text-white">
+										<h3 class="font-display text-xl leading-tight font-bold text-book-bg">
 											Most used features
 										</h3>
-										<span class="font-ui text-[11px] text-lav/60 tabular-nums">
+										<span class="font-ui text-[11px] text-lav/70 tabular-nums">
 											last {overview.window_days} days
 										</span>
 									</div>
@@ -649,7 +649,7 @@
 													</div>
 													<div class="mt-1.5 h-1.5 overflow-hidden rounded-full bg-cover/25">
 														<div
-															class="h-full rounded-full bg-gradient-to-r from-accent to-gold"
+															class="h-full rounded-full bg-gradient-to-r from-book-accent/55 to-book-accent"
 															style={`width: ${(item.count / maxFeature) * 100}%`}
 														></div>
 													</div>
@@ -657,7 +657,7 @@
 											{/each}
 										</ul>
 									{:else}
-										<p class="mt-4 font-ui text-sm text-lav/60">
+										<p class="mt-4 font-ui text-sm text-lav/70">
 											Feature usage will show up after the first few sessions.
 										</p>
 									{/if}
@@ -667,19 +667,19 @@
 									<!-- Today -->
 									<section class="rounded-2xl border border-cover-edge/70 bg-desk-2 p-5">
 										<div class="flex items-center gap-2">
-											<CommunityIcon name="sun" size={16} class="text-gold" />
-											<h3 class="font-display text-xl leading-none font-bold text-white">
+											<CommunityIcon name="sun" size={16} class="text-book-accent" />
+											<h3 class="font-display text-xl leading-none font-bold text-book-bg">
 												Right now
 											</h3>
 										</div>
 										<div class="mt-4 grid grid-cols-2 gap-3">
 											<div class="rounded-xl bg-desk px-3 py-3">
 												<p
-													class="font-display text-3xl leading-none font-bold text-gold tabular-nums"
+													class="font-display text-3xl leading-none font-bold text-book-accent tabular-nums"
 												>
 													{overview.events_today.toLocaleString()}
 												</p>
-												<p class="mt-1 font-ui text-[11px] text-lav/60">events today</p>
+												<p class="mt-1 font-ui text-[11px] text-lav/70">events today</p>
 											</div>
 											<div class="rounded-xl bg-desk px-3 py-3">
 												<p
@@ -687,10 +687,10 @@
 												>
 													{overview.active_users_today.toLocaleString()}
 												</p>
-												<p class="mt-1 font-ui text-[11px] text-lav/60">members today</p>
+												<p class="mt-1 font-ui text-[11px] text-lav/70">members today</p>
 											</div>
 										</div>
-										<p class="mt-3 font-ui text-[11px] leading-relaxed text-accent">
+										<p class="mt-3 font-ui text-[11px] leading-relaxed text-lav/70">
 											Counts use the server clock and reset at midnight.
 										</p>
 									</section>
@@ -699,12 +699,12 @@
 									<section class="rounded-2xl border border-cover-edge/70 bg-desk-2 p-5">
 										<div class="flex items-center gap-2">
 											<CommunityIcon name="flame" size={16} class="text-danger-soft" />
-											<h3 class="font-display text-xl leading-none font-bold text-white">
+											<h3 class="font-display text-xl leading-none font-bold text-book-bg">
 												Moderation
 											</h3>
 										</div>
 										<p class="mt-3 font-ui text-sm text-lav">
-											<span class="font-bold text-white">{overview.reports_new}</span>
+											<span class="font-bold text-book-bg">{overview.reports_new}</span>
 											new {overview.reports_new === 1 ? 'report' : 'reports'} in the last
 											{overview.window_days} days.
 										</p>
@@ -728,10 +728,10 @@
 					{:else if tab === 'reports'}
 						<div class="mb-4 flex flex-wrap items-end justify-between gap-3">
 							<div>
-								<h3 class="font-display text-2xl leading-tight font-bold text-white">
+								<h3 class="font-display text-2xl leading-tight font-bold text-book-bg">
 									Comment reports
 								</h3>
-								<p class="mt-0.5 font-ui text-xs text-lav/60">
+								<p class="mt-0.5 font-ui text-xs text-lav/80">
 									Flagged comments from friends and community pages.
 								</p>
 							</div>
@@ -743,11 +743,11 @@
 
 						{#if reportsError}
 							<div
-								class="mb-4 rounded-xl border border-danger/60 bg-danger/20 px-4 py-3 font-ui text-sm text-danger-soft"
+								class="mb-4 rounded-xl border border-danger/40 bg-danger/10 px-4 py-3 font-ui text-sm text-book-bg"
 								role="alert"
 							>
 								<p class="font-semibold">Reports could not be loaded</p>
-								<p class="mt-1 break-words opacity-90">{reportsError}</p>
+								<p class="mt-1 break-words text-lav/85">{reportsError}</p>
 								<button
 									type="button"
 									class="mt-2 font-ui text-xs font-bold underline"
@@ -768,9 +768,9 @@
 							</div>
 						{:else if reports.length === 0}
 							<div class="rounded-2xl border border-cover-edge bg-desk-2/60 px-6 py-14 text-center">
-								<CommunityIcon name="check" size={30} class="mx-auto text-gold/70" />
-								<p class="mt-3 font-display text-2xl font-bold text-white">Nothing flagged</p>
-								<p class="mt-1 font-ui text-sm text-lav/60">
+								<CommunityIcon name="check" size={30} class="mx-auto text-book-accent/70" />
+								<p class="mt-3 font-display text-2xl font-bold text-book-bg">Nothing flagged</p>
+								<p class="mt-1 font-ui text-sm text-lav/80">
 									Reports will appear here when someone flags a comment.
 								</p>
 							</div>
@@ -778,20 +778,23 @@
 							<div class="space-y-3">
 								{#each reports as report (report.id)}
 									<article
-										class="relative overflow-hidden rounded-2xl border border-line bg-paper p-4 pl-5 text-ink shadow-[0_10px_24px_rgba(0,0,0,.28)]"
+										class="relative overflow-hidden rounded-2xl border border-cover-edge bg-desk p-4 pl-5 text-book-bg shadow-[0_10px_24px_rgba(0,0,0,.28)]"
 									>
-										<span class="absolute inset-y-0 left-0 w-1.5 bg-gold" aria-hidden="true"></span>
+										<span
+											class="absolute inset-y-0 left-0 w-1.5 bg-book-accent/80"
+											aria-hidden="true"
+										></span>
 
 										<div class="flex flex-wrap items-center gap-x-2 gap-y-1">
-											<span class="font-ui text-xs font-bold text-ink">
+											<span class="font-ui text-xs font-bold text-book-bg">
 												{report.reporter_name || 'Unknown member'}
 											</span>
-											<span class="font-ui text-[11px] text-ink-soft">reported</span>
-											<span class="font-ui text-xs font-bold text-ink">
+											<span class="font-ui text-[11px] text-lav/80">reported</span>
+											<span class="font-ui text-xs font-bold text-book-bg">
 												{report.reported_user || 'Unknown member'}
 											</span>
 											<span
-												class="ml-auto rounded-full bg-gold/20 px-2.5 py-0.5 font-ui text-[10px] font-semibold text-[#8A5A12] capitalize"
+												class="ml-auto rounded-full border border-book-accent/40 bg-book-accent/15 px-2.5 py-0.5 font-ui text-[10px] font-semibold text-book-bg/90 capitalize"
 											>
 												{report.reason || 'other'}
 											</span>
@@ -799,20 +802,20 @@
 
 										{#if report.comment_body}
 											<blockquote
-												class="mt-3 rounded-r-xl border-l-[3px] border-gold/70 bg-paper px-3 py-2 font-hand text-lg leading-snug break-words text-ink"
+												class="mt-3 rounded-r-xl border-l-[3px] border-book-accent/60 bg-cover/20 px-3 py-2 font-hand text-lg leading-snug break-words text-book-bg/90"
 											>
 												{report.comment_body}
 											</blockquote>
 										{:else}
-											<p class="mt-3 font-ui text-xs text-ink-soft">
+											<p class="mt-3 font-ui text-xs text-lav/75">
 												The comment is no longer available.
 											</p>
 										{/if}
 
 										<div
-											class="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-line/60 pt-3"
+											class="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-cover-edge/70 pt-3"
 										>
-											<time class="font-ui text-[10px] text-ink-soft" datetime={report.created_at}>
+											<time class="font-ui text-[10px] text-lav/70" datetime={report.created_at}>
 												{formatDate(report.created_at)}
 											</time>
 
@@ -820,7 +823,7 @@
 												<div class="flex flex-wrap gap-2">
 													<Button
 														size="sm"
-														variant="paper"
+														variant="outline"
 														icon="alert"
 														loading={busyWarn === report.reported_user_id}
 														disabled={Boolean(busyWarn || busyUser)}
@@ -848,7 +851,7 @@
 													</Button>
 												</div>
 											{:else}
-												<span class="font-ui text-[10px] text-ink-soft">
+												<span class="font-ui text-[10px] text-lav/70">
 													Comment author unavailable
 												</span>
 											{/if}
@@ -860,8 +863,8 @@
 					{:else if tab === 'users'}
 						<div class="mb-4 flex flex-wrap items-end justify-between gap-3">
 							<div>
-								<h3 class="font-display text-2xl leading-tight font-bold text-white">Members</h3>
-								<p class="mt-0.5 font-ui text-xs text-lav/60">
+								<h3 class="font-display text-2xl leading-tight font-bold text-book-bg">Members</h3>
+								<p class="mt-0.5 font-ui text-xs text-lav/70">
 									Warn, ban, or restore accounts. Banning never deletes journals or posts.
 								</p>
 							</div>
@@ -876,11 +879,11 @@
 								<CommunityIcon
 									name="search"
 									size={16}
-									class="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-accent"
+									class="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-lav/70"
 								/>
 								<input
 									type="search"
-									class="h-11 w-full rounded-xl border border-cover-edge/70 bg-desk pr-3 pl-9 font-ui text-sm text-white placeholder:text-lav/50 focus:border-gold focus:outline-none"
+									class="h-11 w-full rounded-xl border border-cover-edge/70 bg-desk pr-3 pl-9 font-ui text-sm text-book-bg placeholder:text-lav/70 focus:border-book-accent focus:outline-none"
 									placeholder="Search by nickname or @username"
 									bind:value={userSearch}
 								/>
@@ -897,7 +900,7 @@
 										class="inline-flex shrink-0 items-center gap-1.5 rounded-lg px-3 py-1.5 font-ui text-xs font-semibold capitalize transition-colors {roleFilter ===
 										role
 											? 'bg-cta text-cta-text'
-											: 'text-lav/80 hover:text-white'}"
+											: 'text-lav/80 hover:text-book-bg'}"
 										aria-pressed={roleFilter === role}
 										onclick={() => (roleFilter = role as RoleFilter)}
 									>
@@ -937,13 +940,13 @@
 							</div>
 						{:else if filteredUsers.length === 0}
 							<div class="rounded-2xl border border-cover-edge bg-desk-2/60 px-6 py-12 text-center">
-								<CommunityIcon name="search" size={28} class="mx-auto text-gold/60" />
+								<CommunityIcon name="search" size={28} class="mx-auto text-lav/70" />
 								<p class="mt-3 font-ui text-sm font-semibold text-lav">
 									No members match that search.
 								</p>
 								<button
 									type="button"
-									class="mt-3 font-ui text-xs font-semibold text-gold hover:underline"
+									class="mt-3 font-ui text-xs font-semibold text-book-bg underline decoration-book-accent/70 underline-offset-4 hover:decoration-book-accent"
 									onclick={() => {
 										userSearch = '';
 										roleFilter = 'all';
@@ -967,10 +970,10 @@
 										/>
 
 										<div class="min-w-0 flex-1">
-											<p class="truncate font-ui text-sm font-bold text-white">
+											<p class="truncate font-ui text-sm font-bold text-book-bg">
 												{user.display_name || user.username}
 											</p>
-											<p class="truncate font-ui text-[11px] text-lav/60">
+											<p class="truncate font-ui text-[11px] text-lav/70">
 												@{user.username} · joined {formatDate(user.created_at)}
 											</p>
 											{#if user.user_role === 'banned' && user.ban_reason}
@@ -1040,8 +1043,8 @@
 					{:else if tab === 'bans'}
 						<div class="mb-4 flex flex-wrap items-end justify-between gap-3">
 							<div>
-								<h3 class="font-display text-2xl leading-tight font-bold text-white">Ban list</h3>
-								<p class="mt-0.5 font-ui text-xs text-lav/60">
+								<h3 class="font-display text-2xl leading-tight font-bold text-book-bg">Ban list</h3>
+								<p class="mt-0.5 font-ui text-xs text-lav/70">
 									Accounts that cannot sign in. Restoring keeps all of their pages and posts.
 								</p>
 							</div>
@@ -1061,11 +1064,11 @@
 							</div>
 						{:else if bannedUsers.length === 0}
 							<div class="rounded-2xl border border-cover-edge bg-desk-2/60 px-6 py-12 text-center">
-								<CommunityIcon name="shield" size={28} class="mx-auto text-gold/60" />
+								<CommunityIcon name="shield" size={28} class="mx-auto text-lav/70" />
 								<p class="mt-3 font-ui text-sm font-semibold text-lav">
 									No banned accounts right now.
 								</p>
-								<p class="mt-1 font-ui text-xs text-lav/60">
+								<p class="mt-1 font-ui text-xs text-lav/70">
 									Issue a warning or ban from Reports or the Users tab.
 								</p>
 							</div>
@@ -1084,15 +1087,15 @@
 										/>
 
 										<div class="min-w-0 flex-1">
-											<p class="truncate font-ui text-sm font-bold text-white">
+											<p class="truncate font-ui text-sm font-bold text-book-bg">
 												{user.display_name || user.username}
 											</p>
-											<p class="truncate font-ui text-[11px] text-lav/60">@{user.username}</p>
+											<p class="truncate font-ui text-[11px] text-lav/70">@{user.username}</p>
 											<p class="mt-0.5 truncate font-ui text-[10px] text-danger-soft">
 												Ban reason: {user.ban_reason || 'No reason recorded'}
 											</p>
 											{#if user.banned_at}
-												<p class="font-ui text-[10px] text-lav/60">
+												<p class="font-ui text-[10px] text-lav/70">
 													Banned {formatDate(user.banned_at)}
 												</p>
 											{/if}
@@ -1131,7 +1134,7 @@
 				onclick={() => (open = false)}
 			></button>
 			<div
-				class="relative mx-4 max-w-[340px] rounded-[24px] border border-danger bg-danger/20 p-8 text-center text-white shadow-[0_40px_100px_rgba(0,0,0,.7)]"
+				class="relative mx-4 max-w-[340px] rounded-[24px] border border-danger bg-danger/20 p-8 text-center text-book-bg shadow-[0_40px_100px_rgba(0,0,0,.7)]"
 			>
 				<span
 					class="mx-auto flex size-12 items-center justify-center rounded-full bg-danger/15 text-danger-soft"
@@ -1150,8 +1153,8 @@
 					>
 				</p>
 				<p class="mt-2 font-ui text-[11px] text-lav">
-					An admin needs <code class="text-gold">user_role = 'admin'</code> in
-					<code class="text-gold">vidjo_profiles</code>.
+					An admin needs <code class="text-book-bg">user_role = 'admin'</code> in
+					<code class="text-book-bg">vidjo_profiles</code>.
 				</p>
 				<Button class="mt-5" variant="outline" onclick={() => (open = false)}>Close</Button>
 			</div>
