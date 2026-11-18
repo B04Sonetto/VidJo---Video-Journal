@@ -15,9 +15,15 @@ import type {
 
 const PAGE_SIZE = 30;
 const INBOX_DEBOUNCE_MS = 250;
+/** Realtime inbox reloads wait at least this long after the last successful load. */
+const INBOX_FRESH_MS = 5_000;
 const DM_IMAGE_BUCKET = 'vidjo-dm-images';
 const DM_IMAGE_MAX_BYTES = 5 * 1024 * 1024;
 const DM_IMAGE_TTL_SECONDS = 60 * 60 * 12;
+const IMAGE_URL_CACHE_MAX = 300;
+const IMAGE_URL_REFRESH_BEFORE_MS = 60_000;
+/** While a thread is open, coalesce read receipts into one write per second. */
+const READ_DEBOUNCE_MS = 1_000;
 
 const DM_IMAGE_TYPES: Record<string, string> = {
 	'image/jpeg': 'jpg',
@@ -184,6 +190,8 @@ class MessagesState {
 
 	activeThreadId = $state<string | null>(null);
 	currentUserId = $state('');
+	/** True while the Messages panel is on screen, so hidden threads still count unread. */
+	panelVisible = $state(false);
 	loadingInbox = $state(false);
 	loadingThread = $state(false);
 	loadingOlder = $state(false);
@@ -196,8 +204,16 @@ class MessagesState {
 	private initializedFor = '';
 	private realtimeChannel: ReturnType<typeof supabase.channel> | null = null;
 	private inboxTimer: ReturnType<typeof setTimeout> | null = null;
+	private inboxTimerForce = false;
 	private inboxQueued = false;
+	private inboxQueuedForce = false;
+	private lastInboxAt = 0;
 	private imageRequests = new Set<string>();
+	/** Signed URL expiry per storage path, used to refresh and evict the cache. */
+	private imageUrlExpiry: Record<string, number> = {};
+	/** Read receipts waiting to be written, coalesced per thread. */
+	private readTimers: Record<string, ReturnType<typeof setTimeout>> = {};
+	private readPending = new Set<string>();
 
 	get ready() {
 		return isSupabaseConfigured && auth.signedIn;
@@ -243,20 +259,31 @@ class MessagesState {
 		if (!userId) return;
 		if (this.initializedFor === userId) return;
 
+		// clearData() resets currentUserId, so set the identity afterwards or the
+		// realtime subscription below will think no one is signed in.
+		this.clearData();
 		this.initializedFor = userId;
 		this.currentUserId = userId;
-		this.clearData();
 
 		if (!this.ready) return;
 
-		await this.refreshInbox();
+		await this.refreshInbox(true);
 		this.subscribeRealtime();
 	}
 
-	async refreshInbox() {
+	async refreshInbox(force = false) {
 		if (!this.ready) return;
 		if (this.loadingInbox) {
 			this.inboxQueued = true;
+			this.inboxQueuedForce = this.inboxQueuedForce || force;
+			return;
+		}
+
+		const now = Date.now();
+		if (!force && this.lastInboxAt && now - this.lastInboxAt < INBOX_FRESH_MS) {
+			// Re-run once the cached inbox goes stale rather than dropping the
+			// update outright.
+			this.scheduleInboxRefresh(this.lastInboxAt + INBOX_FRESH_MS - now);
 			return;
 		}
 
@@ -276,13 +303,16 @@ class MessagesState {
 			}
 
 			this.threads = next;
+			this.lastInboxAt = Date.now();
 		} catch (error) {
 			console.warn('[VidJo] Could not load conversations.', error);
 		} finally {
 			this.loadingInbox = false;
 			if (this.inboxQueued) {
+				const queuedForce = this.inboxQueuedForce;
 				this.inboxQueued = false;
-				void this.refreshInbox();
+				this.inboxQueuedForce = false;
+				void this.refreshInbox(queuedForce);
 			}
 		}
 	}
@@ -299,23 +329,32 @@ class MessagesState {
 			this.error = 'You can only message friends.';
 		}
 
+		const jobs: Promise<void>[] = [this.markRead(threadId)];
+
 		if (!this.messagesByThread[threadId]) {
-			await this.loadThread(threadId);
+			jobs.push(this.loadThread(threadId));
 		} else {
 			this.scrollRequest += 1;
 		}
 
-		void this.markRead(threadId);
-
 		if (thread?.kind === 'group' && !this.membersByThread[threadId]) {
-			void this.loadMembers(threadId);
+			jobs.push(this.loadMembers(threadId));
 		}
+
+		// Messages, read state, and group members are independent requests.
+		await Promise.all(jobs);
 	}
 
 	closeThread() {
 		this.activeThreadId = null;
 		this.error = '';
 		this.notice = '';
+	}
+
+	/** Called by the panel so background messages are not auto-marked read. */
+	setPanelVisible(visible: boolean) {
+		this.panelVisible = visible;
+		if (visible && this.activeThreadId) void this.markRead(this.activeThreadId);
 	}
 
 	async openDirect(friend: Friend): Promise<boolean> {
@@ -525,9 +564,7 @@ class MessagesState {
 				.from(DM_IMAGE_BUCKET)
 				.createSignedUrl(path, DM_IMAGE_TTL_SECONDS);
 			if (signError) throw signError;
-			if (signed?.signedUrl) {
-				this.imageUrls = { ...this.imageUrls, [path]: signed.signedUrl };
-			}
+			if (signed?.signedUrl) this.rememberImageUrl(path, signed.signedUrl);
 
 			const ok = await this.transmit(threadId, clientId, cleanCaption, path, null, optimistic);
 
@@ -555,6 +592,7 @@ class MessagesState {
 		const next = { ...this.imageUrls };
 		delete next[path];
 		this.imageUrls = next;
+		delete this.imageUrlExpiry[path];
 
 		try {
 			await supabase.storage.from(DM_IMAGE_BUCKET).remove([path]);
@@ -647,47 +685,120 @@ class MessagesState {
 		}
 	}
 
+	private rememberImageUrl(path: string, url: string) {
+		this.imageUrls = { ...this.imageUrls, [path]: url };
+		this.imageUrlExpiry[path] = Date.now() + DM_IMAGE_TTL_SECONDS * 1000;
+
+		const keys = Object.keys(this.imageUrls);
+		if (keys.length <= IMAGE_URL_CACHE_MAX) return;
+
+		// Evict the soonest-to-expire URLs so a long session cannot grow forever.
+		const stale = keys
+			.sort((a, b) => (this.imageUrlExpiry[a] ?? 0) - (this.imageUrlExpiry[b] ?? 0))
+			.slice(0, keys.length - IMAGE_URL_CACHE_MAX);
+		const next = { ...this.imageUrls };
+		for (const key of stale) {
+			delete next[key];
+			delete this.imageUrlExpiry[key];
+		}
+		this.imageUrls = next;
+	}
+
 	private async ensureImageUrls(paths: (string | null | undefined)[]) {
-		const missing = [
+		const now = Date.now();
+		const wanted = [
 			...new Set(
 				paths.filter((path): path is string => typeof path === 'string' && path.length > 0)
 			)
-		].filter((path) => !this.imageUrls[path] && !this.imageRequests.has(path));
+		];
+
+		const missing = wanted.filter((path) => {
+			if (this.imageRequests.has(path)) return false;
+			const url = this.imageUrls[path];
+			if (!url) return true;
+			const expires = this.imageUrlExpiry[path] ?? 0;
+			return expires - now < IMAGE_URL_REFRESH_BEFORE_MS;
+		});
 
 		if (missing.length === 0) return;
 
 		missing.forEach((path) => this.imageRequests.add(path));
 
-		await Promise.all(
-			missing.map(async (path) => {
-				try {
-					const { data, error } = await supabase.storage
-						.from(DM_IMAGE_BUCKET)
-						.createSignedUrl(path, DM_IMAGE_TTL_SECONDS);
-					if (error) throw error;
-					if (data?.signedUrl) {
-						this.imageUrls = { ...this.imageUrls, [path]: data.signedUrl };
+		try {
+			// One request signs a whole page of photos.
+			const { data, error } = await supabase.storage
+				.from(DM_IMAGE_BUCKET)
+				.createSignedUrls(missing, DM_IMAGE_TTL_SECONDS);
+			if (error) throw error;
+
+			for (const item of data ?? []) {
+				if (item?.path && item.signedUrl) this.rememberImageUrl(item.path, item.signedUrl);
+			}
+		} catch (error) {
+			// A single bad path should not blank every photo, so fall back to
+			// signing one at a time.
+			await Promise.all(
+				missing.map(async (path) => {
+					if (this.imageUrls[path]) return;
+					try {
+						const { data, error } = await supabase.storage
+							.from(DM_IMAGE_BUCKET)
+							.createSignedUrl(path, DM_IMAGE_TTL_SECONDS);
+						if (error) throw error;
+						if (data?.signedUrl) this.rememberImageUrl(path, data.signedUrl);
+					} catch (inner) {
+						console.warn('[VidJo] Could not open a message photo.', inner);
 					}
-				} catch (error) {
-					console.warn('[VidJo] Could not open a message photo.', error);
-				} finally {
-					this.imageRequests.delete(path);
-				}
-			})
-		);
+				})
+			);
+			if (!this.imageUrls[missing[0]]) {
+				console.warn('[VidJo] Could not open message photos.', error);
+			}
+		} finally {
+			missing.forEach((path) => this.imageRequests.delete(path));
+		}
 	}
 
 	async markRead(threadId: string) {
 		if (!threadId) return;
 
 		const thread = this.threads.find((item) => item.threadId === threadId);
-		if (thread && thread.unreadCount > 0) {
+		const hadUnread = Boolean(thread && thread.unreadCount > 0);
+
+		if (hadUnread) {
 			this.threads = this.threads.map((item) =>
 				item.threadId === threadId ? { ...item, unreadCount: 0 } : item
 			);
 		}
 
 		if (!this.ready) return;
+		// The inbox already said nothing is unread, so there is nothing to write.
+		if (!hadUnread && !this.readPending.has(threadId)) return;
+
+		// Opening a thread clears its badge right away; only live messages wait.
+		this.queueRead(threadId, 0);
+	}
+
+	/** Writes a read receipt at most once per second per thread. */
+	private queueRead(threadId: string, delay = READ_DEBOUNCE_MS) {
+		if (!this.ready || !threadId) return;
+
+		this.readPending.add(threadId);
+		const existing = this.readTimers[threadId];
+		if (existing && delay > 0) return;
+		if (existing) clearTimeout(existing);
+
+		this.readTimers[threadId] = setTimeout(
+			() => {
+				delete this.readTimers[threadId];
+				void this.flushRead(threadId);
+			},
+			Math.max(0, delay)
+		);
+	}
+
+	private async flushRead(threadId: string) {
+		this.readPending.delete(threadId);
 
 		try {
 			const { error } = await supabase.rpc('vidjo_dm_mark_read', { p_thread: threadId });
@@ -725,7 +836,7 @@ class MessagesState {
 			if (error) throw error;
 
 			const threadId = typeof data === 'string' ? data : '';
-			await this.refreshInbox();
+			await this.refreshInbox(true);
 			if (threadId) await this.openThread(threadId);
 			return true;
 		} catch (error) {
@@ -749,7 +860,7 @@ class MessagesState {
 			if (error) throw error;
 
 			await this.loadMembers(threadId);
-			await this.refreshInbox();
+			await this.refreshInbox(true);
 			return true;
 		} catch (error) {
 			this.error = errorMessage(error);
@@ -770,7 +881,7 @@ class MessagesState {
 			if (error) throw error;
 
 			await this.loadMembers(threadId);
-			await this.refreshInbox();
+			await this.refreshInbox(true);
 			return true;
 		} catch (error) {
 			this.error = errorMessage(error);
@@ -799,7 +910,7 @@ class MessagesState {
 			this.threads = this.threads.map((thread) =>
 				thread.threadId === threadId ? { ...thread, title: cleanTitle } : thread
 			);
-			await this.refreshInbox();
+			await this.refreshInbox(true);
 			return true;
 		} catch (error) {
 			this.error = errorMessage(error);
@@ -818,7 +929,7 @@ class MessagesState {
 
 			if (this.activeThreadId === threadId) this.closeThread();
 			this.threads = this.threads.filter((thread) => thread.threadId !== threadId);
-			await this.refreshInbox();
+			await this.refreshInbox(true);
 			return true;
 		} catch (error) {
 			this.error = errorMessage(error);
@@ -848,7 +959,14 @@ class MessagesState {
 		this.notice = '';
 		this.scrollRequest = 0;
 		this.inboxQueued = false;
+		this.inboxQueuedForce = false;
+		this.inboxTimerForce = false;
+		this.lastInboxAt = 0;
 		this.imageRequests.clear();
+		this.imageUrlExpiry = {};
+		this.readPending.clear();
+		for (const timer of Object.values(this.readTimers)) clearTimeout(timer);
+		this.readTimers = {};
 		if (this.inboxTimer) {
 			clearTimeout(this.inboxTimer);
 			this.inboxTimer = null;
@@ -946,8 +1064,10 @@ class MessagesState {
 					{ event: 'UPDATE', schema: 'public', table: 'vidjo_dm_messages' },
 					() => this.scheduleInboxRefresh()
 				)
-				.on('postgres_changes', { event: '*', schema: 'public', table: 'vidjo_dm_threads' }, () =>
-					this.scheduleInboxRefresh()
+				.on(
+					'postgres_changes',
+					{ event: '*', schema: 'public', table: 'vidjo_dm_threads' },
+					(payload) => this.handleThreadChange(payload)
 				)
 				.on(
 					'postgres_changes',
@@ -991,16 +1111,63 @@ class MessagesState {
 
 		if (message.imagePath) void this.ensureImageUrls([message.imagePath]);
 
+		const existing = this.threads.find((thread) => thread.threadId === threadId);
+		const active = this.panelVisible && threadId === this.activeThreadId;
+		const mine = senderId === this.currentUserId;
+
 		if (this.messagesByThread[threadId]) {
 			this.setMessages(threadId, mergeMessages(this.messagesByThread[threadId] ?? [], [message]));
 		}
 
-		if (threadId === this.activeThreadId && senderId !== this.currentUserId) {
-			this.scrollRequest += 1;
-			void this.markRead(threadId);
+		if (existing) {
+			// Update the inbox row in place instead of refetching the whole inbox
+			// for every message.
+			const updated: DmThreadSummary = {
+				...existing,
+				lastBody: message.body,
+				lastImagePath: message.imagePath,
+				lastGifUrl: message.gifUrl,
+				lastSender: senderId,
+				lastSenderName: message.senderName,
+				lastAt: message.createdAt,
+				unreadCount: mine || active ? 0 : existing.unreadCount + 1
+			};
+			this.threads = [updated, ...this.threads.filter((thread) => thread.threadId !== threadId)];
+		} else {
+			// A conversation we have not seen yet: ask the server for its row.
+			// Force this one so a first message is not held back by the cache.
+			this.scheduleInboxRefresh(INBOX_DEBOUNCE_MS, true);
 		}
 
-		this.scheduleInboxRefresh();
+		if (active && !mine) {
+			this.scrollRequest += 1;
+			this.queueRead(threadId);
+		}
+	}
+
+	private handleThreadChange(payload: { eventType?: string; new?: unknown }) {
+		if (payload.eventType !== 'UPDATE') {
+			this.scheduleInboxRefresh();
+			return;
+		}
+
+		const row = (payload.new ?? {}) as Record<string, unknown>;
+		const threadId = typeof row.id === 'string' ? row.id : '';
+		const existing = this.threads.find((thread) => thread.threadId === threadId);
+
+		if (!existing) {
+			this.scheduleInboxRefresh();
+			return;
+		}
+
+		const title = typeof row.title === 'string' ? row.title : null;
+		if (title !== existing.title) {
+			this.threads = this.threads.map((thread) =>
+				thread.threadId === threadId ? { ...thread, title } : thread
+			);
+		}
+		// last_message_at changes on every send, and the message insert already
+		// updated the preview, so this update needs no inbox refetch.
 	}
 
 	private handleParticipantDelete(raw: unknown) {
@@ -1023,17 +1190,25 @@ class MessagesState {
 			delete nextMembers[threadId];
 			this.messagesByThread = nextMessages;
 			this.membersByThread = nextMembers;
+			// We already removed the thread locally, so no inbox refetch is needed.
+			return;
 		}
 
 		this.scheduleInboxRefresh();
 	}
 
-	private scheduleInboxRefresh() {
+	private scheduleInboxRefresh(delay = INBOX_DEBOUNCE_MS, force = false) {
+		this.inboxTimerForce = this.inboxTimerForce || force;
 		if (this.inboxTimer) clearTimeout(this.inboxTimer);
-		this.inboxTimer = setTimeout(() => {
-			this.inboxTimer = null;
-			void this.refreshInbox();
-		}, INBOX_DEBOUNCE_MS);
+		this.inboxTimer = setTimeout(
+			() => {
+				this.inboxTimer = null;
+				const runForce = this.inboxTimerForce;
+				this.inboxTimerForce = false;
+				void this.refreshInbox(runForce);
+			},
+			Math.max(0, delay)
+		);
 	}
 
 	private unsubscribeRealtime() {
@@ -1041,6 +1216,7 @@ class MessagesState {
 			clearTimeout(this.inboxTimer);
 			this.inboxTimer = null;
 		}
+		this.inboxTimerForce = false;
 
 		if (this.realtimeChannel) {
 			try {

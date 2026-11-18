@@ -27,6 +27,12 @@
 	const canReply = $derived(activeThread?.canReply ?? false);
 
 	$effect(() => {
+		// While the panel is hidden, incoming messages must count as unread.
+		messages.setPanelVisible(true);
+		return () => messages.setPanelVisible(false);
+	});
+
+	$effect(() => {
 		// Follow the newest message whenever the open thread or its contents change.
 		// Loading older messages must not jump the reader back to the bottom.
 		void messages.scrollRequest;
