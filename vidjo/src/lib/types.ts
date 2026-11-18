@@ -196,6 +196,8 @@ export interface FriendPost {
 	videoUrl?: string;
 	videoThumbUrl?: string;
 	videoPath?: string;
+	/** Object path for the poster; signed together with the video on demand. */
+	videoThumbPath?: string;
 	videoName?: string;
 	videoCaption?: string;
 	reactions: FriendPostReaction;

@@ -68,6 +68,8 @@ class FriendsState {
 	private lastRefreshAt = 0;
 	private refreshPromise: Promise<void> | null = null;
 	private signedUrls = new Map<string, { url: string; expiresAt: number }>();
+	/** Post ids whose media is currently being signed, so effects do not stack. */
+	private mediaInFlight = new Set<string>();
 
 	get myFriendCode() {
 		return profile.friendCode;
@@ -194,6 +196,8 @@ class FriendsState {
 		this.reactionMap = {};
 		this.commentMap = {};
 
+		const notificationsLoaded = this.loadCommentNotifications();
+
 		if (isSupabaseConfigured && auth.signedIn) {
 			try {
 				await this.refreshRemote();
@@ -214,8 +218,10 @@ class FriendsState {
 
 		this.loading = false;
 
-		await this.loadCommentNotifications();
 		this.subscribeToFriendRequests();
+		// Started alongside the feed so the badge is ready a beat sooner, but
+		// never allowed to hold up the shelf itself.
+		await notificationsLoaded;
 	}
 
 	/**
@@ -252,9 +258,11 @@ class FriendsState {
 		}
 
 		try {
-			await this.refreshRemote(postsOnly);
+			await Promise.all([
+				this.refreshRemote(postsOnly),
+				postsOnly ? Promise.resolve() : this.loadCommentNotifications()
+			]);
 			this.syncNotificationsFromFriendRequests();
-			if (!postsOnly) await this.loadCommentNotifications();
 			this.remote = true;
 			this.lastRefreshAt = Date.now();
 		} catch (error) {
@@ -449,59 +457,141 @@ class FriendsState {
 			}
 		}
 
-		return Promise.all(
-			rows.map(async (row) => {
-				const author = friendMap.get(row.owner_id);
-				let videoPath = row.video_path || '';
-				let videoUrl = '';
-				let videoThumbPath = row.video_thumb_path || '';
-				let videoThumbUrl = '';
+		// Media is signed on demand by `ensureMedia()` when a page is opened.
+		// Signing every video up front made a busy feed queue hundreds of
+		// Storage requests before the shelf could render, and those requests
+		// also delayed the video bytes themselves.
+		return rows.map((row) => {
+			const author = friendMap.get(row.owner_id);
+			const videoPath = row.video_path || '';
 
-				if (videoPath) {
-					try {
-						videoUrl = await this.signUrl(videoPath);
-					} catch (error) {
-						console.warn('[VidJo] Could not sign a friend video URL.', error);
-						// The file was deleted or is no longer accessible. Treat the
-						// post as video-less so the feed stops asking for it.
-						videoPath = '';
-						videoThumbPath = '';
-					}
-				}
+			return {
+				id: `friend-${row.owner_id}-${row.entry_date}`,
+				authorId: row.owner_id,
+				authorName: cleanDisplayName(author?.displayName || author?.username),
+				authorUsername: author?.username || 'student',
+				authorAvatar: normalizeImageUrl(author?.avatarUrl) || null,
+				friendCode: author?.friendCode || undefined,
+				date: row.entry_date,
+				dateFormatted: formatPostDate(row.entry_date),
+				mood: row.mood || '',
+				title: row.title || 'Journal entry',
+				mind: row.mind || '',
+				refl: row.refl || '',
+				stickers: row.stickers || [],
+				videoPath,
+				videoThumbPath: videoPath ? row.video_thumb_path || '' : '',
+				videoName: videoPath ? row.video_name || '' : '',
+				videoUrl: '',
+				videoThumbUrl: '',
+				reactions: { ...EMPTY_REACTIONS },
+				userReactions: [],
+				comments: [],
+				isOwner: false
+			};
+		});
+	}
 
-				if (videoThumbPath) {
-					try {
-						videoThumbUrl = await this.signUrl(videoThumbPath);
-					} catch {
-						// Posters are optional; fall back to the video's first frame.
-					}
+	/**
+	 * Signs the video and poster for the pages the reader is looking at.
+	 *
+	 * The reader only ever shows one page at a time, so the friends feed no
+	 * longer signs up to 100 posts (video + poster each) on load. Results are
+	 * cached for the signed URL's lifetime, so flipping back is instant.
+	 */
+	async ensureMedia(posts: FriendPost[]): Promise<void> {
+		const targets = posts.filter(
+			(post) => post.videoPath && !post.videoUrl && !this.mediaInFlight.has(post.id)
+		);
+		if (targets.length === 0) return;
+
+		for (const post of targets) this.mediaInFlight.add(post.id);
+		const ids = new Set(targets.map((post) => post.id));
+
+		try {
+			const urls = await this.resolveUrls(
+				targets.flatMap((post) => [post.videoPath as string, post.videoThumbPath ?? ''])
+			);
+
+			this.posts = this.posts.map((post) => {
+				if (!ids.has(post.id) || !post.videoPath) return post;
+
+				const videoUrl = urls[post.videoPath] ?? '';
+				if (!videoUrl) {
+					// The file was deleted or is no longer accessible. Treat the
+					// post as video-less so the reader stops asking for it.
+					return {
+						...post,
+						videoPath: '',
+						videoThumbPath: '',
+						videoName: '',
+						videoThumbUrl: ''
+					};
 				}
 
 				return {
-					id: `friend-${row.owner_id}-${row.entry_date}`,
-					authorId: row.owner_id,
-					authorName: cleanDisplayName(author?.displayName || author?.username),
-					authorUsername: author?.username || 'student',
-					authorAvatar: normalizeImageUrl(author?.avatarUrl) || null,
-					friendCode: author?.friendCode || undefined,
-					date: row.entry_date,
-					dateFormatted: formatPostDate(row.entry_date),
-					mood: row.mood || '',
-					title: row.title || 'Journal entry',
-					mind: row.mind || '',
-					refl: row.refl || '',
-					stickers: row.stickers || [],
-					videoPath,
-					videoName: videoPath ? row.video_name || '' : '',
+					...post,
 					videoUrl,
-					videoThumbUrl,
-					reactions: { ...EMPTY_REACTIONS },
-					userReactions: [],
-					comments: [],
-					isOwner: false
+					videoThumbUrl: post.videoThumbPath
+						? (urls[post.videoThumbPath] ?? '')
+						: (post.videoThumbUrl ?? '')
 				};
-			})
-		);
+			});
+		} catch (error) {
+			console.warn('[VidJo] Could not sign a friend video URL.', error);
+			// Do not leave the reader spinning on a page that cannot load.
+			this.posts = this.posts.map((post) =>
+				ids.has(post.id)
+					? { ...post, videoPath: '', videoThumbPath: '', videoName: '', videoThumbUrl: '' }
+					: post
+			);
+		} finally {
+			for (const post of targets) this.mediaInFlight.delete(post.id);
+		}
+	}
+
+	/** Signs a set of paths in one Storage round trip, reusing cached URLs. */
+	private async resolveUrls(paths: string[]): Promise<Record<string, string>> {
+		const now = Date.now();
+		const urls: Record<string, string> = Object.create(null);
+		const missing: string[] = [];
+
+		for (const path of [...new Set(paths)].filter(Boolean)) {
+			const cached = this.signedUrls.get(path);
+			if (cached && cached.expiresAt - SIGNED_URL_REFRESH_BEFORE > now) urls[path] = cached.url;
+			else missing.push(path);
+		}
+
+		if (missing.length === 0) return urls;
+
+		if (missing.length > 1) {
+			// One request covers the page's video and poster.
+			const { data } = await supabase.storage
+				.from(VIDEO_BUCKET)
+				.createSignedUrls(missing, SIGNED_URL_TTL);
+
+			for (const row of data ?? []) {
+				if (!row.path || !row.signedUrl) continue;
+				urls[row.path] = row.signedUrl;
+				this.signedUrls.set(row.path, {
+					url: row.signedUrl,
+					expiresAt: now + SIGNED_URL_TTL * 1000
+				});
+			}
+		}
+
+		// Fall back to a single-file call for anything the batch could not
+		// sign, so one missing object never hides the rest of the page.
+		for (const path of missing) {
+			if (path in urls) continue;
+			try {
+				urls[path] = await this.signUrl(path);
+			} catch {
+				// The caller drops videos that cannot be signed.
+			}
+		}
+
+		return urls;
 	}
 
 	/**
@@ -1414,6 +1504,7 @@ class FriendsState {
 		this.lastRefreshAt = 0;
 		this.refreshPromise = null;
 		this.signedUrls.clear();
+		this.mediaInFlight.clear();
 		this.unsubscribeRealtime();
 	}
 }

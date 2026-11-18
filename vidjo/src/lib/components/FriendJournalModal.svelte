@@ -12,6 +12,7 @@
 	import CommunityIcon from '#lib/components/CommunityIcon.svelte';
 	import ProfileModal from '#lib/components/ProfileModal.svelte';
 	import Button from '#lib/components/ui/Button.svelte';
+	import Spinner from '#lib/components/ui/Spinner.svelte';
 	import { censor } from '#lib/censor';
 	import type { Friend, FriendPost } from '#lib/types';
 
@@ -110,6 +111,23 @@
 	$effect(() => {
 		if (index >= sorted.length) index = Math.max(0, sorted.length - 1);
 		noteConfirmId = null;
+	});
+
+	$effect(() => {
+		if (!open || sorted.length === 0) return;
+
+		// The reader shows one page at a time, so only that page's video is
+		// signed. Prefetching the neighbours keeps page flipping instant.
+		const neighbours = [
+			sorted[index],
+			sorted[(index + 1) % sorted.length],
+			sorted[(index - 1 + sorted.length) % sorted.length]
+		];
+		const wanted = [...new Map(neighbours.map((post) => [post?.id, post])).values()].filter(
+			(post): post is FriendPost => Boolean(post?.videoPath && !post.videoUrl)
+		);
+
+		if (wanted.length > 0) void friends.ensureMedia(wanted);
 	});
 
 	function go(delta: number) {
@@ -291,7 +309,19 @@
 			playsinline
 			class="max-h-[380px] w-full bg-black object-contain"
 		></video>
-	{:else if p.videoPath || p.videoName}
+	{:else if p.videoPath}
+		<!-- The signed URL for this page is still being created. -->
+		<div
+			class="flex aspect-[16/10] flex-col items-center justify-center gap-3 bg-desk text-book-bg"
+		>
+			<span
+				class="flex size-12 items-center justify-center rounded-full bg-book-bg/10 text-book-accent"
+			>
+				<Spinner size={22} />
+			</span>
+			<p class="font-ui text-xs font-semibold text-book-bg/70">Loading video…</p>
+		</div>
+	{:else if p.videoName}
 		<div
 			class="relative flex aspect-[16/10] flex-col items-center justify-center overflow-hidden bg-[radial-gradient(ellipse_at_center,var(--color-cover)_0%,var(--color-desk)_85%)] text-center text-book-bg"
 		>
