@@ -328,7 +328,7 @@
 						{#if sharedPosts.length > 0}
 							<button
 								type="button"
-								class="font-ui text-xs font-semibold text-book-accent hover:underline"
+								class="inline-flex min-h-9 items-center font-ui text-xs font-semibold text-book-accent hover:underline"
 								onclick={() => go('portfolio')}
 							>
 								Full portfolio

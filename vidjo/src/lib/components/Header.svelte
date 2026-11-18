@@ -120,20 +120,30 @@
 	}}
 />
 
-<header class="mx-auto flex max-w-[1240px] flex-wrap items-center gap-5 py-4">
+<header
+	class="mx-auto flex max-w-[1240px] flex-nowrap items-center gap-3 py-3 min-[900px]:flex-wrap min-[900px]:gap-5 min-[900px]:py-4"
+>
 	<button
 		type="button"
-		class="mr-auto flex items-center gap-2.5 text-left font-display text-[28px] font-bold text-white transition-opacity hover:opacity-90 min-[900px]:text-[32px]"
+		class="mr-auto flex min-w-0 items-center gap-2 text-left font-display text-[24px] font-bold text-white transition-opacity hover:opacity-90 min-[480px]:gap-2.5 min-[900px]:text-[32px]"
 		onclick={() => nav.setView('journal')}
 		title="Go to Journal"
 	>
-		<svg width="34" height="40" viewBox="0 0 44 52" aria-hidden="true" class="shrink-0">
+		<svg
+			width="30"
+			height="36"
+			viewBox="0 0 44 52"
+			aria-hidden="true"
+			class="h-9 w-[27px] shrink-0 min-[900px]:h-10 min-[900px]:w-[34px]"
+		>
 			<path d="M30 6a20 20 0 100 40 17 17 0 01-8-20 17 17 0 018-20z" fill="#E8C9A0"></path>
 			<path d="M38 12l1.4 3.6 3.6 1.4-3.6 1.4L38 22l-1.4-3.6L33 17l3.6-1.4z" fill="#D4A24C"></path>
 		</svg>
-		<div>
+		<div class="min-w-0">
 			VidJo
-			<small class="mt-0.5 block font-ui text-xs font-normal tracking-[.02em] text-lav/80">
+			<small
+				class="mt-0.5 hidden font-ui text-[10px] font-normal tracking-[.02em] text-lav/80 min-[400px]:block min-[900px]:text-xs"
+			>
 				Small videos, big thoughts.
 			</small>
 		</div>
@@ -217,18 +227,19 @@
 
 	<button
 		type="button"
-		class="inline-flex min-h-11 items-center gap-2 rounded-xl bg-cta px-[18px] font-ui text-[15px] font-bold text-cta-text shadow-[0_6px_18px_var(--color-cta-shadow)] transition-all hover:bg-cta-hover hover:shadow-[0_8px_22px_var(--color-cta-shadow)] active:scale-[.98]"
+		class="inline-flex min-h-10 shrink-0 items-center gap-1.5 rounded-xl bg-cta px-3 font-ui text-[13px] font-bold text-cta-text shadow-[0_6px_18px_var(--color-cta-shadow)] transition-all hover:bg-cta-hover hover:shadow-[0_8px_22px_var(--color-cta-shadow)] active:scale-[.98] min-[480px]:min-h-11 min-[480px]:gap-2 min-[480px]:px-[18px] min-[480px]:text-[15px]"
 		onclick={() => nav.jump(TODAY)}
 	>
 		<CommunityIcon name="plus" size={16} />
-		Today's page
+		<span class="min-[480px]:hidden">Today</span>
+		<span class="hidden min-[480px]:inline">Today's page</span>
 	</button>
 
 	{#if isSupabaseConfigured}
 		<div class="relative" data-account-menu>
 			<button
 				type="button"
-				class="relative flex min-h-11 items-center gap-2 rounded-full border border-cover-edge bg-cover/25 p-1 pr-3 text-left transition-colors hover:bg-cover/40"
+				class="relative flex min-h-10 items-center gap-2 rounded-full border border-cover-edge bg-cover/25 p-1 pr-1.5 text-left transition-colors hover:bg-cover/40 min-[480px]:min-h-11 min-[480px]:pr-3"
 				aria-haspopup="menu"
 				aria-expanded={menuOpen}
 				aria-label={`Account menu for ${profile.displayName}`}
@@ -407,43 +418,58 @@
 
 <!-- Mobile Bottom Navigation -->
 <nav
-	class="fixed right-0 bottom-0 left-0 z-40 mx-auto flex max-w-[480px] items-center justify-around rounded-t-3xl border border-x-cover-edge/40 border-t-cover-edge/60 bg-desk/95 px-2 pt-2 pb-[calc(env(safe-area-inset-bottom)+6px)] shadow-[0_-16px_40px_rgba(0,0,0,.45)] backdrop-blur-lg min-[900px]:hidden"
+	class="fixed right-0 bottom-0 left-0 z-40 mx-auto flex w-full max-w-[480px] items-stretch gap-0.5 rounded-t-3xl border-t border-cover-edge/60 bg-desk/95 px-1.5 pt-1.5 pb-[calc(env(safe-area-inset-bottom)+6px)] shadow-[0_-16px_40px_rgba(0,0,0,.45)] backdrop-blur-lg min-[900px]:hidden"
 	aria-label="Mobile navigation"
 >
 	<button
 		type="button"
-		class="flex flex-col items-center gap-1 rounded-2xl px-3 py-1.5 transition-colors {nav.view ===
+		class="flex min-w-0 flex-1 flex-col items-center gap-1 rounded-2xl px-0.5 py-1.5 transition-colors {nav.view ===
 		'journal'
 			? 'bg-white/15 text-white shadow-[inset_0_1px_0_rgba(255,255,255,.12)]'
 			: 'text-lav/80 hover:bg-white/[.07] hover:text-white'}"
+		aria-label="Journal"
 		aria-current={nav.view === 'journal' ? 'page' : undefined}
 		onclick={() => nav.setView('journal')}
 	>
 		<CommunityIcon name="book" size={20} />
-		<span class="font-ui text-[10px] font-semibold">Journal</span>
+		<span
+			class="w-full truncate text-center font-ui text-[9px] leading-none font-semibold min-[380px]:text-[10px]"
+		>
+			Journal
+		</span>
 	</button>
 	<button
 		type="button"
-		class="flex flex-col items-center gap-1 rounded-2xl px-3 py-1.5 text-lav/80 transition-colors hover:bg-white/[.07] hover:text-white"
+		class="flex min-w-0 flex-1 flex-col items-center gap-1 rounded-2xl px-0.5 py-1.5 text-lav/80 transition-colors hover:bg-white/[.07] hover:text-white"
+		aria-label="Calendar"
 		onclick={onCalendar}
 	>
 		<CommunityIcon name="calendar" size={20} />
-		<span class="font-ui text-[10px] font-semibold">Calendar</span>
+		<span
+			class="w-full truncate text-center font-ui text-[9px] leading-none font-semibold min-[380px]:text-[10px]"
+		>
+			Calendar
+		</span>
 	</button>
 	<button
 		type="button"
-		class="relative flex flex-col items-center gap-1 rounded-2xl px-3 py-1.5 transition-colors {nav.view ===
+		class="relative flex min-w-0 flex-1 flex-col items-center gap-1 rounded-2xl px-0.5 py-1.5 transition-colors {nav.view ===
 		'friends'
 			? 'bg-white/15 text-white shadow-[inset_0_1px_0_rgba(255,255,255,.12)]'
 			: 'text-lav/80 hover:bg-white/[.07] hover:text-white'}"
+		aria-label={`Friends${friends.pendingCount > 0 ? `, ${friends.pendingCount} pending` : ''}`}
 		aria-current={nav.view === 'friends' ? 'page' : undefined}
 		onclick={() => nav.setView('friends')}
 	>
 		<CommunityIcon name="users" size={20} />
-		<span class="font-ui text-[10px] font-semibold">Friends</span>
+		<span
+			class="w-full truncate text-center font-ui text-[9px] leading-none font-semibold min-[380px]:text-[10px]"
+		>
+			Friends
+		</span>
 		{#if friends.pendingCount > 0}
 			<span
-				class="absolute -top-0.5 right-2 flex h-4 min-w-4 items-center justify-center rounded-full bg-gold px-1 font-ui text-[9px] font-bold text-desk tabular-nums"
+				class="absolute -top-0.5 right-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-gold px-1 font-ui text-[9px] font-bold text-desk tabular-nums"
 			>
 				{friends.pendingCount}
 			</span>
@@ -451,31 +477,40 @@
 	</button>
 	<button
 		type="button"
-		class="flex flex-col items-center gap-1 rounded-2xl px-3 py-1.5 transition-colors {nav.view ===
+		class="flex min-w-0 flex-1 flex-col items-center gap-1 rounded-2xl px-0.5 py-1.5 transition-colors {nav.view ===
 		'community'
 			? 'bg-white/15 text-white shadow-[inset_0_1px_0_rgba(255,255,255,.12)]'
 			: 'text-lav/80 hover:bg-white/[.07] hover:text-white'}"
+		aria-label="Community"
 		aria-current={nav.view === 'community' ? 'page' : undefined}
 		onclick={() => nav.setView('community')}
 	>
 		<CommunityIcon name="globe" size={20} />
-		<span class="font-ui text-[10px] font-semibold">Community</span>
+		<span
+			class="w-full truncate text-center font-ui text-[9px] leading-none font-semibold min-[380px]:text-[10px]"
+		>
+			Community
+		</span>
 	</button>
 	<button
 		type="button"
-		class="relative flex flex-col items-center gap-1 rounded-2xl px-3 py-1.5 transition-colors {nav.view ===
+		class="relative flex min-w-0 flex-1 flex-col items-center gap-1 rounded-2xl px-0.5 py-1.5 transition-colors {nav.view ===
 		'notifications'
 			? 'bg-white/15 text-white shadow-[inset_0_1px_0_rgba(255,255,255,.12)]'
 			: 'text-lav/80 hover:bg-white/[.07] hover:text-white'}"
 		aria-current={nav.view === 'notifications' ? 'page' : undefined}
-		aria-label={`Notifications${friends.unreadCount > 0 ? `, ${friends.unreadCount} unread` : ''}`}
+		aria-label={`Alerts${friends.unreadCount > 0 ? `, ${friends.unreadCount} unread` : ''}`}
 		onclick={() => nav.setView('notifications')}
 	>
 		<CommunityIcon name="bell" size={20} />
-		<span class="font-ui text-[10px] font-semibold">Alerts</span>
+		<span
+			class="w-full truncate text-center font-ui text-[9px] leading-none font-semibold min-[380px]:text-[10px]"
+		>
+			Alerts
+		</span>
 		{#if friends.unreadCount > 0}
 			<span
-				class="absolute -top-0.5 right-2 flex h-4 min-w-4 items-center justify-center rounded-full bg-danger px-1 font-ui text-[9px] font-bold text-white tabular-nums"
+				class="absolute -top-0.5 right-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-danger px-1 font-ui text-[9px] font-bold text-white tabular-nums"
 			>
 				{friends.unreadCount > 9 ? '9+' : friends.unreadCount}
 			</span>
@@ -483,14 +518,19 @@
 	</button>
 	<button
 		type="button"
-		class="flex flex-col items-center gap-1 rounded-2xl px-3 py-1.5 transition-colors {nav.view ===
+		class="flex min-w-0 flex-1 flex-col items-center gap-1 rounded-2xl px-0.5 py-1.5 transition-colors {nav.view ===
 		'profile'
 			? 'bg-white/15 text-white shadow-[inset_0_1px_0_rgba(255,255,255,.12)]'
 			: 'text-lav/80 hover:bg-white/[.07] hover:text-white'}"
+		aria-label="Profile"
 		aria-current={nav.view === 'profile' ? 'page' : undefined}
 		onclick={() => nav.openProfile('overview')}
 	>
 		<CommunityIcon name="user" size={20} />
-		<span class="font-ui text-[10px] font-semibold">Profile</span>
+		<span
+			class="w-full truncate text-center font-ui text-[9px] leading-none font-semibold min-[380px]:text-[10px]"
+		>
+			Profile
+		</span>
 	</button>
 </nav>

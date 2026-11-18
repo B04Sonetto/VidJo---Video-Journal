@@ -488,7 +488,7 @@
 					{#each STICKERS as sticker (sticker.k)}
 						<button
 							type="button"
-							class="flex size-[76px] flex-none items-center justify-center rounded-2xl border border-cover-edge bg-light p-2 hover:-translate-y-0.5 hover:bg-paper"
+							class="flex size-16 flex-none items-center justify-center rounded-2xl border border-cover-edge bg-light p-2 hover:-translate-y-0.5 hover:bg-paper min-[480px]:size-[76px]"
 							aria-label={'Add ' + sticker.n + ' sticker'}
 							onclick={() => journal.addSticker(sticker.k)}
 						>
@@ -499,7 +499,7 @@
 
 					<button
 						type="button"
-						class="flex h-[76px] w-24 flex-none flex-col items-center justify-center gap-0.5 rounded-2xl border border-accent/60 bg-transparent text-xs text-lav transition-colors hover:bg-white/5"
+						class="flex h-16 w-20 flex-none flex-col items-center justify-center gap-0.5 rounded-2xl border border-accent/60 bg-transparent text-[10px] text-lav transition-colors hover:bg-white/5 min-[480px]:h-[76px] min-[480px]:w-24 min-[480px]:text-xs"
 						aria-label="Add your own image as a sticker"
 						onclick={() => imageInput?.click()}
 					>

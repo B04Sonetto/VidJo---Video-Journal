@@ -281,7 +281,7 @@
 					{#each FILTERS as filter (filter.key)}
 						<button
 							type="button"
-							class="rounded-full px-3 py-1.5 font-ui text-[11px] font-bold transition-colors {friends.activeFilter ===
+							class="min-h-8 rounded-full px-3 py-1.5 font-ui text-[11px] font-bold transition-colors {friends.activeFilter ===
 							filter.key
 								? 'bg-cta text-cta-text'
 								: 'text-book-bg/70 hover:text-book-bg'}"

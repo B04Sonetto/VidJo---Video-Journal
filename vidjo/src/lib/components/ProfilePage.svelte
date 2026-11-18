@@ -516,9 +516,9 @@
 <div class="mx-auto w-full max-w-[1240px] px-4 py-6 min-[900px]:px-6">
 	<!-- ── Profile hero ── -->
 	<div
-		class="relative overflow-hidden rounded-[32px] border border-cover-edge shadow-[0_28px_70px_rgba(0,0,0,.5)]"
+		class="relative overflow-hidden rounded-[24px] border border-cover-edge shadow-[0_28px_70px_rgba(0,0,0,.5)] min-[720px]:rounded-[32px]"
 	>
-		<div class="relative h-44 min-[720px]:h-52">
+		<div class="relative h-32 min-[480px]:h-40 min-[720px]:h-52">
 			{#if bannerSrc && !bannerFailed}
 				<img
 					src={bannerSrc}
@@ -536,7 +536,9 @@
 			<div
 				class="absolute inset-0 [background-image:radial-gradient(circle_at_20%_30%,rgba(212,162,76,.4)_0%,transparent_40%),radial-gradient(circle_at_80%_20%,rgba(201,184,232,.3)_0%,transparent_35%)] opacity-40"
 			></div>
-			<div class="absolute top-5 right-5 flex flex-wrap gap-2">
+			<div
+				class="absolute top-3 right-3 flex flex-wrap gap-1.5 min-[480px]:top-4 min-[480px]:right-4 min-[720px]:top-5 min-[720px]:right-5 min-[720px]:gap-2"
+			>
 				<Button size="sm" variant="outline" icon="pen" onclick={() => setTab('edit')}>
 					Edit profile
 				</Button>
@@ -544,19 +546,25 @@
 					Settings
 				</Button>
 			</div>
-			<div class="absolute -bottom-16 left-1/2 flex -translate-x-1/2 flex-col items-center">
+			<div
+				class="absolute -bottom-12 left-1/2 flex -translate-x-1/2 flex-col items-center min-[480px]:-bottom-14 min-[720px]:-bottom-16"
+			>
 				<Avatar
 					src={profile.avatarUrl}
 					name={profile.displayName}
-					className="size-32"
-					textClass="text-5xl"
+					className="size-24 min-[480px]:size-28 min-[720px]:size-32"
+					textClass="text-4xl min-[720px]:text-5xl"
 					ring="border-4 border-book-accent/60 shadow-[0_20px_40px_rgba(0,0,0,.45)]"
 				/>
 			</div>
 		</div>
 
-		<div class="bg-desk-2 px-6 pt-20 pb-8 text-center min-[720px]:px-10">
-			<h1 class="font-display text-3xl font-bold text-book-bg min-[720px]:text-4xl">
+		<div
+			class="bg-desk-2 px-4 pt-16 pb-6 text-center min-[480px]:px-6 min-[720px]:px-10 min-[720px]:pt-20 min-[720px]:pb-8"
+		>
+			<h1
+				class="font-display text-2xl font-bold text-book-bg min-[480px]:text-3xl min-[720px]:text-4xl"
+			>
 				{profile.nickname}
 			</h1>
 			<p class="mt-1 font-ui text-sm font-semibold text-book-bg/70">@{profile.username}</p>
@@ -567,14 +575,20 @@
 				Member since {profile.memberSince}
 			</p>
 			{#if profile.bio}
-				<p class="mx-auto mt-4 max-w-[560px] font-hand text-lg text-book-bg/90">“{profile.bio}”</p>
+				<p
+					class="mx-auto mt-3 max-w-[560px] font-hand text-base text-book-bg/90 min-[720px]:mt-4 min-[720px]:text-lg"
+				>
+					“{profile.bio}”
+				</p>
 			{:else}
-				<p class="mx-auto mt-4 max-w-[560px] font-hand text-lg text-book-bg/65">
+				<p
+					class="mx-auto mt-3 max-w-[560px] font-hand text-base text-book-bg/65 min-[720px]:mt-4 min-[720px]:text-lg"
+				>
 					Small videos, big thoughts.
 				</p>
 			{/if}
 
-			<div class="mt-5 flex flex-wrap items-center justify-center gap-2">
+			<div class="mt-4 flex flex-wrap items-center justify-center gap-2 min-[720px]:mt-5">
 				<span
 					class="rounded-full bg-cover/35 px-3 py-1 font-mono text-xs font-bold tracking-wider text-book-accent tabular-nums"
 				>
@@ -582,7 +596,7 @@
 				</span>
 				<button
 					type="button"
-					class="inline-flex items-center gap-1.5 rounded-full bg-cover/35 px-3 py-1 font-ui text-xs font-semibold text-book-bg transition-colors hover:bg-cover/50"
+					class="inline-flex min-h-8 items-center gap-1.5 rounded-full bg-cover/35 px-3 py-1 font-ui text-xs font-semibold text-book-bg transition-colors hover:bg-cover/50"
 					onclick={copyFriendCode}
 				>
 					{#if copied}
@@ -595,31 +609,39 @@
 				</button>
 			</div>
 
-			<div class="mt-6 grid grid-cols-2 gap-3 min-[640px]:grid-cols-4">
-				<div class="rounded-2xl border border-cover-edge bg-cover/15 p-4">
-					<p class="font-display text-2xl font-bold text-book-bg tabular-nums">{totalPages}</p>
-					<p class="font-ui text-xs text-book-bg/65">Pages written</p>
+			<div
+				class="mt-5 grid grid-cols-2 gap-2 min-[480px]:gap-3 min-[640px]:grid-cols-4 min-[720px]:mt-6"
+			>
+				<div class="rounded-2xl border border-cover-edge bg-cover/15 p-3 min-[720px]:p-4">
+					<p class="font-display text-xl font-bold text-book-bg tabular-nums min-[720px]:text-2xl">
+						{totalPages}
+					</p>
+					<p class="font-ui text-[11px] text-book-bg/65 min-[720px]:text-xs">Pages written</p>
 				</div>
-				<div class="rounded-2xl border border-book-accent/40 bg-book-accent/10 p-4">
+				<div class="rounded-2xl border border-book-accent/40 bg-book-accent/10 p-3 min-[720px]:p-4">
 					<p
-						class="flex items-center justify-center gap-1.5 font-display text-2xl font-bold text-book-accent tabular-nums"
+						class="flex items-center justify-center gap-1.5 font-display text-xl font-bold text-book-accent tabular-nums min-[720px]:text-2xl"
 					>
-						<CommunityIcon name="flame" size={20} />
+						<CommunityIcon name="flame" size={18} />
 						{streak}
 					</p>
-					<p class="font-ui text-xs text-book-bg/65">Day streak</p>
+					<p class="font-ui text-[11px] text-book-bg/65 min-[720px]:text-xs">Day streak</p>
 				</div>
-				<div class="rounded-2xl border border-cover-edge bg-cover/15 p-4">
-					<p class="font-display text-2xl font-bold text-[#8BE2A4] tabular-nums">
+				<div class="rounded-2xl border border-cover-edge bg-cover/15 p-3 min-[720px]:p-4">
+					<p
+						class="font-display text-xl font-bold text-[#8BE2A4] tabular-nums min-[720px]:text-2xl"
+					>
 						{friends.friendCount}
 					</p>
-					<p class="font-ui text-xs text-book-bg/65">Friends</p>
+					<p class="font-ui text-[11px] text-book-bg/65 min-[720px]:text-xs">Friends</p>
 				</div>
-				<div class="rounded-2xl border border-cover-edge bg-cover/15 p-4">
-					<p class="font-display text-2xl font-bold text-book-bg/70 tabular-nums">
+				<div class="rounded-2xl border border-cover-edge bg-cover/15 p-3 min-[720px]:p-4">
+					<p
+						class="font-display text-xl font-bold text-book-bg/70 tabular-nums min-[720px]:text-2xl"
+					>
 						{badges.length}
 					</p>
-					<p class="font-ui text-xs text-book-bg/65">Badges</p>
+					<p class="font-ui text-[11px] text-book-bg/65 min-[720px]:text-xs">Badges</p>
 				</div>
 			</div>
 		</div>
@@ -689,7 +711,7 @@
 					<h2 class="font-display text-xl font-bold">Recent badges</h2>
 					<button
 						type="button"
-						class="font-ui text-xs font-semibold text-book-accent hover:underline"
+						class="inline-flex min-h-9 items-center font-ui text-xs font-semibold text-book-accent hover:underline"
 						onclick={() => setTab('achievements')}
 					>
 						View all
@@ -750,7 +772,7 @@
 					<h2 class="font-display text-xl font-bold">Recently shared</h2>
 					<button
 						type="button"
-						class="font-ui text-xs font-semibold text-book-accent hover:underline"
+						class="inline-flex min-h-9 items-center font-ui text-xs font-semibold text-book-accent hover:underline"
 						onclick={() => setTab('portfolio')}
 					>
 						Full portfolio

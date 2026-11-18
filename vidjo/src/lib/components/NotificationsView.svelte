@@ -153,7 +153,9 @@
 
 			<div class="relative mx-auto w-fit">{@render envelope(true)}</div>
 
-			<h2 class="relative mt-6 font-display text-[32px] leading-tight font-bold">
+			<h2
+				class="relative mt-6 font-display text-2xl leading-tight font-bold min-[480px]:text-[32px]"
+			>
 				All quiet for now
 			</h2>
 			<p

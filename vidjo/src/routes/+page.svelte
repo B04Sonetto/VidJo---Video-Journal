@@ -369,7 +369,10 @@
 	</main>
 
 	<!-- Reserve space for the fixed mobile bottom navigation. -->
-	<div class="h-20 min-[900px]:hidden" aria-hidden="true"></div>
+	<div
+		class="h-[calc(env(safe-area-inset-bottom)+72px)] min-[900px]:hidden"
+		aria-hidden="true"
+	></div>
 
 	<CalendarModal open={calendarOpen} onClose={() => (calendarOpen = false)} />
 {/if}
