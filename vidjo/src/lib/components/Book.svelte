@@ -4,6 +4,7 @@
 	import RightPage from '#lib/components/RightPage.svelte';
 	import CommunityIcon from '#lib/components/CommunityIcon.svelte';
 	import Button from '#lib/components/ui/Button.svelte';
+	import { todayKey } from '#lib/dates';
 	import { journal } from '#lib/state/journal.svelte';
 	import { nav } from '#lib/state/navigation.svelte';
 	import { viewport } from '#lib/state/viewport.svelte';
@@ -37,6 +38,9 @@
 	const index = $derived(dates.indexOf(journal.current));
 	const total = $derived(dates.length);
 	const currentEntry = $derived(journal.entries[journal.current]);
+	const streak = $derived(journal.streak);
+	let nudgeDismissed = $state(false);
+	let nudgeKey = $state('');
 	const atStart = $derived(index === 0 && (!viewport.single || journal.side === 'L'));
 	const atEnd = $derived(index === total - 1 && (!viewport.single || journal.side === 'R'));
 	const leftPageNumber = $derived(index * 2 + 1);
@@ -101,6 +105,31 @@
 		journal.selected = [];
 	}
 
+	/** Jump to today's blank page and open the writing side. */
+	function writeToday() {
+		const today = todayKey();
+		journal.ensureEntry(today);
+		nav.jump(today, 'R');
+	}
+
+	function dismissNudge() {
+		nudgeDismissed = true;
+		try {
+			if (nudgeKey) sessionStorage.setItem(nudgeKey, '1');
+		} catch {
+			// Private browsing can refuse storage; the nudge just returns next load.
+		}
+	}
+
+	onMount(() => {
+		nudgeKey = `vidjo-streak-nudge:${todayKey()}`;
+		try {
+			nudgeDismissed = sessionStorage.getItem(nudgeKey) === '1';
+		} catch {
+			nudgeDismissed = false;
+		}
+	});
+
 	function go(dir: 1 | -1) {
 		if (journal.busy || !journal.ready) return;
 
@@ -146,16 +175,18 @@
 		const target = nav.target;
 		if (!target || !journal.ready) return;
 
+		const side = nav.targetSide ?? 'L';
 		nav.target = null;
+		nav.targetSide = null;
 
 		if (target === journal.current) {
-			journal.side = 'L';
+			journal.side = side;
 			return;
 		}
 
 		const dir: 1 | -1 = target > journal.current ? 1 : -1;
 		moveTo(target, dir);
-		journal.side = 'L';
+		journal.side = side;
 	});
 
 	$effect(() => {
@@ -220,6 +251,54 @@
 		};
 	});
 </script>
+
+{#if journal.ready}
+	<div
+		class="mx-auto mb-2.5 flex w-full max-w-[720px] flex-wrap items-center gap-x-3 gap-y-1.5 rounded-2xl border border-cover-edge/60 bg-desk-2/95 px-3 py-1.5 shadow-[0_6px_18px_rgba(0,0,0,.3)]"
+		aria-label="Journal streak"
+	>
+		<span class="inline-flex items-center gap-1.5 font-ui text-[12.5px] font-semibold text-book-bg">
+			<CommunityIcon name="flame" size={15} class="text-book-accent" />
+			{#if streak.current > 0}
+				<span class="tabular-nums">{streak.current}</span>
+				<span class="text-book-bg/75 min-[360px]:hidden">
+					{streak.current === 1 ? 'day' : 'days'}
+				</span>
+				<span class="hidden text-book-bg/75 min-[360px]:inline">day streak</span>
+			{:else}
+				<span class="text-book-bg/75">Start a streak</span>
+			{/if}
+		</span>
+
+		{#if streak.longest > streak.current}
+			<span class="hidden font-ui text-[11px] text-book-bg/65 tabular-nums min-[420px]:inline">
+				Best {streak.longest}
+			</span>
+		{/if}
+
+		<div class="ml-auto flex items-center gap-1.5">
+			{#if streak.todayCounted}
+				<span class="font-ui text-[11.5px] text-book-bg/70">Today's page is in.</span>
+			{:else if !nudgeDismissed}
+				<span class="hidden font-ui text-[11.5px] text-book-bg/70 min-[480px]:inline">
+					{streak.current > 0 ? 'Write today to keep it alive.' : 'One page is enough to start.'}
+				</span>
+				<Button size="sm" variant="paper" icon="pen" onclick={writeToday}>
+					<span class="min-[360px]:hidden">Write</span>
+					<span class="hidden min-[360px]:inline">Write today</span>
+				</Button>
+				<button
+					type="button"
+					class="flex size-8 shrink-0 items-center justify-center rounded-full text-book-bg/55 transition-colors hover:bg-white/10 hover:text-book-bg"
+					aria-label="Dismiss streak reminder for today"
+					onclick={dismissNudge}
+				>
+					<CommunityIcon name="x" size={14} />
+				</button>
+			{/if}
+		</div>
+	</div>
+{/if}
 
 {#if viewport.single}
 	<div

@@ -54,6 +54,14 @@ export interface Entry {
 	includedFriendIds: string[];
 }
 
+/** Streak counts for a journal. Aggregate only, so it is safe to share with friends. */
+export interface StreakInfo {
+	current: number;
+	longest: number;
+	totalDays: number;
+	todayCounted: boolean;
+}
+
 export interface EntryRow {
 	owner_id: string;
 	entry_date: string;

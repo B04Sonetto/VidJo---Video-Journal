@@ -25,6 +25,9 @@ auth/persistence and an offline `localStorage` fallback.
 - **Mood picker** — seven hand-drawn moods with pressed/selected states.
 - **Journal writing** — title, "What's on your mind?", optional reflection,
   character counters, and a prompt generator.
+- **Streaks** — a live streak pill in the journal with a daily nudge, 3/7/30/100
+  day badges, a streak heatmap in the calendar, and a streak summary on friends'
+  profiles (aggregate only, never page content).
 - **Privacy choices** — private, friends, or community (stored with each entry).
 - **Full profile page** — a separate nickname and globally unique `@username`, bio,
   member-since date, friend code, stats, portfolio, achievements, and settings.
@@ -44,8 +47,8 @@ auth/persistence and an offline `localStorage` fallback.
 - **Paper styles** — lined, dotted, grid, or plain. The choice is remembered.
 - **Book navigation** — 3D page-flip animation, page-corner controls, arrow-key
   navigation, and a single-page layout below 900px.
-- **Calendar** — month view with mood/video markers, a list of entries, and
-  jump-to-day navigation.
+- **Calendar** — month view with mood/video markers, streak highlighting, a
+  compact activity heatmap, a list of entries, and jump-to-day navigation.
 - **Autosave** — entries are written to `localStorage` immediately and synced to
   Supabase on a short debounce.
 - **Admin console** — moderation-only view of comment reports, member search and

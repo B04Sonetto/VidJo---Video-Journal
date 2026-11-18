@@ -1,12 +1,10 @@
 <script lang="ts">
-	import { SvelteDate } from 'svelte/reactivity';
 	import { auth } from '#lib/state/auth.svelte';
 	import { profile } from '#lib/state/profile.svelte';
 	import { journal } from '#lib/state/journal.svelte';
 	import { friends } from '#lib/state/friends.svelte';
 	import { community } from '#lib/state/community.svelte';
 	import { nav, type ProfileTab } from '#lib/state/navigation.svelte';
-	import { dateKey } from '#lib/dates';
 	import { MOOD_BY_KEY } from '#lib/data/moods';
 	import { censor } from '#lib/censor';
 	import { normalizeImageUrl, optimizedBannerUrl } from '#lib/avatar';
@@ -28,23 +26,8 @@
 
 	const totalPages = $derived(Object.values(journal.entries).filter(hasContent).length);
 
-	const streak = $derived.by(() => {
-		const entries = journal.entries;
-		let count = 0;
-		const current = new SvelteDate();
-		for (let i = 0; i < 365; i++) {
-			const entry = entries[dateKey(current)];
-			if (entry && hasContent(entry)) {
-				count++;
-				current.setDate(current.getDate() - 1);
-			} else if (count > 0) {
-				break;
-			} else {
-				current.setDate(current.getDate() - 1);
-			}
-		}
-		return count;
-	});
+	const streak = $derived(journal.streak.current);
+	const bestStreak = $derived(journal.streak.longest);
 
 	type Badge = { id: string; label: string; icon: string; tone: 'lav' | 'gold' | 'green' };
 
@@ -59,6 +42,10 @@
 			earned.push({ id: 'streak3', label: '3-Day Streak', icon: 'flame', tone: 'gold' });
 		if (streak >= 7)
 			earned.push({ id: 'streak7', label: 'Week Streak', icon: 'flame', tone: 'gold' });
+		if (streak >= 30)
+			earned.push({ id: 'streak30', label: 'Month of Pages', icon: 'flame', tone: 'gold' });
+		if (streak >= 100)
+			earned.push({ id: 'streak100', label: '100-Day Streak', icon: 'flame', tone: 'gold' });
 		if (friends.friendCount >= 1)
 			earned.push({ id: 'friend', label: 'Friendly', icon: 'users', tone: 'green' });
 		if (friends.friendCount >= 3)
@@ -282,7 +269,9 @@
 							<CommunityIcon name="flame" size={18} />
 							{streak}
 						</p>
-						<p class="font-ui text-[11px] text-book-bg/65">Day streak</p>
+						<p class="font-ui text-[11px] text-book-bg/65">
+							Day streak{bestStreak > streak ? ` · best ${bestStreak}` : ''}
+						</p>
 					</div>
 					<div class="rounded-2xl border border-cover-edge bg-cover/15 p-3.5">
 						<p class="font-display text-2xl font-bold text-[#8BE2A4] tabular-nums">

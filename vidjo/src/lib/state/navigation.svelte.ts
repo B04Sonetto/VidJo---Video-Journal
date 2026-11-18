@@ -22,11 +22,15 @@ class Navigation {
 	/** A date the book should flip to. Consumed by Book.svelte. */
 	target = $state<string | null>(null);
 
-	jump(date: string) {
+	/** Which side of the book to show after the jump. Consumed by Book.svelte. */
+	targetSide = $state<'L' | 'R' | null>(null);
+
+	jump(date: string, side: 'L' | 'R' | null = null) {
 		// Future pages cannot be created, so never navigate to one either.
 		if (isFutureDate(date)) return false;
 		this.view = 'journal';
 		this.target = date;
+		this.targetSide = side;
 		return true;
 	}
 

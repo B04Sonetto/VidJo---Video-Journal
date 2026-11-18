@@ -193,6 +193,25 @@ Rules enforced by the schema:
 
 Re-run `schema.sql` after deploying the messaging UI.
 
+## 10. Journal streaks
+
+Streaks are calculated from the same pages the calendar counts: a saved page or
+any page with a mood, title, thought, reflection, sticker, video, or friend
+exception. Sample pages never count.
+
+- `public.vidjo_streak_for(target uuid)` returns
+  `{ current, longest, totalDays, todayCounted }` as JSON. It is aggregate only,
+  so no page content leaves the database.
+- The RPC returns `null` unless the caller is the owner or an accepted friend,
+  which is what lets friends' profiles show a streak without exposing entries.
+- A streak stays alive through the whole of today. If today is still blank the
+  current run counts back from yesterday, so the number does not drop at
+  midnight before the member has written.
+- The client mirrors the same rules in `src/lib/streak.ts` for the journal
+  header, badges, and calendar heatmap.
+
+Re-run `schema.sql` so `vidjo_streak_for` exists.
+
 ## Troubleshooting
 
 | Symptom                                         | Fix                                                                                                                                 |

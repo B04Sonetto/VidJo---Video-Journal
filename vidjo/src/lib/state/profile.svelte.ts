@@ -1,6 +1,6 @@
 import { track } from '#lib/analytics';
 import { isSupabaseConfigured, supabase } from '#lib/supabase';
-import type { MoodKey, Privacy, Profile } from '#lib/types';
+import type { MoodKey, Privacy, Profile, StreakInfo } from '#lib/types';
 import { auth } from '#lib/state/auth.svelte';
 import { cleanDisplayName, normalizeImageUrl } from '#lib/avatar';
 import { detectRasterImageMime } from '#lib/imageUpload';
@@ -71,6 +71,8 @@ class ProfileState {
 		}[]
 	>([]);
 	viewedProfileLoading = $state(false);
+	/** Aggregate streak for the viewed profile. Null when not shared or unavailable. */
+	viewedProfileStreak = $state<StreakInfo | null>(null);
 	/** The user id whose profile finished loading (success or failure). */
 	viewedProfileFor = $state<string | null>(null);
 	private viewedTarget = '';
@@ -555,6 +557,7 @@ class ProfileState {
 		if (!userId || userId === auth.ownerId) {
 			this.viewedProfile = null;
 			this.viewedProfilePosts = [];
+			this.viewedProfileStreak = null;
 			return;
 		}
 		this.viewedTarget = userId;
@@ -562,20 +565,25 @@ class ProfileState {
 		this.viewedProfileLoading = true;
 		this.viewedProfile = null;
 		this.viewedProfilePosts = [];
+		this.viewedProfileStreak = null;
 
 		if (isSupabaseConfigured) {
 			try {
-				const [{ data: profileData, error: profileError }, { data: entries, error: entriesError }] =
-					await Promise.all([
-						supabase.from('vidjo_profiles').select('*').eq('user_id', userId).maybeSingle(),
-						supabase
-							.from('vidjo_entries')
-							.select('*')
-							.eq('owner_id', userId)
-							.eq('privacy', 'community')
-							.order('entry_date', { ascending: false })
-							.limit(50)
-					]);
+				const [
+					{ data: profileData, error: profileError },
+					{ data: entries, error: entriesError },
+					{ data: streakData }
+				] = await Promise.all([
+					supabase.from('vidjo_profiles').select('*').eq('user_id', userId).maybeSingle(),
+					supabase
+						.from('vidjo_entries')
+						.select('*')
+						.eq('owner_id', userId)
+						.eq('privacy', 'community')
+						.order('entry_date', { ascending: false })
+						.limit(50),
+					supabase.rpc('vidjo_streak_for', { target: userId })
+				]);
 
 				if (profileError) throw profileError;
 				if (entriesError) throw entriesError;
@@ -607,6 +615,16 @@ class ProfileState {
 					privacy: row.privacy || 'community',
 					communityTag: row.community_slug ? '#Community' : ''
 				}));
+
+				const streak = streakData as Partial<StreakInfo> | null;
+				if (streak && typeof streak.current === 'number') {
+					this.viewedProfileStreak = {
+						current: streak.current,
+						longest: streak.longest ?? streak.current,
+						totalDays: streak.totalDays ?? 0,
+						todayCounted: Boolean(streak.todayCounted)
+					};
+				}
 			} catch (err) {
 				console.warn('[VidJo] Could not load viewed profile.', err);
 			}
@@ -621,6 +639,7 @@ class ProfileState {
 		this.profile = null;
 		this.viewedProfile = null;
 		this.viewedProfilePosts = [];
+		this.viewedProfileStreak = null;
 		this.loading = false;
 		this.saving = false;
 		this.error = '';

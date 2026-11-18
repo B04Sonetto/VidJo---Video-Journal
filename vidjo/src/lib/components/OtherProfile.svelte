@@ -25,6 +25,7 @@
 	);
 	const settled = $derived(profile.viewedProfileFor === userId);
 	const posts = $derived(settled ? profile.viewedProfilePosts : []);
+	const viewedStreak = $derived(settled ? profile.viewedProfileStreak : null);
 
 	const name = $derived(cleanDisplayName(viewedUser?.display_name, 'VidJo student'));
 	const username = $derived(viewedUser?.username ?? '');
@@ -360,6 +361,34 @@
 							<p class="font-ui text-[11px] text-book-bg/65">Joined</p>
 						</div>
 					</div>
+
+					{#if viewedStreak}
+						<div
+							class="mt-3 flex items-center gap-3 rounded-2xl border border-book-accent/40 bg-book-accent/10 p-3.5 text-left"
+						>
+							<span
+								class="flex size-11 shrink-0 items-center justify-center rounded-full bg-book-accent/20 text-book-accent"
+								aria-hidden="true"
+							>
+								<CommunityIcon name="flame" size={22} />
+							</span>
+							<div class="min-w-0 flex-1">
+								<p class="font-display text-lg font-bold text-book-bg tabular-nums">
+									{viewedStreak.current} day streak
+								</p>
+								<p class="font-ui text-[11px] text-book-bg/65">
+									{#if viewedStreak.current === 0}
+										No active streak right now
+									{:else if viewedStreak.todayCounted}
+										Wrote today
+									{:else}
+										Write today to keep it alive
+									{/if}
+									· best {viewedStreak.longest} · {viewedStreak.totalDays} pages
+								</p>
+							</div>
+						</div>
+					{/if}
 
 					<!-- Shared pages -->
 					<div class="mt-6 text-left">

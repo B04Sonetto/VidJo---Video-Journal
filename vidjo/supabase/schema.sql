@@ -3797,3 +3797,151 @@ begin
 	end if;
 end;
 $$;
+
+-- ---------------------------------------------------------------------------
+-- Journal streaks
+-- ---------------------------------------------------------------------------
+-- Streaks are aggregate only: current run, best run, and how many days have a
+-- page. No entry content crosses the wire, and the RPC refuses anyone who is
+-- not the owner or an accepted friend.
+
+create or replace function public.vidjo_entry_counts(
+	p_saved boolean,
+	p_mood text,
+	p_title text,
+	p_mind text,
+	p_refl text,
+	p_stickers jsonb,
+	p_video_path text,
+	p_video_thumb_path text,
+	p_included text[],
+	p_excluded text[]
+)
+returns boolean
+language sql
+immutable
+set search_path = public
+as $$
+	select
+		coalesce(p_saved, false)
+		or p_mood is not null
+		or length(btrim(coalesce(p_title, ''))) > 0
+		or length(btrim(coalesce(p_mind, ''))) > 0
+		or length(btrim(coalesce(p_refl, ''))) > 0
+		or coalesce(jsonb_array_length(p_stickers), 0) > 0
+		or length(coalesce(p_video_path, '')) > 0
+		or length(coalesce(p_video_thumb_path, '')) > 0
+		or coalesce(array_length(p_included, 1), 0) > 0
+		or coalesce(array_length(p_excluded, 1), 0) > 0;
+$$;
+
+create or replace function public.vidjo_streak_for(target uuid)
+returns jsonb
+language plpgsql
+stable
+security definer
+set search_path = public
+as $$
+declare
+	viewer uuid := auth.uid();
+	today date := current_date;
+	current_run integer := 0;
+	longest_run integer := 0;
+	total_days integer := 0;
+	today_counted boolean := false;
+	cursor_day date;
+begin
+	if viewer is null or target is null then
+		return null;
+	end if;
+
+	if viewer <> target and not public.vidjo_are_friends(viewer, target) then
+		return null;
+	end if;
+
+	with counted as (
+		select e.entry_date as day
+		from public.vidjo_entries e
+		where e.owner_id = target::text
+			and e.sample = false
+			and e.entry_date <= today
+			and public.vidjo_entry_counts(
+				e.saved,
+				e.mood,
+				e.title,
+				e.mind,
+				e.refl,
+				e.stickers,
+				e.video_path,
+				e.video_thumb_path,
+				e.included_friend_ids,
+				e.excluded_friend_ids
+			)
+	), runs as (
+		select day, day - (row_number() over (order by day))::integer as grp
+		from counted
+	), grouped as (
+		select count(*)::integer as len, max(day) as last_day
+		from runs
+		group by grp
+	)
+	select
+		coalesce(sum(len), 0)::integer,
+		coalesce(max(len), 0)::integer,
+		coalesce(bool_or(last_day = today), false)
+	into total_days, longest_run, today_counted
+	from grouped;
+
+	-- A streak stays alive through the whole of today. When today is still
+	-- blank, count back from yesterday so the number does not drop at midnight
+	-- before the member has had a chance to write.
+	cursor_day := case when today_counted then today else today - 1 end;
+
+	loop
+		exit when current_run >= 3660;
+		exit when not exists (
+			select 1
+			from public.vidjo_entries e
+			where e.owner_id = target::text
+				and e.entry_date = cursor_day
+				and e.sample = false
+				and public.vidjo_entry_counts(
+					e.saved,
+					e.mood,
+					e.title,
+					e.mind,
+					e.refl,
+					e.stickers,
+					e.video_path,
+					e.video_thumb_path,
+					e.included_friend_ids,
+					e.excluded_friend_ids
+				)
+		);
+		current_run := current_run + 1;
+		cursor_day := cursor_day - 1;
+	end loop;
+
+	if current_run > longest_run then
+		longest_run := current_run;
+	end if;
+
+	return jsonb_build_object(
+		'current', current_run,
+		'longest', longest_run,
+		'totalDays', total_days,
+		'todayCounted', today_counted
+	);
+end;
+$$;
+
+-- The helper is internal: only the definer-owned RPC needs to run it.
+revoke all on function public.vidjo_entry_counts(boolean, text, text, text, text, jsonb, text, text, text[], text[]) from public;
+revoke all on function public.vidjo_entry_counts(boolean, text, text, text, text, jsonb, text, text, text[], text[]) from anon;
+revoke all on function public.vidjo_entry_counts(boolean, text, text, text, text, jsonb, text, text, text[], text[]) from authenticated;
+
+revoke all on function public.vidjo_streak_for(uuid) from public;
+revoke all on function public.vidjo_streak_for(uuid) from anon;
+grant execute on function public.vidjo_streak_for(uuid) to authenticated;
+
+notify pgrst, 'reload schema';

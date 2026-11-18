@@ -5,6 +5,7 @@ import { isFutureDate, TODAY, uid } from '#lib/dates';
 import { peekDeviceId } from '#lib/identity';
 import { captureError } from '#lib/observability';
 import { isSupabaseConfigured, supabase, VIDEO_BUCKET } from '#lib/supabase';
+import { summarizeStreak, type StreakSummary } from '#lib/streak';
 import { viewport } from '#lib/state/viewport.svelte';
 import { captureVideoThumbnail } from '#lib/videoThumb';
 import {
@@ -208,6 +209,11 @@ class Journal {
 
 	get sortedDates(): string[] {
 		return Object.keys(this.entries).sort();
+	}
+
+	/** Current and best streak for this journal. Recomputed when entries change. */
+	get streak(): StreakSummary {
+		return summarizeStreak(this.entries);
 	}
 
 	async init(ownerId: string, allowRemote = true) {

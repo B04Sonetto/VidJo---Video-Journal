@@ -1,8 +1,6 @@
 <script lang="ts">
 	import { auth } from '#lib/state/auth.svelte';
-	import { SvelteDate } from 'svelte/reactivity';
 	import { censor } from '#lib/censor';
-	import { dateKey } from '#lib/dates';
 	import { profile, type NotebookStyle } from '#lib/state/profile.svelte';
 	import { journal } from '#lib/state/journal.svelte';
 	import { friends } from '#lib/state/friends.svelte';
@@ -116,27 +114,7 @@
 		).length
 	);
 
-	let streak = $derived.by(() => {
-		const entries = journal.entries;
-		const dates = Object.keys(entries).sort((a, b) => b.localeCompare(a));
-		if (dates.length === 0) return 0;
-
-		let count = 0;
-		const current = new SvelteDate();
-		for (let i = 0; i < 365; i++) {
-			const key = dateKey(current);
-			const entry = entries[key];
-			if (entry && (entry.saved || entry.title || entry.mind || entry.videoPath)) {
-				count++;
-				current.setDate(current.getDate() - 1);
-			} else if (count > 0) {
-				break;
-			} else {
-				current.setDate(current.getDate() - 1);
-			}
-		}
-		return count;
-	});
+	let streak = $derived(journal.streak.current);
 
 	type Badge = {
 		id: string;
@@ -189,6 +167,24 @@
 				id: 'week-streak',
 				label: 'Week Streak',
 				description: 'A full week of daily pages.',
+				icon: 'flame',
+				tone: 'gold'
+			});
+		}
+		if (streak >= 30) {
+			earned.push({
+				id: 'month-streak',
+				label: 'Month of Pages',
+				description: 'Thirty days in a row without missing a page.',
+				icon: 'flame',
+				tone: 'gold'
+			});
+		}
+		if (streak >= 100) {
+			earned.push({
+				id: 'hundred-day-streak',
+				label: '100-Day Streak',
+				description: 'One hundred days of showing up for yourself.',
 				icon: 'flame',
 				tone: 'gold'
 			});
@@ -625,7 +621,9 @@
 						<CommunityIcon name="flame" size={18} />
 						{streak}
 					</p>
-					<p class="font-ui text-[11px] text-book-bg/65 min-[720px]:text-xs">Day streak</p>
+					<p class="font-ui text-[11px] text-book-bg/65 min-[720px]:text-xs">
+						Day streak{journal.streak.longest > streak ? ` · best ${journal.streak.longest}` : ''}
+					</p>
 				</div>
 				<div class="rounded-2xl border border-cover-edge bg-cover/15 p-3 min-[720px]:p-4">
 					<p

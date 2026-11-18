@@ -2,6 +2,7 @@
 	import { tick } from 'svelte';
 	import { MOOD_BY_KEY, type MoodDef } from '#lib/data/moods';
 	import { isFutureDate, pad, parseDate, TODAY } from '#lib/dates';
+	import { buildHeatmap } from '#lib/streak';
 	import { journal } from '#lib/state/journal.svelte';
 	import { nav } from '#lib/state/navigation.svelte';
 	import type { Entry } from '#lib/types';
@@ -19,6 +20,7 @@
 		isCurrent: boolean;
 		isFuture: boolean;
 		hasVideo: boolean;
+		inStreak: boolean;
 	}
 
 	const pencil =
@@ -54,6 +56,10 @@
 		}
 	});
 
+	const streak = $derived(journal.streak);
+	const heat = $derived(buildHeatmap(streak.days, streak.currentDays, 8));
+	const heatCount = $derived(heat.flat().filter((cell) => cell.counted).length);
+
 	const cells = $derived.by(() => {
 		const first = new Date(year, month, 1).getDay();
 		const days = new Date(year, month + 1, 0).getDate();
@@ -68,7 +74,8 @@
 				isToday: false,
 				isCurrent: false,
 				isFuture: false,
-				hasVideo: false
+				hasVideo: false,
+				inStreak: false
 			});
 		}
 
@@ -86,7 +93,8 @@
 				isToday: key === TODAY,
 				isCurrent: key === journal.current,
 				isFuture: isFutureDate(key),
-				hasVideo: Boolean(journal.videoFor(key))
+				hasVideo: Boolean(journal.videoFor(key)),
+				inStreak: streak.currentDays.has(key)
 			});
 		}
 
@@ -134,7 +142,8 @@
 		if (!cell.has) return `${base}, empty page`;
 		const title = cell.entry?.title || 'untitled VidJo';
 		const mood = cell.mood ? `, feeling ${cell.mood.l.toLowerCase()}` : '';
-		return `${base}, ${title}${mood}`;
+		const streakNote = cell.inStreak ? ', part of your current streak' : '';
+		return `${base}, ${title}${mood}${streakNote}`;
 	}
 
 	function shortDate(date: string) {
@@ -293,6 +302,12 @@
 										title="Has a video"
 									></i>
 								{/if}
+								{#if cell.inStreak && !cell.isFuture}
+									<i
+										class="absolute bottom-[4px] left-1/2 h-[3px] w-[58%] -translate-x-1/2 rounded-full bg-accent"
+										aria-hidden="true"
+									></i>
+								{/if}
 								{#if !cell.isFuture && cell.mood}
 									<span class="m-auto w-[70%] max-w-[34px] [&>svg]:size-full">
 										<!-- eslint-disable-next-line svelte/no-at-html-tags -- static SVG from data/moods.ts -->
@@ -311,6 +326,48 @@
 			</div>
 
 			<div>
+				<div class="mb-5 rounded-xl border-[1.5px] border-line bg-light p-3">
+					<div class="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5">
+						<h3 class="font-display text-[20px] font-bold">Your streak</h3>
+						<p class="font-ui text-[12px] font-bold text-ink-soft tabular-nums">
+							{streak.current} day{streak.current === 1 ? '' : 's'} now · best {streak.longest}
+						</p>
+					</div>
+					<p class="mt-0.5 font-hand text-[16px] leading-snug text-ink-soft">
+						{#if streak.todayCounted}
+							Today's page is in. Keep it going tomorrow.
+						{:else if streak.current > 0}
+							Write today to keep your {streak.current}-day streak alive.
+						{:else}
+							One page today starts a new streak.
+						{/if}
+					</p>
+					<div
+						class="mt-2.5 flex gap-[3px]"
+						role="img"
+						aria-label={`${heatCount} of the last ${heat.length * 7} days written`}
+					>
+						{#each heat as week (week[0].date)}
+							<div class="flex flex-col gap-[3px]">
+								{#each week as cell (cell.date)}
+									<span
+										class="size-[10px] rounded-[2.5px] {cell.future
+											? 'bg-paper-deep/40'
+											: cell.current
+												? 'bg-accent'
+												: cell.counted
+													? 'bg-accent/45'
+													: 'bg-paper-deep'}"
+										class:ring-1={cell.today}
+										class:ring-gold={cell.today}
+										aria-hidden="true"
+									></span>
+								{/each}
+							</div>
+						{/each}
+					</div>
+				</div>
+
 				<h3 class="mb-2.5 font-display text-[22px] font-bold">VidJos this month</h3>
 				<ul class="m-0 flex list-none flex-col gap-2 p-0">
 					{#if monthEntries.length === 0}
