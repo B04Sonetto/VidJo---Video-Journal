@@ -2005,12 +2005,12 @@ begin
 		raise exception 'Conversation not found.';
 	end if;
 
-	select kind into v_kind from public.vidjo_dm_threads where id = p_thread;
+	select t.kind into v_kind from public.vidjo_dm_threads t where t.id = p_thread;
 
 	if v_kind = 'direct' then
-		select user_id into v_other
-		from public.vidjo_dm_participants
-		where thread_id = p_thread and user_id <> v_user
+		select p.user_id into v_other
+		from public.vidjo_dm_participants p
+		where p.thread_id = p_thread and p.user_id <> v_user
 		limit 1;
 
 		if v_other is null or not public.vidjo_are_friends(v_user, v_other) then
@@ -2053,9 +2053,9 @@ begin
 		raise exception 'Could not send that message. Try again.';
 	end if;
 
-	update public.vidjo_dm_participants
-	set last_read_at = greatest(last_read_at, v_existing.created_at)
-	where thread_id = p_thread and user_id = v_user;
+	update public.vidjo_dm_participants p
+	set last_read_at = greatest(p.last_read_at, v_existing.created_at)
+	where p.thread_id = p_thread and p.user_id = v_user;
 
 	return query
 	select v_existing.id, v_existing.thread_id, v_existing.sender_id,
@@ -2143,9 +2143,9 @@ begin
 		raise exception 'Could not send that message. Try again.';
 	end if;
 
-	update public.vidjo_dm_participants
-	set last_read_at = greatest(last_read_at, v_existing.created_at)
-	where thread_id = v_thread and user_id = v_user;
+	update public.vidjo_dm_participants p
+	set last_read_at = greatest(p.last_read_at, v_existing.created_at)
+	where p.thread_id = v_thread and p.user_id = v_user;
 
 	return query
 	select v_existing.id, v_existing.thread_id, v_existing.sender_id,
