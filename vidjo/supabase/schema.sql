@@ -1646,6 +1646,16 @@ begin
 	delete from public.vidjo_entries where owner_id = curr_user::text;
 	delete from auth.users where id = curr_user;
 
+	-- A BEFORE DELETE trigger that returns NULL cancels the delete without
+	-- raising an error, so confirm the row is really gone before reporting
+	-- success. Otherwise the client signs out and leaves the account behind.
+	if not found then
+		return jsonb_build_object(
+			'success', false,
+			'message', 'The account could not be deleted. Please contact a moderator.'
+		);
+	end if;
+
 	return jsonb_build_object('success', true);
 end;
 $$;
@@ -1670,6 +1680,10 @@ create table if not exists public.vidjo_deleted_accounts (
 alter table public.vidjo_deleted_accounts enable row level security;
 -- No policies: only SECURITY DEFINER functions and the service role may use it.
 
+-- NEW is NULL inside a DELETE trigger, and a BEFORE DELETE trigger that returns
+-- NULL silently cancels the delete. Reading NEW here made every account delete
+-- a no-op: the function returned NULL, PostgreSQL skipped the row, no error was
+-- raised, and the deleted email was never recorded. Use OLD instead.
 create or replace function public.vidjo_remember_deleted_account()
 returns trigger
 language plpgsql
@@ -1677,13 +1691,13 @@ security definer
 set search_path = public
 as $$
 begin
-	if new.email is not null and new.email <> '' then
+	if old.email is not null and old.email <> '' then
 		insert into public.vidjo_deleted_accounts (email, user_id, deleted_at)
-		values (lower(new.email), new.id, now())
+		values (lower(old.email), old.id, now())
 		on conflict (email) do update
 		set user_id = excluded.user_id, deleted_at = excluded.deleted_at;
 	end if;
-	return new;
+	return old;
 end;
 $$;
 
