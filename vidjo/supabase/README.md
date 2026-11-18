@@ -56,15 +56,28 @@ columns/tables without deleting entries, and backfills only missing friend codes
      - `https://your-app.vercel.app/auth/callback`
      - `https://your-app.vercel.app/auth/reset`
 
-4. Open **Authentication → Email Templates** and add the six-digit token to both
-   the **Magic Link** and **Confirm signup** templates. Minimal template:
+4. Open **Authentication → Email Templates** and paste the matching file from
+   [`email-templates/`](./email-templates) into each template:
 
-```html
-<h2>Your VidJo sign-in code</h2>
-<p>Enter this code in the app:</p>
-<p style="font-size: 28px; letter-spacing: 6px; font-weight: 700">{{ .Token }}</p>
-<p>Or open the journal directly: <a href="{{ .ConfirmationURL }}">Sign in</a></p>
-```
+   | Supabase template    | File                                    |
+   | -------------------- | --------------------------------------- |
+   | Confirm signup       | `email-templates/confirm-signup.html`   |
+   | Invite user          | `email-templates/invite.html`           |
+   | Magic Link           | `email-templates/magic-link.html`       |
+   | Change Email Address | `email-templates/change-email.html`     |
+   | Reset Password       | `email-templates/reset-password.html`   |
+   | Reauthentication     | `email-templates/reauthentication.html` |
+
+   Each file is a complete HTML document with inline styles, so it works in
+   Gmail, Apple Mail, and Outlook without external images or CSS. The confirm,
+   magic-link, and reauthentication templates include `{{ .Token }}` so students
+   can type the six-digit code in the app instead of following the link.
+
+   To preview one, open the file in a browser. Replace the `{{ .… }}`
+   placeholders with sample values if you want to see the final wording.
+
+   Keep the six-digit code length under **Authentication → Providers → Email →
+   Email OTP Length** (default `6`) so it matches the app's code field.
 
 ### Password + Unique Username accounts
 
