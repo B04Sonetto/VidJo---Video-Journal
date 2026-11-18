@@ -121,9 +121,12 @@ Giphy API key is configured:
 PUBLIC_GIPHY_API_KEY=your_giphy_api_key
 ```
 
-Create a key at [developers.giphy.com](https://developers.giphy.com/). This key
-is public by design because the browser calls the Giphy API directly; restrict it
-by HTTP referrer in the Giphy dashboard if you want to limit where it works.
+Create a key at [developers.giphy.com](https://developers.giphy.com/). No SDK is
+needed: the app calls the REST API directly. New keys start as **beta** keys and
+are limited to 100 API calls per hour, which is fine for a small app; you can
+apply for a production key from the dashboard later. The key is public by design
+because the browser calls Giphy directly, so treat it as shareable and keep an
+eye on usage in the dashboard.
 
 Chosen GIFs are **hotlinked** from Giphy (`media*.giphy.com`), not copied into
 Supabase storage. The app shows the required "Powered by GIPHY" attribution in
