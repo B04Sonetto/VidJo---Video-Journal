@@ -307,7 +307,8 @@
 			poster={p.videoThumbUrl || undefined}
 			controls
 			playsinline
-			class="max-h-[380px] w-full bg-black object-contain"
+			preload="metadata"
+			class="reader-video max-h-[380px] w-full bg-black object-contain"
 		></video>
 	{:else if p.videoPath}
 		<!-- The signed URL for this page is still being created. -->
@@ -623,7 +624,7 @@
 
 {#if open && friend}
 	<div
-		class="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-3 backdrop-blur-sm min-[720px]:p-5"
+		class="fixed inset-0 z-50 flex items-center justify-center bg-black/85 p-3 min-[720px]:p-5"
 		role="dialog"
 		aria-modal="true"
 		aria-label="{friend.displayName}'s shared journal"
@@ -768,7 +769,7 @@
 			>
 				<!-- Page index -->
 				<aside
-					class="hidden min-h-0 flex-col overflow-y-auto border-r border-cover-edge bg-desk/60 p-4 min-[860px]:flex"
+					class="reader-scroll hidden min-h-0 flex-col overflow-y-auto border-r border-cover-edge bg-desk/60 p-4 min-[860px]:flex"
 				>
 					<div class="mb-3 flex items-center justify-between gap-2">
 						<p class="font-display text-lg font-bold text-book-bg">Pages</p>
@@ -827,7 +828,7 @@
 
 				<!-- Page body (style chosen in Profile → Settings) -->
 				<div
-					class="min-h-0 min-w-0 overflow-x-hidden overflow-y-auto px-4 py-5 min-[720px]:px-7 min-[720px]:py-6"
+					class="reader-scroll min-h-0 min-w-0 overflow-x-hidden overflow-y-auto px-4 py-5 min-[720px]:px-7 min-[720px]:py-6"
 				>
 					{#if page}
 						{#if notebookStyle === 'dark'}
@@ -1006,7 +1007,7 @@
 <!-- Remove friend confirmation -->
 {#if unfriendOpen && friend}
 	<div
-		class="fixed inset-0 z-[60] flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm"
+		class="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 p-4"
 		role="dialog"
 		aria-modal="true"
 		aria-labelledby="remove-friend-title"
@@ -1080,7 +1081,7 @@
 <!-- Report reason modal -->
 {#if reportModalOpen}
 	<div
-		class="fixed inset-0 z-[60] flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm"
+		class="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 p-4"
 		role="dialog"
 		aria-modal="true"
 		aria-labelledby="report-note-title"
@@ -1134,6 +1135,17 @@
 {/if}
 
 <style>
+	/* Scrolling and video frames should stay on their own compositing layers.
+	   Without this, every scroll/video frame repaints the whole modal stack. */
+	.reader-scroll {
+		overscroll-behavior: contain;
+		transform: translateZ(0);
+	}
+
+	.reader-video {
+		transform: translateZ(0);
+	}
+
 	/* Gold-tinted ruled lines for the dark journal page. */
 	.nb-dark-lines {
 		background-image: repeating-linear-gradient(
