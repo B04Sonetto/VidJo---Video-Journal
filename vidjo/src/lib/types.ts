@@ -233,6 +233,8 @@ export interface DmThreadSummary {
 	members: DmParticipant[];
 	lastBody: string | null;
 	lastImagePath: string | null;
+	/** Giphy-hosted GIF URL shown in the inbox preview. */
+	lastGifUrl: string | null;
 	lastSender: string | null;
 	lastSenderName: string | null;
 	lastAt: string | null;
@@ -251,6 +253,8 @@ export interface DmMessage {
 	body: string;
 	/** Storage path inside the private `vidjo-dm-images` bucket. */
 	imagePath: string | null;
+	/** Giphy-hosted GIF URL, stored as a link rather than uploaded. */
+	gifUrl: string | null;
 	/** Local object URL used only while a photo uploads. */
 	previewUrl?: string;
 	createdAt: string;

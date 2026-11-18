@@ -32,6 +32,12 @@ export const variables = defineEnvVars({
 		description: 'Optional release/version string attached to error reports.',
 		schema: (value) => (value ?? '').trim()
 	},
+	PUBLIC_GIPHY_API_KEY: {
+		public: true,
+		description:
+			'Giphy API key used by the message GIF picker. Leave empty to hide GIF search. This key is public by design.',
+		schema: (value) => (value ?? '').trim()
+	},
 	SUPABASE_SECRET_KEY: {
 		public: false,
 		description: 'Supabase secret key used by the server-only username login lookup.',

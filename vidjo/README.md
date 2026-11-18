@@ -112,6 +112,23 @@ If Supabase is not configured, the table is missing, or a request fails, the app
 continues with `localStorage` and shows a toast when a remote sync fails. Entries
 are always written locally first, so the journal still opens offline.
 
+### GIF picker (optional)
+
+Friend messages can include a GIF from Giphy. The picker is hidden unless a
+Giphy API key is configured:
+
+```sh
+PUBLIC_GIPHY_API_KEY=your_giphy_api_key
+```
+
+Create a key at [developers.giphy.com](https://developers.giphy.com/). This key
+is public by design because the browser calls the Giphy API directly; restrict it
+by HTTP referrer in the Giphy dashboard if you want to limit where it works.
+
+Chosen GIFs are **hotlinked** from Giphy (`media*.giphy.com`), not copied into
+Supabase storage. The app shows the required "Powered by GIPHY" attribution in
+the picker. Device GIF uploads work without a key through the photo button.
+
 ### Sessions and privacy
 
 The browser client persists the Supabase session and refreshes tokens

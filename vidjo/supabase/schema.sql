@@ -1775,23 +1775,38 @@ create table if not exists public.vidjo_dm_messages (
 	client_id uuid not null,
 	body text not null check (char_length(btrim(body)) between 1 and 2000),
 	image_path text,
+	gif_url text,
 	created_at timestamptz not null default now(),
 	deleted_at timestamptz,
 	constraint vidjo_dm_messages_client_unique unique (thread_id, sender_id, client_id)
 );
 
--- Existing projects need the image column and a body check that permits an
--- image-only message (empty body). The constraint name is Postgres' default for
--- the inline check above, so drop and re-add it for both new and old databases.
+-- Existing projects need the image/GIF columns and a body check that permits an
+-- attachment-only message (empty body). The constraint name is Postgres' default
+-- for the inline check above, so drop and re-add it for both new and old databases.
 alter table public.vidjo_dm_messages add column if not exists image_path text;
+alter table public.vidjo_dm_messages add column if not exists gif_url text;
 alter table public.vidjo_dm_messages drop constraint if exists vidjo_dm_messages_body_check;
 alter table public.vidjo_dm_messages add constraint vidjo_dm_messages_body_check check (
 	char_length(btrim(body)) <= 2000
-	and (char_length(btrim(body)) >= 1 or image_path is not null)
+	and (char_length(btrim(body)) >= 1 or image_path is not null or gif_url is not null)
 );
 alter table public.vidjo_dm_messages drop constraint if exists vidjo_dm_messages_image_check;
 alter table public.vidjo_dm_messages add constraint vidjo_dm_messages_image_check check (
 	image_path is null or char_length(image_path) between 1 and 300
+);
+-- GIFs are hotlinked from Giphy, so only Giphy HTTPS URLs are stored. This
+-- mirrors the client check in `src/lib/giphy.ts`.
+alter table public.vidjo_dm_messages drop constraint if exists vidjo_dm_messages_gif_check;
+alter table public.vidjo_dm_messages add constraint vidjo_dm_messages_gif_check check (
+	gif_url is null or (
+		char_length(gif_url) between 1 and 500
+		and gif_url ~* '^https://(media[0-9]*|i)\.giphy\.com/'
+	)
+);
+alter table public.vidjo_dm_messages drop constraint if exists vidjo_dm_messages_media_check;
+alter table public.vidjo_dm_messages add constraint vidjo_dm_messages_media_check check (
+	image_path is null or gif_url is null
 );
 
 create index if not exists vidjo_dm_messages_thread_idx
@@ -2008,15 +2023,17 @@ $$;
 -- Messaging RPCs
 -- ---------------------------------------------------------------------------
 
--- The 3-argument version predates photo messages. Drop it so PostgREST never
--- has to choose between two overloads.
+-- The 3-argument version predates photo messages and the 4-argument version
+-- predates GIFs. Drop both so PostgREST never has to choose between overloads.
 drop function if exists public.vidjo_dm_send(uuid, text, uuid);
+drop function if exists public.vidjo_dm_send(uuid, text, uuid, text);
 
 create or replace function public.vidjo_dm_send(
 	p_thread uuid,
 	p_body text,
 	p_client_id uuid,
-	p_image_path text default null
+	p_image_path text default null,
+	p_gif_url text default null
 )
 returns table (
 	id uuid,
@@ -2025,6 +2042,7 @@ returns table (
 	client_id uuid,
 	body text,
 	image_path text,
+	gif_url text,
 	created_at timestamptz
 )
 language plpgsql
@@ -2036,6 +2054,7 @@ declare
 	v_client uuid := coalesce(p_client_id, gen_random_uuid());
 	v_body text;
 	v_image text := nullif(btrim(coalesce(p_image_path, '')), '');
+	v_gif text := nullif(btrim(coalesce(p_gif_url, '')), '');
 	v_kind text;
 	v_other uuid;
 	v_existing public.vidjo_dm_messages%rowtype;
@@ -2077,14 +2096,18 @@ begin
 		return query
 		select v_existing.id, v_existing.thread_id, v_existing.sender_id,
 			v_existing.client_id, v_existing.body, v_existing.image_path,
-			v_existing.created_at;
+			v_existing.gif_url, v_existing.created_at;
 		return;
 	end if;
 
 	v_body := btrim(coalesce(p_body, ''));
 
-	if char_length(v_body) = 0 and v_image is null then
+	if char_length(v_body) = 0 and v_image is null and v_gif is null then
 		raise exception 'Write a message first.';
+	end if;
+
+	if v_image is not null and v_gif is not null then
+		raise exception 'Send one attachment at a time.';
 	end if;
 
 	if v_image is not null then
@@ -2106,11 +2129,18 @@ begin
 		end if;
 	end if;
 
+	if v_gif is not null and (
+		char_length(v_gif) > 500
+		or v_gif !~* '^https://(media[0-9]*|i)\.giphy\.com/'
+	) then
+		raise exception 'That GIF could not be sent.';
+	end if;
+
 	v_body := public.vidjo_dm_validate_body(v_body);
 
 	begin
-		insert into public.vidjo_dm_messages (thread_id, sender_id, client_id, body, image_path)
-		values (p_thread, v_user, v_client, v_body, v_image)
+		insert into public.vidjo_dm_messages (thread_id, sender_id, client_id, body, image_path, gif_url)
+		values (p_thread, v_user, v_client, v_body, v_image, v_gif)
 		returning * into v_existing;
 	exception
 		when unique_violation then
@@ -2133,17 +2163,19 @@ begin
 	return query
 	select v_existing.id, v_existing.thread_id, v_existing.sender_id,
 		v_existing.client_id, v_existing.body, v_existing.image_path,
-		v_existing.created_at;
+		v_existing.gif_url, v_existing.created_at;
 end;
 $$;
 
 drop function if exists public.vidjo_dm_send_direct(uuid, text, uuid);
+drop function if exists public.vidjo_dm_send_direct(uuid, text, uuid, text);
 
 create or replace function public.vidjo_dm_send_direct(
 	p_friend uuid,
 	p_body text,
 	p_client_id uuid,
-	p_image_path text default null
+	p_image_path text default null,
+	p_gif_url text default null
 )
 returns table (
 	id uuid,
@@ -2152,6 +2184,7 @@ returns table (
 	client_id uuid,
 	body text,
 	image_path text,
+	gif_url text,
 	created_at timestamptz
 )
 language plpgsql
@@ -2163,6 +2196,7 @@ declare
 	v_client uuid := coalesce(p_client_id, gen_random_uuid());
 	v_body text;
 	v_image text := nullif(btrim(coalesce(p_image_path, '')), '');
+	v_gif text := nullif(btrim(coalesce(p_gif_url, '')), '');
 	v_thread uuid;
 	v_existing public.vidjo_dm_messages%rowtype;
 begin
@@ -2199,14 +2233,18 @@ begin
 		return query
 		select v_existing.id, v_existing.thread_id, v_existing.sender_id,
 			v_existing.client_id, v_existing.body, v_existing.image_path,
-			v_existing.created_at;
+			v_existing.gif_url, v_existing.created_at;
 		return;
 	end if;
 
 	v_body := btrim(coalesce(p_body, ''));
 
-	if char_length(v_body) = 0 and v_image is null then
+	if char_length(v_body) = 0 and v_image is null and v_gif is null then
 		raise exception 'Write a message first.';
+	end if;
+
+	if v_image is not null and v_gif is not null then
+		raise exception 'Send one attachment at a time.';
 	end if;
 
 	if v_image is not null then
@@ -2226,11 +2264,18 @@ begin
 		end if;
 	end if;
 
+	if v_gif is not null and (
+		char_length(v_gif) > 500
+		or v_gif !~* '^https://(media[0-9]*|i)\.giphy\.com/'
+	) then
+		raise exception 'That GIF could not be sent.';
+	end if;
+
 	v_body := public.vidjo_dm_validate_body(v_body);
 
 	begin
-		insert into public.vidjo_dm_messages (thread_id, sender_id, client_id, body, image_path)
-		values (v_thread, v_user, v_client, v_body, v_image)
+		insert into public.vidjo_dm_messages (thread_id, sender_id, client_id, body, image_path, gif_url)
+		values (v_thread, v_user, v_client, v_body, v_image, v_gif)
 		returning * into v_existing;
 	exception
 		when unique_violation then
@@ -2253,7 +2298,7 @@ begin
 	return query
 	select v_existing.id, v_existing.thread_id, v_existing.sender_id,
 		v_existing.client_id, v_existing.body, v_existing.image_path,
-		v_existing.created_at;
+		v_existing.gif_url, v_existing.created_at;
 end;
 $$;
 
@@ -2579,8 +2624,8 @@ begin
 end;
 $$;
 
--- Photo messages added a column to this result, and Postgres cannot change a
--- function's return type in place. Drop it first so re-running this file works.
+-- Photo and GIF messages added columns to this result, and Postgres cannot
+-- change a function's return type in place. Drop it first so re-running works.
 drop function if exists public.vidjo_dm_inbox();
 
 create or replace function public.vidjo_dm_inbox()
@@ -2591,6 +2636,7 @@ returns table (
 	members jsonb,
 	last_body text,
 	last_image_path text,
+	last_gif_url text,
 	last_sender uuid,
 	last_sender_name text,
 	last_at timestamptz,
@@ -2623,6 +2669,7 @@ as $$
 		), '[]'::jsonb),
 		m.body,
 		m.image_path,
+		m.gif_url,
 		m.sender_id,
 		coalesce(nullif(btrim(sp.display_name), ''), sp.username, 'VidJo student'),
 		m.created_at,
@@ -2650,7 +2697,7 @@ as $$
 	join public.vidjo_dm_participants me
 		on me.thread_id = t.id and me.user_id = auth.uid()
 	left join lateral (
-		select mm.body, mm.image_path, mm.sender_id, mm.created_at
+		select mm.body, mm.image_path, mm.gif_url, mm.sender_id, mm.created_at
 		from public.vidjo_dm_messages mm
 		where mm.thread_id = t.id and mm.deleted_at is null
 		order by mm.created_at desc, mm.id desc
@@ -2662,7 +2709,7 @@ as $$
 	order by coalesce(t.last_message_at, t.created_at) desc;
 $$;
 
--- Same reason as `vidjo_dm_inbox`: the result gained `image_path`.
+-- Same reason as `vidjo_dm_inbox`: the result gained image/GIF fields.
 drop function if exists public.vidjo_dm_thread(uuid, timestamptz, integer);
 
 create or replace function public.vidjo_dm_thread(
@@ -2680,6 +2727,7 @@ returns table (
 	sender_avatar text,
 	body text,
 	image_path text,
+	gif_url text,
 	created_at timestamptz
 )
 language plpgsql
@@ -2705,6 +2753,7 @@ begin
 		recent.sender_avatar,
 		recent.body,
 		recent.image_path,
+		recent.gif_url,
 		recent.created_at
 	from (
 		select
@@ -2717,6 +2766,7 @@ begin
 			pr.avatar_url as sender_avatar,
 			m.body,
 			m.image_path,
+			m.gif_url,
 			m.created_at
 		from public.vidjo_dm_messages m
 		left join public.vidjo_profiles pr on pr.user_id = m.sender_id
@@ -2849,13 +2899,13 @@ revoke all on function public.vidjo_dm_validate_body(text) from public;
 revoke all on function public.vidjo_dm_validate_body(text) from anon, authenticated;
 
 -- Public RPCs.
-revoke all on function public.vidjo_dm_send(uuid, text, uuid, text) from public;
-revoke all on function public.vidjo_dm_send(uuid, text, uuid, text) from anon;
-grant execute on function public.vidjo_dm_send(uuid, text, uuid, text) to authenticated;
+revoke all on function public.vidjo_dm_send(uuid, text, uuid, text, text) from public;
+revoke all on function public.vidjo_dm_send(uuid, text, uuid, text, text) from anon;
+grant execute on function public.vidjo_dm_send(uuid, text, uuid, text, text) to authenticated;
 
-revoke all on function public.vidjo_dm_send_direct(uuid, text, uuid, text) from public;
-revoke all on function public.vidjo_dm_send_direct(uuid, text, uuid, text) from anon;
-grant execute on function public.vidjo_dm_send_direct(uuid, text, uuid, text) to authenticated;
+revoke all on function public.vidjo_dm_send_direct(uuid, text, uuid, text, text) from public;
+revoke all on function public.vidjo_dm_send_direct(uuid, text, uuid, text, text) from anon;
+grant execute on function public.vidjo_dm_send_direct(uuid, text, uuid, text, text) to authenticated;
 
 revoke all on function public.vidjo_dm_open_direct(uuid) from public;
 revoke all on function public.vidjo_dm_open_direct(uuid) from anon;

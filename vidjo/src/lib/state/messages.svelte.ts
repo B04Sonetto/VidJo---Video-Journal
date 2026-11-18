@@ -3,6 +3,7 @@ import { auth } from '#lib/state/auth.svelte';
 import { profile } from '#lib/state/profile.svelte';
 import { cleanDisplayName, normalizeImageUrl } from '#lib/avatar';
 import { detectRasterImageMime } from '#lib/imageUpload';
+import { isGiphyMediaUrl, type GiphyGif } from '#lib/giphy';
 import type {
 	DmMessage,
 	DmParticipant,
@@ -32,6 +33,7 @@ type InboxRow = {
 	members: unknown;
 	last_body: string | null;
 	last_image_path: string | null;
+	last_gif_url: string | null;
 	last_sender: string | null;
 	last_sender_name: string | null;
 	last_at: string | null;
@@ -49,6 +51,7 @@ type MessageRow = {
 	sender_avatar: string | null;
 	body: string;
 	image_path: string | null;
+	gif_url: string | null;
 	created_at: string;
 };
 
@@ -102,6 +105,7 @@ function mapInboxRow(row: InboxRow): DmThreadSummary {
 		members: mapMembers(row.members),
 		lastBody: row.last_body,
 		lastImagePath: row.last_image_path ?? null,
+		lastGifUrl: row.last_gif_url ?? null,
 		lastSender: row.last_sender,
 		lastSenderName: row.last_sender_name,
 		lastAt: row.last_at,
@@ -121,6 +125,7 @@ function mapMessage(row: MessageRow): DmMessage {
 		senderAvatar: normalizeImageUrl(row.sender_avatar),
 		body: row.body,
 		imagePath: row.image_path ?? null,
+		gifUrl: row.gif_url ?? null,
 		createdAt: row.created_at
 	};
 }
@@ -429,7 +434,33 @@ class MessagesState {
 		this.setMessages(threadId, mergeMessages(this.messagesByThread[threadId] ?? [], [optimistic]));
 		this.scrollRequest += 1;
 
-		return this.transmit(threadId, clientId, trimmed, null, optimistic);
+		return this.transmit(threadId, clientId, trimmed, null, null, optimistic);
+	}
+
+	async sendGif(gif: GiphyGif, caption = ''): Promise<boolean> {
+		const threadId = this.activeThreadId;
+		if (!threadId || !gif?.fullUrl) return false;
+
+		const thread = this.activeThread;
+		if (!thread?.canReply) {
+			this.error = 'You can only message friends.';
+			return false;
+		}
+
+		if (!isGiphyMediaUrl(gif.fullUrl)) {
+			this.error = 'That GIF could not be sent.';
+			return false;
+		}
+
+		const cleanCaption = caption.trim().slice(0, 2000);
+		const clientId = newClientId();
+		const optimistic = this.optimisticMessage(threadId, clientId, cleanCaption, null, gif.fullUrl);
+
+		this.error = '';
+		this.setMessages(threadId, mergeMessages(this.messagesByThread[threadId] ?? [], [optimistic]));
+		this.scrollRequest += 1;
+
+		return this.transmit(threadId, clientId, cleanCaption, null, gif.fullUrl, optimistic);
 	}
 
 	async sendImage(file: File, caption = ''): Promise<boolean> {
@@ -463,7 +494,14 @@ class MessagesState {
 		const cleanCaption = caption.trim().slice(0, 2000);
 		const clientId = newClientId();
 		const previewUrl = URL.createObjectURL(file);
-		const optimistic = this.optimisticMessage(threadId, clientId, cleanCaption, null, previewUrl);
+		const optimistic = this.optimisticMessage(
+			threadId,
+			clientId,
+			cleanCaption,
+			null,
+			null,
+			previewUrl
+		);
 
 		this.error = '';
 		this.setMessages(threadId, mergeMessages(this.messagesByThread[threadId] ?? [], [optimistic]));
@@ -491,7 +529,7 @@ class MessagesState {
 				this.imageUrls = { ...this.imageUrls, [path]: signed.signedUrl };
 			}
 
-			const ok = await this.transmit(threadId, clientId, cleanCaption, path, optimistic);
+			const ok = await this.transmit(threadId, clientId, cleanCaption, path, null, optimistic);
 
 			if (!ok) {
 				// The message row was never created, so do not leave an orphan file.
@@ -530,6 +568,7 @@ class MessagesState {
 		clientId: string,
 		body: string,
 		imagePath: string | null,
+		gifUrl: string | null = null,
 		previewUrl?: string
 	): DmMessage {
 		return {
@@ -542,6 +581,7 @@ class MessagesState {
 			senderAvatar: profile.avatarUrl,
 			body,
 			imagePath,
+			gifUrl,
 			previewUrl,
 			createdAt: new Date().toISOString(),
 			pending: true
@@ -553,18 +593,21 @@ class MessagesState {
 		clientId: string,
 		body: string,
 		imagePath: string | null,
+		gifUrl: string | null,
 		optimistic: DmMessage
 	): Promise<boolean> {
 		try {
 			// Older databases only know the 3-argument function. Text messages
-			// therefore omit the photo argument so they keep working until the
-			// photo schema is applied; photos require the 4-argument version.
+			// therefore omit attachment arguments so they keep working until the
+			// photo/GIF schema is applied. Photos need the 4-argument version and
+			// GIFs need the 5-argument version.
 			const params: Record<string, string | null> = {
 				p_thread: threadId,
 				p_body: body,
 				p_client_id: clientId
 			};
 			if (imagePath) params.p_image_path = imagePath;
+			if (gifUrl) params.p_gif_url = gifUrl;
 
 			const { data, error } = await supabase.rpc('vidjo_dm_send', params);
 			if (error) throw error;
@@ -584,6 +627,7 @@ class MessagesState {
 					senderAvatar: sender.avatar,
 					body: typeof record.body === 'string' ? record.body : body,
 					imagePath: typeof record.image_path === 'string' ? record.image_path : imagePath,
+					gifUrl: typeof record.gif_url === 'string' ? record.gif_url : gifUrl,
 					createdAt:
 						typeof record.created_at === 'string' ? record.created_at : optimistic.createdAt
 				};
@@ -823,6 +867,7 @@ class MessagesState {
 			...current,
 			lastBody: message.body,
 			lastImagePath: message.imagePath,
+			lastGifUrl: message.gifUrl,
 			lastSender: message.senderId,
 			lastSenderName: message.senderName,
 			lastAt: message.createdAt
@@ -855,6 +900,7 @@ class MessagesState {
 			members: [me, peer],
 			lastBody: null,
 			lastImagePath: null,
+			lastGifUrl: null,
 			lastSender: null,
 			lastSenderName: null,
 			lastAt: null,
@@ -939,6 +985,7 @@ class MessagesState {
 			senderAvatar: sender.avatar,
 			body: typeof row.body === 'string' ? row.body : '',
 			imagePath: typeof row.image_path === 'string' ? row.image_path : null,
+			gifUrl: typeof row.gif_url === 'string' ? row.gif_url : null,
 			createdAt: typeof row.created_at === 'string' ? row.created_at : new Date().toISOString()
 		};
 

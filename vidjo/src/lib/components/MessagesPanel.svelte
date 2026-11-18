@@ -7,6 +7,8 @@
 	import CommunityIcon from '#lib/components/CommunityIcon.svelte';
 	import NewGroupModal from '#lib/components/NewGroupModal.svelte';
 	import GroupInfoModal from '#lib/components/GroupInfoModal.svelte';
+	import GifPicker from '#lib/components/GifPicker.svelte';
+	import { giphyEnabled, type GiphyGif } from '#lib/giphy';
 	import type { DmThreadSummary, Friend } from '#lib/types';
 
 	let draft = $state('');
@@ -15,6 +17,7 @@
 	let pickerOpen = $state(false);
 	let newGroupOpen = $state(false);
 	let infoOpen = $state(false);
+	let gifOpen = $state(false);
 	let fileInputEl = $state<HTMLInputElement | null>(null);
 
 	const activeThread = $derived(messages.activeThread);
@@ -73,7 +76,8 @@
 
 	function preview(thread: DmThreadSummary) {
 		const hasImage = Boolean(thread.lastImagePath);
-		if (!thread.lastBody && !hasImage) {
+		const hasGif = Boolean(thread.lastGifUrl);
+		if (!thread.lastBody && !hasImage && !hasGif) {
 			return thread.kind === 'group' ? 'Group created' : 'Say hello';
 		}
 		const mine = thread.lastSender === messages.currentUserId;
@@ -83,7 +87,8 @@
 				: mine
 					? 'You: '
 					: '';
-		return prefix + (thread.lastBody ? censor(thread.lastBody) : 'Photo');
+		const label = thread.lastBody ? censor(thread.lastBody) : hasGif ? 'GIF' : 'Photo';
+		return prefix + label;
 	}
 
 	function subtitle(thread: DmThreadSummary) {
@@ -135,6 +140,16 @@
 
 	function openImagePicker() {
 		fileInputEl?.click();
+	}
+
+	async function pickGif(gif: GiphyGif) {
+		const caption = draft;
+		gifOpen = false;
+		const ok = await messages.sendGif(gif, caption);
+		if (ok && caption.trim()) {
+			draft = '';
+			void tick().then(resize);
+		}
 	}
 
 	async function loadOlder() {
@@ -428,7 +443,11 @@
 								{@const mine = message.senderId === messages.currentUserId}
 								{@const first = showSender(index)}
 								{@const imageSrc =
-									message.previewUrl || messages.imageUrls[message.imagePath ?? ''] || ''}
+									message.previewUrl ||
+									messages.imageUrls[message.imagePath ?? ''] ||
+									message.gifUrl ||
+									''}
+								{@const isGif = Boolean(message.gifUrl)}
 								<div
 									class="flex gap-2 {mine ? 'justify-end' : 'justify-start'} {first
 										? 'mt-3'
@@ -463,19 +482,21 @@
 												? 'opacity-70'
 												: ''}"
 										>
-											{#if message.imagePath || message.previewUrl}
+											{#if message.imagePath || message.gifUrl || message.previewUrl}
 												{#if imageSrc}
 													<button
 														type="button"
 														class="block cursor-zoom-in"
 														onclick={() => window.open(imageSrc, '_blank', 'noopener,noreferrer')}
-														aria-label="Open photo in a new tab"
+														aria-label={isGif ? 'Open GIF in a new tab' : 'Open photo in a new tab'}
 													>
 														<img
 															src={imageSrc}
 															alt={message.body
 																? censor(message.body)
-																: `Photo from ${message.senderName}`}
+																: isGif
+																	? `GIF from ${message.senderName}`
+																	: `Photo from ${message.senderName}`}
 															class="block max-h-64 w-auto max-w-full rounded-xl object-cover"
 															loading="lazy"
 															decoding="async"
@@ -486,14 +507,16 @@
 														class="flex h-28 w-44 items-center justify-center rounded-xl bg-line/30"
 													>
 														<span class="font-ui text-[11px] text-book-ink/70">
-															Loading photo…
+															Loading {isGif ? 'GIF' : 'photo'}…
 														</span>
 													</div>
 												{/if}
 											{/if}
 											{#if message.body}
 												<p
-													class="whitespace-pre-wrap {message.imagePath || message.previewUrl
+													class="whitespace-pre-wrap {message.imagePath ||
+													message.gifUrl ||
+													message.previewUrl
 														? 'mt-1.5'
 														: ''}"
 												>
@@ -549,6 +572,17 @@
 							>
 								<CommunityIcon name="camera" size={17} />
 							</button>
+							{#if giphyEnabled}
+								<button
+									type="button"
+									class="flex size-10 shrink-0 items-center justify-center rounded-full border border-line bg-book-bg font-ui text-[10px] font-bold tracking-wide text-book-ink/80 transition-colors hover:bg-paper-deep hover:text-book-ink"
+									onclick={() => (gifOpen = true)}
+									aria-label="Send a GIF"
+									title="Send a GIF"
+								>
+									GIF
+								</button>
+							{/if}
 							<textarea
 								id="dm-composer"
 								bind:this={composerEl}
@@ -573,7 +607,9 @@
 						</div>
 						<div class="mt-1.5 flex items-center justify-between gap-2 px-1">
 							<p class="font-ui text-[10px] text-book-ink/70">
-								Enter sends · Shift + Enter adds a line · Photos up to 5 MB
+								Enter sends · Shift + Enter adds a line · Photos up to 5 MB{giphyEnabled
+									? ' · GIFs via GIPHY'
+									: ''}
 							</p>
 							{#if draft.length > 1800}
 								<p class="font-ui text-[10px] font-semibold text-book-ink/65 tabular-nums">
@@ -674,4 +710,5 @@
 
 	<NewGroupModal open={newGroupOpen} onClose={() => (newGroupOpen = false)} />
 	<GroupInfoModal open={infoOpen} thread={activeThread} onClose={() => (infoOpen = false)} />
+	<GifPicker open={gifOpen} onClose={() => (gifOpen = false)} onPick={pickGif} />
 {/if}

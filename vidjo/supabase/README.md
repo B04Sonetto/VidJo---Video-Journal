@@ -155,6 +155,9 @@ Messaging is friends-first and works only for signed-in accounts:
   Only thread participants can read them, and the app requests short-lived
   signed URLs instead of storing public links. PNG, JPG, GIF, and WebP up to
   5 MB are allowed.
+- Giphy GIFs are stored as links in `vidjo_dm_messages.gif_url` and hotlinked
+  from `media*.giphy.com`. The schema only accepts HTTPS Giphy media URLs, and a
+  message can carry either a photo or a GIF, never both.
 
 Rules enforced by the schema:
 
@@ -163,9 +166,10 @@ Rules enforced by the schema:
 - Groups are created by an owner who can only invite their own friends. Groups
   can hold up to 12 people. Only the owner can add, remove, or rename members.
 - Every write goes through a `SECURITY DEFINER` RPC:
-  `vidjo_dm_send` (text and/or an uploaded photo path), `vidjo_dm_send_direct`,
-  `vidjo_dm_create_group`, `vidjo_dm_add_members`, `vidjo_dm_remove_member`,
-  `vidjo_dm_leave_group`, `vidjo_dm_rename_group`, and `vidjo_dm_mark_read`.
+  `vidjo_dm_send` (text and/or an uploaded photo path or Giphy URL),
+  `vidjo_dm_send_direct`, `vidjo_dm_create_group`, `vidjo_dm_add_members`,
+  `vidjo_dm_remove_member`, `vidjo_dm_leave_group`, `vidjo_dm_rename_group`,
+  and `vidjo_dm_mark_read`.
 - Reads use `vidjo_dm_inbox`, `vidjo_dm_thread`, and `vidjo_dm_thread_members`.
   Clients only receive `SELECT` grants on the three tables; direct inserts,
   updates, and deletes are revoked.
@@ -186,4 +190,6 @@ Re-run `schema.sql` after deploying the messaging UI.
 | Communities or friends disappear after deploy   | Re-run `schema.sql` so the social tables, `community_slug`, and RPCs exist. Local membership is only a fallback.                    |
 | Video does not play                             | Check that the `vidjo-videos` bucket exists and re-run `schema.sql`.                                                                |
 | Photos do not send                              | Check that the private `vidjo-dm-images` bucket and its storage policies exist; re-run `schema.sql`.                                |
+| GIF button is missing                           | Set `PUBLIC_GIPHY_API_KEY` and restart the dev server or redeploy.                                                                  |
+| GIFs do not send                                | Re-run `schema.sql` so `gif_url` and the 5-argument `vidjo_dm_send` exist.                                                          |
 | Shared browser has old journal entries          | Sign out with "Clear cached pages on sign out" checked.                                                                             |
