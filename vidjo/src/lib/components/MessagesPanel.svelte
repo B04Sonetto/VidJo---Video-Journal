@@ -567,7 +567,7 @@
 	<!-- New message friend picker -->
 	{#if pickerOpen}
 		<div
-			class="fixed inset-0 z-50 flex items-center justify-center bg-black/65 p-4 backdrop-blur-sm"
+			class="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4"
 			role="dialog"
 			aria-modal="true"
 			aria-labelledby="new-message-title"
@@ -597,7 +597,7 @@
 					</button>
 				</div>
 
-				<div class="min-h-0 flex-1 overflow-y-auto p-2">
+				<div class="modal-scroll min-h-0 flex-1 overflow-y-auto p-2">
 					{#if friends.friends.length === 0}
 						<p class="px-4 py-8 text-center font-hand text-lg leading-snug text-book-ink/70">
 							Add a friend first. Messaging only works between friends.

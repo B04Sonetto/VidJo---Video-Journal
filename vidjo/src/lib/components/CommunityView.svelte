@@ -10,6 +10,7 @@
 	import { STICKER_BY_KEY } from '#lib/data/stickers';
 	import CommunityIcon from '#lib/components/CommunityIcon.svelte';
 	import ProfileModal from '#lib/components/ProfileModal.svelte';
+	import CommunityPostDetail from '#lib/components/CommunityPostDetail.svelte';
 	import Avatar from '#lib/components/Avatar.svelte';
 	import PageHeader from '#lib/components/ui/PageHeader.svelte';
 	import Button from '#lib/components/ui/Button.svelte';
@@ -24,6 +25,7 @@
 	let feedMode = $state<'trending' | 'newest'>('trending');
 	let commentInput = $state<Record<string, string>>({});
 	let openComments = $state<string | null>(null);
+	let detailPostId = $state<string | null>(null);
 	let profileModalOpen = $state(false);
 	let viewedUserId = $state<string | null>(null);
 	let showDiscovery = $state(false);
@@ -173,6 +175,11 @@
 
 	let allPosts = $derived([...myCommunityPosts, ...community.posts].map(enrich));
 
+	const isAdmin = $derived((profile.profile?.user_role ?? '').trim().toLowerCase() === 'admin');
+
+	// Look the detail post up by id so reactions/comments stay live in the modal.
+	let detailPost = $derived(detailPostId ? (allPosts.find((post) => post.id === detailPostId) ?? null) : null);
+
 	let memberPosts = $derived.by(() => {
 		const joined = community.joinedSlugs;
 		return allPosts.filter((post) => {
@@ -243,6 +250,20 @@
 
 	function toggleComments(id: string) {
 		openComments = openComments === id ? null : id;
+	}
+
+	function openDetail(post: CommunityPost) {
+		detailPostId = post.id;
+	}
+
+	function openDetailProfile(userId: string) {
+		detailPostId = null;
+		openProfile(userId);
+	}
+
+	function requestRemoveFromDetail(post: CommunityPost) {
+		detailPostId = null;
+		requestDelete(post);
 	}
 
 	function submitComment(post: CommunityPost, event: SubmitEvent) {
@@ -857,11 +878,14 @@
 						{/if}
 
 						{#if post.title}
-							<h3
-								class="mt-3 line-clamp-2 font-hand text-[24px] leading-[1.1] font-bold [overflow-wrap:anywhere] break-words text-book-ink"
+							<button
+								type="button"
+								class="mt-3 block w-full text-left font-hand text-[24px] leading-[1.1] font-bold [overflow-wrap:anywhere] break-words text-book-ink hover:text-book-accent"
+								onclick={() => openDetail(post)}
+								aria-label="Open {post.title || 'page'} full page"
 							>
-								{censor(post.title)}
-							</h3>
+								<span class="line-clamp-2">{censor(post.title)}</span>
+							</button>
 						{/if}
 
 						<!-- Author -->
@@ -1006,7 +1030,16 @@
 								</svg>
 								Notes <span class="tabular-nums">({post.comments.length})</span>
 							</button>
-							{#if post.isOwner || post.authorId === auth.ownerId}
+							<button
+								type="button"
+								class="inline-flex items-center gap-1 rounded-full border border-line bg-book-bg px-2.5 py-1 font-ui text-[10px] font-bold text-book-ink/80 transition-colors hover:bg-paper-deep"
+								onclick={() => openDetail(post)}
+								aria-label="Open full page"
+							>
+								<CommunityIcon name="expand" size={12} />
+								Full page
+							</button>
+							{#if post.isOwner || post.authorId === auth.ownerId || isAdmin}
 								<button
 									type="button"
 									class="inline-flex items-center gap-1.5 rounded-full border border-[#D19A9A] bg-book-bg px-2.5 py-1 font-ui text-[10px] font-bold text-[#9A5B5B] transition-colors hover:bg-[#FBEAEA]"
@@ -1224,7 +1257,7 @@
 <!-- Remove from community confirmation -->
 {#if deleteTarget}
 	<div
-		class="fixed inset-0 z-50 flex items-center justify-center bg-black/65 p-4 backdrop-blur-sm"
+		class="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4"
 		role="dialog"
 		aria-modal="true"
 		aria-labelledby="remove-page-title"
@@ -1270,8 +1303,13 @@
 				</div>
 
 				<p class="mt-4 font-ui text-sm leading-relaxed text-book-ink/70">
-					This page will stop appearing in the community feed. Your journal entry, video, and
-					stickers stay exactly where they are.
+					{#if isAdmin && !deleteTarget.isOwner && deleteTarget.authorId !== auth.ownerId}
+						This page will stop appearing in the community feed. The author's journal entry, video,
+						and stickers stay exactly where they are.
+					{:else}
+						This page will stop appearing in the community feed. Your journal entry, video, and
+						stickers stay exactly where they are.
+					{/if}
 				</p>
 
 				<div class="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
@@ -1283,12 +1321,25 @@
 						disabled={deleteBusy}
 						onclick={confirmDelete}
 					>
-						{deleteBusy ? 'Removing…' : 'Remove from community'}
+						{deleteBusy
+							? 'Removing…'
+							: isAdmin && !deleteTarget.isOwner && deleteTarget.authorId !== auth.ownerId
+								? 'Remove as admin'
+								: 'Remove from community'}
 					</Button>
 				</div>
 			</div>
 		</div>
 	</div>
+{/if}
+
+{#if detailPost}
+	<CommunityPostDetail
+		post={detailPost}
+		onClose={() => (detailPostId = null)}
+		onProfile={openDetailProfile}
+		onRemove={requestRemoveFromDetail}
+	/>
 {/if}
 
 <ProfileModal

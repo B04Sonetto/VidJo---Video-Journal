@@ -705,7 +705,7 @@
 <!-- Add friend modal -->
 {#if addOpen}
 	<div
-		class="fixed inset-0 z-50 flex items-center justify-center bg-black/65 p-4 backdrop-blur-sm"
+		class="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4"
 		role="dialog"
 		aria-modal="true"
 		aria-labelledby="add-friend-title"

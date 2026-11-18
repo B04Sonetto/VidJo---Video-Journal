@@ -429,7 +429,7 @@
 	>
 		<button
 			type="button"
-			class="absolute inset-0 bg-black/60 backdrop-blur-sm"
+			class="absolute inset-0 bg-black/75"
 			onclick={cancelDelete}
 			onkeydown={(event) => {
 				if (event.key === 'Escape') cancelDelete();

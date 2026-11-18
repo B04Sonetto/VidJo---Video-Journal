@@ -63,7 +63,7 @@
 
 {#if open}
 	<div
-		class="fixed inset-0 z-50 flex items-center justify-center bg-black/65 p-4 backdrop-blur-sm"
+		class="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4"
 		role="dialog"
 		aria-modal="true"
 		aria-labelledby="new-group-title"
@@ -97,7 +97,7 @@
 				</button>
 			</div>
 
-			<div class="min-h-0 flex-1 overflow-y-auto px-5 py-4">
+			<div class="modal-scroll min-h-0 flex-1 overflow-y-auto px-5 py-4">
 				<label for="group-title" class="block font-ui text-xs font-semibold text-book-ink/70">
 					Group name
 				</label>

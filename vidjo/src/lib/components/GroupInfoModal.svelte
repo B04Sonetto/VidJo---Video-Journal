@@ -103,7 +103,7 @@
 
 {#if open && thread}
 	<div
-		class="fixed inset-0 z-50 flex items-center justify-center bg-black/65 p-4 backdrop-blur-sm"
+		class="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4"
 		role="dialog"
 		aria-modal="true"
 		aria-labelledby="group-info-title"
@@ -138,7 +138,7 @@
 				</button>
 			</div>
 
-			<div class="min-h-0 flex-1 overflow-y-auto px-5 py-4">
+			<div class="modal-scroll min-h-0 flex-1 overflow-y-auto px-5 py-4">
 				{#if isOwner}
 					<div class="flex flex-wrap gap-2">
 						<button
@@ -196,7 +196,7 @@
 									All of your friends are already here.
 								</p>
 							{:else}
-								<ul class="max-h-[190px] space-y-1 overflow-y-auto">
+								<ul class="modal-scroll max-h-[190px] space-y-1 overflow-y-auto">
 									{#each available as friend (friend.id)}
 										{@const checked = selected.includes(friend.id)}
 										<li>

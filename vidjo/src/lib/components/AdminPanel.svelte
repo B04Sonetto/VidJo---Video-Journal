@@ -485,7 +485,7 @@
 		{#if open && isAdmin()}
 			<button
 				type="button"
-				class="absolute inset-0 border-0 bg-black/75 backdrop-blur-sm"
+				class="absolute inset-0 border-0 bg-black/85"
 				aria-label="Close admin console"
 				onclick={() => (open = false)}
 			></button>
@@ -558,7 +558,7 @@
 				</nav>
 
 				<!-- Body -->
-				<div class="min-h-0 flex-1 overflow-y-auto px-4 py-5 sm:px-7 sm:py-6">
+				<div class="modal-scroll min-h-0 flex-1 overflow-y-auto px-4 py-5 sm:px-7 sm:py-6">
 					{#if error}
 						<p
 							class="mb-4 rounded-xl border border-danger/60 bg-danger/20 px-4 py-3 font-ui text-sm text-danger-soft"
@@ -1190,7 +1190,7 @@
 		{:else if open && !isAdmin()}
 			<button
 				type="button"
-				class="absolute inset-0 border-0 bg-black/75 backdrop-blur-sm"
+				class="absolute inset-0 border-0 bg-black/85"
 				aria-label="Close admin console"
 				onclick={() => (open = false)}
 			></button>

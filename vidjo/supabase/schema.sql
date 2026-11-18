@@ -3976,4 +3976,41 @@ revoke all on function public.vidjo_streak_for(uuid, date) from public;
 revoke all on function public.vidjo_streak_for(uuid, date) from anon;
 grant execute on function public.vidjo_streak_for(uuid, date) to authenticated;
 
+-- Moderators can pull a page out of the community feed. RLS only lets a member
+-- update their own rows, so this SECURITY DEFINER function checks the role and
+-- unshares the row without touching the author's journal content.
+drop function if exists public.vidjo_admin_unshare_post(text, date);
+create or replace function public.vidjo_admin_unshare_post(
+	p_owner_id text,
+	p_entry_date date
+)
+returns boolean
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+	if not exists (
+		select 1 from public.vidjo_profiles
+		where user_id = auth.uid() and user_role = 'admin'
+	) then
+		raise exception 'Admin access required.' using errcode = '42501';
+	end if;
+
+	update public.vidjo_entries
+	   set privacy = 'private',
+	       community_slug = null,
+	       share_with_friends = false
+	 where owner_id = p_owner_id
+	   and entry_date = p_entry_date
+	   and privacy = 'community';
+
+	return found;
+end;
+$$;
+
+revoke all on function public.vidjo_admin_unshare_post(text, date) from public;
+revoke all on function public.vidjo_admin_unshare_post(text, date) from anon;
+grant execute on function public.vidjo_admin_unshare_post(text, date) to authenticated;
+
 notify pgrst, 'reload schema';

@@ -156,7 +156,7 @@
 </script>
 
 <div
-	class="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-3 backdrop-blur-sm min-[720px]:p-5"
+	class="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-3 min-[720px]:p-5"
 	role="dialog"
 	aria-modal="true"
 	aria-labelledby="profile-title"
@@ -171,7 +171,7 @@
 	<div
 		class="relative z-10 flex max-h-[92vh] w-full max-w-[560px] flex-col overflow-hidden rounded-[32px] border border-cover-edge bg-desk-2 text-book-bg shadow-[0_28px_70px_rgba(0,0,0,.6)]"
 	>
-		<div class="min-h-0 flex-1 overflow-x-hidden overflow-y-auto">
+		<div class="profile-scroll min-h-0 flex-1 overflow-x-hidden overflow-y-auto">
 			<!-- Banner -->
 			<div class="relative h-36 shrink-0 min-[720px]:h-40">
 				{#if bannerSrc && !bannerFailed && viewedUser}
@@ -198,7 +198,7 @@
 
 				<button
 					type="button"
-					class="absolute top-4 right-4 flex size-9 items-center justify-center rounded-full bg-black/35 text-white/85 backdrop-blur-sm transition-colors hover:bg-black/55 hover:text-white"
+					class="absolute top-4 right-4 flex size-9 items-center justify-center rounded-full bg-black/55 text-white/85 transition-colors hover:bg-black/70 hover:text-white"
 					onclick={onClose}
 					aria-label="Close"
 				>
@@ -418,7 +418,7 @@
 								</p>
 							</div>
 						{:else}
-							<ul class="mt-3 max-h-[260px] space-y-2 overflow-y-auto pr-1">
+							<ul class="profile-scroll mt-3 max-h-[260px] space-y-2 overflow-y-auto pr-1">
 								{#each posts as post (post.date)}
 									{@const mood =
 										post.mood && MOOD_BY_KEY[post.mood] ? MOOD_BY_KEY[post.mood] : null}
@@ -472,3 +472,12 @@
 		</div>
 	</div>
 </div>
+
+<style>
+	/* Keep profile scrolling on its own layer so it doesn't repaint the
+	   modal shell (or anything behind it) on every frame. */
+	.profile-scroll {
+		overscroll-behavior: contain;
+		transform: translateZ(0);
+	}
+</style>

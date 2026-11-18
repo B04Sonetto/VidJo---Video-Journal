@@ -368,6 +368,17 @@ html[data-text-size='lg'] {
 	animation: vidjo-rise 0.24s ease-out both;
 }
 
+/* Modal scrollers: keep scrolling on its own compositing layer so a scroll or
+   video frame never repaints the modal shell or the page behind it. */
+@utility modal-scroll {
+	overscroll-behavior: contain;
+	transform: translateZ(0);
+}
+
+@utility modal-video {
+	transform: translateZ(0);
+}
+
 /* Paper textures used by the two journal pages. */
 @utility paper-dotted {
 	background-image: radial-gradient(circle, var(--color-book-edge) 1.3px, transparent 1.8px);

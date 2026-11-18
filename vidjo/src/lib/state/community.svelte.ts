@@ -327,7 +327,8 @@ class CommunityState {
 
 	/**
 	 * Remove a page from the community feed without destroying the journal
-	 * entry. The journal copy stays intact and only its sharing settings change.
+	 * entry. Owners keep their private copy; admins can unshare anyone's page
+	 * through a SECURITY DEFINER RPC (RLS blocks direct cross-user updates).
 	 */
 	async deletePost(postId: string): Promise<boolean> {
 		// Own pages come from the journal as `mine-<date>`; remote rows use
@@ -339,9 +340,41 @@ class CommunityState {
 		const entryDate = mineMatch?.[1] ?? communityMatch?.[2];
 
 		if (!ownerId || !entryDate) return false;
-		if (ownerId !== this.currentUserId) {
+
+		const isMine = ownerId === this.currentUserId;
+		const isAdmin = (profile.profile?.user_role ?? '').trim().toLowerCase() === 'admin';
+
+		if (!isMine && !isAdmin) {
 			journal.toast('You can only remove your own pages.');
 			return false;
+		}
+
+		// An admin removing someone else's page uses the moderation RPC.
+		if (!isMine) {
+			if (!isSupabaseConfigured || !auth.signedIn) {
+				journal.toast('Community posts need a connection to VidJo.');
+				return false;
+			}
+
+			try {
+				const { data, error } = await supabase.rpc('vidjo_admin_unshare_post', {
+					p_owner_id: ownerId,
+					p_entry_date: entryDate
+				});
+				if (error) throw error;
+				if (!data) {
+					journal.toast('That page is no longer shared with the community.');
+					return false;
+				}
+
+				this.posts = this.posts.filter((post) => post.id !== postId);
+				journal.toast('Page removed from the community.');
+				return true;
+			} catch (error) {
+				journal.toast('Could not remove that page. Try again.');
+				console.warn('[VidJo] Admin community post removal failed.', error);
+				return false;
+			}
 		}
 
 		const entry = journal.entries[entryDate];

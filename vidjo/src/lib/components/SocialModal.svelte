@@ -86,7 +86,7 @@
 
 {#if open}
 	<div
-		class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm"
+		class="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4"
 		role="dialog"
 		aria-modal="true"
 		aria-labelledby="social-modal-title"
@@ -155,7 +155,7 @@
 			</div>
 
 			<!-- Body -->
-			<div class="flex-1 overflow-y-auto px-6 py-5">
+			<div class="modal-scroll flex-1 overflow-y-auto px-6 py-5">
 				{#if currentTab === 'friends'}
 					<!-- FRIENDS VIEW -->
 					<div class="flex flex-col gap-5">

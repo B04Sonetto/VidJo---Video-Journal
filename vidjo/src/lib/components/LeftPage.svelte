@@ -271,7 +271,7 @@
 {#if removeAsk}
 	<div
 		use:portal
-		class="fixed inset-0 z-[70] flex items-center justify-center bg-black/60 px-4 backdrop-blur-sm"
+		class="fixed inset-0 z-[70] flex items-center justify-center bg-black/75 px-4"
 		data-modal-open
 		role="presentation"
 		onclick={removeBackdrop}

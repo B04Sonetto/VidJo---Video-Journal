@@ -155,7 +155,7 @@
 
 {#if open}
 	<div
-		class="fixed inset-0 z-50 flex items-center justify-center bg-black/65 p-4 backdrop-blur-sm"
+		class="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4"
 		role="dialog"
 		aria-modal="true"
 		aria-labelledby="gif-picker-title"
@@ -213,7 +213,7 @@
 				</div>
 			</form>
 
-			<div class="min-h-0 flex-1 overflow-y-auto p-3">
+			<div class="modal-scroll min-h-0 flex-1 overflow-y-auto p-3">
 				{#if loading}
 					<div class="grid grid-cols-3 gap-1.5" role="status" aria-label="Loading GIFs">
 						{#each skeletonSlots as slot (slot)}
