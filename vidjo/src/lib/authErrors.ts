@@ -77,6 +77,11 @@ export function friendlyAuthError(message: string) {
 	if (lower.includes('deleted vidjo account')) {
 		return 'That email belonged to a deleted VidJo account. Ask a moderator to restore it before creating a new account.';
 	}
+	if (lower.includes('error running hook uri')) {
+		// A server-side auth hook failed, so this is never the person's fault.
+		// Keep the internal pg-functions:// URI out of the UI.
+		return 'Sign-ups are temporarily unavailable. Please try again in a few minutes.';
+	}
 
 	return message;
 }

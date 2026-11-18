@@ -1709,6 +1709,10 @@ create trigger vidjo_remember_deleted_account
 -- Before User Created hook. Enable it in Supabase Dashboard → Authentication →
 -- Hooks → Before User Created and choose this Postgres function. Returning an
 -- error object blocks the signup and shows the message to the client.
+-- The variable is `v_email`, not `email`, on purpose. A variable named `email`
+-- shadows the `email` column of `vidjo_deleted_accounts`, so PL/pgSQL aborts the
+-- query with "column reference \"email\" is ambiguous". That is a runtime error,
+-- and because this function is a signup hook it blocked every registration.
 create or replace function public.vidjo_block_deleted_signup(event jsonb)
 returns jsonb
 language plpgsql
@@ -1716,11 +1720,24 @@ security definer
 set search_path = public
 as $$
 declare
-	email text := lower(coalesce(event->'user'->>'email', ''));
+	v_email text := lower(coalesce(event->'user'->>'email', ''));
+	v_blocked boolean := false;
 begin
-	if email <> '' and exists (
-		select 1 from public.vidjo_deleted_accounts where email = email
-	) then
+	begin
+		if v_email <> '' then
+			select exists (
+				select 1 from public.vidjo_deleted_accounts d where d.email = v_email
+			) into v_blocked;
+		end if;
+	exception
+		when others then
+			-- This hook runs for every signup, so an unexpected database problem
+			-- must never lock people out of registration. Log it and allow.
+			raise warning 'vidjo_block_deleted_signup skipped: %', sqlerrm;
+			return '{}'::jsonb;
+	end;
+
+	if v_blocked then
 		return jsonb_build_object(
 			'error', jsonb_build_object(
 				'message', 'This email belonged to a deleted VidJo account. Ask a moderator to restore it before signing up again.',

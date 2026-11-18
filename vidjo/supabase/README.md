@@ -138,6 +138,8 @@ Google is disabled by default in a new Supabase project. To enable it:
 4. New Google users are asked to choose a username and nickname on their first sign-in. No profile row is created until they press **Create account**.
 5. To stop a deleted account from silently signing up again, re-run `schema.sql`, then open **Authentication → Hooks → Before User Created**, choose **Postgres function**, and select `public.vidjo_block_deleted_signup`. The app records deleted emails in `public.vidjo_deleted_accounts`. Remove a row from that table if a moderator approves restoring the email.
 
+   **Troubleshooting:** if signup fails with `Error running hook URI: pg-functions://postgres/public/vidjo_block_deleted_signup`, run `supabase/fix-signup-hook.sql` in the SQL editor. The hook used a PL/pgSQL variable named `email`, which shadows the `email` column of `vidjo_deleted_accounts` and aborts with `column reference "email" is ambiguous`. To restore signups immediately while you investigate, disable the hook under **Authentication → Hooks** and re-enable it once the SQL succeeds.
+
 ## 7. Private video storage (`vidjo-videos`)
 
 The schema creates `vidjo-videos` as a **private bucket** (`public = false`).
