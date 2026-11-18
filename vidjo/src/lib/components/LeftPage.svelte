@@ -148,7 +148,7 @@
 			aria-hidden="true"
 		></span>
 		<div
-			class="relative flex min-h-0 flex-1 items-center justify-center overflow-hidden rounded-[2px] bg-[radial-gradient(circle_at_30%_30%,#38215C,#150A26_70%)]"
+			class="relative flex min-h-0 flex-1 items-center justify-center overflow-hidden rounded-[2px] bg-[radial-gradient(circle_at_30%_30%,var(--color-cover),var(--color-desk)_70%)]"
 		>
 			{#if videoUrl}
 				{#key videoUrl}
@@ -164,12 +164,12 @@
 							}
 						}}
 						onloadeddata={() => journal.videoPlayed(date)}
-						class="block h-full w-full bg-[#120A20] object-contain"
+						class="block h-full w-full bg-desk object-contain"
 					></video>
 				{/key}
 			{:else if journal.videoProblem(date)}
 				<div
-					class="flex flex-col items-center gap-2 px-6 text-center font-hand text-lg text-[#EDE6F7]"
+					class="flex flex-col items-center gap-2 px-6 text-center font-hand text-lg text-book-bg"
 				>
 					<div class="font-ui text-[15px] font-semibold">Video unavailable</div>
 					<p class="m-0 text-[14px] leading-snug text-lav/90">
@@ -190,14 +190,12 @@
 					{/if}
 				</div>
 			{:else if journal.entries[date]?.videoPath}
-				<div
-					class="flex flex-col items-center gap-2.5 text-center font-hand text-lg text-[#EDE6F7]"
-				>
+				<div class="flex flex-col items-center gap-2.5 text-center font-hand text-lg text-book-bg">
 					<Spinner size={26} class="text-lav" />
 					<span>Loading video…</span>
 				</div>
 			{:else}
-				<div class="flex flex-col items-center gap-4 px-4 text-center text-[#EDE6F7]">
+				<div class="flex flex-col items-center gap-4 px-4 text-center text-book-bg">
 					<span class="flex size-14 items-center justify-center rounded-full bg-white/10 text-lav">
 						<CommunityIcon name="video" size={26} />
 					</span>
@@ -221,7 +219,7 @@
 
 			{#if journal.uploading}
 				<div
-					class="pointer-events-none absolute inset-0 z-[3] flex flex-col items-center justify-center gap-2.5 bg-[#120A20]/70 text-center font-ui text-sm text-white"
+					class="pointer-events-none absolute inset-0 z-[3] flex flex-col items-center justify-center gap-2.5 bg-desk/70 text-center font-ui text-sm text-white"
 					role="status"
 				>
 					<Spinner size={26} class="text-gold" />
@@ -237,7 +235,7 @@
 			{#if videoUrl && !preview}
 				<button
 					type="button"
-					class="video-remove flex size-9 flex-none items-center justify-center rounded-lg border border-[#CDBBE9] bg-light text-accent hover:border-danger/50 hover:bg-[#F7E3E3] hover:text-danger"
+					class="video-remove flex size-9 flex-none items-center justify-center rounded-lg border border-line bg-light text-accent hover:border-danger/50 hover:bg-danger/10 hover:text-danger"
 					aria-label="Remove video"
 					title="Remove video"
 					onclick={askRemove}
@@ -252,7 +250,7 @@
 		<h2 class="m-0 text-center font-display text-[1.25rem] leading-tight font-bold text-ink">
 			How are you feeling today?
 		</h2>
-		<span class="mx-auto mt-1.5 mb-2.5 block h-px w-14 bg-[#D9CBEA]" aria-hidden="true"></span>
+		<span class="mx-auto mt-1.5 mb-2.5 block h-px w-14 bg-line" aria-hidden="true"></span>
 
 		<MoodPicker
 			mood={entry.mood}
@@ -280,7 +278,7 @@
 	>
 		<div
 			bind:this={removeDialog}
-			class="relative w-full max-w-[360px] rounded-2xl border border-[#5A4580] bg-desk-2 p-6 text-center text-white shadow-[0_30px_80px_rgba(0,0,0,.6)]"
+			class="relative w-full max-w-[360px] rounded-2xl border border-cover-edge bg-desk-2 p-6 text-center text-white shadow-[0_30px_80px_rgba(0,0,0,.6)]"
 			role="dialog"
 			aria-modal="true"
 			aria-labelledby={`${id}-remove-title`}
@@ -289,7 +287,7 @@
 			<h2 id={`${id}-remove-title`} class="font-display text-xl font-bold text-balance">
 				Remove this video?
 			</h2>
-			<p id={`${id}-remove-help`} class="mt-2.5 font-ui text-sm leading-relaxed text-[#D6CBEC]">
+			<p id={`${id}-remove-help`} class="mt-2.5 font-ui text-sm leading-relaxed text-lav">
 				The video will be deleted from this page. The file cannot be recovered.
 			</p>
 			<div class="mt-6 flex justify-center gap-3">

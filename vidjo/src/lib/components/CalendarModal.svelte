@@ -22,7 +22,7 @@
 	}
 
 	const pencil =
-		'<svg viewBox="0 0 24 24" fill="none" stroke="#8E7FAA" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><path d="M5 19l3-1L19 7l-2-2L6 16z"/></svg>';
+		'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><path d="M5 19l3-1L19 7l-2-2L6 16z"/></svg>';
 
 	let year = $state(0);
 	let month = $state(0);
@@ -154,7 +154,7 @@
 
 {#if open}
 	<div
-		class="fixed inset-0 z-50 flex items-start justify-center overflow-auto bg-[rgba(15,8,25,.72)] px-4 pt-[max(20px,env(safe-area-inset-top,0px))] pb-5"
+		class="fixed inset-0 z-50 flex items-start justify-center overflow-auto bg-desk/80 px-4 pt-[max(20px,env(safe-area-inset-top,0px))] pb-5"
 		data-modal-open
 		role="presentation"
 		onclick={(event) => {
@@ -170,7 +170,7 @@
 			<div class="col-span-full flex items-center gap-3">
 				<button
 					type="button"
-					class="flex size-11 items-center justify-center rounded-xl border border-[#CDBBE9] bg-light text-accent hover:bg-[#E4D8F6]"
+					class="flex size-11 items-center justify-center rounded-xl border border-line bg-light text-accent hover:bg-paper-deep"
 					aria-label="Previous month"
 					onclick={() => shiftMonth(-1)}
 				>
@@ -195,7 +195,7 @@
 
 				<button
 					type="button"
-					class="flex size-11 items-center justify-center rounded-xl border border-[#CDBBE9] bg-light text-accent hover:bg-[#E4D8F6]"
+					class="flex size-11 items-center justify-center rounded-xl border border-line bg-light text-accent hover:bg-paper-deep"
 					aria-label="Next month"
 					onclick={() => shiftMonth(1)}
 				>
@@ -217,7 +217,7 @@
 				<button
 					bind:this={closeButton}
 					type="button"
-					class="flex size-11 items-center justify-center rounded-xl border border-[#CDBBE9] bg-light text-accent hover:bg-[#E4D8F6]"
+					class="flex size-11 items-center justify-center rounded-xl border border-line bg-light text-accent hover:bg-paper-deep"
 					aria-label="Close calendar"
 					onclick={onClose}
 				>
@@ -255,10 +255,10 @@
 							<button
 								type="button"
 								class="relative flex aspect-[1/1.05] min-w-0 flex-col items-start rounded-xl border-[1.5px] p-1 font-hand text-base font-bold text-ink {cell.isFuture
-									? 'cursor-not-allowed border-line/60 bg-[#F4EFE6] text-ink-soft/70'
+									? 'cursor-not-allowed border-line/60 bg-paper-deep/60 text-ink-soft/70'
 									: cell.isCurrent
-										? 'border-accent bg-[#E4D8F6] hover:bg-light'
-										: 'border-line bg-[#FFFDF6] hover:border-accent hover:bg-light'}"
+										? 'border-accent bg-book-accent/25 hover:bg-paper-deep'
+										: 'border-line bg-paper hover:border-accent hover:bg-paper-deep'}"
 								class:ring-2={cell.isToday}
 								class:ring-gold={cell.isToday}
 								style:background-color={!cell.isFuture && cell.mood
@@ -323,7 +323,7 @@
 							<li>
 								<button
 									type="button"
-									class="flex min-h-14 w-full items-center gap-3 rounded-xl border-[1.5px] border-line bg-[#FFFDF6] px-3 py-1.5 text-left font-hand text-lg text-ink hover:border-accent hover:bg-light"
+									class="flex min-h-14 w-full items-center gap-3 rounded-xl border-[1.5px] border-line bg-paper px-3 py-1.5 text-left font-hand text-lg text-ink hover:border-accent hover:bg-light"
 									onclick={() => pick(entry.date)}
 								>
 									<span class="size-[38px] flex-none [&>svg]:size-full">

@@ -56,7 +56,7 @@
 	/>
 {:else if emoji}
 	<span
-		class="flex {className} shrink-0 items-center justify-center rounded-full bg-[linear-gradient(135deg,#C9B8E8,#8B6FD0)] {textClass} {ring}"
+		class="flex {className} shrink-0 items-center justify-center rounded-full bg-[linear-gradient(135deg,var(--color-accent),var(--color-accent-strong))] {textClass} {ring}"
 		title={name}
 		aria-label={name}
 	>
@@ -64,7 +64,7 @@
 	</span>
 {:else}
 	<span
-		class="flex {className} shrink-0 items-center justify-center rounded-full bg-[linear-gradient(135deg,#C9B8E8,#8B6FD0)] font-display {textClass} font-bold text-white {ring}"
+		class="flex {className} shrink-0 items-center justify-center rounded-full bg-[linear-gradient(135deg,var(--color-accent),var(--color-accent-strong))] font-display {textClass} font-bold text-white {ring}"
 		title={name}
 		aria-hidden="true"
 	>

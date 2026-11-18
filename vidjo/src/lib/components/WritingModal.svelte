@@ -100,7 +100,7 @@
 				</div>
 				<button
 					type="button"
-					class="flex size-11 flex-none items-center justify-center rounded-xl border border-[#CDBBE9] bg-light text-accent transition-colors hover:bg-[#E4D8F6]"
+					class="flex size-11 flex-none items-center justify-center rounded-xl border border-line bg-light text-accent transition-colors hover:bg-paper-deep"
 					aria-label="Close full screen editor"
 					onclick={onClose}
 				>
@@ -111,7 +111,7 @@
 			<textarea
 				bind:this={textarea}
 				id={`${id}-text`}
-				class="block min-h-0 w-full flex-1 resize-none border-0 bg-transparent px-4 py-4 font-hand text-[22px] leading-[32px] text-ink placeholder:text-[#8E7FAA] focus:ring-0 min-[640px]:px-6 min-[640px]:text-[24px]"
+				class="block min-h-0 w-full flex-1 resize-none border-0 bg-transparent px-4 py-4 font-hand text-[22px] leading-[32px] text-ink placeholder:text-ink-muted focus:ring-0 min-[640px]:px-6 min-[640px]:text-[24px]"
 				class:paper-lined={paper === 'lined'}
 				class:paper-dotted={paper === 'dotted'}
 				class:paper-grid={paper === 'grid'}

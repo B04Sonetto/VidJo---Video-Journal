@@ -223,7 +223,7 @@
 
 {#if viewport.single}
 	<div
-		class="mx-auto mb-2.5 flex w-full max-w-[720px] items-center gap-1.5 rounded-2xl border border-[#5A4580]/60 bg-desk-2/95 p-1.5 shadow-[0_6px_18px_rgba(0,0,0,.3)]"
+		class="mx-auto mb-2.5 flex w-full max-w-[720px] items-center gap-1.5 rounded-2xl border border-cover-edge/60 bg-desk-2/95 p-1.5 shadow-[0_6px_18px_rgba(0,0,0,.3)]"
 		aria-label="Journal page"
 	>
 		<button
@@ -231,7 +231,7 @@
 			class="flex min-h-10 flex-1 items-center justify-center gap-1.5 rounded-xl px-3 font-ui text-[13px] font-bold transition-colors {journal.side ===
 			'L'
 				? 'bg-paper text-ink shadow-sm'
-				: 'text-[#D6CBEC] hover:bg-white/[.08] hover:text-white'}"
+				: 'text-lav hover:bg-white/[.08] hover:text-white'}"
 			aria-pressed={journal.side === 'L'}
 			onclick={() => setSide('L')}
 		>
@@ -243,7 +243,7 @@
 			class="flex min-h-10 flex-1 items-center justify-center gap-1.5 rounded-xl px-3 font-ui text-[13px] font-bold transition-colors {journal.side ===
 			'R'
 				? 'bg-paper text-ink shadow-sm'
-				: 'text-[#D6CBEC] hover:bg-white/[.08] hover:text-white'}"
+				: 'text-lav hover:bg-white/[.08] hover:text-white'}"
 			aria-pressed={journal.side === 'R'}
 			onclick={() => setSide('R')}
 		>
@@ -273,7 +273,7 @@
 				: 'h-[740px] w-[1160px]'}"
 		>
 			<div
-				class="cover absolute inset-0 rounded-[24px] bg-[linear-gradient(135deg,#523479,#3A2360_55%,#2E1A4E)] shadow-[0_32px_75px_rgba(0,0,0,.65),0_12px_28px_rgba(0,0,0,.45)] ring-1 ring-white/[.07] ring-inset"
+				class="cover absolute inset-0 rounded-[24px] bg-[linear-gradient(135deg,var(--color-cover),var(--color-cover-edge)_55%,var(--color-desk))] shadow-[0_32px_75px_rgba(0,0,0,.65),0_12px_28px_rgba(0,0,0,.45)] ring-1 ring-white/[.07] ring-inset"
 			></div>
 
 			{#if currentEntry}
@@ -369,7 +369,7 @@
 >
 	<button
 		type="button"
-		class="flex size-10 shrink-0 items-center justify-center rounded-full border-[1.5px] border-[#5A4580] bg-desk-2 text-white shadow-[0_4px_14px_rgba(0,0,0,.35)] transition-colors hover:bg-[#3A2A55] disabled:cursor-default disabled:opacity-35 disabled:hover:bg-desk-2 min-[480px]:size-12"
+		class="flex size-10 shrink-0 items-center justify-center rounded-full border-[1.5px] border-cover-edge bg-desk-2 text-white shadow-[0_4px_14px_rgba(0,0,0,.35)] transition-colors hover:bg-cover disabled:cursor-default disabled:opacity-35 disabled:hover:bg-desk-2 min-[480px]:size-12"
 		disabled={atStart}
 		aria-label="Previous page"
 		onclick={() => go(-1)}
@@ -378,7 +378,7 @@
 	</button>
 
 	<div
-		class="min-w-0 flex-1 text-center font-ui text-[13px] font-medium text-[#D6CBEC] tabular-nums min-[480px]:min-w-[160px] min-[480px]:flex-none min-[480px]:text-[15px]"
+		class="min-w-0 flex-1 text-center font-ui text-[13px] font-medium text-lav tabular-nums min-[480px]:min-w-[160px] min-[480px]:flex-none min-[480px]:text-[15px]"
 		aria-live="polite"
 	>
 		{pageLabel}
@@ -386,7 +386,7 @@
 
 	<button
 		type="button"
-		class="flex size-10 shrink-0 items-center justify-center rounded-full border-[1.5px] border-[#5A4580] bg-desk-2 text-white shadow-[0_4px_14px_rgba(0,0,0,.35)] transition-colors hover:bg-[#3A2A55] disabled:cursor-default disabled:opacity-35 disabled:hover:bg-desk-2 min-[480px]:size-12"
+		class="flex size-10 shrink-0 items-center justify-center rounded-full border-[1.5px] border-cover-edge bg-desk-2 text-white shadow-[0_4px_14px_rgba(0,0,0,.35)] transition-colors hover:bg-cover disabled:cursor-default disabled:opacity-35 disabled:hover:bg-desk-2 min-[480px]:size-12"
 		disabled={atEnd}
 		aria-label="Next page"
 		onclick={() => go(1)}
@@ -396,7 +396,7 @@
 
 	<button
 		type="button"
-		class="flex size-10 shrink-0 items-center justify-center rounded-full border-[1.5px] border-[#D19A9A] bg-desk-2 text-white shadow-[0_4px_14px_rgba(0,0,0,.35)] transition-colors hover:bg-[#3A222B] disabled:cursor-default disabled:opacity-35 disabled:hover:bg-desk-2 min-[480px]:size-12"
+		class="flex size-10 shrink-0 items-center justify-center rounded-full border-[1.5px] border-danger/60 bg-desk-2 text-white shadow-[0_4px_14px_rgba(0,0,0,.35)] transition-colors hover:bg-danger/20 disabled:cursor-default disabled:opacity-35 disabled:hover:bg-desk-2 min-[480px]:size-12"
 		aria-label="Delete this page"
 		onclick={deletePage}
 	>
@@ -421,10 +421,10 @@
 			aria-hidden="true"
 		></button>
 		<div
-			class="relative mx-4 max-w-[340px] rounded-2xl border border-[#5A4580] bg-desk-2 p-7 text-center text-white shadow-[0_30px_80px_rgba(0,0,0,.6)]"
+			class="relative mx-4 max-w-[340px] rounded-2xl border border-cover-edge bg-desk-2 p-7 text-center text-white shadow-[0_30px_80px_rgba(0,0,0,.6)]"
 		>
 			<h2 class="font-display text-xl font-bold text-balance">Delete this page?</h2>
-			<p class="mt-2.5 font-ui text-sm leading-relaxed text-[#D6CBEC]">
+			<p class="mt-2.5 font-ui text-sm leading-relaxed text-lav">
 				This permanently removes this journal entry and its video. It cannot be undone.
 			</p>
 			<div class="mt-6 flex justify-center gap-3">
@@ -527,26 +527,28 @@
 	.corner.next::before {
 		right: 0;
 		border-width: 0;
-		border-color: transparent transparent #e9dfc6 transparent;
+		border-color: transparent transparent var(--color-book-edge) transparent;
 	}
 
 	.corner.prev::before {
 		left: 0;
 		border-width: 0;
-		border-color: transparent transparent #e9dfc6 transparent;
+		border-color: transparent transparent var(--color-book-edge) transparent;
 	}
 
 	.corner.next:hover::before,
 	.corner.next:focus-visible::before {
 		border-width: 0 0 46px 46px;
-		border-color: transparent transparent #d2c29b transparent;
+		border-color: transparent transparent
+			color-mix(in srgb, var(--color-book-edge) 72%, var(--color-book-ink)) transparent;
 		filter: drop-shadow(-2px -2px 3px rgb(0 0 0 / 0.25));
 	}
 
 	.corner.prev:hover::before,
 	.corner.prev:focus-visible::before {
 		border-width: 0 46px 46px 0;
-		border-color: transparent transparent #d2c29b transparent;
+		border-color: transparent transparent
+			color-mix(in srgb, var(--color-book-edge) 72%, var(--color-book-ink)) transparent;
 		filter: drop-shadow(2px -2px 3px rgb(0 0 0 / 0.25));
 	}
 

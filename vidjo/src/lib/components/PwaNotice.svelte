@@ -38,14 +38,14 @@
 	});
 
 	const cardClass =
-		'fixed right-3 left-3 z-[65] mx-auto max-w-[430px] rounded-2xl border border-[#5A4580] bg-[#24143D]/98 p-4 shadow-[0_18px_50px_rgba(0,0,0,.55)] backdrop-blur-md bottom-[calc(env(safe-area-inset-bottom)+82px)] min-[900px]:right-6 min-[900px]:bottom-[max(24px,env(safe-area-inset-bottom))] min-[900px]:left-auto min-[900px]:mx-0 min-[900px]:w-[370px]';
+		'fixed right-3 left-3 z-[65] mx-auto max-w-[430px] rounded-2xl border border-cover-edge bg-desk-2/98 p-4 shadow-[0_18px_50px_rgba(0,0,0,.55)] backdrop-blur-md bottom-[calc(env(safe-area-inset-bottom)+82px)] min-[900px]:right-6 min-[900px]:bottom-[max(24px,env(safe-area-inset-bottom))] min-[900px]:left-auto min-[900px]:mx-0 min-[900px]:w-[370px]';
 </script>
 
 {#if pwa.offline}
 	<div
 		role="status"
 		aria-live="polite"
-		class="fixed top-[max(10px,env(safe-area-inset-top))] left-1/2 z-[75] flex w-[min(460px,calc(100vw-24px))] -translate-x-1/2 items-center gap-2.5 rounded-full border border-[#D4A24C]/45 bg-[#24143D]/96 px-4 py-2.5 font-ui text-[12.5px] font-semibold text-[#F4E8CB] shadow-[0_10px_28px_rgba(0,0,0,.45)] backdrop-blur-md"
+		class="fixed top-[max(10px,env(safe-area-inset-top))] left-1/2 z-[75] flex w-[min(460px,calc(100vw-24px))] -translate-x-1/2 items-center gap-2.5 rounded-full border border-[#D4A24C]/45 bg-desk-2/96 px-4 py-2.5 font-ui text-[12.5px] font-semibold text-[#F4E8CB] shadow-[0_10px_28px_rgba(0,0,0,.45)] backdrop-blur-md"
 		in:fly={{ y: -12, duration: 220, easing: backOut }}
 		out:fly={{ y: -8, duration: 150 }}
 	>
@@ -75,13 +75,13 @@
 			</span>
 			<div class="min-w-0 flex-1">
 				<p class="font-display text-lg leading-tight font-bold text-white">A fresh page is ready</p>
-				<p class="mt-1 font-ui text-xs leading-relaxed text-[#C9B8E8]">
+				<p class="mt-1 font-ui text-xs leading-relaxed text-lav">
 					Refresh to load the newest VidJo. Your journal and videos stay exactly where they are.
 				</p>
 			</div>
 			<button
 				type="button"
-				class="-mt-1 -mr-1 flex size-9 shrink-0 items-center justify-center rounded-full text-[#BBA8E0] transition-colors hover:bg-white/10 hover:text-white"
+				class="-mt-1 -mr-1 flex size-9 shrink-0 items-center justify-center rounded-full text-lav/80 transition-colors hover:bg-white/10 hover:text-white"
 				aria-label="Dismiss update"
 				onclick={() => pwa.dismissUpdate()}
 			>
@@ -92,7 +92,7 @@
 		<div class="mt-3 flex gap-2">
 			<button
 				type="button"
-				class="flex min-h-11 flex-1 items-center justify-center gap-2 rounded-xl bg-gold px-4 font-ui text-sm font-bold text-[#2A1B3F] transition-colors hover:bg-[#E0B266] active:scale-[.99]"
+				class="flex min-h-11 flex-1 items-center justify-center gap-2 rounded-xl bg-gold px-4 font-ui text-sm font-bold text-desk transition-colors hover:bg-[#E0B266] active:scale-[.99]"
 				onclick={() => pwa.applyUpdate()}
 			>
 				<CommunityIcon name="refresh" size={15} />
@@ -100,7 +100,7 @@
 			</button>
 			<button
 				type="button"
-				class="min-h-11 shrink-0 rounded-xl border border-[#5A4580] px-3.5 font-ui text-sm font-semibold text-[#D6CBEC] transition-colors hover:bg-white/10"
+				class="min-h-11 shrink-0 rounded-xl border border-cover-edge px-3.5 font-ui text-sm font-semibold text-lav transition-colors hover:bg-white/10"
 				onclick={() => pwa.dismissUpdate()}
 			>
 				Later
@@ -124,11 +124,11 @@
 			<div class="min-w-0 flex-1">
 				<p class="font-display text-lg leading-tight font-bold text-white">Keep VidJo close</p>
 				{#if pwa.canInstall}
-					<p class="mt-1 font-ui text-xs leading-relaxed text-[#C9B8E8]">
+					<p class="mt-1 font-ui text-xs leading-relaxed text-lav">
 						Install the app for a full-screen journal that opens straight from your home screen.
 					</p>
 				{:else}
-					<p class="mt-1 font-ui text-xs leading-relaxed text-[#C9B8E8]">
+					<p class="mt-1 font-ui text-xs leading-relaxed text-lav">
 						In Safari, tap <b class="text-white">Share</b>, then
 						<b class="text-white">Add to Home Screen</b> to keep VidJo one tap away.
 					</p>
@@ -136,7 +136,7 @@
 			</div>
 			<button
 				type="button"
-				class="-mt-1 -mr-1 flex size-9 shrink-0 items-center justify-center rounded-full text-[#BBA8E0] transition-colors hover:bg-white/10 hover:text-white"
+				class="-mt-1 -mr-1 flex size-9 shrink-0 items-center justify-center rounded-full text-lav/80 transition-colors hover:bg-white/10 hover:text-white"
 				aria-label="Dismiss install prompt"
 				onclick={() => (pwa.canInstall ? pwa.dismissInstall() : pwa.dismissIosHint())}
 			>
@@ -148,7 +148,7 @@
 			{#if pwa.canInstall}
 				<button
 					type="button"
-					class="flex min-h-11 flex-1 items-center justify-center gap-2 rounded-xl bg-gold px-4 font-ui text-sm font-bold text-[#2A1B3F] transition-colors hover:bg-[#E0B266] active:scale-[.99]"
+					class="flex min-h-11 flex-1 items-center justify-center gap-2 rounded-xl bg-gold px-4 font-ui text-sm font-bold text-desk transition-colors hover:bg-[#E0B266] active:scale-[.99]"
 					onclick={() => void pwa.promptInstall()}
 				>
 					<CommunityIcon name="rocket" size={15} />
@@ -156,7 +156,7 @@
 				</button>
 				<button
 					type="button"
-					class="min-h-11 shrink-0 rounded-xl border border-[#5A4580] px-3.5 font-ui text-sm font-semibold text-[#D6CBEC] transition-colors hover:bg-white/10"
+					class="min-h-11 shrink-0 rounded-xl border border-cover-edge px-3.5 font-ui text-sm font-semibold text-lav transition-colors hover:bg-white/10"
 					onclick={() => pwa.dismissInstall()}
 				>
 					Not now
@@ -164,7 +164,7 @@
 			{:else}
 				<button
 					type="button"
-					class="min-h-11 flex-1 rounded-xl bg-gold px-4 font-ui text-sm font-bold text-[#2A1B3F] transition-colors hover:bg-[#E0B266] active:scale-[.99]"
+					class="min-h-11 flex-1 rounded-xl bg-gold px-4 font-ui text-sm font-bold text-desk transition-colors hover:bg-[#E0B266] active:scale-[.99]"
 					onclick={() => pwa.dismissIosHint()}
 				>
 					Got it

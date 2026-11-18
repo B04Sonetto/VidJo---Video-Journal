@@ -65,13 +65,13 @@
 	{#each options as option (option.key)}
 		<button
 			type="button"
-			class="relative flex min-h-[68px] flex-col justify-between rounded-xl border-2 border-line bg-[#FFFDF6] p-2 text-left font-hand text-sm font-bold text-ink transition-all hover:bg-light disabled:pointer-events-none min-[400px]:p-2.5 min-[400px]:text-base min-[900px]:text-lg"
+			class="relative flex min-h-[68px] flex-col justify-between rounded-xl border-2 border-line bg-paper p-2 text-left font-hand text-sm font-bold text-ink transition-all hover:bg-light disabled:pointer-events-none min-[400px]:p-2.5 min-[400px]:text-base min-[900px]:text-lg"
 			class:border-accent={option.active}
 			class:ring-2={option.active}
 			class:ring-accent={option.active}
 			class:ring-offset-1={option.active}
-			class:shadow-[0_2px_8px_rgba(81,57,122,0.18)]={option.active}
-			class:bg-[linear-gradient(120deg,#EFE6FA,#F7F1FD)]={option.active}
+			class:shadow-[0_2px_8px_rgba(0,0,0,0.18)]={option.active}
+			class:bg-[linear-gradient(120deg,var(--color-paper-deep),var(--color-paper))]={option.active}
 			aria-pressed={option.active}
 			disabled={readonly}
 			onclick={option.toggle}

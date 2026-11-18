@@ -247,7 +247,7 @@
 		class="mx-auto flex min-h-[100dvh] w-full max-w-[620px] items-center justify-center px-4 py-10 min-[420px]:px-6"
 	>
 		<div
-			class="w-full rounded-[26px] border border-[#4A3670] bg-paper px-7 py-10 text-center text-ink shadow-[0_30px_80px_rgba(0,0,0,.55)] min-[420px]:px-10"
+			class="w-full rounded-[26px] border border-cover-edge bg-paper px-7 py-10 text-center text-ink shadow-[0_30px_80px_rgba(0,0,0,.55)] min-[420px]:px-10"
 		>
 			<h1 class="font-display text-3xl font-bold">Finish setting up VidJo</h1>
 			<p class="mt-2 font-hand text-xl leading-snug text-ink-soft">
@@ -256,7 +256,7 @@
 
 			{#if completionError}
 				<p
-					class="mt-4 rounded-xl border-[1.5px] border-[#D19A9A] bg-[#FBEAEA] px-3 py-2 font-ui text-sm text-[#8A2F2F]"
+					class="mt-4 rounded-xl border-[1.5px] border-danger/50 bg-danger/10 px-3 py-2 font-ui text-sm text-danger"
 				>
 					{completionError}
 				</p>
@@ -281,7 +281,7 @@
 					type="email"
 					value={completionEmail}
 					disabled
-					class="mt-1.5 h-12 w-full rounded-xl border-2 border-line bg-[#FFFDF6] px-3.5 font-ui text-base text-ink transition-colors"
+					class="mt-1.5 h-12 w-full rounded-xl border-2 border-line bg-paper px-3.5 font-ui text-base text-ink transition-colors"
 					readonly
 				/>
 
@@ -297,7 +297,7 @@
 					type="text"
 					placeholder="e.g. mara"
 					maxlength={USERNAME_MAX}
-					class="mt-1.5 h-12 w-full rounded-xl border-2 border-line bg-[#FFFDF6] px-3.5 font-ui text-base text-ink transition-colors placeholder:text-[#9B8CB5] focus:border-accent focus:outline-none"
+					class="mt-1.5 h-12 w-full rounded-xl border-2 border-line bg-paper px-3.5 font-ui text-base text-ink transition-colors placeholder:text-ink-muted focus:border-accent focus:outline-none"
 					autocomplete="username"
 				/>
 				<p class="mt-1 font-ui text-[11px] text-ink-soft">
@@ -316,7 +316,7 @@
 					type="text"
 					placeholder="e.g. Rice Shower"
 					maxlength="32"
-					class="mt-1.5 h-12 w-full rounded-xl border-2 border-line bg-[#FFFDF6] px-3.5 font-ui text-base text-ink transition-colors placeholder:text-[#9B8CB5] focus:border-accent focus:outline-none"
+					class="mt-1.5 h-12 w-full rounded-xl border-2 border-line bg-paper px-3.5 font-ui text-base text-ink transition-colors placeholder:text-ink-muted focus:border-accent focus:outline-none"
 					autocomplete="nickname"
 				/>
 				<p class="mt-1 font-ui text-[11px] text-ink-soft">
@@ -325,7 +325,7 @@
 
 				<button
 					type="submit"
-					class="mt-6 flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-accent font-ui text-[15px] font-bold text-white shadow-[0_4px_12px_rgba(42,27,61,.3)] transition-colors hover:bg-[#624690] disabled:cursor-wait disabled:opacity-70"
+					class="mt-6 flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-accent font-ui text-[15px] font-bold text-white shadow-[0_4px_12px_rgba(42,27,61,.3)] transition-colors hover:bg-accent-strong disabled:cursor-wait disabled:opacity-70"
 					disabled={completionBusy}
 				>
 					{#if completionBusy}

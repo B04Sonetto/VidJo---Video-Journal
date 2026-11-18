@@ -50,13 +50,19 @@
 
 	const badges = $derived.by<Badge[]>(() => {
 		const earned: Badge[] = [];
-		if (totalPages >= 1) earned.push({ id: 'first', label: 'First Page', icon: 'sparkles', tone: 'lav' });
+		if (totalPages >= 1)
+			earned.push({ id: 'first', label: 'First Page', icon: 'sparkles', tone: 'lav' });
 		if (totalPages >= 5) earned.push({ id: 'five', label: 'Scribbler', icon: 'book', tone: 'lav' });
-		if (totalPages >= 10) earned.push({ id: 'ten', label: 'Storyteller', icon: 'star', tone: 'gold' });
-		if (streak >= 3) earned.push({ id: 'streak3', label: '3-Day Streak', icon: 'flame', tone: 'gold' });
-		if (streak >= 7) earned.push({ id: 'streak7', label: 'Week Streak', icon: 'flame', tone: 'gold' });
-		if (friends.friendCount >= 1) earned.push({ id: 'friend', label: 'Friendly', icon: 'users', tone: 'green' });
-		if (friends.friendCount >= 3) earned.push({ id: 'circle', label: 'Social Circle', icon: 'users', tone: 'green' });
+		if (totalPages >= 10)
+			earned.push({ id: 'ten', label: 'Storyteller', icon: 'star', tone: 'gold' });
+		if (streak >= 3)
+			earned.push({ id: 'streak3', label: '3-Day Streak', icon: 'flame', tone: 'gold' });
+		if (streak >= 7)
+			earned.push({ id: 'streak7', label: 'Week Streak', icon: 'flame', tone: 'gold' });
+		if (friends.friendCount >= 1)
+			earned.push({ id: 'friend', label: 'Friendly', icon: 'users', tone: 'green' });
+		if (friends.friendCount >= 3)
+			earned.push({ id: 'circle', label: 'Social Circle', icon: 'users', tone: 'green' });
 		if (community.joinedCommunities.length >= 1) {
 			earned.push({ id: 'community', label: 'Community Member', icon: 'globe', tone: 'lav' });
 		}
@@ -331,7 +337,9 @@
 					</div>
 
 					{#if sharedPosts.length === 0}
-						<div class="mt-3 rounded-2xl border border-cover-edge bg-cover/20 px-5 py-7 text-center">
+						<div
+							class="mt-3 rounded-2xl border border-cover-edge bg-cover/20 px-5 py-7 text-center"
+						>
 							<span
 								class="mx-auto flex size-11 items-center justify-center rounded-full bg-cover/35 text-book-accent"
 							>

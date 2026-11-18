@@ -285,7 +285,9 @@
 		<div
 			class="relative flex aspect-[16/10] flex-col items-center justify-center overflow-hidden bg-[radial-gradient(ellipse_at_center,var(--color-cover)_0%,var(--color-desk)_85%)] text-center text-book-bg"
 		>
-			<span class="absolute top-3 left-4 flex items-center gap-1.5 font-mono text-[11px] text-red-300">
+			<span
+				class="absolute top-3 left-4 flex items-center gap-1.5 font-mono text-[11px] text-red-300"
+			>
 				<span class="size-2 animate-pulse rounded-full bg-red-400"></span>
 				REC
 			</span>
@@ -335,9 +337,9 @@
 {#snippet mindBlock(p: FriendPost, dark: boolean)}
 	{#if p.mind}
 		<div
-			class="mt-4 rounded px-4 py-3 [background-position:0_12px] {dark
+			class="mt-4 rounded [background-position:0_12px] px-4 py-3 {dark
 				? 'nb-dark-lines rounded-xl border border-book-accent/25 bg-desk/55'
-				: 'paper-lined border border-line/70 bg-book-bg'}"
+				: 'border border-line/70 bg-book-bg paper-lined'}"
 		>
 			<p
 				class="font-hand text-[22px] leading-[32px] [overflow-wrap:anywhere] whitespace-pre-wrap {dark
@@ -912,7 +914,7 @@
 							</span>
 							<p class="mt-4 font-display text-2xl font-bold">No shared pages yet</p>
 							<p
-								class="mx-auto mt-2 max-w-[320px] font-ui text-sm leading-relaxed text-book-ink/70 [overflow-wrap:anywhere]"
+								class="mx-auto mt-2 max-w-[320px] font-ui text-sm leading-relaxed [overflow-wrap:anywhere] text-book-ink/70"
 							>
 								{friend.displayName} has not shared any pages with friends so far. Check back soon.
 							</p>

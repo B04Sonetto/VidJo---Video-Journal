@@ -15,6 +15,7 @@
 	import CommunityIcon from '#lib/components/CommunityIcon.svelte';
 	import Avatar from '#lib/components/Avatar.svelte';
 	import Button from '#lib/components/ui/Button.svelte';
+	import { THEMES, type ThemeName } from '#lib/themes';
 	import { USERNAME_MAX, validateUsername } from '#lib/username';
 
 	const tabs: { id: ProfileTab; label: string }[] = [
@@ -26,18 +27,10 @@
 	];
 
 	const accentChoices = ['#51397A', '#7D58C2', '#D4A24C', '#3F7A4F', '#E85D5D', '#4F9DEB'];
-	const themes = [
-		{ id: 'classic', label: 'Classic Scrapbook', swatch: '#51397A' },
-		{ id: 'sunset', label: 'Sunset Warmth', swatch: '#B85C43' },
-		{ id: 'midnight', label: 'Midnight Study', swatch: '#1F3557' },
-		{ id: 'evergreen', label: 'Evergreen', swatch: '#3E6B52' },
-		{ id: 'rosewood', label: 'Rosewood', swatch: '#A8435C' },
-		{ id: 'harbor', label: 'Harbor', swatch: '#2F7C74' }
-	] as const;
 
 	const notebookStyles: { id: NotebookStyle; label: string; hint: string }[] = [
 		{ id: 'scrapbook', label: 'Scrapbook', hint: 'A cream note card' },
-		{ id: 'dark', label: 'Dark journal', hint: 'Purple page, gold edge' },
+		{ id: 'dark', label: 'Dark journal', hint: 'Dark page, gold edge' },
 		{ id: 'spread', label: 'Book spread', hint: 'Two pages, like a book' },
 		{ id: 'polaroid', label: 'Polaroid', hint: 'Taped photo and a note' }
 	];
@@ -72,7 +65,7 @@
 
 	type SettingsDraft = {
 		accentColor: string;
-		theme: (typeof themes)[number]['id'];
+		theme: ThemeName;
 		defaultPrivacy: 'private' | 'friends' | 'community';
 		allowFriendRequests: boolean;
 		clearCacheOnSignOut: boolean;
@@ -949,7 +942,7 @@
 
 				<p class="mt-6 font-ui text-xs font-semibold text-book-accent">Journal theme</p>
 				<div class="mt-2 grid gap-2">
-					{#each themes as theme (theme.id)}
+					{#each THEMES as theme (theme.id)}
 						<button
 							type="button"
 							class="flex items-center justify-between rounded-xl px-4 py-3 transition-colors {settingsDraft.theme ===
@@ -1055,7 +1048,8 @@
 									<span
 										class="absolute inset-x-4 inset-y-2 rotate-[-2deg] rounded-sm note-scrap shadow-md"
 									>
-										<span class="absolute top-2 left-2 h-1.5 w-8 rounded-full bg-book-accent/70"></span>
+										<span class="absolute top-2 left-2 h-1.5 w-8 rounded-full bg-book-accent/70"
+										></span>
 										<span class="absolute top-5 left-2 h-1 w-[70%] rounded-full bg-line"></span>
 										<span class="absolute top-7 left-2 h-1 w-[55%] rounded-full bg-line"></span>
 									</span>
@@ -1063,12 +1057,17 @@
 									<span
 										class="absolute inset-x-4 inset-y-2 rounded-md border border-book-accent/60 bg-[linear-gradient(160deg,var(--color-cover),var(--color-desk))]"
 									>
-										<span class="absolute top-2 left-2 h-1.5 w-8 rounded-full bg-book-accent"></span>
-										<span class="absolute top-5 left-2 h-1 w-[70%] rounded-full bg-book-accent/40"></span>
-										<span class="absolute top-7 left-2 h-1 w-[55%] rounded-full bg-book-accent/40"></span>
+										<span class="absolute top-2 left-2 h-1.5 w-8 rounded-full bg-book-accent"
+										></span>
+										<span class="absolute top-5 left-2 h-1 w-[70%] rounded-full bg-book-accent/40"
+										></span>
+										<span class="absolute top-7 left-2 h-1 w-[55%] rounded-full bg-book-accent/40"
+										></span>
 									</span>
 								{:else if option.id === 'spread'}
-									<span class="absolute inset-x-3 inset-y-2 flex overflow-hidden rounded-sm bg-cover-edge p-0.5">
+									<span
+										class="absolute inset-x-3 inset-y-2 flex overflow-hidden rounded-sm bg-cover-edge p-0.5"
+									>
 										<span class="relative flex-1 note-scrap">
 											<span class="absolute inset-2 rounded-sm bg-cover/50"></span>
 										</span>
@@ -1082,7 +1081,8 @@
 									<span
 										class="absolute top-2 left-4 h-[58px] w-[44px] rotate-[-5deg] rounded-[2px] note-scrap shadow-md"
 									>
-										<span class="absolute -top-1 left-2 h-1.5 w-5 rotate-[4deg] bg-book-accent/70"></span>
+										<span class="absolute -top-1 left-2 h-1.5 w-5 rotate-[4deg] bg-book-accent/70"
+										></span>
 										<span class="absolute inset-x-1 top-1.5 h-[36px] bg-cover/60"></span>
 									</span>
 									<span

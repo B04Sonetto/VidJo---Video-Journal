@@ -133,14 +133,14 @@
 		</svg>
 		<div>
 			VidJo
-			<small class="mt-0.5 block font-ui text-xs font-normal tracking-[.02em] text-[#BBA8E0]">
+			<small class="mt-0.5 block font-ui text-xs font-normal tracking-[.02em] text-lav/80">
 				Small videos, big thoughts.
 			</small>
 		</div>
 	</button>
 
 	<nav
-		class="hidden items-center gap-1 rounded-full border border-[#5A4580]/60 bg-[#2A1B3F]/80 p-1 shadow-[0_8px_24px_rgba(0,0,0,.25)] backdrop-blur-sm min-[900px]:flex"
+		class="hidden items-center gap-1 rounded-full border border-cover-edge/60 bg-desk-2/80 p-1 shadow-[0_8px_24px_rgba(0,0,0,.25)] backdrop-blur-sm min-[900px]:flex"
 		aria-label="Main"
 	>
 		<button
@@ -148,7 +148,7 @@
 			class="relative flex min-h-10 items-center gap-2 rounded-full px-4 py-2 font-ui text-[14px] transition-colors {nav.view ===
 			'journal'
 				? 'bg-white/15 font-semibold text-white'
-				: 'text-[#D6CBEC] hover:bg-white/[.08] hover:text-white'}"
+				: 'text-lav hover:bg-white/[.08] hover:text-white'}"
 			aria-current={nav.view === 'journal' ? 'page' : undefined}
 			onclick={() => nav.setView('journal')}
 		>
@@ -157,7 +157,7 @@
 		</button>
 		<button
 			type="button"
-			class="flex min-h-10 items-center gap-2 rounded-full px-4 py-2 font-ui text-[14px] text-[#D6CBEC] transition-colors hover:bg-white/[.08] hover:text-white"
+			class="flex min-h-10 items-center gap-2 rounded-full px-4 py-2 font-ui text-[14px] text-lav transition-colors hover:bg-white/[.08] hover:text-white"
 			onclick={onCalendar}
 		>
 			<CommunityIcon name="calendar" size={16} />
@@ -168,7 +168,7 @@
 			class="relative flex min-h-10 items-center gap-2 rounded-full px-4 py-2 font-ui text-[14px] transition-colors {nav.view ===
 			'friends'
 				? 'bg-white/15 font-semibold text-white'
-				: 'text-[#D6CBEC] hover:bg-white/[.08] hover:text-white'}"
+				: 'text-lav hover:bg-white/[.08] hover:text-white'}"
 			aria-current={nav.view === 'friends' ? 'page' : undefined}
 			onclick={() => nav.setView('friends')}
 		>
@@ -176,7 +176,7 @@
 			<span>Friends</span>
 			{#if friends.pendingCount > 0}
 				<span
-					class="absolute -top-1 -right-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-gold px-1 font-ui text-[10px] font-bold text-[#2A1B3F] tabular-nums shadow-[0_0_0_2px_#2A1B3F]"
+					class="absolute -top-1 -right-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-gold px-1 font-ui text-[10px] font-bold text-desk tabular-nums shadow-[0_0_0_2px_var(--color-desk)]"
 				>
 					{friends.pendingCount}
 				</span>
@@ -187,7 +187,7 @@
 			class="relative flex min-h-10 items-center gap-2 rounded-full px-4 py-2 font-ui text-[14px] transition-colors {nav.view ===
 			'community'
 				? 'bg-white/15 font-semibold text-white'
-				: 'text-[#D6CBEC] hover:bg-white/[.08] hover:text-white'}"
+				: 'text-lav hover:bg-white/[.08] hover:text-white'}"
 			aria-current={nav.view === 'community' ? 'page' : undefined}
 			onclick={() => nav.setView('community')}
 		>
@@ -199,7 +199,7 @@
 			class="relative flex min-h-10 items-center gap-2 rounded-full px-4 py-2 font-ui text-[14px] transition-colors {nav.view ===
 			'notifications'
 				? 'bg-white/15 font-semibold text-white'
-				: 'text-[#D6CBEC] hover:bg-white/[.08] hover:text-white'}"
+				: 'text-lav hover:bg-white/[.08] hover:text-white'}"
 			aria-current={nav.view === 'notifications' ? 'page' : undefined}
 			aria-label={`Notifications${friends.unreadCount > 0 ? `, ${friends.unreadCount} unread` : ''}`}
 			onclick={() => nav.setView('notifications')}
@@ -207,7 +207,7 @@
 			<CommunityIcon name="bell" size={16} />
 			{#if friends.unreadCount > 0}
 				<span
-					class="absolute -top-1 -right-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-danger px-1 font-ui text-[10px] font-bold text-white tabular-nums shadow-[0_0_0_2px_#2A1B3F]"
+					class="absolute -top-1 -right-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-danger px-1 font-ui text-[10px] font-bold text-white tabular-nums shadow-[0_0_0_2px_var(--color-desk)]"
 				>
 					{friends.unreadCount > 9 ? '9+' : friends.unreadCount}
 				</span>
@@ -228,7 +228,7 @@
 		<div class="relative" data-account-menu>
 			<button
 				type="button"
-				class="relative flex min-h-11 items-center gap-2 rounded-full border border-[#5A4580] bg-[#33224D] p-1 pr-3 text-left transition-colors hover:bg-[#43306A]"
+				class="relative flex min-h-11 items-center gap-2 rounded-full border border-cover-edge bg-cover/25 p-1 pr-3 text-left transition-colors hover:bg-cover/40"
 				aria-haspopup="menu"
 				aria-expanded={menuOpen}
 				aria-label={`Account menu for ${profile.displayName}`}
@@ -246,7 +246,7 @@
 				/>
 				{#if newReports > 0}
 					<span
-						class="absolute -top-0.5 -right-0.5 flex h-[18px] min-w-[18px] items-center justify-center rounded-full border-2 border-[#33224D] bg-[#D9534F] px-1 font-ui text-[9px] font-bold text-white tabular-nums"
+						class="absolute -top-0.5 -right-0.5 flex h-[18px] min-w-[18px] items-center justify-center rounded-full border-2 border-desk-2 bg-[#D9534F] px-1 font-ui text-[9px] font-bold text-white tabular-nums"
 						aria-label={`${newReports} new ${newReports === 1 ? 'report' : 'reports'}`}
 						title={`${newReports} new ${newReports === 1 ? 'report' : 'reports'}`}
 					>
@@ -257,14 +257,14 @@
 					<span class="truncate font-ui text-sm leading-tight font-semibold text-white">
 						{profile.displayName}
 					</span>
-					<span class="truncate font-ui text-[11px] text-[#C9B8E8]">
+					<span class="truncate font-ui text-[11px] text-lav">
 						@{profile.username}
 					</span>
 				</div>
 				<CommunityIcon
 					name="chevron-down"
 					size={15}
-					class="text-[#BBA8E0] transition-transform {menuOpen ? 'rotate-180' : ''}"
+					class="text-lav/80 transition-transform {menuOpen ? 'rotate-180' : ''}"
 				/>
 			</button>
 
@@ -295,8 +295,7 @@
 							ring="border-[3px] border-book-accent/60 shadow-[0_10px_22px_rgba(0,0,0,.4)]"
 						/>
 						<div class="relative min-w-0 flex-1">
-							<b
-								class="block truncate font-display text-xl leading-tight font-bold text-book-bg"
+							<b class="block truncate font-display text-xl leading-tight font-bold text-book-bg"
 								>{profile.displayName}</b
 							>
 							<span class="block truncate font-ui text-xs font-semibold text-book-accent"
@@ -379,7 +378,7 @@
 
 						<button
 							type="button"
-							class="mt-4 flex min-h-10 w-full items-center justify-center gap-2 rounded-xl border border-[#D19A9A]/60 bg-[#3A222B] px-4 font-ui text-xs font-bold text-white transition-colors hover:bg-[#4A2A32]"
+							class="mt-4 flex min-h-10 w-full items-center justify-center gap-2 rounded-xl border border-danger/50 bg-danger/20 px-4 font-ui text-xs font-bold text-white transition-colors hover:bg-danger/30"
 							role="menuitem"
 							onclick={signOut}
 						>
@@ -397,7 +396,7 @@
 		<!-- Offline / Device-only profile pill -->
 		<button
 			type="button"
-			class="flex size-[42px] shrink-0 items-center justify-center rounded-full bg-[linear-gradient(135deg,#C9B8E8,#8B6FD0)] font-display text-lg font-bold text-white shadow-[0_0_0_2px_var(--color-gold)] transition-transform hover:scale-105"
+			class="flex size-[42px] shrink-0 items-center justify-center rounded-full bg-[linear-gradient(135deg,var(--color-accent),var(--color-accent-strong))] font-display text-lg font-bold text-white shadow-[0_0_0_2px_var(--color-gold)] transition-transform hover:scale-105"
 			onclick={() => nav.openProfile('overview')}
 			title="View your profile"
 		>
@@ -408,7 +407,7 @@
 
 <!-- Mobile Bottom Navigation -->
 <nav
-	class="fixed right-0 bottom-0 left-0 z-40 mx-auto flex max-w-[480px] items-center justify-around rounded-t-3xl border border-x-[#5A4580]/40 border-t-[#5A4580]/60 bg-[#1C142B]/95 px-2 pt-2 pb-[calc(env(safe-area-inset-bottom)+6px)] shadow-[0_-16px_40px_rgba(0,0,0,.45)] backdrop-blur-lg min-[900px]:hidden"
+	class="fixed right-0 bottom-0 left-0 z-40 mx-auto flex max-w-[480px] items-center justify-around rounded-t-3xl border border-x-cover-edge/40 border-t-cover-edge/60 bg-desk/95 px-2 pt-2 pb-[calc(env(safe-area-inset-bottom)+6px)] shadow-[0_-16px_40px_rgba(0,0,0,.45)] backdrop-blur-lg min-[900px]:hidden"
 	aria-label="Mobile navigation"
 >
 	<button
@@ -416,7 +415,7 @@
 		class="flex flex-col items-center gap-1 rounded-2xl px-3 py-1.5 transition-colors {nav.view ===
 		'journal'
 			? 'bg-white/15 text-white shadow-[inset_0_1px_0_rgba(255,255,255,.12)]'
-			: 'text-[#BBA8E0] hover:bg-white/[.07] hover:text-white'}"
+			: 'text-lav/80 hover:bg-white/[.07] hover:text-white'}"
 		aria-current={nav.view === 'journal' ? 'page' : undefined}
 		onclick={() => nav.setView('journal')}
 	>
@@ -425,7 +424,7 @@
 	</button>
 	<button
 		type="button"
-		class="flex flex-col items-center gap-1 rounded-2xl px-3 py-1.5 text-[#BBA8E0] transition-colors hover:bg-white/[.07] hover:text-white"
+		class="flex flex-col items-center gap-1 rounded-2xl px-3 py-1.5 text-lav/80 transition-colors hover:bg-white/[.07] hover:text-white"
 		onclick={onCalendar}
 	>
 		<CommunityIcon name="calendar" size={20} />
@@ -436,7 +435,7 @@
 		class="relative flex flex-col items-center gap-1 rounded-2xl px-3 py-1.5 transition-colors {nav.view ===
 		'friends'
 			? 'bg-white/15 text-white shadow-[inset_0_1px_0_rgba(255,255,255,.12)]'
-			: 'text-[#BBA8E0] hover:bg-white/[.07] hover:text-white'}"
+			: 'text-lav/80 hover:bg-white/[.07] hover:text-white'}"
 		aria-current={nav.view === 'friends' ? 'page' : undefined}
 		onclick={() => nav.setView('friends')}
 	>
@@ -444,7 +443,7 @@
 		<span class="font-ui text-[10px] font-semibold">Friends</span>
 		{#if friends.pendingCount > 0}
 			<span
-				class="absolute -top-0.5 right-2 flex h-4 min-w-4 items-center justify-center rounded-full bg-gold px-1 font-ui text-[9px] font-bold text-[#2A1B3F] tabular-nums"
+				class="absolute -top-0.5 right-2 flex h-4 min-w-4 items-center justify-center rounded-full bg-gold px-1 font-ui text-[9px] font-bold text-desk tabular-nums"
 			>
 				{friends.pendingCount}
 			</span>
@@ -455,7 +454,7 @@
 		class="flex flex-col items-center gap-1 rounded-2xl px-3 py-1.5 transition-colors {nav.view ===
 		'community'
 			? 'bg-white/15 text-white shadow-[inset_0_1px_0_rgba(255,255,255,.12)]'
-			: 'text-[#BBA8E0] hover:bg-white/[.07] hover:text-white'}"
+			: 'text-lav/80 hover:bg-white/[.07] hover:text-white'}"
 		aria-current={nav.view === 'community' ? 'page' : undefined}
 		onclick={() => nav.setView('community')}
 	>
@@ -467,7 +466,7 @@
 		class="relative flex flex-col items-center gap-1 rounded-2xl px-3 py-1.5 transition-colors {nav.view ===
 		'notifications'
 			? 'bg-white/15 text-white shadow-[inset_0_1px_0_rgba(255,255,255,.12)]'
-			: 'text-[#BBA8E0] hover:bg-white/[.07] hover:text-white'}"
+			: 'text-lav/80 hover:bg-white/[.07] hover:text-white'}"
 		aria-current={nav.view === 'notifications' ? 'page' : undefined}
 		aria-label={`Notifications${friends.unreadCount > 0 ? `, ${friends.unreadCount} unread` : ''}`}
 		onclick={() => nav.setView('notifications')}
@@ -487,7 +486,7 @@
 		class="flex flex-col items-center gap-1 rounded-2xl px-3 py-1.5 transition-colors {nav.view ===
 		'profile'
 			? 'bg-white/15 text-white shadow-[inset_0_1px_0_rgba(255,255,255,.12)]'
-			: 'text-[#BBA8E0] hover:bg-white/[.07] hover:text-white'}"
+			: 'text-lav/80 hover:bg-white/[.07] hover:text-white'}"
 		aria-current={nav.view === 'profile' ? 'page' : undefined}
 		onclick={() => nav.openProfile('overview')}
 	>

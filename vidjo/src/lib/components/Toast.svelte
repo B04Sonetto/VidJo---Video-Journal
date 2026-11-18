@@ -8,7 +8,7 @@
 	{#key journal.toastSeq}
 		<div
 			role="status"
-			class="fixed bottom-[calc(env(safe-area-inset-bottom)+82px)] left-1/2 z-[70] flex max-w-[calc(100vw-32px)] -translate-x-1/2 items-center gap-2.5 rounded-full border border-[#D6C7EE] bg-[#F7F2FD]/95 px-5 py-3 font-ui text-[14px] font-semibold text-ink shadow-[0_12px_32px_rgba(30,16,46,.45)] backdrop-blur-md min-[900px]:bottom-[max(24px,env(safe-area-inset-bottom))]"
+			class="fixed bottom-[calc(env(safe-area-inset-bottom)+82px)] left-1/2 z-[70] flex max-w-[calc(100vw-32px)] -translate-x-1/2 items-center gap-2.5 rounded-full border border-line bg-paper/95 px-5 py-3 font-ui text-[14px] font-semibold text-ink shadow-[0_12px_32px_rgba(30,16,46,.45)] backdrop-blur-md min-[900px]:bottom-[max(24px,env(safe-area-inset-bottom))]"
 			in:fly={{ y: 22, duration: 280, easing: backOut }}
 			out:fly={{ y: 10, duration: 180 }}
 		>

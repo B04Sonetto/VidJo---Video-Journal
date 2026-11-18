@@ -404,7 +404,7 @@
 		onclick={backdrop}
 	>
 		<div
-			class="w-[min(820px,100%)] rounded-[24px] border border-[#4A3670] bg-desk-2 p-4 text-white shadow-[0_30px_80px_rgba(0,0,0,.65)] sm:p-6"
+			class="w-[min(820px,100%)] rounded-[24px] border border-cover-edge bg-desk-2 p-4 text-white shadow-[0_30px_80px_rgba(0,0,0,.65)] sm:p-6"
 			role="dialog"
 			aria-modal="true"
 			aria-labelledby="record-title"
@@ -415,11 +415,11 @@
 					<h2 id="record-title" class="m-0 font-display text-[28px] leading-tight font-bold">
 						Record a VidJo
 					</h2>
-					<p id="record-help" class="mt-1 font-hand text-lg text-[#C9B8E8]">
+					<p id="record-help" class="mt-1 font-hand text-lg text-lav">
 						Up to 3 minutes. Take your time — it is your page.
 					</p>
 					{#if !mp4RecordingSupported()}
-						<p class="mt-1 font-ui text-[11px] leading-snug text-[#A892CE]">
+						<p class="mt-1 font-ui text-[11px] leading-snug text-lav/70">
 							This browser records WebM, which may not play in Safari. Upload an MP4 if you need it
 							to play everywhere.
 						</p>
@@ -429,7 +429,7 @@
 				<button
 					bind:this={closeButton}
 					type="button"
-					class="flex size-11 flex-none items-center justify-center rounded-xl border border-[#5A4580] bg-[#33224D] text-white hover:bg-[#43306A] disabled:opacity-50"
+					class="flex size-11 flex-none items-center justify-center rounded-xl border border-cover-edge bg-cover/25 text-white hover:bg-cover/40 disabled:opacity-50"
 					aria-label="Close video recorder"
 					disabled={saving}
 					onclick={close}
@@ -450,7 +450,7 @@
 			</div>
 
 			<div
-				class="relative aspect-video overflow-hidden rounded-2xl border border-[#4A3670] bg-[#120A20]"
+				class="relative aspect-video overflow-hidden rounded-2xl border border-cover-edge bg-desk"
 			>
 				{#if stage === 'review'}
 					<video
@@ -458,14 +458,14 @@
 						src={reviewUrl}
 						controls
 						playsinline
-						class="block h-full w-full bg-[#120A20] object-contain"
+						class="block h-full w-full bg-desk object-contain"
 					>
 						<track kind="captions" />
 					</video>
 				{:else if stage === 'error'}
 					<div class="flex h-full flex-col items-center justify-center gap-3 px-6 text-center">
 						<div
-							class="flex size-14 items-center justify-center rounded-full border border-[#6A528F] bg-[#33224D] text-gold"
+							class="flex size-14 items-center justify-center rounded-full border border-cover-edge bg-cover/25 text-gold"
 						>
 							<svg
 								width="28"
@@ -482,7 +482,7 @@
 								<path d="M15.5 10.5l6-3.5v10l-6-3.5z"></path>
 							</svg>
 						</div>
-						<p class="max-w-[440px] font-hand text-xl leading-snug text-[#EDE6F7]" role="alert">
+						<p class="max-w-[440px] font-hand text-xl leading-snug text-book-bg" role="alert">
 							{error}
 						</p>
 						<div class="mt-1 flex flex-wrap justify-center gap-2.5">
@@ -496,7 +496,7 @@
 							{#if onUpload}
 								<button
 									type="button"
-									class="min-h-11 rounded-xl bg-accent px-4 font-ui text-sm font-medium text-white hover:bg-[#624690]"
+									class="min-h-11 rounded-xl bg-accent px-4 font-ui text-sm font-medium text-white hover:bg-accent-strong"
 									onclick={uploadInstead}
 								>
 									Upload a video instead
@@ -510,12 +510,12 @@
 						autoplay
 						muted
 						playsinline
-						class="block h-full w-full bg-[#120A20] object-contain {mirrored ? '-scale-x-100' : ''}"
+						class="block h-full w-full bg-desk object-contain {mirrored ? '-scale-x-100' : ''}"
 					></video>
 
 					{#if stage === 'requesting' || stage === 'processing'}
 						<div
-							class="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-[#120A20]/75 px-5 text-center"
+							class="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-desk/75 px-5 text-center"
 						>
 							<svg
 								class="size-8 animate-spin text-gold"
@@ -532,7 +532,7 @@
 									stroke-linecap="round"
 								></path>
 							</svg>
-							<p class="font-ui text-sm text-[#D6CBEC]" role="status">
+							<p class="font-ui text-sm text-lav" role="status">
 								{stage === 'requesting' ? 'Starting camera…' : 'Finishing your video…'}
 							</p>
 						</div>
@@ -540,7 +540,7 @@
 
 					{#if stage === 'recording'}
 						<div
-							class="absolute top-3 left-3 flex items-center gap-2 rounded-full bg-[#120A20]/75 px-3 py-1.5 font-ui text-sm font-medium text-white"
+							class="absolute top-3 left-3 flex items-center gap-2 rounded-full bg-desk/75 px-3 py-1.5 font-ui text-sm font-medium text-white"
 							aria-hidden="true"
 						>
 							<span class="size-2.5 animate-pulse rounded-full bg-[#E05A5A]"></span>
@@ -551,7 +551,7 @@
 
 				{#if saving}
 					<div
-						class="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 bg-[#120A20]/85 px-5 text-center"
+						class="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 bg-desk/85 px-5 text-center"
 					>
 						<svg
 							class="size-8 animate-spin text-gold"
@@ -568,7 +568,7 @@
 								stroke-linecap="round"
 							></path>
 						</svg>
-						<p class="font-ui text-sm text-[#D6CBEC]" role="status">Saving your video…</p>
+						<p class="font-ui text-sm text-lav" role="status">Saving your video…</p>
 					</div>
 				{/if}
 			</div>
@@ -576,12 +576,12 @@
 			{#if stage !== 'error'}
 				<div class="mt-4 flex flex-wrap items-center justify-center gap-3">
 					{#if stage === 'review'}
-						<span class="mr-auto font-ui text-sm text-[#BBA8E0]">
+						<span class="mr-auto font-ui text-sm text-lav/80">
 							Recorded {formatTime(elapsed)}
 						</span>
 						<button
 							type="button"
-							class="min-h-11 rounded-xl border-[1.5px] border-[#5A4580] bg-[#33224D] px-4 font-ui text-sm font-medium text-white hover:bg-[#43306A] disabled:opacity-50"
+							class="min-h-11 rounded-xl border-[1.5px] border-cover-edge bg-cover/25 px-4 font-ui text-sm font-medium text-white hover:bg-cover/40 disabled:opacity-50"
 							disabled={saving}
 							onclick={retake}
 						>
@@ -589,7 +589,7 @@
 						</button>
 						<button
 							type="button"
-							class="min-h-11 rounded-xl bg-accent px-5 font-ui text-sm font-bold text-white hover:bg-[#624690] disabled:cursor-wait disabled:opacity-60"
+							class="min-h-11 rounded-xl bg-accent px-5 font-ui text-sm font-bold text-white hover:bg-accent-strong disabled:cursor-wait disabled:opacity-60"
 							disabled={saving}
 							onclick={useVideo}
 						>
@@ -606,14 +606,14 @@
 							Stop recording
 						</button>
 					{:else if stage === 'processing'}
-						<span class="font-ui text-sm text-[#BBA8E0]">Almost there…</span>
+						<span class="font-ui text-sm text-lav/80">Almost there…</span>
 					{:else}
-						<span class="mr-auto font-ui text-sm text-[#BBA8E0]">
+						<span class="mr-auto font-ui text-sm text-lav/80">
 							{stage === 'requesting' ? 'Waiting for camera…' : 'Camera ready'}
 						</span>
 						<button
 							type="button"
-							class="min-h-11 rounded-xl border-[1.5px] border-[#5A4580] bg-[#33224D] px-4 font-ui text-sm font-medium text-white hover:bg-[#43306A] disabled:opacity-40"
+							class="min-h-11 rounded-xl border-[1.5px] border-cover-edge bg-cover/25 px-4 font-ui text-sm font-medium text-white hover:bg-cover/40 disabled:opacity-40"
 							disabled={stage !== 'ready'}
 							onclick={flipCamera}
 						>
@@ -621,7 +621,7 @@
 						</button>
 						<button
 							type="button"
-							class="flex min-h-11 items-center gap-2 rounded-xl bg-accent px-5 font-ui text-sm font-bold text-white hover:bg-[#624690] disabled:cursor-wait disabled:opacity-40"
+							class="flex min-h-11 items-center gap-2 rounded-xl bg-accent px-5 font-ui text-sm font-bold text-white hover:bg-accent-strong disabled:cursor-wait disabled:opacity-40"
 							disabled={stage !== 'ready'}
 							onclick={startRecording}
 						>
@@ -633,7 +633,7 @@
 				</div>
 			{/if}
 
-			<p class="mt-4 text-center font-hand text-base text-[#9E8CC0]">
+			<p class="mt-4 text-center font-hand text-base text-lav/60">
 				Your video stays private to your journal. It is saved on this device until it syncs.
 			</p>
 		</div>

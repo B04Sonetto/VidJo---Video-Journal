@@ -31,16 +31,16 @@
 
 {#if moderation.banned}
 	<div
-		class="fixed inset-0 z-[90] flex items-center justify-center overflow-y-auto bg-[#120A20]/95 px-4 py-8"
+		class="fixed inset-0 z-[90] flex items-center justify-center overflow-y-auto bg-desk/95 px-4 py-8"
 		role="dialog"
 		aria-modal="true"
 		aria-labelledby="banTitle"
 	>
 		<div
-			class="w-full max-w-[520px] rounded-[26px] border border-[#D19A9A]/60 bg-[#24143D] p-7 text-center text-white shadow-[0_40px_120px_rgba(0,0,0,.75)] min-[480px]:p-9"
+			class="w-full max-w-[520px] rounded-[26px] border border-danger/50 bg-desk-2 p-7 text-center text-white shadow-[0_40px_120px_rgba(0,0,0,.75)] min-[480px]:p-9"
 		>
 			<span
-				class="mx-auto flex size-16 items-center justify-center rounded-full bg-[#D19A9A]/15 text-[#F0A3A3]"
+				class="mx-auto flex size-16 items-center justify-center rounded-full bg-danger/15 text-danger-soft"
 			>
 				<svg
 					width="30"
@@ -61,31 +61,31 @@
 			<h1 id="banTitle" class="mt-4 font-display text-3xl leading-tight font-bold">
 				Your account is suspended
 			</h1>
-			<p class="mt-2 font-ui text-sm leading-relaxed text-[#D6CBEC]">
+			<p class="mt-2 font-ui text-sm leading-relaxed text-lav">
 				A moderator has paused your access to VidJo. This is a suspension, not a deletion — your
 				journal, videos, and friends are still saved.
 			</p>
 
-			<div class="mt-5 rounded-2xl border border-[#D19A9A]/30 bg-[#1B102B] px-4 py-4 text-left">
-				<p class="font-ui text-[11px] font-bold tracking-wide text-[#F0A3A3] uppercase">Reason</p>
+			<div class="mt-5 rounded-2xl border border-danger/30 bg-desk px-4 py-4 text-left">
+				<p class="font-ui text-[11px] font-bold tracking-wide text-danger-soft uppercase">Reason</p>
 				<p class="mt-1 font-ui text-sm leading-relaxed text-white">
 					{moderation.banReason || 'Repeated or serious community guideline violations.'}
 				</p>
 				{#if moderation.bannedAt}
-					<p class="mt-2 font-ui text-[11px] text-[#9E8CC0]">
+					<p class="mt-2 font-ui text-[11px] text-lav/70">
 						Suspended {formatDate(moderation.bannedAt)}
 					</p>
 				{/if}
 			</div>
 
-			<p class="mt-4 font-ui text-xs leading-relaxed text-[#9E8CC0]">
+			<p class="mt-4 font-ui text-xs leading-relaxed text-lav/70">
 				If you believe this was a mistake, contact a VidJo moderator. They can restore access
 				without losing any of your pages.
 			</p>
 
 			<button
 				type="button"
-				class="mt-6 h-11 w-full rounded-xl border border-[#5A4580] bg-[#33224D] font-ui text-sm font-bold text-white transition-colors hover:bg-[#43306A]"
+				class="mt-6 h-11 w-full rounded-xl border border-cover-edge bg-cover/25 font-ui text-sm font-bold text-white transition-colors hover:bg-cover/40"
 				onclick={() => void auth.signOut()}
 			>
 				Sign out
@@ -94,7 +94,7 @@
 	</div>
 {:else if activeWarning}
 	<div
-		class="fixed inset-0 z-[80] flex items-center justify-center overflow-y-auto bg-[#120A20]/85 px-4 py-8"
+		class="fixed inset-0 z-[80] flex items-center justify-center overflow-y-auto bg-desk/85 px-4 py-8"
 		role="dialog"
 		aria-modal="true"
 		aria-labelledby="warningTitle"
@@ -140,7 +140,7 @@
 			<p class="mt-1.5 font-hand text-xl leading-snug text-ink">{activeWarning.message}</p>
 
 			<div
-				class="mt-4 rounded-xl bg-[#FFFDF6] px-3 py-2 font-ui text-[11px] leading-relaxed text-ink-soft"
+				class="mt-4 rounded-xl bg-paper-deep/50 px-3 py-2 font-ui text-[11px] leading-relaxed text-ink-soft"
 			>
 				Your page or comment was <b class="text-ink">not deleted</b>. This warning stays on your
 				account so you can see why it was sent. Repeated abuse can lead to a temporary suspension.
@@ -154,7 +154,7 @@
 
 			<button
 				type="button"
-				class="mt-5 h-11 w-full rounded-xl bg-accent font-ui text-sm font-bold text-white transition-colors hover:bg-[#624690] disabled:cursor-wait disabled:opacity-70"
+				class="mt-5 h-11 w-full rounded-xl bg-accent font-ui text-sm font-bold text-white transition-colors hover:bg-accent-strong disabled:cursor-wait disabled:opacity-70"
 				disabled={acknowledging}
 				onclick={() => void acknowledge()}
 			>

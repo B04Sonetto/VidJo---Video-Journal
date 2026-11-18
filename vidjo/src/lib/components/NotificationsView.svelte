@@ -172,7 +172,7 @@
 	{:else}
 		<!-- The letter tray -->
 		<section
-			class="relative mt-6 overflow-hidden rounded-[22px] border border-[#4A3670] bg-desk-2 p-5 shadow-[0_14px_34px_rgba(0,0,0,.35)] min-[720px]:p-6"
+			class="relative mt-6 overflow-hidden rounded-[22px] border border-cover-edge bg-desk-2 p-5 shadow-[0_14px_34px_rgba(0,0,0,.35)] min-[720px]:p-6"
 			aria-labelledby="tray-summary"
 		>
 			<span
@@ -197,7 +197,7 @@
 					>
 						Everything that needs you, in one quiet place.
 					</h2>
-					<p class="mt-1 font-hand text-lg leading-snug text-[#CFC3E6]">
+					<p class="mt-1 font-hand text-lg leading-snug text-lav">
 						Opening this page marks the tray as read. No pings, no email, no noise.
 					</p>
 				</div>
@@ -254,7 +254,7 @@
 
 		<!-- Index tabs -->
 		<div
-			class="mt-6 flex flex-wrap items-end justify-between gap-x-4 gap-y-2 border-b border-[#4D366D]"
+			class="mt-6 flex flex-wrap items-end justify-between gap-x-4 gap-y-2 border-b border-cover-edge"
 		>
 			<div
 				class="-mb-px flex max-w-full items-end gap-1 overflow-x-auto"
@@ -267,26 +267,26 @@
 						type="button"
 						class="-mb-px inline-flex shrink-0 items-center gap-1.5 rounded-t-[10px] border border-b-0 px-3.5 pt-2 pb-2 font-ui text-xs font-bold transition-colors {active
 							? 'border-line bg-book-bg text-book-ink'
-							: 'border-[#4D366D] text-[#CFC3E6] hover:text-white'}"
+							: 'border-cover-edge text-lav hover:text-white'}"
 						onclick={() => (filter = item.key)}
 						aria-pressed={active}
 					>
 						<span
-							class="size-1.5 rounded-full {active ? 'bg-gold' : 'bg-[#6B558E]'}"
+							class="size-1.5 rounded-full {active ? 'bg-gold' : 'bg-lav/50'}"
 							aria-hidden="true"
 						></span>
 						{item.label}
 						<span
 							class="rounded-full px-1.5 py-0.5 text-[10px] tabular-nums {active
 								? 'bg-book-edge text-book-ink/70'
-								: 'bg-white/10 text-[#BBA8E0]'}"
+								: 'bg-white/10 text-lav/80'}"
 						>
 							{item.count}
 						</span>
 					</button>
 				{/each}
 			</div>
-			<span class="pb-2 font-ui text-[11px] text-[#BBA8E0] tabular-nums">
+			<span class="pb-2 font-ui text-[11px] text-lav/80 tabular-nums">
 				{visibleCount}
 				{visibleCount === 1 ? 'note' : 'notes'} shown
 			</span>
@@ -321,7 +321,7 @@
 								aria-hidden="true"
 							></span>
 						</div>
-						<p class="mt-1 mb-3 font-hand text-lg leading-snug text-[#BBA8E0]">
+						<p class="mt-1 mb-3 font-hand text-lg leading-snug text-lav/80">
 							People who would like to read the pages you share.
 						</p>
 
@@ -427,7 +427,7 @@
 								aria-hidden="true"
 							></span>
 						</div>
-						<p class="mt-1 mb-3 font-hand text-lg leading-snug text-[#BBA8E0]">
+						<p class="mt-1 mb-3 font-hand text-lg leading-snug text-lav/80">
 							Comments left on the pages you chose to share.
 						</p>
 
@@ -506,17 +506,17 @@
 
 				{#if filter !== 'all' && visibleCount === 0}
 					<div
-						class="relative overflow-hidden rounded-[20px] border border-dashed border-[#5A4580] bg-white/[.02] px-6 py-12 text-center"
+						class="relative overflow-hidden rounded-[20px] border border-dashed border-cover-edge bg-white/[.02] px-6 py-12 text-center"
 					>
 						<span
 							class="mx-auto flex size-14 items-center justify-center rounded-full bg-white/[.04] text-gold/70"
 						>
 							<CommunityIcon name={filter === 'requests' ? 'users' : 'pen'} size={24} />
 						</span>
-						<p class="mt-4 font-display text-2xl font-bold text-[#EDE6F7]">
+						<p class="mt-4 font-display text-2xl font-bold text-book-bg">
 							{filter === 'requests' ? 'No invitations waiting.' : 'No notes in the margins yet.'}
 						</p>
-						<p class="mx-auto mt-1.5 max-w-[380px] font-hand text-lg leading-snug text-[#BBA8E0]">
+						<p class="mx-auto mt-1.5 max-w-[380px] font-hand text-lg leading-snug text-lav/80">
 							{filter === 'requests'
 								? 'When someone asks to read your shared pages, their invitation lands here.'
 								: 'When someone leaves a note on a page you shared, it will appear here.'}
@@ -589,7 +589,7 @@
 				</section>
 
 				<section
-					class="relative overflow-hidden rounded-[20px] border border-[#4A3670] bg-desk-2 p-5 shadow-[0_10px_26px_rgba(0,0,0,.3)]"
+					class="relative overflow-hidden rounded-[20px] border border-cover-edge bg-desk-2 p-5 shadow-[0_10px_26px_rgba(0,0,0,.3)]"
 				>
 					<span
 						class="pointer-events-none absolute -top-8 -right-6 size-24 rounded-full border border-dashed border-gold/20"
@@ -613,7 +613,7 @@
 					>
 						Only the good stuff.
 					</h2>
-					<p class="relative mt-1.5 font-hand text-lg leading-snug text-[#CFC3E6]">
+					<p class="relative mt-1.5 font-hand text-lg leading-snug text-lav">
 						No likes to chase. No public follower counts. Just people reaching out about your pages.
 					</p>
 					<Button

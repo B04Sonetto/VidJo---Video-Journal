@@ -20,6 +20,8 @@
 	--color-highlight: #d4a24c;
 	--color-success: #3f7a4f;
 	--color-danger: #a83a3a;
+	/* Light red for danger text on dark, theme-driven surfaces. */
+	--color-danger-soft: #f0a3a3;
 
 	/* Primary CTA: follows the active journal theme. */
 	--color-cta: #5b3f9c;
@@ -51,6 +53,15 @@ html[data-theme='sunset'] {
 	--color-paper-edge: #ecd5b6;
 	--color-line: #dfc3a0;
 
+	/* Legacy tokens used by older components: keep them on-theme too. */
+	--color-ink: #3d2418;
+	--color-ink-soft: #6b4432;
+	--color-ink-muted: #8a6248;
+	--color-lav: #e9b795;
+	--color-accent: #a84a34;
+	--color-accent-strong: #8a3826;
+	--color-light: #fbe9dc;
+
 	--color-book-bg: #fdf1df;
 	--color-book-ink: #3d2418;
 	--color-book-accent: #d4a24c;
@@ -78,6 +89,14 @@ html[data-theme='midnight'] {
 	--color-paper-deep: #e3e9f4;
 	--color-paper-edge: #d8e0ef;
 	--color-line: #bcc9df;
+
+	--color-ink: #14213a;
+	--color-ink-soft: #3d4f6e;
+	--color-ink-muted: #6a7c99;
+	--color-lav: #a8c0e8;
+	--color-accent: #3f6ac4;
+	--color-accent-strong: #33569f;
+	--color-light: #e8eef9;
 
 	--color-book-bg: #f4f6fb;
 	--color-book-ink: #0c1322;
@@ -107,6 +126,14 @@ html[data-theme='evergreen'] {
 	--color-paper-edge: #ded6bc;
 	--color-line: #c9c0a2;
 
+	--color-ink: #22302a;
+	--color-ink-soft: #47584c;
+	--color-ink-muted: #6d7f70;
+	--color-lav: #b6cbb4;
+	--color-accent: #3e6b52;
+	--color-accent-strong: #325743;
+	--color-light: #eaf1e6;
+
 	--color-book-bg: #f6f2e2;
 	--color-book-ink: #22302a;
 	--color-book-accent: #b8863b;
@@ -135,6 +162,14 @@ html[data-theme='rosewood'] {
 	--color-paper-edge: #e7d0c7;
 	--color-line: #d9bdb2;
 
+	--color-ink: #3a1f26;
+	--color-ink-soft: #6b4149;
+	--color-ink-muted: #8c6069;
+	--color-lav: #e7b3bd;
+	--color-accent: #a8435c;
+	--color-accent-strong: #8a3449;
+	--color-light: #fbe6ea;
+
 	--color-book-bg: #fcf1ec;
 	--color-book-ink: #3a1f26;
 	--color-book-accent: #b25a6e;
@@ -162,6 +197,14 @@ html[data-theme='harbor'] {
 	--color-paper-deep: #dce7e5;
 	--color-paper-edge: #d2dfdd;
 	--color-line: #b7c9c7;
+
+	--color-ink: #12262c;
+	--color-ink-soft: #3b5257;
+	--color-ink-muted: #627b80;
+	--color-lav: #a9c9cc;
+	--color-accent: #2f7c74;
+	--color-accent-strong: #26655f;
+	--color-light: #e4f1f0;
 
 	--color-book-bg: #f0f5f4;
 	--color-book-ink: #12262c;
@@ -205,7 +248,7 @@ html[data-text-size='lg'] {
 		margin: 0;
 		min-height: 100%;
 		background-color: var(--color-desk);
-		color: #ede6f7;
+		color: var(--color-book-bg);
 		font-family: var(--font-ui);
 		background-image:
 			radial-gradient(1200px 600px at 50% 0, #33204f 0, transparent 70%),

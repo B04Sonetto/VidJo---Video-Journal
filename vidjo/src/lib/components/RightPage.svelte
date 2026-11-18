@@ -133,7 +133,7 @@
 	<label class="sr-only" for={`${id}-title`}>Title</label>
 	<input
 		id={`${id}-title`}
-		class="h-12 w-full border-0 border-b-2 border-line bg-transparent px-1 pb-1 font-hand text-[1.625rem] font-bold text-ink placeholder:text-[#8E7FAA] focus:border-line focus:ring-0 focus:outline-offset-4 min-[900px]:h-[54px] min-[900px]:text-[2rem]"
+		class="h-12 w-full border-0 border-b-2 border-line bg-transparent px-1 pb-1 font-hand text-[1.625rem] font-bold text-ink placeholder:text-ink-muted focus:border-line focus:ring-0 focus:outline-offset-4 min-[900px]:h-[54px] min-[900px]:text-[2rem]"
 		type="text"
 		maxlength={TITLE_MAX}
 		placeholder="Title (optional): just a random day…"
@@ -155,7 +155,7 @@
 			{#if !preview}
 				<button
 					type="button"
-					class="flex size-10 items-center justify-center rounded-lg border border-[#CDBBE9] bg-light text-accent transition-colors hover:bg-[#E8DCF8]"
+					class="flex size-10 items-center justify-center rounded-lg border border-line bg-light text-accent transition-colors hover:bg-paper-deep"
 					aria-label="Write What's on your mind? in full screen"
 					title="Full screen writing"
 					onclick={() => (editor = 'mind')}
@@ -164,7 +164,7 @@
 				</button>
 				<button
 					type="button"
-					class="inline-flex min-h-10 items-center gap-1.5 rounded-full border border-[#CDBBE9] bg-light px-3.5 font-ui text-xs font-semibold text-accent transition-colors hover:bg-[#E8DCF8]"
+					class="inline-flex min-h-10 items-center gap-1.5 rounded-full border border-line bg-light px-3.5 font-ui text-xs font-semibold text-accent transition-colors hover:bg-paper-deep"
 					onclick={needPrompt}
 				>
 					Need a prompt?
@@ -176,13 +176,13 @@
 	<div class="relative mt-3 flex min-h-0 flex-1">
 		{#if prompt && !preview}
 			<div
-				class="pointer-events-none absolute inset-x-0 top-0 z-10 flex items-start gap-2 rounded-lg border border-gold/60 bg-[#FFF6E0] px-3 py-2 font-hand text-base text-ink shadow-sm"
+				class="pointer-events-none absolute inset-x-0 top-0 z-10 flex items-start gap-2 rounded-lg border border-gold/60 bg-paper-deep px-3 py-2 font-hand text-base text-ink shadow-sm"
 				role="status"
 			>
 				<p class="m-0 mr-auto line-clamp-2">{prompt}</p>
 				<button
 					type="button"
-					class="pointer-events-auto mt-0.5 flex size-7 flex-none items-center justify-center rounded-md text-ink-soft transition-colors hover:bg-[#F2E2BD] hover:text-ink"
+					class="pointer-events-auto mt-0.5 flex size-7 flex-none items-center justify-center rounded-md text-ink-soft transition-colors hover:bg-line/50 hover:text-ink"
 					aria-label="Dismiss prompt"
 					onclick={() => (prompt = '')}
 				>
@@ -194,7 +194,7 @@
 		<textarea
 			bind:this={mindEl}
 			id={`${id}-mind`}
-			class="block h-full w-full resize-none border-0 bg-transparent px-1 pb-6 font-hand text-[1.375rem] leading-[2rem] text-ink placeholder:text-[#8E7FAA] focus:ring-0 focus:outline-offset-4"
+			class="block h-full w-full resize-none border-0 bg-transparent px-1 pb-6 font-hand text-[1.375rem] leading-[2rem] text-ink placeholder:text-ink-muted focus:ring-0 focus:outline-offset-4"
 			class:paper-lined={journal.paper === 'lined'}
 			class:pt-20={Boolean(prompt) && !preview}
 			maxlength="500"
@@ -221,7 +221,7 @@
 		{#if !preview}
 			<button
 				type="button"
-				class="flex size-10 flex-none items-center justify-center rounded-lg border border-[#CDBBE9] bg-light text-accent transition-colors hover:bg-[#E8DCF8]"
+				class="flex size-10 flex-none items-center justify-center rounded-lg border border-line bg-light text-accent transition-colors hover:bg-paper-deep"
 				aria-label="Write Reflection in full screen"
 				title="Full screen writing"
 				onclick={() => (editor = 'refl')}
@@ -234,7 +234,7 @@
 	<div class="relative">
 		<textarea
 			id={`${id}-refl`}
-			class="block h-24 w-full resize-none border-0 bg-transparent px-1 pb-6 font-hand text-[1.375rem] leading-[2rem] text-ink placeholder:text-[#8E7FAA] focus:ring-0 focus:outline-offset-4"
+			class="block h-24 w-full resize-none border-0 bg-transparent px-1 pb-6 font-hand text-[1.375rem] leading-[2rem] text-ink placeholder:text-ink-muted focus:ring-0 focus:outline-offset-4"
 			class:paper-lined={journal.paper === 'lined'}
 			maxlength="300"
 			placeholder="Any thoughts, lessons, or things you want to remember?"
@@ -276,7 +276,7 @@
 						friend.id
 					)
 						? 'border-red-500 bg-red-500/10 text-red-700'
-						: 'border-line bg-white/70 text-ink-soft hover:bg-light'}"
+						: 'border-line bg-paper/70 text-ink-soft hover:bg-light'}"
 					onclick={() => toggleFriend(friend.id)}
 					title={isExcluded(friend.id) ? 'Hidden from this friend' : 'This friend can see it'}
 				>
@@ -287,7 +287,7 @@
 	{/if}
 
 	{#if sharingWithCommunity && !preview}
-		<div class="rounded-xl border-2 border-line bg-[#FFFDF6] p-2.5">
+		<div class="rounded-xl border-2 border-line bg-paper p-2.5">
 			{#if community.joinedCommunities.length === 0}
 				<div class="flex flex-wrap items-center justify-between gap-2">
 					<p class="font-hand text-base text-ink-soft">
@@ -307,7 +307,7 @@
 				</label>
 				<select
 					id={`${id}-community`}
-					class="mt-1 h-9 w-full rounded-lg border border-line bg-white px-3 font-ui text-sm text-ink focus:border-accent focus:outline-none"
+					class="mt-1 h-9 w-full rounded-lg border border-line bg-paper px-3 font-ui text-sm text-ink focus:border-accent focus:outline-none"
 					value={entry.communitySlug}
 					onchange={(event) => journal.setCommunity(event.currentTarget.value)}
 				>

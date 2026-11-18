@@ -30,12 +30,10 @@
 			onclick={() => onSelect?.(item.k)}
 		>
 			<span
-				class="flex aspect-square w-full max-w-12 items-center justify-center rounded-full bg-light shadow-[0_0_0_1px_#E0D4EE] transition-[transform,box-shadow,background-color] duration-150 group-hover:-translate-y-0.5 group-hover:bg-[#F0E9F9]"
-				class:bg-[#E4D8F6]={mood === item.k}
-				class:shadow-[0_0_0_2.5px_var(--color-accent),0_3px_8px_rgba(81,57,122,.35)]={mood ===
-					item.k}
-				class:-rotate-3={mood === item.k}
-				class:scale-105={mood === item.k}
+				class="flex aspect-square w-full max-w-12 items-center justify-center rounded-full transition-[transform,box-shadow,background-color] duration-150 group-hover:-translate-y-0.5 {mood ===
+				item.k
+					? 'scale-105 -rotate-3 bg-book-accent/25 shadow-[0_0_0_2.5px_var(--color-accent),0_3px_8px_rgba(0,0,0,.25)]'
+					: 'bg-light shadow-[0_0_0_1px_var(--color-line)] group-hover:bg-paper-deep'}"
 			>
 				<!-- eslint-disable-next-line svelte/no-at-html-tags -- static SVG from data/moods.ts -->
 				<span class="block h-[68%] w-[68%] [&>svg]:size-full">{@html item.svg}</span>

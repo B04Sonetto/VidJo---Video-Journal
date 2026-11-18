@@ -352,46 +352,46 @@
 		}
 	}
 
-// Jazz modified this function to use the new auth.signInWithEmail and auth.signInWithUsername methods================	
-async function signIn() {
-	if (busy) return;
+	// Jazz modified this function to use the new auth.signInWithEmail and auth.signInWithUsername methods================
+	async function signIn() {
+		if (busy) return;
 
-	error = '';
-	notice = '';
+		error = '';
+		notice = '';
 
-	const identifier = email.trim();
+		const identifier = email.trim();
 
-	if (!identifier) {
-		error = 'Enter your email or username.';
-		emailInput?.focus();
-		return;
-	}
-
-	if (!password) {
-		error = 'Enter your password.';
-		return;
-	}
-
-	busy = true;
-
-	try {
-		const message = validEmail(identifier)
-			? await auth.signInWithEmail(identifier, password)
-			: await auth.signInWithUsername(identifier, password);
-
-		if (message) {
-			error = message;
+		if (!identifier) {
+			error = 'Enter your email or username.';
+			emailInput?.focus();
 			return;
 		}
 
-		// Success — onAuthStateChange updates auth state.
-	} catch {
-		error = 'Could not reach Supabase. Check your connection and try again.';
-	} finally {
-		busy = false;
+		if (!password) {
+			error = 'Enter your password.';
+			return;
+		}
+
+		busy = true;
+
+		try {
+			const message = validEmail(identifier)
+				? await auth.signInWithEmail(identifier, password)
+				: await auth.signInWithUsername(identifier, password);
+
+			if (message) {
+				error = message;
+				return;
+			}
+
+			// Success — onAuthStateChange updates auth state.
+		} catch {
+			error = 'Could not reach Supabase. Check your connection and try again.';
+		} finally {
+			busy = false;
+		}
 	}
-}
-// end ======================================================================================
+	// end ======================================================================================
 
 	async function createAccount() {
 		if (busy) return;
@@ -527,10 +527,10 @@ async function signIn() {
 	aria-label="Sign in to VidJo"
 >
 	<div
-		class="grid w-full overflow-hidden rounded-[26px] border border-[#4A3670] bg-desk-2 shadow-[0_30px_80px_rgba(0,0,0,.55)] min-[900px]:grid-cols-[1.02fr_.98fr]"
+		class="grid w-full overflow-hidden rounded-[26px] border border-cover-edge bg-desk-2 shadow-[0_30px_80px_rgba(0,0,0,.55)] min-[900px]:grid-cols-[1.02fr_.98fr]"
 	>
 		<aside
-			class="relative hidden overflow-hidden bg-[linear-gradient(155deg,#4A2F70,#3A2360_58%,#2E1A4E)] p-10 text-white min-[900px]:flex min-[900px]:flex-col"
+			class="relative hidden overflow-hidden bg-[linear-gradient(155deg,var(--color-cover),var(--color-cover-edge)_58%,var(--color-desk))] p-10 text-white min-[900px]:flex min-[900px]:flex-col"
 			aria-hidden="true"
 		>
 			<div class="flex items-center gap-3">
@@ -541,7 +541,7 @@ async function signIn() {
 				</svg>
 				<div>
 					<div class="font-display text-[38px] leading-none font-bold">VidJo</div>
-					<div class="mt-1 font-ui text-xs text-[#D6CBEC]">Small videos, big thoughts.</div>
+					<div class="mt-1 font-ui text-xs text-lav">Small videos, big thoughts.</div>
 				</div>
 			</div>
 
@@ -549,7 +549,7 @@ async function signIn() {
 				<h2 class="m-0 font-display text-[40px] leading-[1.05] font-bold text-balance">
 					A page for every day you want to keep.
 				</h2>
-				<p class="mt-4 font-ui text-[15px] leading-relaxed text-[#D6CBEC]">
+				<p class="mt-4 font-ui text-[15px] leading-relaxed text-lav">
 					Record a short video, write what is on your mind, and flip back to the ordinary days that
 					turned out to matter.
 				</p>
@@ -566,11 +566,11 @@ async function signIn() {
 							<span class="font-ui text-[10px] text-ink-soft tabular-nums">Nov 8</span>
 						</div>
 						<div
-							class="relative mt-3 aspect-[4/5] overflow-hidden rounded-lg bg-[linear-gradient(160deg,#6A4E93,#3E2A5F)]"
+							class="relative mt-3 aspect-[4/5] overflow-hidden rounded-lg bg-[linear-gradient(160deg,var(--color-cover),var(--color-cover-edge))]"
 						>
 							<span class="absolute inset-0 flex items-center justify-center">
 								<span
-									class="flex size-9 items-center justify-center rounded-full bg-white/90 text-[#3E2A5F]"
+									class="flex size-9 items-center justify-center rounded-full bg-white/90 text-desk"
 								>
 									<CommunityIcon name="play" size={14} />
 								</span>
@@ -585,7 +585,7 @@ async function signIn() {
 							Walked home the long way.
 						</p>
 					</div>
-					<div class="border-l border-line/70 bg-[#FFFCF3] p-4 text-ink">
+					<div class="border-l border-line/70 bg-paper p-4 text-ink">
 						<div class="font-ui text-[10px] font-semibold text-ink-soft">On my mind</div>
 						<p class="mt-1.5 font-hand text-[15px] leading-snug">
 							The light through the trees was doing something.
@@ -611,7 +611,7 @@ async function signIn() {
 				</div>
 			</div>
 
-			<p class="mt-auto flex items-center gap-2 pt-8 font-ui text-xs text-[#C9B8E8]">
+			<p class="mt-auto flex items-center gap-2 pt-8 font-ui text-xs text-lav">
 				<CommunityIcon name="lock" size={14} class="shrink-0" />
 				Private by default. Only you can read your pages.
 			</p>
@@ -621,9 +621,15 @@ async function signIn() {
 			class="relative bg-paper px-5 py-8 text-ink min-[420px]:px-8 min-[900px]:px-10 min-[900px]:py-12"
 		>
 			<div class="mb-6 flex items-center gap-2.5 min-[900px]:hidden">
-				<svg width="30" height="36" viewBox="0 0 44 52" aria-hidden="true" class="shrink-0">
+				<svg
+					width="30"
+					height="36"
+					viewBox="0 0 44 52"
+					aria-hidden="true"
+					class="shrink-0 text-accent"
+				>
 					<path d="M30 6a20 20 0 100 40 17 17 0 01-8-20 17 17 0 018-20z" fill="#D4A24C"></path>
-					<path d="M38 12l1.4 3.6 3.6 1.4-3.6 1.4L38 22l-1.4-3.6L33 17l3.6-1.4z" fill="#51397A"
+					<path d="M38 12l1.4 3.6 3.6 1.4-3.6 1.4L38 22l-1.4-3.6L33 17l3.6-1.4z" fill="currentColor"
 					></path>
 				</svg>
 				<span class="font-display text-2xl font-bold">VidJo</span>
@@ -693,7 +699,7 @@ async function signIn() {
 									maxlength="1"
 									autocomplete={index === 0 ? 'one-time-code' : 'off'}
 									aria-label={`Code digit ${index + 1}`}
-									class="h-14 w-full min-w-0 rounded-xl border-2 border-line bg-[#FFFDF6] text-center font-display text-2xl font-bold text-ink transition-colors focus:border-accent focus:outline-none"
+									class="h-14 w-full min-w-0 rounded-xl border-2 border-line bg-paper text-center font-display text-2xl font-bold text-ink transition-colors focus:border-accent focus:outline-none"
 									disabled={busy}
 									oninput={(event) => onDigitInput(index, event)}
 									onkeydown={(event) => onDigitKey(index, event)}
@@ -737,7 +743,7 @@ async function signIn() {
 						autocomplete="email"
 						inputmode="email"
 						placeholder="you@example.com"
-						class="mt-1.5 h-12 w-full rounded-xl border-2 border-line bg-[#FFFDF6] px-3.5 font-ui text-base text-ink transition-colors placeholder:text-[#9B8CB5] focus:border-accent focus:outline-none"
+						class="mt-1.5 h-12 w-full rounded-xl border-2 border-line bg-paper px-3.5 font-ui text-base text-ink transition-colors placeholder:text-ink-muted focus:border-accent focus:outline-none"
 						disabled={busy}
 						required
 					/>
@@ -749,7 +755,7 @@ async function signIn() {
 						{#if usernameChecking}
 							<span class="font-ui text-[11px] text-accent">Checking availability…</span>
 						{:else if usernameAvailable === true}
-							<span class="flex items-center gap-1 font-ui text-[11px] text-[#3F7A4F]">
+							<span class="flex items-center gap-1 font-ui text-[11px] text-success">
 								<CommunityIcon name="check" size={11} />
 								Available
 							</span>
@@ -759,7 +765,7 @@ async function signIn() {
 					</div>
 					<div class="relative mt-1.5">
 						<span
-							class="absolute inset-y-0 left-3.5 flex items-center font-ui text-sm text-[#9B8CB5]"
+							class="absolute inset-y-0 left-3.5 flex items-center font-ui text-sm text-ink-muted"
 						>
 							@
 						</span>
@@ -772,7 +778,7 @@ async function signIn() {
 							autocomplete="username"
 							placeholder="e.g. mara"
 							maxlength={USERNAME_MAX}
-							class="h-12 w-full rounded-xl border-2 border-line bg-[#FFFDF6] pr-3.5 pl-8 font-ui text-base text-ink transition-colors placeholder:text-[#9B8CB5] focus:border-accent focus:outline-none"
+							class="h-12 w-full rounded-xl border-2 border-line bg-paper pr-3.5 pl-8 font-ui text-base text-ink transition-colors placeholder:text-ink-muted focus:border-accent focus:outline-none"
 							disabled={busy}
 							required
 						/>
@@ -792,7 +798,7 @@ async function signIn() {
 						autocomplete="nickname"
 						placeholder="e.g. Rice Shower"
 						maxlength="32"
-						class="mt-1.5 h-12 w-full rounded-xl border-2 border-line bg-[#FFFDF6] px-3.5 font-ui text-base text-ink transition-colors placeholder:text-[#9B8CB5] focus:border-accent focus:outline-none"
+						class="mt-1.5 h-12 w-full rounded-xl border-2 border-line bg-paper px-3.5 font-ui text-base text-ink transition-colors placeholder:text-ink-muted focus:border-accent focus:outline-none"
 						disabled={busy}
 					/>
 					<p class="mt-1 font-ui text-[11px] text-ink-soft">
@@ -841,7 +847,7 @@ async function signIn() {
 							name="password"
 							autocomplete="new-password"
 							placeholder="At least 6 characters"
-							class="h-12 w-full rounded-xl border-2 border-line bg-[#FFFDF6] px-3.5 pr-16 font-ui text-base text-ink transition-colors placeholder:text-[#9B8CB5] focus:border-accent focus:outline-none"
+							class="h-12 w-full rounded-xl border-2 border-line bg-paper px-3.5 pr-16 font-ui text-base text-ink transition-colors placeholder:text-ink-muted focus:border-accent focus:outline-none"
 							disabled={busy}
 							required
 						/>
@@ -866,7 +872,7 @@ async function signIn() {
 						name="confirm-password"
 						autocomplete="new-password"
 						placeholder="Type it once more"
-						class="mt-1.5 h-12 w-full rounded-xl border-2 border-line bg-[#FFFDF6] px-3.5 font-ui text-base text-ink transition-colors placeholder:text-[#9B8CB5] focus:border-accent focus:outline-none"
+						class="mt-1.5 h-12 w-full rounded-xl border-2 border-line bg-paper px-3.5 font-ui text-base text-ink transition-colors placeholder:text-ink-muted focus:border-accent focus:outline-none"
 						disabled={busy}
 						required
 					/>
@@ -881,16 +887,16 @@ async function signIn() {
 					</label>
 					<input
 						bind:this={emailInput}
-	                    bind:value={email}
-	                    id="vidjo-email"
-	                    type="text"
-	                    name="identifier"
-	                    autocomplete="username"
-	                    inputmode="text"
-	                    placeholder="Enter your email or username"
-	                    class="mt-1.5 h-12 w-full rounded-xl border-2 border-line bg-[#FFFDF6] px-3.5 font-ui text-base text-ink transition-colors placeholder:text-[#9B8CB5] focus:border-accent focus:outline-none"
-	                    disabled={busy}
-	                    required
+						bind:value={email}
+						id="vidjo-email"
+						type="text"
+						name="identifier"
+						autocomplete="username"
+						inputmode="text"
+						placeholder="Enter your email or username"
+						class="mt-1.5 h-12 w-full rounded-xl border-2 border-line bg-paper px-3.5 font-ui text-base text-ink transition-colors placeholder:text-ink-muted focus:border-accent focus:outline-none"
+						disabled={busy}
+						required
 					/>
 
 					{#if !forgotPassword}
@@ -905,7 +911,7 @@ async function signIn() {
 								name="password"
 								autocomplete="current-password"
 								placeholder="Your password"
-								class="h-12 w-full rounded-xl border-2 border-line bg-[#FFFDF6] px-3.5 pr-16 font-ui text-base text-ink transition-colors placeholder:text-[#9B8CB5] focus:border-accent focus:outline-none"
+								class="h-12 w-full rounded-xl border-2 border-line bg-paper px-3.5 pr-16 font-ui text-base text-ink transition-colors placeholder:text-ink-muted focus:border-accent focus:outline-none"
 								disabled={busy}
 								required
 							/>

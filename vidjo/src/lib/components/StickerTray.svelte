@@ -24,8 +24,8 @@
 
 	const trayClass = $derived(
 		sidebar
-			? 'rounded-[20px] border border-[#4A3670] bg-desk-2 h-full w-64 px-3 py-4 flex flex-col gap-4'
-			: 'rounded-[20px] border border-[#4A3670] bg-desk-2 mx-auto mt-5 max-w-[1160px] px-[18px] py-4'
+			? 'rounded-[20px] border border-cover-edge bg-desk-2 h-full w-64 px-3 py-4 flex flex-col gap-4'
+			: 'rounded-[20px] border border-cover-edge bg-desk-2 mx-auto mt-5 max-w-[1160px] px-[18px] py-4'
 	);
 
 	const papers: { k: PaperStyle; label: string }[] = [
@@ -135,7 +135,7 @@
 			</h2>
 			<button
 				type="button"
-				class="flex min-h-10 items-center gap-1.5 rounded-xl border border-[#5A4580] bg-[#33224D] px-2.5 font-ui text-xs text-white hover:bg-[#43306A]"
+				class="flex min-h-10 items-center gap-1.5 rounded-xl border border-cover-edge bg-cover/25 px-2.5 font-ui text-xs text-white hover:bg-cover/40"
 				aria-expanded={open}
 				aria-controls="sticker-tray-body"
 				onclick={toggle}
@@ -175,7 +175,7 @@
 					>
 						<button
 							type="button"
-							class="flex size-10 items-center justify-center rounded-xl border border-[#5A4580] bg-[#33224D] hover:bg-[#43306A]"
+							class="flex size-10 items-center justify-center rounded-xl border border-cover-edge bg-cover/25 hover:bg-cover/40"
 							aria-label="Make smaller"
 							onclick={() => act('smaller')}
 						>
@@ -194,7 +194,7 @@
 						</button>
 						<button
 							type="button"
-							class="flex size-10 items-center justify-center rounded-xl border border-[#5A4580] bg-[#33224D] hover:bg-[#43306A]"
+							class="flex size-10 items-center justify-center rounded-xl border border-cover-edge bg-cover/25 hover:bg-cover/40"
 							aria-label="Make bigger"
 							onclick={() => act('bigger')}
 						>
@@ -213,7 +213,7 @@
 						</button>
 						<button
 							type="button"
-							class="flex size-10 items-center justify-center rounded-xl border border-[#5A4580] bg-[#33224D] hover:bg-[#43306A]"
+							class="flex size-10 items-center justify-center rounded-xl border border-cover-edge bg-cover/25 hover:bg-cover/40"
 							aria-label="Rotate left"
 							onclick={() => act('rotl')}
 						>
@@ -233,7 +233,7 @@
 						</button>
 						<button
 							type="button"
-							class="flex size-10 items-center justify-center rounded-xl border border-[#5A4580] bg-[#33224D] hover:bg-[#43306A]"
+							class="flex size-10 items-center justify-center rounded-xl border border-cover-edge bg-cover/25 hover:bg-cover/40"
 							aria-label="Rotate right"
 							onclick={() => act('rotr')}
 						>
@@ -253,7 +253,7 @@
 						</button>
 						<button
 							type="button"
-							class="flex size-10 items-center justify-center rounded-xl border border-[#5A4580] bg-[#33224D] hover:bg-[#43306A]"
+							class="flex size-10 items-center justify-center rounded-xl border border-cover-edge bg-cover/25 hover:bg-cover/40"
 							aria-label="Delete sticker"
 							onclick={() => act('del')}
 						>
@@ -284,7 +284,7 @@
 								class="flex size-10 items-center justify-center rounded-xl border px-3 text-xs {journal.paper ===
 								paper.k
 									? 'border-light bg-light font-bold text-ink'
-									: 'border-[#5A4580] bg-[#33224D]'}"
+									: 'border-cover-edge bg-cover/25'}"
 								aria-pressed={journal.paper === paper.k}
 								onclick={() => journal.setPaper(paper.k)}
 							>
@@ -297,7 +297,7 @@
 						{#each STICKERS as sticker (sticker.k)}
 							<button
 								type="button"
-								class="flex size-10 flex-none items-center justify-center rounded-2xl border border-[#4A3670] bg-light p-1 hover:bg-white"
+								class="flex size-10 flex-none items-center justify-center rounded-2xl border border-cover-edge bg-light p-1 hover:bg-paper"
 								aria-label={'Add ' + sticker.n + ' sticker'}
 								onclick={() => journal.addSticker(sticker.k)}
 							>
@@ -308,7 +308,7 @@
 
 						<button
 							type="button"
-							class="flex size-10 flex-none flex-col items-center justify-center gap-0.5 rounded-2xl border border-[#8B6FD0] bg-transparent text-[10px] text-[#D6CBEC] transition-colors hover:bg-white/5"
+							class="flex size-10 flex-none flex-col items-center justify-center gap-0.5 rounded-2xl border border-accent/60 bg-transparent text-[10px] text-lav transition-colors hover:bg-white/5"
 							aria-label="Add your own image as a sticker"
 							onclick={() => imageInput?.click()}
 						>
@@ -330,7 +330,7 @@
 
 			<button
 				type="button"
-				class="flex min-h-11 items-center gap-2 rounded-xl border border-[#5A4580] bg-[#33224D] px-3.5 font-ui text-sm text-white hover:bg-[#43306A]"
+				class="flex min-h-11 items-center gap-2 rounded-xl border border-cover-edge bg-cover/25 px-3.5 font-ui text-sm text-white hover:bg-cover/40"
 				aria-expanded={open}
 				aria-controls="sticker-tray-body"
 				onclick={toggle}
@@ -364,12 +364,12 @@
 						role="toolbar"
 						aria-label="Selected sticker"
 					>
-						<span class="mr-1 hidden text-[13px] text-[#BBA8E0] min-[900px]:inline">
+						<span class="mr-1 hidden text-[13px] text-lav/80 min-[900px]:inline">
 							Selected sticker
 						</span>
 						<button
 							type="button"
-							class="flex size-11 items-center justify-center rounded-xl border border-[#5A4580] bg-[#33224D] hover:bg-[#43306A]"
+							class="flex size-11 items-center justify-center rounded-xl border border-cover-edge bg-cover/25 hover:bg-cover/40"
 							aria-label="Make smaller"
 							onclick={() => act('smaller')}
 						>
@@ -388,7 +388,7 @@
 						</button>
 						<button
 							type="button"
-							class="flex size-11 items-center justify-center rounded-xl border border-[#5A4580] bg-[#33224D] hover:bg-[#43306A]"
+							class="flex size-11 items-center justify-center rounded-xl border border-cover-edge bg-cover/25 hover:bg-cover/40"
 							aria-label="Make bigger"
 							onclick={() => act('bigger')}
 						>
@@ -407,7 +407,7 @@
 						</button>
 						<button
 							type="button"
-							class="flex size-11 items-center justify-center rounded-xl border border-[#5A4580] bg-[#33224D] hover:bg-[#43306A]"
+							class="flex size-11 items-center justify-center rounded-xl border border-cover-edge bg-cover/25 hover:bg-cover/40"
 							aria-label="Rotate left"
 							onclick={() => act('rotl')}
 						>
@@ -427,7 +427,7 @@
 						</button>
 						<button
 							type="button"
-							class="flex size-11 items-center justify-center rounded-xl border border-[#5A4580] bg-[#33224D] hover:bg-[#43306A]"
+							class="flex size-11 items-center justify-center rounded-xl border border-cover-edge bg-cover/25 hover:bg-cover/40"
 							aria-label="Rotate right"
 							onclick={() => act('rotr')}
 						>
@@ -447,7 +447,7 @@
 						</button>
 						<button
 							type="button"
-							class="flex size-11 items-center justify-center rounded-xl border border-[#5A4580] bg-[#33224D] hover:bg-[#43306A]"
+							class="flex size-11 items-center justify-center rounded-xl border border-cover-edge bg-cover/25 hover:bg-cover/40"
 							aria-label="Delete sticker"
 							onclick={() => act('del')}
 						>
@@ -468,13 +468,13 @@
 					</div>
 
 					<div class="flex flex-wrap items-center gap-1.5" role="group" aria-label="Paper style">
-						<span class="mr-1 hidden text-[13px] text-[#BBA8E0] min-[900px]:inline">Paper</span>
+						<span class="mr-1 hidden text-[13px] text-lav/80 min-[900px]:inline">Paper</span>
 						{#each papers as paper (paper.k)}
 							<button
 								type="button"
 								class="min-h-11 rounded-xl border px-3.5 text-sm {journal.paper === paper.k
 									? 'border-light bg-light font-bold text-ink'
-									: 'border-[#5A4580] bg-[#33224D]'}"
+									: 'border-cover-edge bg-cover/25'}"
 								aria-pressed={journal.paper === paper.k}
 								onclick={() => journal.setPaper(paper.k)}
 							>
@@ -488,7 +488,7 @@
 					{#each STICKERS as sticker (sticker.k)}
 						<button
 							type="button"
-							class="flex size-[76px] flex-none items-center justify-center rounded-2xl border border-[#4A3670] bg-light p-2 hover:-translate-y-0.5 hover:bg-white"
+							class="flex size-[76px] flex-none items-center justify-center rounded-2xl border border-cover-edge bg-light p-2 hover:-translate-y-0.5 hover:bg-paper"
 							aria-label={'Add ' + sticker.n + ' sticker'}
 							onclick={() => journal.addSticker(sticker.k)}
 						>
@@ -499,7 +499,7 @@
 
 					<button
 						type="button"
-						class="flex h-[76px] w-24 flex-none flex-col items-center justify-center gap-0.5 rounded-2xl border border-[#8B6FD0] bg-transparent text-xs text-[#D6CBEC] transition-colors hover:bg-white/5"
+						class="flex h-[76px] w-24 flex-none flex-col items-center justify-center gap-0.5 rounded-2xl border border-accent/60 bg-transparent text-xs text-lav transition-colors hover:bg-white/5"
 						aria-label="Add your own image as a sticker"
 						onclick={() => imageInput?.click()}
 					>

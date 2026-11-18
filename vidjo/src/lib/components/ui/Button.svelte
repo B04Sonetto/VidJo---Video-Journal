@@ -42,12 +42,12 @@
 		primary:
 			'bg-cta text-cta-text shadow-[0_6px_18px_var(--color-cta-shadow)] hover:bg-cta-hover hover:shadow-[0_8px_22px_var(--color-cta-shadow)]',
 		outline:
-			'border border-[#5A4580] bg-desk-2 text-[#EDE6F7] hover:border-lav/70 hover:bg-[#34214E]',
+			'border border-cover-edge bg-desk-2 text-book-bg hover:border-book-accent/70 hover:bg-cover',
 		paper:
-			'border-[1.5px] border-line bg-[#FFFDF6] text-ink hover:border-[#BFAE86] hover:bg-[#FBF3DF]',
+			'border-[1.5px] border-line bg-paper text-ink hover:border-book-accent/50 hover:bg-paper-deep',
 		note: 'border-[1.5px] border-line bg-book-bg text-book-ink hover:border-book-accent/60 hover:bg-paper-deep',
-		ghost: 'text-[#CFC3E6] hover:bg-white/[.08] hover:text-white',
-		danger: 'border border-[#D19A9A]/60 bg-[#3A222B] text-white hover:bg-[#4A2A32]'
+		ghost: 'text-lav hover:bg-white/[.08] hover:text-white',
+		danger: 'border border-danger/60 bg-danger/20 text-white hover:bg-danger/30'
 	};
 
 	const iconSize = $derived(size === 'sm' ? 14 : 16);

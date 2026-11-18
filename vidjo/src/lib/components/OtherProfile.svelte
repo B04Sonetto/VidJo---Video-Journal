@@ -378,7 +378,8 @@
 						{:else}
 							<ul class="mt-3 max-h-[260px] space-y-2 overflow-y-auto pr-1">
 								{#each posts as post (post.date)}
-									{@const mood = post.mood && MOOD_BY_KEY[post.mood] ? MOOD_BY_KEY[post.mood] : null}
+									{@const mood =
+										post.mood && MOOD_BY_KEY[post.mood] ? MOOD_BY_KEY[post.mood] : null}
 									<li
 										class="flex items-center gap-3 rounded-2xl border border-cover-edge bg-cover/25 p-3"
 									>

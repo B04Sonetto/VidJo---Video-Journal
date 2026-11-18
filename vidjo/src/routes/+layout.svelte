@@ -6,16 +6,10 @@
 	import { initFocusTrap } from '#lib/focusTrap';
 	import { profile } from '#lib/state/profile.svelte';
 	import { pwa } from '#lib/state/pwa.svelte';
+	import { themeMeta } from '#lib/themes';
 	import type { LayoutProps } from './$types';
 
 	let { children }: LayoutProps = $props();
-
-	/** Keep the iOS/Android status bar in step with the journal theme. */
-	const themeColors: Record<string, string> = {
-		classic: '#1B102B',
-		sunset: '#241218',
-		midnight: '#0C1322'
-	};
 
 	onMount(() => {
 		const cleanupFocusTrap = initFocusTrap();
@@ -27,8 +21,9 @@
 		};
 	});
 
+	/** Keep the iOS/Android status bar in step with the journal theme. */
 	$effect(() => {
-		const color = themeColors[profile.theme] ?? themeColors.classic;
+		const color = themeMeta(profile.theme).desk;
 		document.querySelector('meta[name="theme-color"]')?.setAttribute('content', color);
 	});
 </script>

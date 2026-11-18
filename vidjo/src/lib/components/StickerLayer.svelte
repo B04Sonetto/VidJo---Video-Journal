@@ -168,7 +168,7 @@
 		>
 			<button
 				type="button"
-				class="absolute -top-4 -right-4 z-10 flex size-9 items-center justify-center rounded-full border-2 border-[#D4A24C]/70 bg-[#1B102B] text-white shadow-[0_3px_10px_rgba(0,0,0,.55)] transition-all hover:scale-110 hover:border-[#F0C778] hover:bg-[#7A2E3D] focus-visible:ring-2 focus-visible:ring-gold focus-visible:outline-none active:scale-95 {journal.selected.includes(
+				class="absolute -top-4 -right-4 z-10 flex size-9 items-center justify-center rounded-full border-2 border-[#D4A24C]/70 bg-desk text-white shadow-[0_3px_10px_rgba(0,0,0,.55)] transition-all hover:scale-110 hover:border-[#F0C778] hover:bg-danger focus-visible:ring-2 focus-visible:ring-gold focus-visible:outline-none active:scale-95 {journal.selected.includes(
 					sticker.id
 				)
 					? 'pointer-events-auto opacity-100'

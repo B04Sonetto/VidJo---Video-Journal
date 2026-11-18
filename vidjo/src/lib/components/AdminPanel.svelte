@@ -164,7 +164,7 @@
 			value: overview?.reports_total ?? 0,
 			note: `${overview?.reports_new ?? 0} in 30 days`,
 			icon: 'flame',
-			chip: 'bg-[#D19A9A]/15 text-[#F0A3A3]'
+			chip: 'bg-danger/15 text-danger-soft'
 		}
 	]);
 
@@ -403,8 +403,8 @@
 
 	function roleClass(role: string) {
 		if (role === 'admin') return 'border-[#4F9DEB]/40 bg-[#4F9DEB]/15 text-[#7CB8F5]';
-		if (role === 'banned') return 'border-[#D19A9A]/40 bg-[#D19A9A]/15 text-[#F0A3A3]';
-		return 'border-[#523A7A] bg-[#523A7A]/20 text-[#D6CBEC]';
+		if (role === 'banned') return 'border-danger/40 bg-danger/15 text-danger-soft';
+		return 'border-cover-edge bg-cover-edge/20 text-lav';
 	}
 
 	function handleKeydown(event: KeyboardEvent) {
@@ -436,17 +436,17 @@
 			></button>
 
 			<div
-				class="relative flex max-h-[95vh] w-full max-w-[1080px] flex-col overflow-hidden rounded-[26px] border border-[#523A7A] bg-[#1E1133] text-white shadow-[0_40px_120px_rgba(0,0,0,.7)]"
+				class="relative flex max-h-[95vh] w-full max-w-[1080px] flex-col overflow-hidden rounded-[26px] border border-cover-edge bg-desk-2 text-white shadow-[0_40px_120px_rgba(0,0,0,.7)]"
 			>
 				<!-- Header -->
 				<header
-					class="flex shrink-0 flex-wrap items-center justify-between gap-4 border-b border-[#3D2A5C] bg-[#24143D] px-5 py-4 sm:px-7 sm:py-5"
+					class="flex shrink-0 flex-wrap items-center justify-between gap-4 border-b border-cover-edge bg-desk-2 px-5 py-4 sm:px-7 sm:py-5"
 				>
 					<div class="min-w-0">
 						<h2 class="font-display text-[26px] leading-tight font-bold text-white">
 							Admin console
 						</h2>
-						<p class="mt-0.5 font-ui text-xs text-[#BBA8E0]">
+						<p class="mt-0.5 font-ui text-xs text-lav/80">
 							Moderation and privacy-friendly usage stats.
 						</p>
 					</div>
@@ -463,7 +463,7 @@
 						</Button>
 						<button
 							type="button"
-							class="flex size-9 items-center justify-center rounded-xl border border-[#5A4580] bg-[#33224D] text-[#D6CBEC] transition-colors hover:bg-[#43306A] hover:text-white"
+							class="flex size-9 items-center justify-center rounded-xl border border-cover-edge bg-cover/25 text-lav transition-colors hover:bg-cover/40 hover:text-white"
 							aria-label="Close admin console"
 							onclick={() => (open = false)}
 						>
@@ -474,7 +474,7 @@
 
 				<!-- Tabs -->
 				<nav
-					class="flex shrink-0 gap-1 overflow-x-auto border-b border-[#3D2A5C] bg-[#1A0F2C] px-3 py-2 sm:px-6"
+					class="flex shrink-0 gap-1 overflow-x-auto border-b border-cover-edge bg-desk px-3 py-2 sm:px-6"
 					aria-label="Admin sections"
 				>
 					{#each tabs as item (item.key)}
@@ -483,7 +483,7 @@
 							class="inline-flex shrink-0 items-center gap-2 rounded-xl px-4 py-2 font-ui text-sm font-semibold transition-colors {tab ===
 							item.key
 								? 'bg-cta text-cta-text'
-								: 'text-[#BBA8E0] hover:bg-white/5 hover:text-white'}"
+								: 'text-lav/80 hover:bg-white/5 hover:text-white'}"
 							aria-current={tab === item.key ? 'page' : undefined}
 							onclick={() => (tab = item.key)}
 						>
@@ -493,7 +493,7 @@
 									class="rounded-full px-1.5 py-0.5 text-[10px] font-semibold tabular-nums {tab ===
 									item.key
 										? 'bg-white/20 text-cta-text'
-										: 'bg-white/10 text-[#D6CBEC]'}"
+										: 'bg-white/10 text-lav'}"
 								>
 									{item.count}
 								</span>
@@ -506,7 +506,7 @@
 				<div class="min-h-0 flex-1 overflow-y-auto px-4 py-5 sm:px-7 sm:py-6">
 					{#if error}
 						<p
-							class="mb-4 rounded-xl border border-[#D19A9A]/60 bg-[#3A222B] px-4 py-3 font-ui text-sm text-[#FFB4B4]"
+							class="mb-4 rounded-xl border border-danger/60 bg-danger/20 px-4 py-3 font-ui text-sm text-danger-soft"
 							role="alert"
 						>
 							{error}
@@ -516,7 +516,7 @@
 					{#if tab === 'overview'}
 						{#if overviewError}
 							<div
-								class="mb-4 rounded-xl border border-[#D19A9A]/60 bg-[#3A222B] px-4 py-3 font-ui text-sm text-[#FFB4B4]"
+								class="mb-4 rounded-xl border border-danger/60 bg-danger/20 px-4 py-3 font-ui text-sm text-danger-soft"
 								role="alert"
 							>
 								<p class="font-semibold">Stats unavailable</p>
@@ -535,7 +535,7 @@
 							<div class="grid grid-cols-2 gap-3 min-[720px]:grid-cols-4">
 								{#each [0, 1, 2, 3] as slot (slot)}
 									<div
-										class="h-28 animate-pulse rounded-2xl border border-[#4D366D] bg-[#24143D]"
+										class="h-28 animate-pulse rounded-2xl border border-cover-edge/70 bg-desk-2"
 									></div>
 								{/each}
 							</div>
@@ -543,9 +543,9 @@
 							<!-- Headline numbers -->
 							<div class="grid grid-cols-2 gap-3 min-[720px]:grid-cols-4">
 								{#each kpis as kpi (kpi.label)}
-									<div class="rounded-2xl border border-[#4D366D] bg-[#24143D] p-4">
+									<div class="rounded-2xl border border-cover-edge/70 bg-desk-2 p-4">
 										<div class="flex items-center justify-between gap-2">
-											<p class="font-ui text-xs font-semibold text-[#BBA8E0]">{kpi.label}</p>
+											<p class="font-ui text-xs font-semibold text-lav/80">{kpi.label}</p>
 											<span class="flex size-8 items-center justify-center rounded-full {kpi.chip}">
 												<CommunityIcon name={kpi.icon} size={15} />
 											</span>
@@ -555,19 +555,19 @@
 										>
 											{kpi.value.toLocaleString()}
 										</p>
-										<p class="mt-1 font-ui text-[11px] text-[#9E8CC0]">{kpi.note}</p>
+										<p class="mt-1 font-ui text-[11px] text-lav/60">{kpi.note}</p>
 									</div>
 								{/each}
 							</div>
 
 							<!-- Activity chart -->
-							<section class="mt-4 rounded-2xl border border-[#4D366D] bg-[#24143D] p-5">
+							<section class="mt-4 rounded-2xl border border-cover-edge/70 bg-desk-2 p-5">
 								<div class="flex flex-wrap items-start justify-between gap-3">
 									<div>
 										<h3 class="font-display text-xl leading-tight font-bold text-white">
 											Activity, last {overview.window_days} days
 										</h3>
-										<p class="mt-0.5 font-ui text-xs text-[#9E8CC0]">
+										<p class="mt-0.5 font-ui text-xs text-lav/60">
 											Feature names and counts only. Journal text is never recorded.
 										</p>
 									</div>
@@ -578,13 +578,13 @@
 											>
 												{overview.events_total.toLocaleString()}
 											</p>
-											<p class="font-ui text-[11px] text-[#9E8CC0]">events</p>
+											<p class="font-ui text-[11px] text-lav/60">events</p>
 										</div>
 										<div class="text-right">
 											<p class="font-display text-2xl leading-none font-bold text-lav tabular-nums">
 												{overview.active_users.toLocaleString()}
 											</p>
-											<p class="font-ui text-[11px] text-[#9E8CC0]">active members</p>
+											<p class="font-ui text-[11px] text-lav/60">active members</p>
 										</div>
 									</div>
 								</div>
@@ -597,25 +597,25 @@
 												title={`${dayLabel(point.day)}: ${point.events} events, ${point.users} members`}
 											>
 												<div
-													class="w-full rounded-t-[3px] bg-gradient-to-t from-[#6B4FA8] to-gold transition-opacity group-hover:opacity-80"
+													class="w-full rounded-t-[3px] bg-gradient-to-t from-accent to-gold transition-opacity group-hover:opacity-80"
 													style={`height: ${Math.max(2, (point.events / maxDaily) * 100)}%`}
 												></div>
 											</div>
 										{/each}
 									</div>
-									<div class="mt-2 flex justify-between font-ui text-[10px] text-[#8B6FD0]">
+									<div class="mt-2 flex justify-between font-ui text-[10px] text-accent">
 										<span>{dayLabel(overview.daily[0]?.day)}</span>
 										<span>Today</span>
 									</div>
 								{:else}
 									<div
-										class="mt-4 rounded-xl border border-[#5A4580] bg-[#1E1133]/60 px-4 py-8 text-center"
+										class="mt-4 rounded-xl border border-cover-edge bg-desk-2/60 px-4 py-8 text-center"
 									>
 										<CommunityIcon name="trending" size={26} class="mx-auto text-gold/60" />
-										<p class="mt-2 font-ui text-sm font-semibold text-[#D6CBEC]">
+										<p class="mt-2 font-ui text-sm font-semibold text-lav">
 											No activity recorded yet.
 										</p>
-										<p class="mt-1 font-ui text-xs text-[#9E8CC0]">
+										<p class="mt-1 font-ui text-xs text-lav/60">
 											Events appear here as members use VidJo. Only feature names and counts are
 											stored.
 										</p>
@@ -625,12 +625,12 @@
 
 							<div class="mt-4 grid gap-4 min-[860px]:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)]">
 								<!-- Top features -->
-								<section class="rounded-2xl border border-[#4D366D] bg-[#24143D] p-5">
+								<section class="rounded-2xl border border-cover-edge/70 bg-desk-2 p-5">
 									<div class="flex items-baseline justify-between gap-3">
 										<h3 class="font-display text-xl leading-tight font-bold text-white">
 											Most used features
 										</h3>
-										<span class="font-ui text-[11px] text-[#9E8CC0] tabular-nums">
+										<span class="font-ui text-[11px] text-lav/60 tabular-nums">
 											last {overview.window_days} days
 										</span>
 									</div>
@@ -640,16 +640,16 @@
 											{#each overview.top_events as item (item.event)}
 												<li>
 													<div class="flex items-baseline justify-between gap-3">
-														<span class="font-ui text-sm font-semibold text-[#EDE6F7]">
+														<span class="font-ui text-sm font-semibold text-book-bg">
 															{eventLabel(item.event)}
 														</span>
-														<span class="font-ui text-xs font-semibold text-[#BBA8E0] tabular-nums">
+														<span class="font-ui text-xs font-semibold text-lav/80 tabular-nums">
 															{item.count.toLocaleString()}
 														</span>
 													</div>
-													<div class="mt-1.5 h-1.5 overflow-hidden rounded-full bg-[#33224D]">
+													<div class="mt-1.5 h-1.5 overflow-hidden rounded-full bg-cover/25">
 														<div
-															class="h-full rounded-full bg-gradient-to-r from-[#8B6FD0] to-gold"
+															class="h-full rounded-full bg-gradient-to-r from-accent to-gold"
 															style={`width: ${(item.count / maxFeature) * 100}%`}
 														></div>
 													</div>
@@ -657,7 +657,7 @@
 											{/each}
 										</ul>
 									{:else}
-										<p class="mt-4 font-ui text-sm text-[#9E8CC0]">
+										<p class="mt-4 font-ui text-sm text-lav/60">
 											Feature usage will show up after the first few sessions.
 										</p>
 									{/if}
@@ -665,7 +665,7 @@
 
 								<div class="space-y-4">
 									<!-- Today -->
-									<section class="rounded-2xl border border-[#4D366D] bg-[#24143D] p-5">
+									<section class="rounded-2xl border border-cover-edge/70 bg-desk-2 p-5">
 										<div class="flex items-center gap-2">
 											<CommunityIcon name="sun" size={16} class="text-gold" />
 											<h3 class="font-display text-xl leading-none font-bold text-white">
@@ -673,37 +673,37 @@
 											</h3>
 										</div>
 										<div class="mt-4 grid grid-cols-2 gap-3">
-											<div class="rounded-xl bg-[#1B102B] px-3 py-3">
+											<div class="rounded-xl bg-desk px-3 py-3">
 												<p
 													class="font-display text-3xl leading-none font-bold text-gold tabular-nums"
 												>
 													{overview.events_today.toLocaleString()}
 												</p>
-												<p class="mt-1 font-ui text-[11px] text-[#9E8CC0]">events today</p>
+												<p class="mt-1 font-ui text-[11px] text-lav/60">events today</p>
 											</div>
-											<div class="rounded-xl bg-[#1B102B] px-3 py-3">
+											<div class="rounded-xl bg-desk px-3 py-3">
 												<p
 													class="font-display text-3xl leading-none font-bold text-lav tabular-nums"
 												>
 													{overview.active_users_today.toLocaleString()}
 												</p>
-												<p class="mt-1 font-ui text-[11px] text-[#9E8CC0]">members today</p>
+												<p class="mt-1 font-ui text-[11px] text-lav/60">members today</p>
 											</div>
 										</div>
-										<p class="mt-3 font-ui text-[11px] leading-relaxed text-[#8B6FD0]">
+										<p class="mt-3 font-ui text-[11px] leading-relaxed text-accent">
 											Counts use the server clock and reset at midnight.
 										</p>
 									</section>
 
 									<!-- Moderation snapshot -->
-									<section class="rounded-2xl border border-[#4D366D] bg-[#24143D] p-5">
+									<section class="rounded-2xl border border-cover-edge/70 bg-desk-2 p-5">
 										<div class="flex items-center gap-2">
-											<CommunityIcon name="flame" size={16} class="text-[#F0A3A3]" />
+											<CommunityIcon name="flame" size={16} class="text-danger-soft" />
 											<h3 class="font-display text-xl leading-none font-bold text-white">
 												Moderation
 											</h3>
 										</div>
-										<p class="mt-3 font-ui text-sm text-[#CFC3E6]">
+										<p class="mt-3 font-ui text-sm text-lav">
 											<span class="font-bold text-white">{overview.reports_new}</span>
 											new {overview.reports_new === 1 ? 'report' : 'reports'} in the last
 											{overview.window_days} days.
@@ -731,11 +731,11 @@
 								<h3 class="font-display text-2xl leading-tight font-bold text-white">
 									Comment reports
 								</h3>
-								<p class="mt-0.5 font-ui text-xs text-[#9E8CC0]">
+								<p class="mt-0.5 font-ui text-xs text-lav/60">
 									Flagged comments from friends and community pages.
 								</p>
 							</div>
-							<span class="font-ui text-xs text-[#BBA8E0] tabular-nums">
+							<span class="font-ui text-xs text-lav/80 tabular-nums">
 								{reports.length}
 								{reports.length === 1 ? 'report' : 'reports'}
 							</span>
@@ -743,7 +743,7 @@
 
 						{#if reportsError}
 							<div
-								class="mb-4 rounded-xl border border-[#D19A9A]/60 bg-[#3A222B] px-4 py-3 font-ui text-sm text-[#FFB4B4]"
+								class="mb-4 rounded-xl border border-danger/60 bg-danger/20 px-4 py-3 font-ui text-sm text-danger-soft"
 								role="alert"
 							>
 								<p class="font-semibold">Reports could not be loaded</p>
@@ -762,17 +762,15 @@
 							<div class="space-y-3">
 								{#each [0, 1, 2] as slot (slot)}
 									<div
-										class="h-28 animate-pulse rounded-2xl border border-[#4D366D] bg-[#24143D]"
+										class="h-28 animate-pulse rounded-2xl border border-cover-edge/70 bg-desk-2"
 									></div>
 								{/each}
 							</div>
 						{:else if reports.length === 0}
-							<div
-								class="rounded-2xl border border-[#5A4580] bg-[#24143D]/60 px-6 py-14 text-center"
-							>
+							<div class="rounded-2xl border border-cover-edge bg-desk-2/60 px-6 py-14 text-center">
 								<CommunityIcon name="check" size={30} class="mx-auto text-gold/70" />
 								<p class="mt-3 font-display text-2xl font-bold text-white">Nothing flagged</p>
-								<p class="mt-1 font-ui text-sm text-[#9E8CC0]">
+								<p class="mt-1 font-ui text-sm text-lav/60">
 									Reports will appear here when someone flags a comment.
 								</p>
 							</div>
@@ -801,7 +799,7 @@
 
 										{#if report.comment_body}
 											<blockquote
-												class="mt-3 rounded-r-xl border-l-[3px] border-gold/70 bg-[#FFFDF6] px-3 py-2 font-hand text-lg leading-snug break-words text-ink"
+												class="mt-3 rounded-r-xl border-l-[3px] border-gold/70 bg-paper px-3 py-2 font-hand text-lg leading-snug break-words text-ink"
 											>
 												{report.comment_body}
 											</blockquote>
@@ -863,11 +861,11 @@
 						<div class="mb-4 flex flex-wrap items-end justify-between gap-3">
 							<div>
 								<h3 class="font-display text-2xl leading-tight font-bold text-white">Members</h3>
-								<p class="mt-0.5 font-ui text-xs text-[#9E8CC0]">
+								<p class="mt-0.5 font-ui text-xs text-lav/60">
 									Warn, ban, or restore accounts. Banning never deletes journals or posts.
 								</p>
 							</div>
-							<span class="font-ui text-xs text-[#BBA8E0] tabular-nums">
+							<span class="font-ui text-xs text-lav/80 tabular-nums">
 								{filteredUsers.length} of {users.length}
 							</span>
 						</div>
@@ -878,18 +876,18 @@
 								<CommunityIcon
 									name="search"
 									size={16}
-									class="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-[#8B6FD0]"
+									class="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-accent"
 								/>
 								<input
 									type="search"
-									class="h-11 w-full rounded-xl border border-[#4D366D] bg-[#1B102B] pr-3 pl-9 font-ui text-sm text-white placeholder:text-[#7C6A9C] focus:border-gold focus:outline-none"
+									class="h-11 w-full rounded-xl border border-cover-edge/70 bg-desk pr-3 pl-9 font-ui text-sm text-white placeholder:text-lav/50 focus:border-gold focus:outline-none"
 									placeholder="Search by nickname or @username"
 									bind:value={userSearch}
 								/>
 							</label>
 
 							<div
-								class="inline-flex items-center gap-1 overflow-x-auto rounded-xl border border-[#4D366D] bg-[#1B102B] p-1"
+								class="inline-flex items-center gap-1 overflow-x-auto rounded-xl border border-cover-edge/70 bg-desk p-1"
 								role="group"
 								aria-label="Filter members by role"
 							>
@@ -899,7 +897,7 @@
 										class="inline-flex shrink-0 items-center gap-1.5 rounded-lg px-3 py-1.5 font-ui text-xs font-semibold capitalize transition-colors {roleFilter ===
 										role
 											? 'bg-cta text-cta-text'
-											: 'text-[#BBA8E0] hover:text-white'}"
+											: 'text-lav/80 hover:text-white'}"
 										aria-pressed={roleFilter === role}
 										onclick={() => (roleFilter = role as RoleFilter)}
 									>
@@ -914,7 +912,7 @@
 
 						{#if usersError}
 							<div
-								class="mb-4 rounded-xl border border-[#D19A9A]/60 bg-[#3A222B] px-4 py-3 font-ui text-sm text-[#FFB4B4]"
+								class="mb-4 rounded-xl border border-danger/60 bg-danger/20 px-4 py-3 font-ui text-sm text-danger-soft"
 								role="alert"
 							>
 								<p class="font-semibold">Member list issue</p>
@@ -933,16 +931,14 @@
 							<div class="space-y-2">
 								{#each [0, 1, 2, 3, 4] as slot (slot)}
 									<div
-										class="h-16 animate-pulse rounded-xl border border-[#4D366D] bg-[#24143D]"
+										class="h-16 animate-pulse rounded-xl border border-cover-edge/70 bg-desk-2"
 									></div>
 								{/each}
 							</div>
 						{:else if filteredUsers.length === 0}
-							<div
-								class="rounded-2xl border border-[#5A4580] bg-[#24143D]/60 px-6 py-12 text-center"
-							>
+							<div class="rounded-2xl border border-cover-edge bg-desk-2/60 px-6 py-12 text-center">
 								<CommunityIcon name="search" size={28} class="mx-auto text-gold/60" />
-								<p class="mt-3 font-ui text-sm font-semibold text-[#D6CBEC]">
+								<p class="mt-3 font-ui text-sm font-semibold text-lav">
 									No members match that search.
 								</p>
 								<button
@@ -960,7 +956,7 @@
 							<div class="space-y-2">
 								{#each filteredUsers as user (user.user_id)}
 									<div
-										class="flex flex-wrap items-center gap-3 rounded-xl border border-[#4D366D] bg-[#24143D] px-3 py-3 transition-colors hover:border-[#5A4580]"
+										class="flex flex-wrap items-center gap-3 rounded-xl border border-cover-edge/70 bg-desk-2 px-3 py-3 transition-colors hover:border-cover-edge/70"
 									>
 										<Avatar
 											src={user.avatar_url}
@@ -974,11 +970,11 @@
 											<p class="truncate font-ui text-sm font-bold text-white">
 												{user.display_name || user.username}
 											</p>
-											<p class="truncate font-ui text-[11px] text-[#9E8CC0]">
+											<p class="truncate font-ui text-[11px] text-lav/60">
 												@{user.username} · joined {formatDate(user.created_at)}
 											</p>
 											{#if user.user_role === 'banned' && user.ban_reason}
-												<p class="mt-0.5 truncate font-ui text-[10px] text-[#F0A3A3]">
+												<p class="mt-0.5 truncate font-ui text-[10px] text-danger-soft">
 													Ban reason: {user.ban_reason}
 												</p>
 											{/if}
@@ -1045,11 +1041,11 @@
 						<div class="mb-4 flex flex-wrap items-end justify-between gap-3">
 							<div>
 								<h3 class="font-display text-2xl leading-tight font-bold text-white">Ban list</h3>
-								<p class="mt-0.5 font-ui text-xs text-[#9E8CC0]">
+								<p class="mt-0.5 font-ui text-xs text-lav/60">
 									Accounts that cannot sign in. Restoring keeps all of their pages and posts.
 								</p>
 							</div>
-							<span class="font-ui text-xs text-[#BBA8E0] tabular-nums">
+							<span class="font-ui text-xs text-lav/80 tabular-nums">
 								{bannedUsers.length}
 								{bannedUsers.length === 1 ? 'account' : 'accounts'}
 							</span>
@@ -1059,19 +1055,17 @@
 							<div class="space-y-2">
 								{#each [0, 1, 2, 3] as slot (slot)}
 									<div
-										class="h-16 animate-pulse rounded-xl border border-[#4D366D] bg-[#24143D]"
+										class="h-16 animate-pulse rounded-xl border border-cover-edge/70 bg-desk-2"
 									></div>
 								{/each}
 							</div>
 						{:else if bannedUsers.length === 0}
-							<div
-								class="rounded-2xl border border-[#5A4580] bg-[#24143D]/60 px-6 py-12 text-center"
-							>
+							<div class="rounded-2xl border border-cover-edge bg-desk-2/60 px-6 py-12 text-center">
 								<CommunityIcon name="shield" size={28} class="mx-auto text-gold/60" />
-								<p class="mt-3 font-ui text-sm font-semibold text-[#D6CBEC]">
+								<p class="mt-3 font-ui text-sm font-semibold text-lav">
 									No banned accounts right now.
 								</p>
-								<p class="mt-1 font-ui text-xs text-[#9E8CC0]">
+								<p class="mt-1 font-ui text-xs text-lav/60">
 									Issue a warning or ban from Reports or the Users tab.
 								</p>
 							</div>
@@ -1079,26 +1073,26 @@
 							<div class="space-y-2">
 								{#each bannedUsers as user (user.user_id)}
 									<div
-										class="flex flex-wrap items-center gap-3 rounded-xl border border-[#D19A9A]/40 bg-[#2B1720] px-3 py-3"
+										class="flex flex-wrap items-center gap-3 rounded-xl border border-danger/40 bg-danger/10 px-3 py-3"
 									>
 										<Avatar
 											src={user.avatar_url}
 											name={user.display_name || user.username}
 											className="size-10"
 											textClass="text-base"
-											ring="ring-2 ring-[#D19A9A]/40"
+											ring="ring-2 ring-danger/40"
 										/>
 
 										<div class="min-w-0 flex-1">
 											<p class="truncate font-ui text-sm font-bold text-white">
 												{user.display_name || user.username}
 											</p>
-											<p class="truncate font-ui text-[11px] text-[#9E8CC0]">@{user.username}</p>
-											<p class="mt-0.5 truncate font-ui text-[10px] text-[#F0A3A3]">
+											<p class="truncate font-ui text-[11px] text-lav/60">@{user.username}</p>
+											<p class="mt-0.5 truncate font-ui text-[10px] text-danger-soft">
 												Ban reason: {user.ban_reason || 'No reason recorded'}
 											</p>
 											{#if user.banned_at}
-												<p class="font-ui text-[10px] text-[#9E8CC0]">
+												<p class="font-ui text-[10px] text-lav/60">
 													Banned {formatDate(user.banned_at)}
 												</p>
 											{/if}
@@ -1137,25 +1131,25 @@
 				onclick={() => (open = false)}
 			></button>
 			<div
-				class="relative mx-4 max-w-[340px] rounded-[24px] border border-[#D19A9A] bg-[#3A222B] p-8 text-center text-white shadow-[0_40px_100px_rgba(0,0,0,.7)]"
+				class="relative mx-4 max-w-[340px] rounded-[24px] border border-danger bg-danger/20 p-8 text-center text-white shadow-[0_40px_100px_rgba(0,0,0,.7)]"
 			>
 				<span
-					class="mx-auto flex size-12 items-center justify-center rounded-full bg-[#D19A9A]/15 text-[#F0A3A3]"
+					class="mx-auto flex size-12 items-center justify-center rounded-full bg-danger/15 text-danger-soft"
 				>
 					<CommunityIcon name="lock" size={24} />
 				</span>
 				<h2 class="mt-4 font-display text-xl font-bold">Admin access required</h2>
-				<p class="mt-2 font-ui text-sm text-[#FFB4B4]">
+				<p class="mt-2 font-ui text-sm text-danger-soft">
 					Only administrators can open this console.
 				</p>
-				<p class="mt-3 rounded-lg bg-black/20 px-3 py-2 font-ui text-[11px] text-[#E8DCF8]">
+				<p class="mt-3 rounded-lg bg-black/20 px-3 py-2 font-ui text-[11px] text-lav/90">
 					Signed in as <strong>@{profile.username || 'unknown'}</strong><br />
 					Role:
 					<strong
 						>{profile.profile?.user_role ?? (profile.loading ? 'loading…' : 'not loaded')}</strong
 					>
 				</p>
-				<p class="mt-2 font-ui text-[11px] text-[#C9B8E8]">
+				<p class="mt-2 font-ui text-[11px] text-lav">
 					An admin needs <code class="text-gold">user_role = 'admin'</code> in
 					<code class="text-gold">vidjo_profiles</code>.
 				</p>
