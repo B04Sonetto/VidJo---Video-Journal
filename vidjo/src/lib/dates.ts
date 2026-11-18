@@ -11,9 +11,10 @@ export function parseDate(value: string) {
 	return new Date(year, month - 1, day);
 }
 
-export const TODAY = dateKey(new Date());
-
-/** The local date right now. Unlike `TODAY`, this does not go stale overnight. */
+/**
+ * The local date right now. Never cache this in a module constant: a tab left
+ * open overnight would keep pointing at yesterday.
+ */
 export function todayKey() {
 	return dateKey(new Date());
 }

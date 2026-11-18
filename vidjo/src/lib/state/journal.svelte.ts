@@ -1,7 +1,7 @@
 import { track } from '#lib/analytics';
 import { isObscene } from '#lib/censor';
 import { STICKER_BY_KEY } from '#lib/data/stickers';
-import { isFutureDate, TODAY, uid } from '#lib/dates';
+import { isFutureDate, todayKey, uid } from '#lib/dates';
 import { peekDeviceId } from '#lib/identity';
 import { captureError } from '#lib/observability';
 import { isSupabaseConfigured, supabase, VIDEO_BUCKET } from '#lib/supabase';
@@ -175,7 +175,7 @@ class Journal {
 	paper = $state<PaperStyle>('lined');
 	/** Privacy assigned to newly created pages (Profile → Settings). */
 	defaultPrivacy = $state<Privacy>('private');
-	current = $state(TODAY);
+	current = $state(todayKey());
 	side = $state<Side>('L');
 	selected = $state<string[]>([]);
 	lastPage = $state<Side>('R');
@@ -288,11 +288,12 @@ class Journal {
 		if (seq !== this.initSeq) return;
 		this.persistLocal();
 
-		if (!this.entries[TODAY]) {
-			this.entries[TODAY] = blankEntry(TODAY, this.defaultPrivacy);
+		const today = todayKey();
+		if (!this.entries[today]) {
+			this.entries[today] = blankEntry(today, this.defaultPrivacy);
 		}
 
-		this.current = TODAY;
+		this.current = today;
 		this.side = 'L';
 		this.selected = [];
 		this.ready = true;
@@ -324,7 +325,7 @@ class Journal {
 		this.remote = false;
 		this.uploading = false;
 		this.entries = {};
-		this.current = TODAY;
+		this.current = todayKey();
 		this.side = 'L';
 		this.selected = [];
 		this.lastPage = 'R';
@@ -537,7 +538,7 @@ class Journal {
 	leaveCurrentIfBlank() {
 		const entry = this.entries[this.current];
 		if (!entry) return;
-		if (this.current !== TODAY && this.isBlank(entry)) {
+		if (this.current !== todayKey() && this.isBlank(entry)) {
 			delete this.entries[this.current];
 			this.persistLocal();
 			void this.trackRemoteDelete(this.current);
@@ -576,7 +577,7 @@ class Journal {
 		// Book/LeftPage/RightPage dereference `undefined`.
 		let target = neighbour && this.entries[neighbour] ? neighbour : this.sortedDates[0];
 		if (!target) {
-			target = TODAY;
+			target = todayKey();
 			this.entries[target] = blankEntry(target, this.defaultPrivacy);
 			this.persistLocal();
 		}

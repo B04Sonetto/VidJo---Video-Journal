@@ -7,7 +7,7 @@
 	import StickerLayer from '#lib/components/StickerLayer.svelte';
 	import Button from '#lib/components/ui/Button.svelte';
 	import Spinner from '#lib/components/ui/Spinner.svelte';
-	import { parseDate, TODAY } from '#lib/dates';
+	import { parseDate, todayKey } from '#lib/dates';
 	import { journal } from '#lib/state/journal.svelte';
 	import { viewport } from '#lib/state/viewport.svelte';
 	import type { Entry } from '#lib/types';
@@ -41,7 +41,7 @@
 	const dateText = $derived(
 		parseDate(date).toLocaleDateString('en-US', { day: 'numeric', month: 'long', year: 'numeric' })
 	);
-	const caption = $derived(entry.title || (date === TODAY ? "Today's VidJo" : 'My VidJo'));
+	const caption = $derived(entry.title || (date === todayKey() ? "Today's VidJo" : 'My VidJo'));
 
 	$effect(() => {
 		if (removeAsk && !wasRemoveAsk) {

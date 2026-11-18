@@ -4,7 +4,7 @@
 	import { community } from '#lib/state/community.svelte';
 	import { nav } from '#lib/state/navigation.svelte';
 	import { journal } from '#lib/state/journal.svelte';
-	import { TODAY } from '#lib/dates';
+	import { todayKey } from '#lib/dates';
 	import { onMount } from 'svelte';
 	import { MOODS, MOOD_BY_KEY } from '#lib/data/moods';
 	import { STICKER_BY_KEY } from '#lib/data/stickers';
@@ -116,7 +116,7 @@
 
 	let promptIndex = $derived.by(() => {
 		let hash = 0;
-		for (const char of `${TODAY}-community`) {
+		for (const char of `${todayKey()}-community`) {
 			hash = (hash * 31 + char.charCodeAt(0)) >>> 0;
 		}
 		return hash % PROMPTS.length;
@@ -390,7 +390,7 @@
 			{#if feedVisible}
 				<Button variant="outline" icon="grid" onclick={openRandomPage}>Open a random page</Button>
 			{/if}
-			<Button icon="pen" onclick={() => nav.jump(TODAY)}>Share a page</Button>
+			<Button icon="pen" onclick={() => nav.jump(todayKey())}>Share a page</Button>
 		{/snippet}
 	</PageHeader>
 
@@ -515,7 +515,7 @@
 				<p class="mt-2 font-hand text-[28px] leading-[1.2] font-bold text-balance text-book-ink">
 					{todaysPrompt}
 				</p>
-				<Button class="mt-4" trailingIcon="arrow-right" onclick={() => nav.jump(TODAY)}>
+				<Button class="mt-4" trailingIcon="arrow-right" onclick={() => nav.jump(todayKey())}>
 					Answer with a VidJo
 				</Button>
 			</section>
@@ -760,7 +760,7 @@
 					{#if searchQuery.trim() || activeMood !== 'all' || activeSlug !== 'all'}
 						<Button variant="note" size="sm" onclick={clearFilters}>Clear filters</Button>
 					{/if}
-					<Button size="sm" trailingIcon="arrow-right" onclick={() => nav.jump(TODAY)}>
+					<Button size="sm" trailingIcon="arrow-right" onclick={() => nav.jump(todayKey())}>
 						Write today's page
 					</Button>
 				</div>
@@ -1203,7 +1203,7 @@
 				Set a journal page to <span class="font-semibold text-book-accent">Community</span>, then
 				pick one of your joined communities. You choose what gets shared.
 			</p>
-			<Button class="mt-4" trailingIcon="arrow-right" onclick={() => nav.jump(TODAY)}>
+			<Button class="mt-4" trailingIcon="arrow-right" onclick={() => nav.jump(todayKey())}>
 				Go to today's page
 			</Button>
 		</div>

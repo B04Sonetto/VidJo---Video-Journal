@@ -212,18 +212,22 @@ exception. Sample pages never count.
 - The client mirrors the same rules in `src/lib/streak.ts` for the journal
   header, badges, and calendar heatmap.
 
-Re-run `schema.sql` so `vidjo_streak_for` exists.
+Re-run `schema.sql` so `vidjo_streak_for` exists. If the live project already
+has the older one-argument version, run `supabase/fix-timezone.sql` to replace
+it and to widen the future-page trigger for members outside UTC.
 
 ## Troubleshooting
 
-| Symptom                                         | Fix                                                                                                                                 |
-| ----------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
-| Email code returns error for non-existent email | Enable **Prevent email enumeration** in Supabase Auth settings.                                                                     |
-| Username is already taken                       | Usernames are globally unique. Pick a different handle.                                                                             |
-| Friend code is not found                        | Both accounts must exist in `vidjo_profiles`, and the code must include the `VJ-` prefix. Re-run `schema.sql` if codes are missing. |
-| Communities or friends disappear after deploy   | Re-run `schema.sql` so the social tables, `community_slug`, and RPCs exist. Local membership is only a fallback.                    |
-| Video does not play                             | Check that the `vidjo-videos` bucket exists and re-run `schema.sql`.                                                                |
-| Photos do not send                              | Check that the private `vidjo-dm-images` bucket and its storage policies exist; re-run `schema.sql`.                                |
-| GIF button is missing                           | Set `PUBLIC_GIPHY_API_KEY` and restart the dev server or redeploy.                                                                  |
-| GIFs do not send                                | Re-run `schema.sql` so `gif_url` and the 5-argument `vidjo_dm_send` exist.                                                          |
-| Shared browser has old journal entries          | Sign out with "Clear cached pages on sign out" checked.                                                                             |
+| Symptom                                         | Fix                                                                                                                                              |
+| ----------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Email code returns error for non-existent email | Enable **Prevent email enumeration** in Supabase Auth settings.                                                                                  |
+| Username is already taken                       | Usernames are globally unique. Pick a different handle.                                                                                          |
+| Friend code is not found                        | Both accounts must exist in `vidjo_profiles`, and the code must include the `VJ-` prefix. Re-run `schema.sql` if codes are missing.              |
+| Communities or friends disappear after deploy   | Re-run `schema.sql` so the social tables, `community_slug`, and RPCs exist. Local membership is only a fallback.                                 |
+| Video does not play                             | Check that the `vidjo-videos` bucket exists and re-run `schema.sql`.                                                                             |
+| Photos do not send                              | Check that the private `vidjo-dm-images` bucket and its storage policies exist; re-run `schema.sql`.                                             |
+| GIF button is missing                           | Set `PUBLIC_GIPHY_API_KEY` and restart the dev server or redeploy.                                                                               |
+| GIFs do not send                                | Re-run `schema.sql` so `gif_url` and the 5-argument `vidjo_dm_send` exist.                                                                       |
+| Shared browser has old journal entries          | Sign out with "Clear cached pages on sign out" checked.                                                                                          |
+| Pages will not sync just after local midnight   | Run `supabase/fix-timezone.sql`. The future-page trigger compared against the UTC date, so members east of UTC were blocked until UTC caught up. |
+| Friend's streak looks one day behind            | Run `supabase/fix-timezone.sql` and redeploy. `vidjo_streak_for` now accepts the viewer's local date as `p_today`.                               |

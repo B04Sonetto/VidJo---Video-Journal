@@ -6,7 +6,7 @@
 	import { friends } from '#lib/state/friends.svelte';
 	import { messages } from '#lib/state/messages.svelte';
 	import { community } from '#lib/state/community.svelte';
-	import { TODAY } from '#lib/dates';
+	import { todayKey } from '#lib/dates';
 	import { isSupabaseConfigured, supabase } from '#lib/supabase';
 	import Avatar from '#lib/components/Avatar.svelte';
 	import AdminPanel from '#lib/components/AdminPanel.svelte';
@@ -260,7 +260,7 @@
 	<button
 		type="button"
 		class="inline-flex min-h-10 shrink-0 items-center gap-1.5 rounded-xl bg-cta px-3 font-ui text-[13px] font-bold text-cta-text shadow-[0_6px_18px_var(--color-cta-shadow)] transition-all hover:bg-cta-hover hover:shadow-[0_8px_22px_var(--color-cta-shadow)] active:scale-[.98] min-[480px]:min-h-11 min-[480px]:gap-2 min-[480px]:px-[18px] min-[480px]:text-[15px]"
-		onclick={() => nav.jump(TODAY)}
+		onclick={() => nav.jump(todayKey())}
 	>
 		<CommunityIcon name="plus" size={16} />
 		<span class="min-[480px]:hidden">Today</span>

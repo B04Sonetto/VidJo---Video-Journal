@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { tick } from 'svelte';
 	import { MOOD_BY_KEY, type MoodDef } from '#lib/data/moods';
-	import { isFutureDate, pad, parseDate, TODAY } from '#lib/dates';
+	import { isFutureDate, pad, parseDate, todayKey } from '#lib/dates';
 	import { buildHeatmap } from '#lib/streak';
 	import { journal } from '#lib/state/journal.svelte';
 	import { nav } from '#lib/state/navigation.svelte';
@@ -90,7 +90,7 @@
 				entry,
 				has,
 				mood: entry?.mood ? MOOD_BY_KEY[entry.mood] : undefined,
-				isToday: key === TODAY,
+				isToday: key === todayKey(),
 				isCurrent: key === journal.current,
 				isFuture: isFutureDate(key),
 				hasVideo: Boolean(journal.videoFor(key)),

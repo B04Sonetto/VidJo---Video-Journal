@@ -3514,13 +3514,19 @@ create trigger vidjo_warn_shared_entry
 
 -- One VidJo per day means every day up to today, never a future day. This is
 -- enforced in the database so a direct API call cannot create tomorrow's page.
+--
+-- "Today" here is the member's local date, but Postgres runs in UTC. Someone in
+-- UTC+10 is already on tomorrow's date while UTC is still on yesterday's, so
+-- allow one day of slack. Without it, everyone east of UTC cannot save a page
+-- for the first few hours after their local midnight. The app still blocks
+-- future pages on the client, so this only widens the API guard by a day.
 create or replace function public.vidjo_reject_future_entry()
 returns trigger
 language plpgsql
 set search_path = public
 as $$
 begin
-	if new.entry_date > current_date then
+	if new.entry_date > current_date + 1 then
 		raise exception 'VidJo pages can only be created for today or an earlier date.'
 			using errcode = 'P0001';
 	end if;
@@ -3852,7 +3858,16 @@ as $$
 		or coalesce(array_length(p_excluded, 1), 0) > 0;
 $$;
 
-create or replace function public.vidjo_streak_for(target uuid)
+-- The signature gained `p_today`; drop the old one so PostgREST never has to
+-- choose between overloads.
+drop function if exists public.vidjo_streak_for(uuid);
+
+-- `p_today` is the viewer's local date. Postgres runs in UTC, so a member east
+-- of UTC would otherwise see a friend's streak as one day behind (and
+-- `todayCounted` false) for the first hours after their local midnight. Clamp
+-- it to one day either side of UTC so a client cannot ask about an arbitrary
+-- date.
+create or replace function public.vidjo_streak_for(target uuid, p_today date default null)
 returns jsonb
 language plpgsql
 stable
@@ -3861,7 +3876,7 @@ set search_path = public
 as $$
 declare
 	viewer uuid := auth.uid();
-	today date := current_date;
+	today date := greatest(current_date - 1, least(coalesce(p_today, current_date), current_date + 1));
 	current_run integer := 0;
 	longest_run integer := 0;
 	total_days integer := 0;
@@ -3957,8 +3972,8 @@ revoke all on function public.vidjo_entry_counts(boolean, text, text, text, text
 revoke all on function public.vidjo_entry_counts(boolean, text, text, text, text, jsonb, text, text, text[], text[]) from anon;
 revoke all on function public.vidjo_entry_counts(boolean, text, text, text, text, jsonb, text, text, text[], text[]) from authenticated;
 
-revoke all on function public.vidjo_streak_for(uuid) from public;
-revoke all on function public.vidjo_streak_for(uuid) from anon;
-grant execute on function public.vidjo_streak_for(uuid) to authenticated;
+revoke all on function public.vidjo_streak_for(uuid, date) from public;
+revoke all on function public.vidjo_streak_for(uuid, date) from anon;
+grant execute on function public.vidjo_streak_for(uuid, date) to authenticated;
 
 notify pgrst, 'reload schema';

@@ -4,7 +4,7 @@
 	import { profile } from '#lib/state/profile.svelte';
 	import { journal } from '#lib/state/journal.svelte';
 	import { nav } from '#lib/state/navigation.svelte';
-	import { TODAY } from '#lib/dates';
+	import { todayKey } from '#lib/dates';
 	import { onMount, untrack } from 'svelte';
 	import { MOOD_BY_KEY, type MoodDef } from '#lib/data/moods';
 	import { STICKERS } from '#lib/data/stickers';
@@ -175,7 +175,7 @@
 				},
 				posts: ownPosts,
 				isOwner: true,
-				newCount: ownPosts.filter((post) => post.date === TODAY).length,
+				newCount: ownPosts.filter((post) => post.date === todayKey()).length,
 				latest: ownPosts[0]?.date ?? ''
 			});
 		}
@@ -186,7 +186,7 @@
 				friend,
 				posts,
 				isOwner: false,
-				newCount: posts.filter((post) => post.date === TODAY).length,
+				newCount: posts.filter((post) => post.date === todayKey()).length,
 				latest: posts[0]?.date ?? ''
 			});
 		}
@@ -256,7 +256,7 @@
 			{friends.friendCount === 1 ? 'friend' : 'friends'}
 		{/snippet}
 		{#snippet actions()}
-			<Button variant="ghost" trailingIcon="arrow-right" onclick={() => nav.jump(TODAY)}>
+			<Button variant="ghost" trailingIcon="arrow-right" onclick={() => nav.jump(todayKey())}>
 				Open my journal
 			</Button>
 			<Button icon="plus" onclick={openAddFriend}>Add a friend</Button>

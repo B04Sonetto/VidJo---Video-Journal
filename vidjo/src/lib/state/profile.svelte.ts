@@ -6,6 +6,11 @@ import { cleanDisplayName, normalizeImageUrl } from '#lib/avatar';
 import { detectRasterImageMime } from '#lib/imageUpload';
 import { captureError } from '#lib/observability';
 import { isPlaceholderUsername, validateUsername } from '#lib/username';
+import { todayKey } from '#lib/dates';
+
+// Whether `vidjo_streak_for` accepts the local-date argument. Checked once so a
+// database that has not run supabase/fix-timezone.sql only logs one 404.
+let streakAcceptsLocalDate: boolean | null = null;
 
 export function generateFriendCode(userId: string): string {
 	if (!userId) return 'VJ-DEMO01';
@@ -569,10 +574,29 @@ class ProfileState {
 
 		if (isSupabaseConfigured) {
 			try {
+				// Older databases only know the one-argument `vidjo_streak_for`.
+				// Try the local-date version first so the friend's streak is right
+				// outside UTC, then fall back instead of hiding the strip.
+				const streakRequest = (async () => {
+					if (streakAcceptsLocalDate !== false) {
+						const { data, error } = await supabase.rpc('vidjo_streak_for', {
+							target: userId,
+							p_today: todayKey()
+						});
+						if (!error) {
+							streakAcceptsLocalDate = true;
+							return data;
+						}
+						streakAcceptsLocalDate = false;
+					}
+					const legacy = await supabase.rpc('vidjo_streak_for', { target: userId });
+					return legacy.data;
+				})();
+
 				const [
 					{ data: profileData, error: profileError },
 					{ data: entries, error: entriesError },
-					{ data: streakData }
+					streakData
 				] = await Promise.all([
 					supabase.from('vidjo_profiles').select('*').eq('user_id', userId).maybeSingle(),
 					supabase
@@ -582,7 +606,7 @@ class ProfileState {
 						.eq('privacy', 'community')
 						.order('entry_date', { ascending: false })
 						.limit(50),
-					supabase.rpc('vidjo_streak_for', { target: userId })
+					streakRequest
 				]);
 
 				if (profileError) throw profileError;

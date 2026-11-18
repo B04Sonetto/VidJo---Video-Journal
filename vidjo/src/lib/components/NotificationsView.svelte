@@ -2,7 +2,7 @@
 	import { censor } from '#lib/censor';
 	import { friends } from '#lib/state/friends.svelte';
 	import { nav } from '#lib/state/navigation.svelte';
-	import { TODAY } from '#lib/dates';
+	import { todayKey } from '#lib/dates';
 	import Avatar from '#lib/components/Avatar.svelte';
 	import CommunityIcon from '#lib/components/CommunityIcon.svelte';
 	import PageHeader from '#lib/components/ui/PageHeader.svelte';
@@ -133,7 +133,7 @@
 			<Button variant="outline" icon="arrow-left" onclick={() => nav.setView('journal')}>
 				Back to journal
 			</Button>
-			<Button icon="pen" onclick={() => nav.jump(TODAY)}>Open today's page</Button>
+			<Button icon="pen" onclick={() => nav.jump(todayKey())}>Open today's page</Button>
 		{/snippet}
 	</PageHeader>
 

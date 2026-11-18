@@ -30,10 +30,14 @@ export async function POST({ request }: RequestEvent) {
 			}
 		});
 
+		// Usernames allow `_`, but `_` is a single-character wildcard in ILIKE.
+		// Escape it (and `%`/`\`) so `a_b` matches only `a_b`, never `axb`.
+		const usernamePattern = username.trim().replace(/[\\%_]/g, (char) => `\\${char}`);
+
 		const { data: profile, error: profileError } = await admin
 			.from('vidjo_profiles')
 			.select('user_id')
-			.ilike('username', username.trim())
+			.ilike('username', usernamePattern)
 			.maybeSingle();
 
 		if (profileError || !profile) {
