@@ -170,6 +170,12 @@ export interface FriendComment {
 	authorAvatar: string | null;
 	text: string;
 	time: string;
+	/** Epoch milliseconds, used for "newest"/"top" sorting. */
+	createdAt?: number;
+	reactions?: FriendPostReaction;
+	userReactions?: (keyof FriendPostReaction)[];
+	/** Reaction timestamps (epoch ms) used for this week/month sorting. */
+	reactionTimes?: Partial<Record<keyof FriendPostReaction, number[]>>;
 }
 
 export interface FriendPostReaction {

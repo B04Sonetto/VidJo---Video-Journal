@@ -22,7 +22,11 @@
 	let searchQuery = $state('');
 	let activeSlug = $state('all');
 	let activeMood = $state<MoodKey | 'all'>('all');
-	let feedMode = $state<'trending' | 'newest'>('trending');
+	type FeedMode = 'hot' | 'top' | 'week' | 'month' | 'newest';
+	type CommentSort = 'newest' | 'top' | 'week' | 'month';
+
+	let feedMode = $state<FeedMode>('hot');
+	let commentSort = $state<CommentSort>('newest');
 	let commentInput = $state<Record<string, string>>({});
 	let openComments = $state<string | null>(null);
 	let detailPostId = $state<string | null>(null);
@@ -33,6 +37,10 @@
 	let lastCommentTime = $state<Record<string, number>>({});
 	let deleteTarget = $state<CommunityPost | null>(null);
 	let deleteBusy = $state(false);
+	let videoRemoveAck = $state(false);
+	let deleteHasVideo = $derived(
+		Boolean(deleteTarget?.videoUrl || deleteTarget?.videoPath || deleteTarget?.videoName)
+	);
 	let commentConfirmId = $state<string | null>(null);
 	let editingCommentId = $state<string | null>(null);
 	let editCommentText = $state('');
@@ -212,6 +220,36 @@
 		return counts;
 	});
 
+	const DAY_MS = 24 * 60 * 60 * 1000;
+
+	function totalCheers(value: FriendPostReaction) {
+		return value.love + value.spark + value.warm + value.proud;
+	}
+
+	function scoreFor(post: CommunityPost, days: number) {
+		return days > 0 ? community.reactionScoreSince(post, days) : totalCheers(post.reactions);
+	}
+
+	function hotScore(post: CommunityPost) {
+		const posted = new Date(`${post.date}T00:00:00`).getTime();
+		const ageDays = Number.isNaN(posted) ? 0 : Math.max(0, (Date.now() - posted) / DAY_MS);
+		return (totalCheers(post.reactions) + post.comments.length * 0.75) / Math.pow(ageDays + 2, 1.35);
+	}
+
+	function sortedComments(post: CommunityPost) {
+		const list = [...post.comments];
+		if (commentSort === 'newest') {
+			return list.sort((a, b) => (b.createdAt ?? 0) - (a.createdAt ?? 0));
+		}
+		const days = commentSort === 'week' ? 7 : commentSort === 'month' ? 30 : 0;
+		return list.sort(
+			(a, b) =>
+				community.commentReactionScoreSince(b, days) -
+					community.commentReactionScoreSince(a, days) ||
+				(b.createdAt ?? 0) - (a.createdAt ?? 0)
+		);
+	}
+
 	let filteredPosts = $derived.by(() => {
 		let posts = basePosts;
 
@@ -234,15 +272,12 @@
 		}
 
 		return [...posts].sort((a, b) => {
-			if (feedMode === 'trending') {
-				const score = (value: CommunityPost) =>
-					value.reactions.love +
-					value.reactions.spark +
-					value.reactions.warm +
-					value.reactions.proud;
-				return score(b) - score(a) || b.date.localeCompare(a.date);
-			}
-			return b.date.localeCompare(a.date);
+			const byDate = b.date.localeCompare(a.date);
+			if (feedMode === 'week') return scoreFor(b, 7) - scoreFor(a, 7) || byDate;
+			if (feedMode === 'month') return scoreFor(b, 30) - scoreFor(a, 30) || byDate;
+			if (feedMode === 'top') return scoreFor(b, 0) - scoreFor(a, 0) || byDate;
+			if (feedMode === 'hot') return hotScore(b) - hotScore(a) || byDate;
+			return byDate;
 		});
 	});
 
@@ -305,9 +340,11 @@
 		showDiscovery = false;
 	}
 
-	async function deleteComment(post: CommunityPost, commentId: string) {
+	async function deleteComment(post: CommunityPost, commentId: string, isAuthor: boolean) {
 		commentConfirmId = null;
-		const ok = await community.deleteComment(post, commentId);
+		const ok = isAuthor
+			? await community.deleteComment(post, commentId)
+			: await community.deleteCommentAsAdmin(post, commentId);
 		journal.toast(ok ? 'Note deleted' : 'Could not delete the note. Please try again.');
 	}
 
@@ -344,6 +381,7 @@
 	}
 
 	function requestDelete(post: CommunityPost) {
+		videoRemoveAck = false;
 		deleteTarget = post;
 	}
 
@@ -551,7 +589,15 @@
 						</h2>
 						<p class="mt-0.5 font-ui text-sm text-book-bg/65">
 							Showing {activeMood === 'all' ? 'every mood' : MOOD_BY_KEY[activeMood].l} ·
-							{feedMode === 'trending' ? 'trending first' : 'newest first'}
+							{feedMode === 'hot'
+								? 'hot first'
+								: feedMode === 'top'
+									? 'top cheered first'
+									: feedMode === 'week'
+										? 'most popular this week'
+										: feedMode === 'month'
+											? 'most popular this month'
+											: 'newest first'}
 						</p>
 					</div>
 					{#if activeMood !== 'all'}
@@ -604,9 +650,10 @@
 			</section>
 		</div>
 
-		<!-- Joined community rail -->
+		<!-- Joined community rail. Solid background: a sticky backdrop-blur made
+		     the whole feed repaint on every scroll frame. -->
 		<div
-			class="sticky top-2 z-20 -mx-4 mt-6 border-y border-cover-edge bg-desk/90 px-4 py-2 backdrop-blur-sm min-[900px]:mx-0 min-[900px]:rounded-[18px] min-[900px]:border min-[900px]:px-2.5"
+			class="sticky top-2 z-20 -mx-4 mt-6 border-y border-cover-edge bg-desk px-4 py-2 min-[900px]:mx-0 min-[900px]:rounded-[18px] min-[900px]:border min-[900px]:px-2.5"
 		>
 			<div class="flex items-center gap-2">
 				<span
@@ -663,30 +710,71 @@
 		<div class="mt-5 flex flex-wrap items-center justify-between gap-3">
 			<div class="flex flex-wrap items-center gap-3">
 				<div
-					class="inline-flex items-center gap-1 rounded-full border border-cover-edge bg-desk-2 p-1"
+					class="inline-flex flex-wrap items-center gap-1 rounded-full border border-cover-edge bg-desk-2 p-1"
 					role="group"
 					aria-label="Sort community pages"
 				>
 					<button
 						type="button"
-						class="inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 font-ui text-xs font-bold transition-colors {feedMode ===
-						'trending'
+						class="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 font-ui text-xs font-bold transition-colors {feedMode ===
+						'hot'
 							? 'bg-cta text-cta-text shadow-sm'
 							: 'text-book-bg/70 hover:text-book-bg'}"
-						onclick={() => (feedMode = 'trending')}
-						aria-pressed={feedMode === 'trending'}
+						onclick={() => (feedMode = 'hot')}
+						aria-pressed={feedMode === 'hot'}
+						title="Hot right now — cheers weighted by recency"
 					>
-						<CommunityIcon name="trending" size={14} />
-						Trending
+						<CommunityIcon name="flame" size={14} />
+						Hot
 					</button>
 					<button
 						type="button"
-						class="inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 font-ui text-xs font-bold transition-colors {feedMode ===
+						class="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 font-ui text-xs font-bold transition-colors {feedMode ===
+						'top'
+							? 'bg-cta text-cta-text shadow-sm'
+							: 'text-book-bg/70 hover:text-book-bg'}"
+						onclick={() => (feedMode = 'top')}
+						aria-pressed={feedMode === 'top'}
+						title="Most popular of all time"
+					>
+						<CommunityIcon name="star" size={14} />
+						Top
+					</button>
+					<button
+						type="button"
+						class="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 font-ui text-xs font-bold transition-colors {feedMode ===
+						'week'
+							? 'bg-cta text-cta-text shadow-sm'
+							: 'text-book-bg/70 hover:text-book-bg'}"
+						onclick={() => (feedMode = 'week')}
+						aria-pressed={feedMode === 'week'}
+						title="Most popular this week"
+					>
+						<CommunityIcon name="calendar" size={14} />
+						Week
+					</button>
+					<button
+						type="button"
+						class="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 font-ui text-xs font-bold transition-colors {feedMode ===
+						'month'
+							? 'bg-cta text-cta-text shadow-sm'
+							: 'text-book-bg/70 hover:text-book-bg'}"
+						onclick={() => (feedMode = 'month')}
+						aria-pressed={feedMode === 'month'}
+						title="Most popular this month"
+					>
+						<CommunityIcon name="calendar" size={14} />
+						Month
+					</button>
+					<button
+						type="button"
+						class="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 font-ui text-xs font-bold transition-colors {feedMode ===
 						'newest'
 							? 'bg-cta text-cta-text shadow-sm'
 							: 'text-book-bg/70 hover:text-book-bg'}"
 						onclick={() => (feedMode = 'newest')}
 						aria-pressed={feedMode === 'newest'}
+						title="Newest pages first"
 					>
 						<svg
 							class="size-[14px]"
@@ -810,10 +898,11 @@
 									poster={post.videoThumbUrl || undefined}
 									controls
 									playsinline
-									class="max-h-[290px] w-full bg-black object-contain"
+									preload="metadata"
+									class="modal-video max-h-[290px] w-full bg-black object-contain"
 								></video>
 								<span
-									class="pointer-events-none absolute top-2 left-2 rounded-full bg-desk/80 px-2 py-0.5 font-ui text-[9px] font-bold text-book-bg backdrop-blur-sm"
+									class="pointer-events-none absolute top-2 left-2 rounded-full bg-desk/90 px-2 py-0.5 font-ui text-[9px] font-bold text-book-bg"
 								>
 									{post.tag}
 								</span>
@@ -823,7 +912,7 @@
 								class="relative flex aspect-[4/3] flex-col items-center justify-center overflow-hidden rounded-[2px] border border-line bg-[radial-gradient(ellipse_at_center,var(--color-cover)_0%,var(--color-desk)_85%)] text-center text-book-bg"
 							>
 								<span
-									class="absolute top-2 left-2 rounded-full bg-cover/50 px-2 py-0.5 font-ui text-[9px] font-bold text-book-bg backdrop-blur-sm"
+									class="absolute top-2 left-2 rounded-full bg-cover/85 px-2 py-0.5 font-ui text-[9px] font-bold text-book-bg"
 								>
 									{post.tag}
 								</span>
@@ -842,7 +931,7 @@
 								style="background: radial-gradient(circle at 50% 32%, {mood.c} 0%, var(--color-book-bg) 80%)"
 							>
 								<span
-									class="absolute top-2 left-2 rounded-full bg-desk/75 px-2 py-0.5 font-ui text-[9px] font-bold text-book-bg backdrop-blur-sm"
+									class="absolute top-2 left-2 rounded-full bg-desk/90 px-2 py-0.5 font-ui text-[9px] font-bold text-book-bg"
 								>
 									{post.tag}
 								</span>
@@ -862,7 +951,7 @@
 								class="relative flex aspect-[4/3] flex-col items-center justify-center overflow-hidden rounded-[2px] border border-line bg-[linear-gradient(135deg,var(--color-paper-deep),var(--color-book-edge))]"
 							>
 								<span
-									class="absolute top-2 left-2 rounded-full bg-desk/75 px-2 py-0.5 font-ui text-[9px] font-bold text-book-bg backdrop-blur-sm"
+									class="absolute top-2 left-2 rounded-full bg-desk/90 px-2 py-0.5 font-ui text-[9px] font-bold text-book-bg"
 								>
 									{post.tag}
 								</span>
@@ -1058,11 +1147,24 @@
 								<div class="p-2.5">
 									<span class="mb-2 block font-ui text-[10px] font-semibold text-book-ink/70">
 										Community notes
+											<label class="ml-2 inline-flex items-center gap-1 font-ui text-[9px] font-normal text-book-ink/60">
+												Sort
+												<select
+													bind:value={commentSort}
+													aria-label="Sort community notes"
+													class="rounded-md border border-line bg-book-bg px-1.5 py-0.5 font-ui text-[9px] font-semibold text-book-ink focus:border-book-accent focus:outline-none"
+												>
+													<option value="newest">Newest</option>
+													<option value="top">Top</option>
+													<option value="week">This week</option>
+													<option value="month">This month</option>
+												</select>
+											</label>
 									</span>
 
 									{#if post.comments.length > 0}
-										<div class="mb-2.5 max-h-[240px] space-y-2 overflow-y-auto pr-1">
-											{#each post.comments as comment (comment.id)}
+										<div class="modal-scroll mb-2.5 max-h-[240px] space-y-2 overflow-y-auto pr-1">
+											{#each sortedComments(post) as comment (comment.id)}
 												<div class="flex items-start gap-2 rounded-lg bg-paper-deep/80 p-2">
 													<Avatar
 														src={comment.authorAvatar}
@@ -1133,9 +1235,30 @@
 														>
 															{censor(comment.text)}
 														</p>
+																												<div class="mt-1.5 flex flex-wrap items-center gap-1">
+															{#each REACTIONS as reaction (reaction.key)}
+																<button
+																	type="button"
+																	class="inline-flex items-center gap-0.5 rounded-full border px-1.5 py-0.5 font-ui text-[9px] font-bold transition-colors {(comment.userReactions ?? []).includes(
+																		reaction.key
+																	)
+																		? reaction.active
+																		: 'border-line bg-book-bg text-book-ink/60 hover:bg-paper-deep'}"
+																	onclick={() =>
+																		community.toggleCommentReaction(post, comment, reaction.key)}
+																	aria-label={reaction.label}
+																	aria-pressed={(comment.userReactions ?? []).includes(reaction.key)}
+																>
+																	<CommunityIcon name={reaction.icon} size={10} />
+																	<span class="tabular-nums"
+																		>{comment.reactions?.[reaction.key] ?? 0}</span
+																	>
+																</button>
+															{/each}
+														</div>
 														{#if !comment.id.startsWith('local-')}
 															<div class="mt-1 {editingCommentId === comment.id ? 'hidden' : ''}">
-																{#if comment.authorId === auth.ownerId}
+																{#if comment.authorId === auth.ownerId || isAdmin}
 																	{#if commentConfirmId === comment.id}
 																		<div class="flex flex-wrap items-center gap-2">
 																			<span class="font-ui text-[9px] font-semibold text-[#9A5B5B]"
@@ -1144,7 +1267,7 @@
 																			<button
 																				type="button"
 																				class="rounded-md bg-[#9A5B5B] px-1.5 py-0.5 font-ui text-[9px] font-bold text-white hover:bg-[#7E4747]"
-																				onclick={() => deleteComment(post, comment.id)}
+																				onclick={() => deleteComment(post, comment.id, comment.authorId === auth.ownerId)}
 																			>
 																				Yes, delete
 																			</button>
@@ -1157,19 +1280,21 @@
 																			</button>
 																		</div>
 																	{:else}
-																		<button
-																			type="button"
-																			class="font-ui text-[9px] text-book-ink/70 hover:text-book-accent"
-																			onclick={() => startEditComment(comment.id, comment.text)}
-																		>
-																			Edit
-																		</button>
+																		{#if comment.authorId === auth.ownerId}
+																			<button
+																				type="button"
+																				class="font-ui text-[9px] text-book-ink/70 hover:text-book-accent"
+																				onclick={() => startEditComment(comment.id, comment.text)}
+																			>
+																				Edit
+																			</button>
+																		{/if}
 																		<button
 																			type="button"
 																			class="font-ui text-[9px] text-book-ink/70 hover:text-red-600"
 																			onclick={() => (commentConfirmId = comment.id)}
 																		>
-																			Delete
+																			{isAdmin && comment.authorId !== auth.ownerId ? 'Remove (admin)' : 'Delete'}
 																		</button>
 																	{/if}
 																{:else}
@@ -1312,13 +1437,38 @@
 					{/if}
 				</p>
 
+								{#if deleteHasVideo}
+					<div class="mt-4 rounded-xl border border-amber-400/60 bg-amber-50/90 p-3">
+						<div class="flex items-start gap-2">
+							<CommunityIcon name="alert" size={16} class="mt-0.5 shrink-0 text-amber-700" />
+							<div>
+								<p class="font-ui text-xs font-bold text-amber-900">This page has a video</p>
+								<p class="mt-0.5 font-ui text-[11px] leading-relaxed text-amber-900/80">
+									Removing the page will also hide its video from the community feed. The author's
+									journal copy stays safe.
+								</p>
+								<label
+									class="mt-2 flex items-center gap-2 font-ui text-[11px] font-semibold text-amber-900"
+								>
+									<input
+										type="checkbox"
+										bind:checked={videoRemoveAck}
+										class="size-3.5 accent-amber-700"
+									/>
+									I understand the video will be hidden
+								</label>
+							</div>
+						</div>
+					</div>
+				{/if}
+
 				<div class="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
 					<Button variant="note" onclick={() => (deleteTarget = null)}>Keep it posted</Button>
 					<Button
 						variant="danger"
 						icon="trash"
 						loading={deleteBusy}
-						disabled={deleteBusy}
+						disabled={deleteBusy || (deleteHasVideo && !videoRemoveAck)}
 						onclick={confirmDelete}
 					>
 						{deleteBusy

@@ -90,6 +90,7 @@
 	let roleFilter = $state<RoleFilter>('all');
 	let busyUser = $state('');
 	let busyWarn = $state('');
+	let busyDeleteComment = $state('');
 
 	/** Timestamps live outside `$state`: they gate loads but must not re-render. */
 	const loadedAt: Record<LoadKey, number> = { overview: 0, reports: 0, users: 0 };
@@ -370,6 +371,31 @@
 			error = err instanceof Error ? err.message : 'Could not send that warning.';
 		} finally {
 			busyWarn = '';
+		}
+	}
+
+	async function deleteReportedComment(report: ReportRow) {
+		if (!report.comment_id) return;
+		if (!confirm('Remove this reported comment for everyone? This cannot be undone.')) return;
+
+		busyDeleteComment = report.comment_id;
+		error = '';
+
+		try {
+			const { data, error: rpcError } = await supabase.rpc('vidjo_admin_delete_comment', {
+				p_comment_id: report.comment_id
+			});
+			if (rpcError) throw rpcError;
+			if (!data) {
+				journal.toast('That comment is already gone.');
+			} else {
+				reports = reports.filter((item) => item.id !== report.id);
+				journal.toast('Comment removed. The report was cleared too.');
+			}
+		} catch (err) {
+			error = errorText(err, 'Could not remove that comment.');
+		} finally {
+			busyDeleteComment = '';
 		}
 	}
 
@@ -876,6 +902,16 @@
 
 											{#if report.reported_user_id}
 												<div class="flex flex-wrap gap-2">
+														<Button
+															size="sm"
+															variant="danger"
+															icon="trash"
+															loading={busyDeleteComment === report.comment_id}
+															disabled={Boolean(busyWarn || busyUser || busyDeleteComment)}
+															onclick={() => void deleteReportedComment(report)}
+														>
+															Delete comment
+														</Button>
 													<Button
 														size="sm"
 														variant="outline"

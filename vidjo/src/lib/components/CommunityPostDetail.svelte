@@ -24,6 +24,22 @@
 	} = $props();
 
 	const COMMENT_MAX = 140;
+	type CommentSort = 'newest' | 'top' | 'week' | 'month';
+	let commentSort = $state<CommentSort>('newest');
+
+	function sortedComments() {
+		const list = [...post.comments];
+		if (commentSort === 'newest') {
+			return list.sort((a, b) => (b.createdAt ?? 0) - (a.createdAt ?? 0));
+		}
+		const days = commentSort === 'week' ? 7 : commentSort === 'month' ? 30 : 0;
+		return list.sort(
+			(a, b) =>
+				community.commentReactionScoreSince(b, days) -
+					community.commentReactionScoreSince(a, days) ||
+				(b.createdAt ?? 0) - (a.createdAt ?? 0)
+		);
+	}
 
 	const REACTIONS: {
 		key: keyof FriendPostReaction;
@@ -105,9 +121,11 @@
 		commentText = '';
 	}
 
-	async function deleteComment(commentId: string) {
+	async function deleteComment(commentId: string, isAuthor: boolean) {
 		commentConfirmId = null;
-		const ok = await community.deleteComment(post, commentId);
+		const ok = isAuthor
+			? await community.deleteComment(post, commentId)
+			: await community.deleteCommentAsAdmin(post, commentId);
 		journal.toast(ok ? 'Note deleted' : 'Could not delete the note. Please try again.');
 	}
 
@@ -322,11 +340,24 @@
 				<div class="p-3 min-[720px]:p-4">
 					<span class="mb-3 block font-ui text-[11px] font-semibold text-book-ink/70">
 						Community notes ({post.comments.length})
+						<label class="ml-2 inline-flex items-center gap-1 font-ui text-[9px] font-normal text-book-ink/60">
+							Sort
+							<select
+								bind:value={commentSort}
+								aria-label="Sort community notes"
+								class="rounded-md border border-line bg-book-bg px-1.5 py-0.5 font-ui text-[9px] font-semibold text-book-ink focus:border-book-accent focus:outline-none"
+							>
+								<option value="newest">Newest</option>
+								<option value="top">Top</option>
+								<option value="week">This week</option>
+								<option value="month">This month</option>
+							</select>
+						</label>
 					</span>
 
 					{#if post.comments.length > 0}
 						<div class="modal-scroll mb-3 max-h-[320px] space-y-2 overflow-y-auto pr-1">
-							{#each post.comments as comment (comment.id)}
+							{#each sortedComments() as comment (comment.id)}
 								<div class="flex items-start gap-2 rounded-lg bg-paper-deep/80 p-2.5">
 									<button
 										type="button"
@@ -402,16 +433,36 @@
 											{censor(comment.text)}
 										</p>
 
+																				<div class="mt-2 flex flex-wrap items-center gap-1">
+											{#each REACTIONS as reaction (reaction.key)}
+												<button
+													type="button"
+													class="inline-flex items-center gap-1 rounded-full border px-2 py-0.5 font-ui text-[10px] font-bold transition-colors {(comment.userReactions ?? []).includes(
+														reaction.key
+													)
+														? reaction.active
+														: 'border-line bg-book-bg text-book-ink/60 hover:bg-paper-deep'}"
+													onclick={() =>
+														community.toggleCommentReaction(post, comment, reaction.key)}
+													aria-label={reaction.label}
+													aria-pressed={(comment.userReactions ?? []).includes(reaction.key)}
+												>
+													<CommunityIcon name={reaction.icon} size={11} />
+													<span class="tabular-nums">{comment.reactions?.[reaction.key] ?? 0}</span>
+												</button>
+											{/each}
+										</div>
+
 										{#if !comment.id.startsWith('local-')}
 											<div class="mt-1 {editingCommentId === comment.id ? 'hidden' : ''}">
-												{#if comment.authorId === auth.ownerId}
+												{#if comment.authorId === auth.ownerId || isAdmin}
 													{#if commentConfirmId === comment.id}
 														<div class="flex flex-wrap items-center gap-2">
 															<span class="font-ui text-[9px] font-semibold text-[#9A5B5B]">Delete this note?</span>
 															<button
 																type="button"
 																class="rounded-md bg-[#9A5B5B] px-2 py-0.5 font-ui text-[9px] font-bold text-white hover:bg-[#7E4747]"
-																onclick={() => deleteComment(comment.id)}
+																onclick={() => deleteComment(comment.id, comment.authorId === auth.ownerId)}
 															>
 																Yes, delete
 															</button>
@@ -424,19 +475,21 @@
 															</button>
 														</div>
 													{:else}
-														<button
+														{#if comment.authorId === auth.ownerId}
+															<button
 															type="button"
 															class="font-ui text-[9px] text-book-ink/70 hover:text-book-accent"
 															onclick={() => startEditComment(comment.id, comment.text)}
 														>
 															Edit
 														</button>
+														{/if}
 														<button
 															type="button"
 															class="ml-3 font-ui text-[9px] text-book-ink/70 hover:text-red-600"
 															onclick={() => (commentConfirmId = comment.id)}
 														>
-															Delete
+															{isAdmin && comment.authorId !== auth.ownerId ? 'Remove (admin)' : 'Delete'}
 														</button>
 													{/if}
 												{:else}

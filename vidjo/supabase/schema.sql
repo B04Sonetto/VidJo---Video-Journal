@@ -1530,6 +1530,84 @@ revoke all on function public.vidjo_admin_list_reports(int) from public;
 grant execute on function public.vidjo_admin_list_reports(int) to authenticated;
 
 -- ---------------------------------------------------------------------------
+-- Reactions on comments. Uses the same four cheers as pages so "top" sorting
+-- can score comments exactly like posts and admins can spot abusive notes.
+-- ---------------------------------------------------------------------------
+
+create table if not exists public.vidjo_comment_reactions (
+	comment_id uuid not null references public.vidjo_comments(id) on delete cascade,
+	user_id uuid not null references auth.users(id) on delete cascade,
+	reaction text not null check (reaction in ('love', 'spark', 'warm', 'proud')),
+	created_at timestamptz not null default now(),
+	primary key (comment_id, user_id, reaction)
+);
+
+create index if not exists vidjo_comment_reactions_comment_idx
+	on public.vidjo_comment_reactions (comment_id);
+
+alter table public.vidjo_comment_reactions enable row level security;
+
+drop policy if exists "vidjo comment reactions select" on public.vidjo_comment_reactions;
+create policy "vidjo comment reactions select" on public.vidjo_comment_reactions
+	for select to authenticated
+	using (
+		public.vidjo_is_member()
+		and exists (
+			select 1 from public.vidjo_comments c
+			where c.id = comment_id
+				and public.vidjo_can_view_post(c.post_owner_id, c.post_date)
+		)
+	);
+
+drop policy if exists "vidjo comment reactions insert own" on public.vidjo_comment_reactions;
+create policy "vidjo comment reactions insert own" on public.vidjo_comment_reactions
+	for insert to authenticated
+	with check (
+		public.vidjo_is_member()
+		and auth.uid() = user_id
+		and exists (
+			select 1 from public.vidjo_comments c
+			where c.id = comment_id
+				and public.vidjo_can_view_post(c.post_owner_id, c.post_date)
+		)
+	);
+
+drop policy if exists "vidjo comment reactions delete own" on public.vidjo_comment_reactions;
+create policy "vidjo comment reactions delete own" on public.vidjo_comment_reactions
+	for delete to authenticated
+	using (public.vidjo_is_member() and auth.uid() = user_id);
+
+revoke all on public.vidjo_comment_reactions from anon;
+grant select, insert, delete on public.vidjo_comment_reactions to authenticated;
+
+-- Moderators can remove a reported comment outright. The comments DELETE
+-- policy only allows authors, so this SECURITY DEFINER RPC verifies the role.
+-- Report rows cascade away with the comment.
+drop function if exists public.vidjo_admin_delete_comment(uuid);
+create or replace function public.vidjo_admin_delete_comment(p_comment_id uuid)
+returns boolean
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+	if not exists (
+		select 1 from public.vidjo_profiles
+		where user_id = auth.uid() and user_role = 'admin'
+	) then
+		raise exception 'Admin access required.' using errcode = '42501';
+	end if;
+
+	delete from public.vidjo_comments where id = p_comment_id;
+	return found;
+end;
+$$;
+
+revoke all on function public.vidjo_admin_delete_comment(uuid) from public;
+revoke all on function public.vidjo_admin_delete_comment(uuid) from anon;
+grant execute on function public.vidjo_admin_delete_comment(uuid) to authenticated;
+
+-- ---------------------------------------------------------------------------
 -- Write rate limits (spam guard)
 -- ---------------------------------------------------------------------------
 

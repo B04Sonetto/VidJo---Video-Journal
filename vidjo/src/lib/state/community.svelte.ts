@@ -19,6 +19,26 @@ const MEMBERSHIP_STORAGE_KEY = 'vidjo-community-memberships';
 const SIGNED_URL_TTL = 60 * 60 * 2;
 
 const EMPTY_REACTIONS: FriendPostReaction = { love: 0, spark: 0, warm: 0, proud: 0 };
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+type ReactionKey = keyof FriendPostReaction;
+
+type ReactionEntry = {
+	counts: FriendPostReaction;
+	mine: ReactionKey[];
+	/** Epoch ms per cheer, so "this week/month" can count recent reactions. */
+	times: Partial<Record<ReactionKey, number[]>>;
+};
+
+function emptyReactionEntry(): ReactionEntry {
+	return { counts: { ...EMPTY_REACTIONS }, mine: [], times: {} };
+}
+
+function reactionTime(time: string | null | undefined): number {
+	if (!time) return Date.now();
+	const parsed = new Date(time).getTime();
+	return Number.isNaN(parsed) ? Date.now() : parsed;
+}
 
 export const COMMUNITY_CATALOG: Omit<Community, 'memberCount' | 'joined'>[] = [
 	{
@@ -141,9 +161,7 @@ class CommunityState {
 	remote = $state(false);
 
 	private currentUserId = '';
-	private reactionMap = $state<
-		Record<string, { counts: FriendPostReaction; mine: (keyof FriendPostReaction)[] }>
-	>({});
+	private reactionMap = $state<Record<string, ReactionEntry>>({});
 	private commentMap = $state<Record<string, FriendComment[]>>({});
 	private realtimeChannel: ReturnType<typeof supabase.channel> | null = null;
 	private refreshTimer: ReturnType<typeof setTimeout> | null = null;
@@ -182,6 +200,28 @@ class CommunityState {
 
 	commentsFor(ownerId: string, date: string): FriendComment[] {
 		return this.commentMap[postKey(ownerId, date)] ?? [];
+	}
+
+	/** Total cheers on a page within the last `days` days (0 = all time). */
+	reactionScoreSince(post: FriendPost, days = 0): number {
+		return this.scoreTimes(this.reactionMap[postKey(post.authorId, post.date)]?.times, days);
+	}
+
+	/** Total cheers on a comment within the last `days` days (0 = all time). */
+	commentReactionScoreSince(comment: FriendComment, days = 0): number {
+		return this.scoreTimes(comment.reactionTimes, days);
+	}
+
+	private scoreTimes(times: Partial<Record<ReactionKey, number[]>> | undefined, days: number) {
+		if (!times) return 0;
+		const cutoff = days > 0 ? Date.now() - days * DAY_MS : 0;
+		let total = 0;
+		for (const values of Object.values(times)) {
+			for (const value of values ?? []) {
+				if (value >= cutoff) total += 1;
+			}
+		}
+		return total;
 	}
 
 	async init(userId: string) {
@@ -617,17 +657,15 @@ class CommunityState {
 				.order('created_at')
 		]);
 
-		const reactions: Record<
-			string,
-			{ counts: FriendPostReaction; mine: (keyof FriendPostReaction)[] }
-		> = {};
+		const reactions: Record<string, ReactionEntry> = {};
 		for (const row of reactionRows ?? []) {
 			const key = postKey(row.post_owner_id as string, row.post_date as string);
-			const entry = reactions[key] ?? { counts: { ...EMPTY_REACTIONS }, mine: [] };
-			const reaction = row.reaction as keyof FriendPostReaction;
+			const entry = reactions[key] ?? emptyReactionEntry();
+			const reaction = row.reaction as ReactionKey;
 			if (reaction in entry.counts) {
 				entry.counts[reaction] += 1;
 				if (row.user_id === this.currentUserId) entry.mine.push(reaction);
+				(entry.times[reaction] ??= []).push(reactionTime(row.created_at as string));
 			}
 			reactions[key] = entry;
 		}
@@ -635,19 +673,37 @@ class CommunityState {
 		const authorIds = [
 			...new Set((commentRows ?? []).map((row) => row.author_id as string))
 		].filter(Boolean);
+		const commentIds = (commentRows ?? []).map((row) => row.id as string).filter(Boolean);
 
-		let authorMap = new Map<string, Record<string, string | null>>();
-		if (authorIds.length > 0) {
-			const { data: authors } = await supabase
-				.from('vidjo_profiles')
-				.select('user_id, username, display_name, avatar_url')
-				.in('user_id', authorIds);
-			authorMap = new Map(
-				(authors ?? []).map((author) => [
-					author.user_id as string,
-					author as Record<string, string | null>
-				])
-			);
+		const [authorResult, commentReactionResult] = await Promise.all([
+			authorIds.length > 0
+				? supabase
+						.from('vidjo_profiles')
+						.select('user_id, username, display_name, avatar_url')
+						.in('user_id', authorIds)
+				: Promise.resolve({ data: null }),
+			commentIds.length > 0
+				? supabase.from('vidjo_comment_reactions').select('*').in('comment_id', commentIds)
+				: Promise.resolve({ data: null })
+		]);
+
+		const authorMap = new Map(
+			(authorResult.data ?? []).map((author) => [
+				author.user_id as string,
+				author as Record<string, string | null>
+			])
+		);
+
+		const commentReactions: Record<string, ReactionEntry> = {};
+		for (const row of commentReactionResult.data ?? []) {
+			const entry = commentReactions[row.comment_id as string] ?? emptyReactionEntry();
+			const reaction = row.reaction as ReactionKey;
+			if (reaction in entry.counts) {
+				entry.counts[reaction] += 1;
+				if (row.user_id === this.currentUserId) entry.mine.push(reaction);
+				(entry.times[reaction] ??= []).push(reactionTime(row.created_at as string));
+			}
+			commentReactions[row.comment_id as string] = entry;
 		}
 
 		const comments: Record<string, FriendComment[]> = {};
@@ -655,7 +711,9 @@ class CommunityState {
 			const key = postKey(row.post_owner_id as string, row.post_date as string);
 			const author = authorMap.get(row.author_id as string);
 			const created = new Date(row.created_at as string);
+			const createdMs = created.getTime();
 			const own = (row.author_id as string) === this.currentUserId;
+			const cheers = commentReactions[row.id as string] ?? emptyReactionEntry();
 			if (!comments[key]) comments[key] = [];
 			comments[key].push({
 				id: row.id as string,
@@ -668,9 +726,13 @@ class CommunityState {
 					? normalizeImageUrl(profile.avatarUrl)
 					: normalizeImageUrl((author?.avatar_url as string) || null),
 				text: row.body as string,
-				time: Number.isNaN(created.getTime())
+				time: Number.isNaN(createdMs)
 					? 'Recently'
-					: created.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
+					: created.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }),
+				createdAt: Number.isNaN(createdMs) ? Date.now() : createdMs,
+				reactions: cheers.counts,
+				userReactions: cheers.mine,
+				reactionTimes: cheers.times
 			});
 		}
 
@@ -678,22 +740,25 @@ class CommunityState {
 		this.commentMap = comments;
 	}
 
-	async toggleReaction(post: FriendPost, reaction: 'love' | 'spark' | 'warm' | 'proud') {
+	async toggleReaction(post: FriendPost, reaction: ReactionKey) {
 		const key = postKey(post.authorId, post.date);
-		const current = this.reactionMap[key] ?? { counts: { ...EMPTY_REACTIONS }, mine: [] };
+		const current = this.reactionMap[key] ?? emptyReactionEntry();
 		const hasReacted = current.mine.includes(reaction);
 		const counts = { ...current.counts };
 		const mine = [...current.mine];
+		const times = { ...current.times };
 
 		if (hasReacted) {
 			counts[reaction] = Math.max(0, counts[reaction] - 1);
 			mine.splice(mine.indexOf(reaction), 1);
+			times[reaction] = (times[reaction] ?? []).slice(0, -1);
 		} else {
 			counts[reaction] += 1;
 			mine.push(reaction);
+			times[reaction] = [...(times[reaction] ?? []), Date.now()];
 		}
 
-		this.reactionMap = { ...this.reactionMap, [key]: { counts, mine } };
+		this.reactionMap = { ...this.reactionMap, [key]: { counts, mine, times } };
 
 		if (isSupabaseConfigured && auth.user && isUuid(post.authorId)) {
 			try {
@@ -736,7 +801,11 @@ class CommunityState {
 			authorUsername: profile.username || 'student',
 			authorAvatar: normalizeImageUrl(profile.avatarUrl),
 			text: clean,
-			time: 'Just now'
+			time: 'Just now',
+			createdAt: Date.now(),
+			reactions: { ...EMPTY_REACTIONS },
+			userReactions: [],
+			reactionTimes: {}
 		};
 
 		this.commentMap = {
@@ -906,6 +975,96 @@ class CommunityState {
 		}
 
 		return true;
+	}
+
+	/** Cheer a single note. Counts, "my cheers", and timestamps stay in sync. */
+	async toggleCommentReaction(post: FriendPost, comment: FriendComment, reaction: ReactionKey) {
+		const key = postKey(post.authorId, post.date);
+		const hasReacted = (comment.userReactions ?? []).includes(reaction);
+		const counts = { ...(comment.reactions ?? EMPTY_REACTIONS) };
+		const mine = [...(comment.userReactions ?? [])];
+		const times = { ...(comment.reactionTimes ?? {}) };
+
+		if (hasReacted) {
+			counts[reaction] = Math.max(0, counts[reaction] - 1);
+			mine.splice(mine.indexOf(reaction), 1);
+			times[reaction] = (times[reaction] ?? []).slice(0, -1);
+		} else {
+			counts[reaction] += 1;
+			mine.push(reaction);
+			times[reaction] = [...(times[reaction] ?? []), Date.now()];
+		}
+
+		const update = (value: FriendComment) =>
+			value.id === comment.id
+				? { ...value, reactions: counts, userReactions: mine, reactionTimes: times }
+				: value;
+
+		this.commentMap = { ...this.commentMap, [key]: (this.commentMap[key] ?? []).map(update) };
+		this.posts = this.posts.map((item) =>
+			item.id === post.id ? { ...item, comments: item.comments.map(update) } : item
+		);
+
+		if (!isSupabaseConfigured || !auth.user || comment.id.startsWith('local-')) return;
+
+		try {
+			if (hasReacted) {
+				await supabase
+					.from('vidjo_comment_reactions')
+					.delete()
+					.eq('comment_id', comment.id)
+					.eq('user_id', auth.user.id)
+					.eq('reaction', reaction);
+			} else {
+				const { error } = await supabase.from('vidjo_comment_reactions').insert({
+					comment_id: comment.id,
+					user_id: auth.user.id,
+					reaction
+				});
+				if (error) throw error;
+			}
+		} catch (error) {
+			console.warn('[VidJo] Could not save the comment reaction.', error);
+		}
+	}
+
+	/** Admin moderation: remove any note, even one authored by someone else. */
+	async deleteCommentAsAdmin(post: FriendPost, commentId: string): Promise<boolean> {
+		const key = postKey(post.authorId, post.date);
+		const removed =
+			(this.commentMap[key] ?? []).find((comment) => comment.id === commentId) ??
+			post.comments.find((comment) => comment.id === commentId);
+
+		this.commentMap = {
+			...this.commentMap,
+			[key]: (this.commentMap[key] ?? []).filter((comment) => comment.id !== commentId)
+		};
+		this.posts = this.posts.map((item) =>
+			item.id === post.id
+				? { ...item, comments: item.comments.filter((comment) => comment.id !== commentId) }
+				: item
+		);
+
+		if (!isSupabaseConfigured || commentId.startsWith('local-')) return true;
+
+		const { data, error } = await supabase.rpc('vidjo_admin_delete_comment', {
+			p_comment_id: commentId
+		});
+		if (!error && data) return true;
+
+		console.warn('[VidJo] Admin comment removal failed.', error);
+		if (removed) {
+			this.commentMap = {
+				...this.commentMap,
+				[key]: [...(this.commentMap[key] ?? []), removed]
+			};
+			this.posts = this.posts.map((item) =>
+				item.id === post.id && !item.comments.some((comment) => comment.id === commentId)
+					? { ...item, comments: [...item.comments, removed] }
+					: item
+			);
+		}
+		return false;
 	}
 
 	reset() {
