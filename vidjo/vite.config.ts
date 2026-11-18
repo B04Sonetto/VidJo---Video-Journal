@@ -17,6 +17,9 @@ export default defineConfig({
 		}),
 		tailwindcss(),
 		sveltekit({
+			// Registered manually in `hooks.client.ts` so a blocked worker script
+			// (e.g. a deployment behind SSO) cannot surface as an unhandled error.
+			serviceWorker: { register: false },
 			compilerOptions: {
 				// Force runes mode for the project, except for libraries. Can be removed in svelte 6.
 				runes: ({ filename }) =>

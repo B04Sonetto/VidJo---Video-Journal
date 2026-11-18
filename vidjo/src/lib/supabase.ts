@@ -5,6 +5,9 @@ import {
 	PUBLIC_SUPABASE_URL
 } from '$app/env/public';
 
+const PLACEHOLDER_URL = 'https://placeholder.supabase.co';
+const PLACEHOLDER_KEY = 'placeholder-anon-key';
+
 export const supabaseUrl = (PUBLIC_SUPABASE_URL ?? '').trim();
 export const supabaseKey = (
 	PUBLIC_SUPABASE_PUBLISHABLE_KEY ||
@@ -12,21 +15,36 @@ export const supabaseKey = (
 	''
 ).trim();
 
+/**
+ * `createClient` throws for anything that is not a valid HTTP(S) URL, so a
+ * malformed env value must never reach it. Returns the normalized URL or null.
+ */
+function parseHttpUrl(value: string): string | null {
+	if (!value) return null;
+
+	try {
+		const url = new URL(value);
+		return url.protocol === 'http:' || url.protocol === 'https:' ? url.href : null;
+	} catch {
+		return null;
+	}
+}
+
+const validSupabaseUrl = parseHttpUrl(supabaseUrl);
+
 export const isSupabaseConfigured = Boolean(
-	supabaseUrl &&
-	supabaseKey &&
-	/^https?:\/\//.test(supabaseUrl) &&
-	!supabaseUrl.includes('your-project')
+	validSupabaseUrl && supabaseKey && !supabaseUrl.includes('your-project')
 );
 
 /**
  * A placeholder client keeps the rest of the app import-safe when the project
- * has not been connected to Supabase yet. Every call is guarded by
- * `isSupabaseConfigured`, so this client is never actually used.
+ * has not been connected to Supabase yet (or the configured URL is invalid).
+ * Every call is guarded by `isSupabaseConfigured`, so this client is never
+ * actually used.
  */
 export const supabase = createClient(
-	supabaseUrl || 'https://placeholder.supabase.co',
-	supabaseKey || 'placeholder-anon-key',
+	validSupabaseUrl ?? PLACEHOLDER_URL,
+	supabaseKey || PLACEHOLDER_KEY,
 	{
 		auth: {
 			persistSession: true,
