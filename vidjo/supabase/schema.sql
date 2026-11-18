@@ -1774,9 +1774,24 @@ create table if not exists public.vidjo_dm_messages (
 	sender_id uuid not null references auth.users(id) on delete cascade,
 	client_id uuid not null,
 	body text not null check (char_length(btrim(body)) between 1 and 2000),
+	image_path text,
 	created_at timestamptz not null default now(),
 	deleted_at timestamptz,
 	constraint vidjo_dm_messages_client_unique unique (thread_id, sender_id, client_id)
+);
+
+-- Existing projects need the image column and a body check that permits an
+-- image-only message (empty body). The constraint name is Postgres' default for
+-- the inline check above, so drop and re-add it for both new and old databases.
+alter table public.vidjo_dm_messages add column if not exists image_path text;
+alter table public.vidjo_dm_messages drop constraint if exists vidjo_dm_messages_body_check;
+alter table public.vidjo_dm_messages add constraint vidjo_dm_messages_body_check check (
+	char_length(btrim(body)) <= 2000
+	and (char_length(btrim(body)) >= 1 or image_path is not null)
+);
+alter table public.vidjo_dm_messages drop constraint if exists vidjo_dm_messages_image_check;
+alter table public.vidjo_dm_messages add constraint vidjo_dm_messages_image_check check (
+	image_path is null or char_length(image_path) between 1 and 300
 );
 
 create index if not exists vidjo_dm_messages_thread_idx
@@ -1881,6 +1896,35 @@ as $$
 	);
 $$;
 
+-- True when the signed-in user may post in a thread: group members always can,
+-- and direct threads only while the two people are still friends. Storage RLS
+-- uses this so an unfriended pair cannot upload new photos either.
+create or replace function public.vidjo_dm_can_send(p_thread uuid)
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+	select auth.uid() is not null and exists (
+		select 1
+		from public.vidjo_dm_threads t
+		join public.vidjo_dm_participants me
+			on me.thread_id = t.id and me.user_id = auth.uid()
+		where t.id = p_thread
+			and (
+				t.kind = 'group'
+				or exists (
+					select 1
+					from public.vidjo_dm_participants other
+					where other.thread_id = t.id
+						and other.user_id <> auth.uid()
+						and public.vidjo_are_friends(auth.uid(), other.user_id)
+				)
+			)
+	);
+$$;
+
 create or replace function public.vidjo_dm_direct_key(a uuid, b uuid)
 returns text
 language sql
@@ -1936,10 +1980,6 @@ begin
 		raise exception 'Sign in to send messages.';
 	end if;
 
-	if char_length(v_body) = 0 then
-		raise exception 'Write a message first.';
-	end if;
-
 	if char_length(v_body) > 2000 then
 		raise exception 'Messages can be at most 2000 characters.';
 	end if;
@@ -1968,10 +2008,15 @@ $$;
 -- Messaging RPCs
 -- ---------------------------------------------------------------------------
 
+-- The 3-argument version predates photo messages. Drop it so PostgREST never
+-- has to choose between two overloads.
+drop function if exists public.vidjo_dm_send(uuid, text, uuid);
+
 create or replace function public.vidjo_dm_send(
 	p_thread uuid,
 	p_body text,
-	p_client_id uuid
+	p_client_id uuid,
+	p_image_path text default null
 )
 returns table (
 	id uuid,
@@ -1979,6 +2024,7 @@ returns table (
 	sender_id uuid,
 	client_id uuid,
 	body text,
+	image_path text,
 	created_at timestamptz
 )
 language plpgsql
@@ -1989,6 +2035,7 @@ declare
 	v_user uuid := auth.uid();
 	v_client uuid := coalesce(p_client_id, gen_random_uuid());
 	v_body text;
+	v_image text := nullif(btrim(coalesce(p_image_path, '')), '');
 	v_kind text;
 	v_other uuid;
 	v_existing public.vidjo_dm_messages%rowtype;
@@ -2029,15 +2076,41 @@ begin
 	if found then
 		return query
 		select v_existing.id, v_existing.thread_id, v_existing.sender_id,
-			v_existing.client_id, v_existing.body, v_existing.created_at;
+			v_existing.client_id, v_existing.body, v_existing.image_path,
+			v_existing.created_at;
 		return;
 	end if;
 
-	v_body := public.vidjo_dm_validate_body(p_body);
+	v_body := btrim(coalesce(p_body, ''));
+
+	if char_length(v_body) = 0 and v_image is null then
+		raise exception 'Write a message first.';
+	end if;
+
+	if v_image is not null then
+		-- The uploader must use their own folder inside this thread, and the
+		-- object must really exist in the private bucket before it is linked.
+		if v_image !~ (
+			'^' || p_thread::text || '/' || v_user::text
+			|| '/[A-Za-z0-9][A-Za-z0-9_-]*\.(jpg|jpeg|png|webp|gif)$'
+		) then
+			raise exception 'That photo could not be sent.';
+		end if;
+
+		if not exists (
+			select 1
+			from storage.objects o
+			where o.bucket_id = 'vidjo-dm-images' and o.name = v_image
+		) then
+			raise exception 'Upload the photo first.';
+		end if;
+	end if;
+
+	v_body := public.vidjo_dm_validate_body(v_body);
 
 	begin
-		insert into public.vidjo_dm_messages (thread_id, sender_id, client_id, body)
-		values (p_thread, v_user, v_client, v_body)
+		insert into public.vidjo_dm_messages (thread_id, sender_id, client_id, body, image_path)
+		values (p_thread, v_user, v_client, v_body, v_image)
 		returning * into v_existing;
 	exception
 		when unique_violation then
@@ -2059,14 +2132,18 @@ begin
 
 	return query
 	select v_existing.id, v_existing.thread_id, v_existing.sender_id,
-		v_existing.client_id, v_existing.body, v_existing.created_at;
+		v_existing.client_id, v_existing.body, v_existing.image_path,
+		v_existing.created_at;
 end;
 $$;
+
+drop function if exists public.vidjo_dm_send_direct(uuid, text, uuid);
 
 create or replace function public.vidjo_dm_send_direct(
 	p_friend uuid,
 	p_body text,
-	p_client_id uuid
+	p_client_id uuid,
+	p_image_path text default null
 )
 returns table (
 	id uuid,
@@ -2074,6 +2151,7 @@ returns table (
 	sender_id uuid,
 	client_id uuid,
 	body text,
+	image_path text,
 	created_at timestamptz
 )
 language plpgsql
@@ -2084,6 +2162,7 @@ declare
 	v_user uuid := auth.uid();
 	v_client uuid := coalesce(p_client_id, gen_random_uuid());
 	v_body text;
+	v_image text := nullif(btrim(coalesce(p_image_path, '')), '');
 	v_thread uuid;
 	v_existing public.vidjo_dm_messages%rowtype;
 begin
@@ -2119,15 +2198,39 @@ begin
 	if found then
 		return query
 		select v_existing.id, v_existing.thread_id, v_existing.sender_id,
-			v_existing.client_id, v_existing.body, v_existing.created_at;
+			v_existing.client_id, v_existing.body, v_existing.image_path,
+			v_existing.created_at;
 		return;
 	end if;
 
-	v_body := public.vidjo_dm_validate_body(p_body);
+	v_body := btrim(coalesce(p_body, ''));
+
+	if char_length(v_body) = 0 and v_image is null then
+		raise exception 'Write a message first.';
+	end if;
+
+	if v_image is not null then
+		if v_image !~ (
+			'^' || v_thread::text || '/' || v_user::text
+			|| '/[A-Za-z0-9][A-Za-z0-9_-]*\.(jpg|jpeg|png|webp|gif)$'
+		) then
+			raise exception 'That photo could not be sent.';
+		end if;
+
+		if not exists (
+			select 1
+			from storage.objects o
+			where o.bucket_id = 'vidjo-dm-images' and o.name = v_image
+		) then
+			raise exception 'Upload the photo first.';
+		end if;
+	end if;
+
+	v_body := public.vidjo_dm_validate_body(v_body);
 
 	begin
-		insert into public.vidjo_dm_messages (thread_id, sender_id, client_id, body)
-		values (v_thread, v_user, v_client, v_body)
+		insert into public.vidjo_dm_messages (thread_id, sender_id, client_id, body, image_path)
+		values (v_thread, v_user, v_client, v_body, v_image)
 		returning * into v_existing;
 	exception
 		when unique_violation then
@@ -2149,7 +2252,8 @@ begin
 
 	return query
 	select v_existing.id, v_existing.thread_id, v_existing.sender_id,
-		v_existing.client_id, v_existing.body, v_existing.created_at;
+		v_existing.client_id, v_existing.body, v_existing.image_path,
+		v_existing.created_at;
 end;
 $$;
 
@@ -2475,6 +2579,10 @@ begin
 end;
 $$;
 
+-- Photo messages added a column to this result, and Postgres cannot change a
+-- function's return type in place. Drop it first so re-running this file works.
+drop function if exists public.vidjo_dm_inbox();
+
 create or replace function public.vidjo_dm_inbox()
 returns table (
 	thread_id uuid,
@@ -2482,6 +2590,7 @@ returns table (
 	title text,
 	members jsonb,
 	last_body text,
+	last_image_path text,
 	last_sender uuid,
 	last_sender_name text,
 	last_at timestamptz,
@@ -2513,6 +2622,7 @@ as $$
 			where p.thread_id = t.id
 		), '[]'::jsonb),
 		m.body,
+		m.image_path,
 		m.sender_id,
 		coalesce(nullif(btrim(sp.display_name), ''), sp.username, 'VidJo student'),
 		m.created_at,
@@ -2540,7 +2650,7 @@ as $$
 	join public.vidjo_dm_participants me
 		on me.thread_id = t.id and me.user_id = auth.uid()
 	left join lateral (
-		select mm.body, mm.sender_id, mm.created_at
+		select mm.body, mm.image_path, mm.sender_id, mm.created_at
 		from public.vidjo_dm_messages mm
 		where mm.thread_id = t.id and mm.deleted_at is null
 		order by mm.created_at desc, mm.id desc
@@ -2551,6 +2661,9 @@ as $$
 		and (t.last_message_at is not null or t.kind = 'group')
 	order by coalesce(t.last_message_at, t.created_at) desc;
 $$;
+
+-- Same reason as `vidjo_dm_inbox`: the result gained `image_path`.
+drop function if exists public.vidjo_dm_thread(uuid, timestamptz, integer);
 
 create or replace function public.vidjo_dm_thread(
 	p_thread uuid,
@@ -2566,6 +2679,7 @@ returns table (
 	sender_username text,
 	sender_avatar text,
 	body text,
+	image_path text,
 	created_at timestamptz
 )
 language plpgsql
@@ -2590,6 +2704,7 @@ begin
 		recent.sender_username,
 		recent.sender_avatar,
 		recent.body,
+		recent.image_path,
 		recent.created_at
 	from (
 		select
@@ -2601,6 +2716,7 @@ begin
 			coalesce(pr.username, 'student') as sender_username,
 			pr.avatar_url as sender_avatar,
 			m.body,
+			m.image_path,
 			m.created_at
 		from public.vidjo_dm_messages m
 		left join public.vidjo_profiles pr on pr.user_id = m.sender_id
@@ -2719,6 +2835,10 @@ revoke all on function public.vidjo_dm_is_participant(uuid) from public;
 revoke all on function public.vidjo_dm_is_participant(uuid) from anon;
 grant execute on function public.vidjo_dm_is_participant(uuid) to authenticated;
 
+revoke all on function public.vidjo_dm_can_send(uuid) from public;
+revoke all on function public.vidjo_dm_can_send(uuid) from anon;
+grant execute on function public.vidjo_dm_can_send(uuid) to authenticated;
+
 revoke all on function public.vidjo_dm_direct_key(uuid, uuid) from public;
 revoke all on function public.vidjo_dm_direct_key(uuid, uuid) from anon, authenticated;
 
@@ -2729,13 +2849,13 @@ revoke all on function public.vidjo_dm_validate_body(text) from public;
 revoke all on function public.vidjo_dm_validate_body(text) from anon, authenticated;
 
 -- Public RPCs.
-revoke all on function public.vidjo_dm_send(uuid, text, uuid) from public;
-revoke all on function public.vidjo_dm_send(uuid, text, uuid) from anon;
-grant execute on function public.vidjo_dm_send(uuid, text, uuid) to authenticated;
+revoke all on function public.vidjo_dm_send(uuid, text, uuid, text) from public;
+revoke all on function public.vidjo_dm_send(uuid, text, uuid, text) from anon;
+grant execute on function public.vidjo_dm_send(uuid, text, uuid, text) to authenticated;
 
-revoke all on function public.vidjo_dm_send_direct(uuid, text, uuid) from public;
-revoke all on function public.vidjo_dm_send_direct(uuid, text, uuid) from anon;
-grant execute on function public.vidjo_dm_send_direct(uuid, text, uuid) to authenticated;
+revoke all on function public.vidjo_dm_send_direct(uuid, text, uuid, text) from public;
+revoke all on function public.vidjo_dm_send_direct(uuid, text, uuid, text) from anon;
+grant execute on function public.vidjo_dm_send_direct(uuid, text, uuid, text) to authenticated;
 
 revoke all on function public.vidjo_dm_open_direct(uuid) from public;
 revoke all on function public.vidjo_dm_open_direct(uuid) from anon;
@@ -2776,6 +2896,77 @@ grant execute on function public.vidjo_dm_thread_members(uuid) to authenticated;
 revoke all on function public.vidjo_dm_mark_read(uuid) from public;
 revoke all on function public.vidjo_dm_mark_read(uuid) from anon;
 grant execute on function public.vidjo_dm_mark_read(uuid) to authenticated;
+
+-- ---------------------------------------------------------------------------
+-- Message photo storage (PRIVATE bucket, participants only)
+-- ---------------------------------------------------------------------------
+-- Photos live at `vidjo-dm-images/<thread_id>/<auth.uid()>/<file>`. The first
+-- folder lets storage RLS check thread membership; the second proves ownership
+-- for updates and deletes. The app displays them through short-lived signed
+-- URLs, so a shared link stops working after it expires.
+
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values (
+	'vidjo-dm-images',
+	'vidjo-dm-images',
+	false,
+	5242880,
+	array['image/jpeg', 'image/png', 'image/webp', 'image/gif']
+)
+on conflict (id) do update set
+	public = false,
+	file_size_limit = excluded.file_size_limit,
+	allowed_mime_types = excluded.allowed_mime_types;
+
+drop policy if exists "vidjo dm image read" on storage.objects;
+drop policy if exists "vidjo dm image upload" on storage.objects;
+drop policy if exists "vidjo dm image update" on storage.objects;
+drop policy if exists "vidjo dm image delete" on storage.objects;
+
+create policy "vidjo dm image read" on storage.objects
+	for select to authenticated
+	using (
+		bucket_id = 'vidjo-dm-images'
+		and public.vidjo_is_member()
+		and public.vidjo_dm_is_participant(
+			public.vidjo_try_uuid((storage.foldername(name))[1])
+		)
+	);
+
+create policy "vidjo dm image upload" on storage.objects
+	for insert to authenticated
+	with check (
+		bucket_id = 'vidjo-dm-images'
+		and public.vidjo_is_member()
+		and public.vidjo_dm_can_send(
+			public.vidjo_try_uuid((storage.foldername(name))[1])
+		)
+		and (storage.foldername(name))[2] = auth.uid()::text
+	);
+
+create policy "vidjo dm image update" on storage.objects
+	for update to authenticated
+	using (
+		bucket_id = 'vidjo-dm-images'
+		and public.vidjo_is_member()
+		and (storage.foldername(name))[2] = auth.uid()::text
+	)
+	with check (
+		bucket_id = 'vidjo-dm-images'
+		and public.vidjo_is_member()
+		and public.vidjo_dm_can_send(
+			public.vidjo_try_uuid((storage.foldername(name))[1])
+		)
+		and (storage.foldername(name))[2] = auth.uid()::text
+	);
+
+create policy "vidjo dm image delete" on storage.objects
+	for delete to authenticated
+	using (
+		bucket_id = 'vidjo-dm-images'
+		and public.vidjo_is_member()
+		and (storage.foldername(name))[2] = auth.uid()::text
+	);
 
 -- ---------------------------------------------------------------------------
 -- Realtime publication

@@ -150,6 +150,11 @@ Messaging is friends-first and works only for signed-in accounts:
   each person's read timestamp.
 - `public.vidjo_dm_messages` stores messages. A `client_id` makes retries
   idempotent, so a flaky connection cannot create duplicates.
+- Photos are stored in the private `vidjo-dm-images` bucket at
+  `<thread_id>/<user_id>/<file>` and linked from `vidjo_dm_messages.image_path`.
+  Only thread participants can read them, and the app requests short-lived
+  signed URLs instead of storing public links. PNG, JPG, GIF, and WebP up to
+  5 MB are allowed.
 
 Rules enforced by the schema:
 
@@ -158,9 +163,9 @@ Rules enforced by the schema:
 - Groups are created by an owner who can only invite their own friends. Groups
   can hold up to 12 people. Only the owner can add, remove, or rename members.
 - Every write goes through a `SECURITY DEFINER` RPC:
-  `vidjo_dm_send`, `vidjo_dm_send_direct`, `vidjo_dm_create_group`,
-  `vidjo_dm_add_members`, `vidjo_dm_remove_member`, `vidjo_dm_leave_group`,
-  `vidjo_dm_rename_group`, and `vidjo_dm_mark_read`.
+  `vidjo_dm_send` (text and/or an uploaded photo path), `vidjo_dm_send_direct`,
+  `vidjo_dm_create_group`, `vidjo_dm_add_members`, `vidjo_dm_remove_member`,
+  `vidjo_dm_leave_group`, `vidjo_dm_rename_group`, and `vidjo_dm_mark_read`.
 - Reads use `vidjo_dm_inbox`, `vidjo_dm_thread`, and `vidjo_dm_thread_members`.
   Clients only receive `SELECT` grants on the three tables; direct inserts,
   updates, and deletes are revoked.
@@ -180,4 +185,5 @@ Re-run `schema.sql` after deploying the messaging UI.
 | Friend code is not found                        | Both accounts must exist in `vidjo_profiles`, and the code must include the `VJ-` prefix. Re-run `schema.sql` if codes are missing. |
 | Communities or friends disappear after deploy   | Re-run `schema.sql` so the social tables, `community_slug`, and RPCs exist. Local membership is only a fallback.                    |
 | Video does not play                             | Check that the `vidjo-videos` bucket exists and re-run `schema.sql`.                                                                |
+| Photos do not send                              | Check that the private `vidjo-dm-images` bucket and its storage policies exist; re-run `schema.sql`.                                |
 | Shared browser has old journal entries          | Sign out with "Clear cached pages on sign out" checked.                                                                             |

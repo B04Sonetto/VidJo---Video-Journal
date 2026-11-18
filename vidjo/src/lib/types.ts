@@ -232,6 +232,7 @@ export interface DmThreadSummary {
 	title: string | null;
 	members: DmParticipant[];
 	lastBody: string | null;
+	lastImagePath: string | null;
 	lastSender: string | null;
 	lastSenderName: string | null;
 	lastAt: string | null;
@@ -248,6 +249,10 @@ export interface DmMessage {
 	senderUsername: string;
 	senderAvatar: string | null;
 	body: string;
+	/** Storage path inside the private `vidjo-dm-images` bucket. */
+	imagePath: string | null;
+	/** Local object URL used only while a photo uploads. */
+	previewUrl?: string;
 	createdAt: string;
 	/** True while the optimistic bubble waits for the server. */
 	pending?: boolean;

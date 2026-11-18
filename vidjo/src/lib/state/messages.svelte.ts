@@ -2,6 +2,7 @@ import { isSupabaseConfigured, supabase } from '#lib/supabase';
 import { auth } from '#lib/state/auth.svelte';
 import { profile } from '#lib/state/profile.svelte';
 import { cleanDisplayName, normalizeImageUrl } from '#lib/avatar';
+import { detectRasterImageMime } from '#lib/imageUpload';
 import type {
 	DmMessage,
 	DmParticipant,
@@ -13,6 +14,16 @@ import type {
 
 const PAGE_SIZE = 30;
 const INBOX_DEBOUNCE_MS = 250;
+const DM_IMAGE_BUCKET = 'vidjo-dm-images';
+const DM_IMAGE_MAX_BYTES = 5 * 1024 * 1024;
+const DM_IMAGE_TTL_SECONDS = 60 * 60 * 12;
+
+const DM_IMAGE_TYPES: Record<string, string> = {
+	'image/jpeg': 'jpg',
+	'image/png': 'png',
+	'image/webp': 'webp',
+	'image/gif': 'gif'
+};
 
 type InboxRow = {
 	thread_id: string;
@@ -20,6 +31,7 @@ type InboxRow = {
 	title: string | null;
 	members: unknown;
 	last_body: string | null;
+	last_image_path: string | null;
 	last_sender: string | null;
 	last_sender_name: string | null;
 	last_at: string | null;
@@ -36,6 +48,7 @@ type MessageRow = {
 	sender_username: string | null;
 	sender_avatar: string | null;
 	body: string;
+	image_path: string | null;
 	created_at: string;
 };
 
@@ -88,6 +101,7 @@ function mapInboxRow(row: InboxRow): DmThreadSummary {
 		title: row.title,
 		members: mapMembers(row.members),
 		lastBody: row.last_body,
+		lastImagePath: row.last_image_path ?? null,
 		lastSender: row.last_sender,
 		lastSenderName: row.last_sender_name,
 		lastAt: row.last_at,
@@ -106,6 +120,7 @@ function mapMessage(row: MessageRow): DmMessage {
 		senderUsername: row.sender_username || 'student',
 		senderAvatar: normalizeImageUrl(row.sender_avatar),
 		body: row.body,
+		imagePath: row.image_path ?? null,
 		createdAt: row.created_at
 	};
 }
@@ -159,6 +174,8 @@ class MessagesState {
 	messagesByThread = $state<Record<string, DmMessage[]>>({});
 	membersByThread = $state<Record<string, DmThreadMember[]>>({});
 	hasMoreByThread = $state<Record<string, boolean>>({});
+	/** Signed URLs for photo messages, keyed by storage path. */
+	imageUrls = $state<Record<string, string>>({});
 
 	activeThreadId = $state<string | null>(null);
 	currentUserId = $state('');
@@ -175,6 +192,7 @@ class MessagesState {
 	private realtimeChannel: ReturnType<typeof supabase.channel> | null = null;
 	private inboxTimer: ReturnType<typeof setTimeout> | null = null;
 	private inboxQueued = false;
+	private imageRequests = new Set<string>();
 
 	get ready() {
 		return isSupabaseConfigured && auth.signedIn;
@@ -356,6 +374,7 @@ class MessagesState {
 
 			const rows = ((data ?? []) as MessageRow[]).map(mapMessage);
 			this.setMessages(threadId, mergeMessages(rows, existing));
+			void this.ensureImageUrls(rows.map((message) => message.imagePath));
 			this.hasMoreByThread = {
 				...this.hasMoreByThread,
 				[threadId]: rows.length >= PAGE_SIZE
@@ -403,8 +422,117 @@ class MessagesState {
 			return false;
 		}
 
+		this.error = '';
 		const clientId = newClientId();
-		const optimistic: DmMessage = {
+		const optimistic = this.optimisticMessage(threadId, clientId, trimmed, null);
+
+		this.setMessages(threadId, mergeMessages(this.messagesByThread[threadId] ?? [], [optimistic]));
+		this.scrollRequest += 1;
+
+		return this.transmit(threadId, clientId, trimmed, null, optimistic);
+	}
+
+	async sendImage(file: File, caption = ''): Promise<boolean> {
+		const threadId = this.activeThreadId;
+		if (!threadId || !file) return false;
+
+		const thread = this.activeThread;
+		if (!thread?.canReply) {
+			this.error = 'You can only message friends.';
+			return false;
+		}
+
+		if (file.size > DM_IMAGE_MAX_BYTES) {
+			this.error = 'Photos must be 5 MB or smaller.';
+			return false;
+		}
+
+		// Trust the bytes, not the browser-supplied MIME type.
+		const detected = await detectRasterImageMime(file);
+		if (!detected || !DM_IMAGE_TYPES[detected]) {
+			this.error = 'Choose a PNG, JPG, GIF, or WebP photo.';
+			return false;
+		}
+
+		const userId = this.currentUserId || auth.ownerId;
+		if (!userId) {
+			this.error = 'Messaging needs a signed-in account.';
+			return false;
+		}
+
+		const cleanCaption = caption.trim().slice(0, 2000);
+		const clientId = newClientId();
+		const previewUrl = URL.createObjectURL(file);
+		const optimistic = this.optimisticMessage(threadId, clientId, cleanCaption, null, previewUrl);
+
+		this.error = '';
+		this.setMessages(threadId, mergeMessages(this.messagesByThread[threadId] ?? [], [optimistic]));
+		this.scrollRequest += 1;
+
+		const path = `${threadId}/${userId}/${clientId}.${DM_IMAGE_TYPES[detected]}`;
+		let uploaded = false;
+
+		try {
+			const { error: uploadError } = await supabase.storage
+				.from(DM_IMAGE_BUCKET)
+				.upload(path, file, {
+					cacheControl: '3600',
+					contentType: detected,
+					upsert: false
+				});
+			if (uploadError) throw uploadError;
+			uploaded = true;
+
+			const { data: signed, error: signError } = await supabase.storage
+				.from(DM_IMAGE_BUCKET)
+				.createSignedUrl(path, DM_IMAGE_TTL_SECONDS);
+			if (signError) throw signError;
+			if (signed?.signedUrl) {
+				this.imageUrls = { ...this.imageUrls, [path]: signed.signedUrl };
+			}
+
+			const ok = await this.transmit(threadId, clientId, cleanCaption, path, optimistic);
+
+			if (!ok) {
+				// The message row was never created, so do not leave an orphan file.
+				await this.removeImage(path);
+				uploaded = false;
+			}
+
+			return ok;
+		} catch (error) {
+			if (uploaded) await this.removeImage(path);
+			this.setMessages(
+				threadId,
+				(this.messagesByThread[threadId] ?? []).filter((message) => message.clientId !== clientId)
+			);
+			this.error = errorMessage(error);
+			return false;
+		} finally {
+			URL.revokeObjectURL(previewUrl);
+		}
+	}
+
+	private async removeImage(path: string) {
+		const next = { ...this.imageUrls };
+		delete next[path];
+		this.imageUrls = next;
+
+		try {
+			await supabase.storage.from(DM_IMAGE_BUCKET).remove([path]);
+		} catch {
+			// Best effort cleanup.
+		}
+	}
+
+	private optimisticMessage(
+		threadId: string,
+		clientId: string,
+		body: string,
+		imagePath: string | null,
+		previewUrl?: string
+	): DmMessage {
+		return {
 			id: `pending:${clientId}`,
 			threadId,
 			senderId: this.currentUserId || auth.ownerId,
@@ -412,21 +540,33 @@ class MessagesState {
 			senderName: profile.displayName,
 			senderUsername: profile.username || 'student',
 			senderAvatar: profile.avatarUrl,
-			body: trimmed,
+			body,
+			imagePath,
+			previewUrl,
 			createdAt: new Date().toISOString(),
 			pending: true
 		};
+	}
 
-		this.error = '';
-		this.setMessages(threadId, mergeMessages(this.messagesByThread[threadId] ?? [], [optimistic]));
-		this.scrollRequest += 1;
-
+	private async transmit(
+		threadId: string,
+		clientId: string,
+		body: string,
+		imagePath: string | null,
+		optimistic: DmMessage
+	): Promise<boolean> {
 		try {
-			const { data, error } = await supabase.rpc('vidjo_dm_send', {
+			// Older databases only know the 3-argument function. Text messages
+			// therefore omit the photo argument so they keep working until the
+			// photo schema is applied; photos require the 4-argument version.
+			const params: Record<string, string | null> = {
 				p_thread: threadId,
-				p_body: trimmed,
+				p_body: body,
 				p_client_id: clientId
-			});
+			};
+			if (imagePath) params.p_image_path = imagePath;
+
+			const { data, error } = await supabase.rpc('vidjo_dm_send', params);
 			if (error) throw error;
 
 			const row = Array.isArray(data) ? data[0] : data;
@@ -442,7 +582,8 @@ class MessagesState {
 					senderName: sender.name,
 					senderUsername: sender.username,
 					senderAvatar: sender.avatar,
-					body: typeof record.body === 'string' ? record.body : trimmed,
+					body: typeof record.body === 'string' ? record.body : body,
+					imagePath: typeof record.image_path === 'string' ? record.image_path : imagePath,
 					createdAt:
 						typeof record.created_at === 'string' ? record.created_at : optimistic.createdAt
 				};
@@ -460,6 +601,36 @@ class MessagesState {
 			this.error = errorMessage(error);
 			return false;
 		}
+	}
+
+	private async ensureImageUrls(paths: (string | null | undefined)[]) {
+		const missing = [
+			...new Set(
+				paths.filter((path): path is string => typeof path === 'string' && path.length > 0)
+			)
+		].filter((path) => !this.imageUrls[path] && !this.imageRequests.has(path));
+
+		if (missing.length === 0) return;
+
+		missing.forEach((path) => this.imageRequests.add(path));
+
+		await Promise.all(
+			missing.map(async (path) => {
+				try {
+					const { data, error } = await supabase.storage
+						.from(DM_IMAGE_BUCKET)
+						.createSignedUrl(path, DM_IMAGE_TTL_SECONDS);
+					if (error) throw error;
+					if (data?.signedUrl) {
+						this.imageUrls = { ...this.imageUrls, [path]: data.signedUrl };
+					}
+				} catch (error) {
+					console.warn('[VidJo] Could not open a message photo.', error);
+				} finally {
+					this.imageRequests.delete(path);
+				}
+			})
+		);
 	}
 
 	async markRead(threadId: string) {
@@ -622,6 +793,7 @@ class MessagesState {
 		this.messagesByThread = {};
 		this.membersByThread = {};
 		this.hasMoreByThread = {};
+		this.imageUrls = {};
 		this.activeThreadId = null;
 		this.currentUserId = '';
 		this.loadingInbox = false;
@@ -632,6 +804,7 @@ class MessagesState {
 		this.notice = '';
 		this.scrollRequest = 0;
 		this.inboxQueued = false;
+		this.imageRequests.clear();
 		if (this.inboxTimer) {
 			clearTimeout(this.inboxTimer);
 			this.inboxTimer = null;
@@ -649,6 +822,7 @@ class MessagesState {
 		const updated: DmThreadSummary = {
 			...current,
 			lastBody: message.body,
+			lastImagePath: message.imagePath,
 			lastSender: message.senderId,
 			lastSenderName: message.senderName,
 			lastAt: message.createdAt
@@ -680,6 +854,7 @@ class MessagesState {
 			title: null,
 			members: [me, peer],
 			lastBody: null,
+			lastImagePath: null,
 			lastSender: null,
 			lastSenderName: null,
 			lastAt: null,
@@ -763,8 +938,11 @@ class MessagesState {
 			senderUsername: sender.username,
 			senderAvatar: sender.avatar,
 			body: typeof row.body === 'string' ? row.body : '',
+			imagePath: typeof row.image_path === 'string' ? row.image_path : null,
 			createdAt: typeof row.created_at === 'string' ? row.created_at : new Date().toISOString()
 		};
+
+		if (message.imagePath) void this.ensureImageUrls([message.imagePath]);
 
 		if (this.messagesByThread[threadId]) {
 			this.setMessages(threadId, mergeMessages(this.messagesByThread[threadId] ?? [], [message]));

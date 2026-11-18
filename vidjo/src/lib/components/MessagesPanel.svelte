@@ -15,6 +15,7 @@
 	let pickerOpen = $state(false);
 	let newGroupOpen = $state(false);
 	let infoOpen = $state(false);
+	let fileInputEl = $state<HTMLInputElement | null>(null);
 
 	const activeThread = $derived(messages.activeThread);
 	const messageList = $derived(messages.activeMessages);
@@ -71,7 +72,10 @@
 	}
 
 	function preview(thread: DmThreadSummary) {
-		if (!thread.lastBody) return thread.kind === 'group' ? 'Group created' : 'Say hello';
+		const hasImage = Boolean(thread.lastImagePath);
+		if (!thread.lastBody && !hasImage) {
+			return thread.kind === 'group' ? 'Group created' : 'Say hello';
+		}
 		const mine = thread.lastSender === messages.currentUserId;
 		const prefix =
 			thread.kind === 'group' && !mine && thread.lastSenderName
@@ -79,7 +83,7 @@
 				: mine
 					? 'You: '
 					: '';
-		return prefix + censor(thread.lastBody);
+		return prefix + (thread.lastBody ? censor(thread.lastBody) : 'Photo');
 	}
 
 	function subtitle(thread: DmThreadSummary) {
@@ -112,6 +116,25 @@
 			draft = '';
 			void tick().then(resize);
 		}
+	}
+
+	async function pickImage(event: Event) {
+		const input = event.currentTarget as HTMLInputElement;
+		const file = input.files?.[0] ?? null;
+		// Reset immediately so choosing the same photo again still fires `change`.
+		input.value = '';
+		if (!file) return;
+
+		const caption = draft;
+		const ok = await messages.sendImage(file, caption);
+		if (ok && caption.trim()) {
+			draft = '';
+			void tick().then(resize);
+		}
+	}
+
+	function openImagePicker() {
+		fileInputEl?.click();
 	}
 
 	async function loadOlder() {
@@ -404,6 +427,8 @@
 							{#each messageList as message, index (message.clientId || message.id)}
 								{@const mine = message.senderId === messages.currentUserId}
 								{@const first = showSender(index)}
+								{@const imageSrc =
+									message.previewUrl || messages.imageUrls[message.imagePath ?? ''] || ''}
 								<div
 									class="flex gap-2 {mine ? 'justify-end' : 'justify-start'} {first
 										? 'mt-3'
@@ -430,13 +455,51 @@
 											</p>
 										{/if}
 										<div
-											class="rounded-2xl px-3.5 py-2 font-ui text-sm leading-relaxed [overflow-wrap:anywhere] whitespace-pre-wrap {mine
+											class="rounded-2xl font-ui text-sm leading-relaxed [overflow-wrap:anywhere] {message.body
+												? 'px-3.5 py-2'
+												: 'p-1.5'} {mine
 												? 'rounded-br-md bg-cta text-cta-text'
 												: 'rounded-bl-md border border-line bg-book-bg text-book-ink'} {message.pending
 												? 'opacity-70'
 												: ''}"
 										>
-											{censor(message.body)}
+											{#if message.imagePath || message.previewUrl}
+												{#if imageSrc}
+													<button
+														type="button"
+														class="block cursor-zoom-in"
+														onclick={() => window.open(imageSrc, '_blank', 'noopener,noreferrer')}
+														aria-label="Open photo in a new tab"
+													>
+														<img
+															src={imageSrc}
+															alt={message.body
+																? censor(message.body)
+																: `Photo from ${message.senderName}`}
+															class="block max-h-64 w-auto max-w-full rounded-xl object-cover"
+															loading="lazy"
+															decoding="async"
+														/>
+													</button>
+												{:else}
+													<div
+														class="flex h-28 w-44 items-center justify-center rounded-xl bg-line/30"
+													>
+														<span class="font-ui text-[11px] text-book-ink/70">
+															Loading photo…
+														</span>
+													</div>
+												{/if}
+											{/if}
+											{#if message.body}
+												<p
+													class="whitespace-pre-wrap {message.imagePath || message.previewUrl
+														? 'mt-1.5'
+														: ''}"
+												>
+													{censor(message.body)}
+												</p>
+											{/if}
 										</div>
 										<p class="mt-1 font-ui text-[10px] text-book-ink/70 {mine ? 'text-right' : ''}">
 											{message.pending ? 'Sending…' : formatTime(message.createdAt)}
@@ -466,8 +529,26 @@
 							You can only message friends. This conversation is read-only.
 						</p>
 					{:else}
+						<input
+							bind:this={fileInputEl}
+							type="file"
+							accept="image/png,image/jpeg,image/webp,image/gif"
+							class="sr-only"
+							tabindex="-1"
+							onchange={pickImage}
+							aria-hidden="true"
+						/>
 						<div class="flex items-end gap-2">
 							<label class="sr-only" for="dm-composer">Write a message</label>
+							<button
+								type="button"
+								class="flex size-10 shrink-0 items-center justify-center rounded-full border border-line bg-book-bg text-book-ink/80 transition-colors hover:bg-paper-deep hover:text-book-ink"
+								onclick={openImagePicker}
+								aria-label="Attach a photo"
+								title="Attach a photo"
+							>
+								<CommunityIcon name="camera" size={17} />
+							</button>
 							<textarea
 								id="dm-composer"
 								bind:this={composerEl}
@@ -477,7 +558,7 @@
 								rows="1"
 								maxlength="2000"
 								placeholder="Write a note…"
-								class="max-h-[132px] min-h-10 w-full resize-none rounded-2xl border border-line bg-book-bg px-3.5 py-2.5 font-ui text-sm leading-relaxed text-book-ink placeholder:text-book-ink/70 focus:border-book-accent focus:outline-none"
+								class="max-h-[132px] min-h-10 w-full min-w-0 flex-1 resize-none rounded-2xl border border-line bg-book-bg px-3.5 py-2.5 font-ui text-sm leading-relaxed text-book-ink placeholder:text-book-ink/70 focus:border-book-accent focus:outline-none"
 							></textarea>
 							<button
 								type="button"
@@ -492,7 +573,7 @@
 						</div>
 						<div class="mt-1.5 flex items-center justify-between gap-2 px-1">
 							<p class="font-ui text-[10px] text-book-ink/70">
-								Enter sends · Shift + Enter adds a line
+								Enter sends · Shift + Enter adds a line · Photos up to 5 MB
 							</p>
 							{#if draft.length > 1800}
 								<p class="font-ui text-[10px] font-semibold text-book-ink/65 tabular-nums">
