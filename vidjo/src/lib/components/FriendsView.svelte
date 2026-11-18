@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { friends } from '#lib/state/friends.svelte';
+	import { messages } from '#lib/state/messages.svelte';
 	import { profile } from '#lib/state/profile.svelte';
 	import { journal } from '#lib/state/journal.svelte';
 	import { nav } from '#lib/state/navigation.svelte';
@@ -10,6 +11,7 @@
 	import Avatar from '#lib/components/Avatar.svelte';
 	import CommunityIcon from '#lib/components/CommunityIcon.svelte';
 	import FriendJournalModal from '#lib/components/FriendJournalModal.svelte';
+	import MessagesPanel from '#lib/components/MessagesPanel.svelte';
 	import PageHeader from '#lib/components/ui/PageHeader.svelte';
 	import Button from '#lib/components/ui/Button.svelte';
 	import Skeleton from '#lib/components/ui/Skeleton.svelte';
@@ -261,8 +263,63 @@
 		{/snippet}
 	</PageHeader>
 
+	<div class="mt-6 flex flex-wrap items-center justify-between gap-3">
+		<div
+			class="inline-flex rounded-full border border-cover-edge bg-desk-2/80 p-1"
+			role="tablist"
+			aria-label="Friends sections"
+		>
+			<button
+				type="button"
+				role="tab"
+				aria-selected={nav.friendsTab === 'shelf'}
+				class="inline-flex min-h-9 items-center gap-1.5 rounded-full px-4 font-ui text-xs font-bold transition-colors {nav.friendsTab ===
+				'shelf'
+					? 'bg-cta text-cta-text'
+					: 'text-book-bg/70 hover:text-book-bg'}"
+				onclick={() => nav.setFriendsTab('shelf')}
+			>
+				<CommunityIcon name="book" size={14} />
+				Shelf
+			</button>
+			<button
+				type="button"
+				role="tab"
+				aria-selected={nav.friendsTab === 'messages'}
+				class="inline-flex min-h-9 items-center gap-1.5 rounded-full px-4 font-ui text-xs font-bold transition-colors {nav.friendsTab ===
+				'messages'
+					? 'bg-cta text-cta-text'
+					: 'text-book-bg/70 hover:text-book-bg'}"
+				onclick={() => nav.setFriendsTab('messages')}
+			>
+				<CommunityIcon name="mail" size={14} />
+				Messages
+				{#if messages.unreadTotal > 0}
+					<span
+						class="flex h-5 min-w-5 items-center justify-center rounded-full bg-gold px-1 font-ui text-[10px] font-bold text-desk tabular-nums"
+						aria-label="{messages.unreadTotal} unread messages"
+					>
+						{messages.unreadTotal > 9 ? '9+' : messages.unreadTotal}
+					</span>
+				{/if}
+			</button>
+		</div>
+
+		{#if nav.friendsTab === 'messages' && friends.pendingCount > 0}
+			<p class="font-ui text-xs font-semibold text-book-bg/65">
+				{friends.pendingCount}
+				{friends.pendingCount === 1 ? 'friend request is' : 'friend requests are'} waiting on the Shelf.
+			</p>
+		{/if}
+	</div>
+
+	{#if nav.friendsTab === 'messages'}
+		<MessagesPanel />
+	{/if}
+
 	<div
 		class="mt-7 grid gap-6 min-[1040px]:grid-cols-[minmax(0,1fr)_340px] min-[1040px]:items-start"
+		class:hidden={nav.friendsTab === 'messages'}
 	>
 		<!-- Shelf -->
 		<section

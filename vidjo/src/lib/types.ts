@@ -213,3 +213,52 @@ export interface NotificationItem {
 	createdAt: string;
 	read: boolean;
 }
+
+export type DmThreadKind = 'direct' | 'group';
+
+export type DmRole = 'owner' | 'member';
+
+export interface DmParticipant {
+	id: string;
+	name: string;
+	username: string;
+	avatar: string | null;
+	role: DmRole;
+}
+
+export interface DmThreadSummary {
+	threadId: string;
+	kind: DmThreadKind;
+	title: string | null;
+	members: DmParticipant[];
+	lastBody: string | null;
+	lastSender: string | null;
+	lastSenderName: string | null;
+	lastAt: string | null;
+	unreadCount: number;
+	canReply: boolean;
+}
+
+export interface DmMessage {
+	id: string;
+	threadId: string;
+	senderId: string;
+	clientId: string;
+	senderName: string;
+	senderUsername: string;
+	senderAvatar: string | null;
+	body: string;
+	createdAt: string;
+	/** True while the optimistic bubble waits for the server. */
+	pending?: boolean;
+}
+
+export interface DmThreadMember {
+	userId: string;
+	name: string;
+	username: string;
+	avatar: string | null;
+	role: DmRole;
+	joinedAt: string;
+	isMe: boolean;
+}

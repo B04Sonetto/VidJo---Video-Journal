@@ -4,9 +4,14 @@ export type MainView = 'journal' | 'friends' | 'community' | 'profile' | 'notifi
 
 export type ProfileTab = 'overview' | 'portfolio' | 'achievements' | 'settings' | 'edit';
 
+export type FriendsTab = 'shelf' | 'messages';
+
 class Navigation {
 	/** Active main view tab */
 	view = $state<MainView>('journal');
+
+	/** Active tab inside the Friends page. */
+	friendsTab = $state<FriendsTab>('shelf');
 
 	/** Active tab inside the full profile page. */
 	profileTab = $state<ProfileTab>('overview');
@@ -27,6 +32,15 @@ class Navigation {
 
 	setView(newView: MainView) {
 		this.view = newView;
+	}
+
+	setFriendsTab(tab: FriendsTab) {
+		this.friendsTab = tab;
+	}
+
+	openMessages() {
+		this.friendsTab = 'messages';
+		this.view = 'friends';
 	}
 
 	openProfile(tab: ProfileTab = 'overview') {

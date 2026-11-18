@@ -19,6 +19,7 @@
 	import { moderation } from '#lib/state/moderation.svelte';
 	import { profile } from '#lib/state/profile.svelte';
 	import { friends } from '#lib/state/friends.svelte';
+	import { messages } from '#lib/state/messages.svelte';
 	import { community } from '#lib/state/community.svelte';
 	import { nav } from '#lib/state/navigation.svelte';
 	import { viewport } from '#lib/state/viewport.svelte';
@@ -64,6 +65,7 @@
 			initSeq += 1;
 			moderation.reset();
 			friends.reset();
+			messages.reset();
 			community.reset();
 			return;
 		}
@@ -92,7 +94,7 @@
 			if (seq !== initSeq) return;
 			journal.setPaper(profile.paperStyle);
 			profileReady = true;
-			await Promise.all([friends.init(ownerId), community.init(ownerId)]);
+			await Promise.all([friends.init(ownerId), community.init(ownerId), messages.init(ownerId)]);
 		})();
 	});
 

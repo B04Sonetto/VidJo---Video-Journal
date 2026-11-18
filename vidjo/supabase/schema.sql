@@ -1723,6 +1723,1061 @@ grant execute on function public.vidjo_block_deleted_signup(jsonb) to supabase_a
 revoke execute on function public.vidjo_block_deleted_signup(jsonb) from authenticated, anon, public;
 
 -- ---------------------------------------------------------------------------
+-- Direct messages and group chats
+-- ---------------------------------------------------------------------------
+-- Messaging is friends-first. Direct threads only exist between accepted
+-- friends and become read-only if the pair unfriends. Groups are created by an
+-- owner who can only invite their own friends. Every write goes through the
+-- SECURITY DEFINER RPCs below; clients only receive SELECT grants on the three
+-- tables.
+
+create table if not exists public.vidjo_dm_threads (
+	id uuid primary key default gen_random_uuid(),
+	kind text not null check (kind in ('direct', 'group')),
+	title text,
+	created_by uuid references auth.users(id) on delete set null,
+	direct_key text unique,
+	created_at timestamptz not null default now(),
+	last_message_at timestamptz,
+	constraint vidjo_dm_threads_shape check (
+		(kind = 'direct' and direct_key is not null and title is null)
+		or (kind = 'group' and direct_key is null and title is not null)
+	),
+	constraint vidjo_dm_threads_title check (
+		title is null or char_length(btrim(title)) between 1 and 60
+	)
+);
+
+create index if not exists vidjo_dm_threads_activity_idx
+	on public.vidjo_dm_threads (last_message_at desc nulls last);
+
+create table if not exists public.vidjo_dm_participants (
+	thread_id uuid not null references public.vidjo_dm_threads(id) on delete cascade,
+	user_id uuid not null references auth.users(id) on delete cascade,
+	role text not null default 'member' check (role in ('owner', 'member')),
+	last_read_at timestamptz not null default 'epoch',
+	joined_at timestamptz not null default now(),
+	primary key (thread_id, user_id)
+);
+
+create index if not exists vidjo_dm_participants_user_idx
+	on public.vidjo_dm_participants (user_id, thread_id);
+
+-- A group has exactly one owner. Direct threads have no owner at all.
+create unique index if not exists vidjo_dm_one_owner_per_thread
+	on public.vidjo_dm_participants (thread_id)
+	where role = 'owner';
+
+create table if not exists public.vidjo_dm_messages (
+	id uuid primary key default gen_random_uuid(),
+	thread_id uuid not null references public.vidjo_dm_threads(id) on delete cascade,
+	sender_id uuid not null references auth.users(id) on delete cascade,
+	client_id uuid not null,
+	body text not null check (char_length(btrim(body)) between 1 and 2000),
+	created_at timestamptz not null default now(),
+	deleted_at timestamptz,
+	constraint vidjo_dm_messages_client_unique unique (thread_id, sender_id, client_id)
+);
+
+create index if not exists vidjo_dm_messages_thread_idx
+	on public.vidjo_dm_messages (thread_id, created_at desc);
+create index if not exists vidjo_dm_messages_sender_idx
+	on public.vidjo_dm_messages (sender_id, created_at desc);
+
+-- Defense in depth: even if a future RPC forgets a size check, the participant
+-- count cannot grow beyond the limits the UI promises.
+create or replace function public.vidjo_dm_check_participants()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+	v_kind text;
+	v_count integer;
+begin
+	select kind into v_kind from public.vidjo_dm_threads where id = new.thread_id;
+
+	if v_kind = 'direct' then
+		select count(*) into v_count
+		from public.vidjo_dm_participants
+		where thread_id = new.thread_id;
+
+		if v_count > 2 then
+			raise exception 'Direct conversations can only have two people.';
+		end if;
+	elsif v_kind = 'group' then
+		select count(*) into v_count
+		from public.vidjo_dm_participants
+		where thread_id = new.thread_id;
+
+		if v_count > 12 then
+			raise exception 'Groups can have at most 12 people.';
+		end if;
+	end if;
+
+	return new;
+end;
+$$;
+
+drop trigger if exists vidjo_dm_participants_limit on public.vidjo_dm_participants;
+create trigger vidjo_dm_participants_limit
+	after insert on public.vidjo_dm_participants
+	for each row execute function public.vidjo_dm_check_participants();
+
+create or replace function public.vidjo_dm_touch_thread()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+	update public.vidjo_dm_threads
+	set last_message_at = new.created_at
+	where id = new.thread_id;
+
+	return new;
+end;
+$$;
+
+drop trigger if exists vidjo_dm_messages_touch on public.vidjo_dm_messages;
+create trigger vidjo_dm_messages_touch
+	after insert on public.vidjo_dm_messages
+	for each row execute function public.vidjo_dm_touch_thread();
+
+-- Message bodies are masked server-side, just like comments.
+create or replace function public.vidjo_dm_censor_message()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+	new.body := public.vidjo_censor_text(new.body);
+	return new;
+end;
+$$;
+
+drop trigger if exists vidjo_dm_messages_censor on public.vidjo_dm_messages;
+create trigger vidjo_dm_messages_censor
+	before insert or update of body on public.vidjo_dm_messages
+	for each row execute function public.vidjo_dm_censor_message();
+
+-- ---------------------------------------------------------------------------
+-- Messaging helpers
+-- ---------------------------------------------------------------------------
+
+create or replace function public.vidjo_dm_is_participant(p_thread uuid)
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+	select auth.uid() is not null and exists (
+		select 1
+		from public.vidjo_dm_participants p
+		where p.thread_id = p_thread and p.user_id = auth.uid()
+	);
+$$;
+
+create or replace function public.vidjo_dm_direct_key(a uuid, b uuid)
+returns text
+language sql
+immutable
+set search_path = public
+as $$
+	select least(a, b)::text || ':' || greatest(a, b)::text;
+$$;
+
+-- Internal: returns the one direct thread for a pair, creating it if needed.
+create or replace function public.vidjo_dm_ensure_direct(p_user uuid, p_friend uuid)
+returns uuid
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+	v_thread uuid;
+	v_key text := public.vidjo_dm_direct_key(p_user, p_friend);
+begin
+	if auth.uid() is null or p_user <> auth.uid() then
+		raise exception 'Not allowed.';
+	end if;
+
+	insert into public.vidjo_dm_threads (kind, direct_key, created_by)
+	values ('direct', v_key, p_user)
+	on conflict (direct_key) do update
+	set direct_key = excluded.direct_key
+	returning id into v_thread;
+
+	insert into public.vidjo_dm_participants (thread_id, user_id, role)
+	values (v_thread, p_user, 'member'), (v_thread, p_friend, 'member')
+	on conflict (thread_id, user_id) do nothing;
+
+	return v_thread;
+end;
+$$;
+
+-- Internal: validates length and applies the per-sender rate limit.
+create or replace function public.vidjo_dm_validate_body(p_body text)
+returns text
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+	v_user uuid := auth.uid();
+	v_body text := btrim(coalesce(p_body, ''));
+	v_recent integer;
+	v_daily integer;
+begin
+	if v_user is null then
+		raise exception 'Sign in to send messages.';
+	end if;
+
+	if char_length(v_body) = 0 then
+		raise exception 'Write a message first.';
+	end if;
+
+	if char_length(v_body) > 2000 then
+		raise exception 'Messages can be at most 2000 characters.';
+	end if;
+
+	select count(*) into v_recent
+	from public.vidjo_dm_messages
+	where sender_id = v_user and created_at > now() - interval '1 minute';
+
+	if v_recent >= 20 then
+		raise exception 'You are sending messages too quickly. Take a breath and try again.';
+	end if;
+
+	select count(*) into v_daily
+	from public.vidjo_dm_messages
+	where sender_id = v_user and created_at > now() - interval '1 day';
+
+	if v_daily >= 200 then
+		raise exception 'You have reached the daily message limit.';
+	end if;
+
+	return v_body;
+end;
+$$;
+
+-- ---------------------------------------------------------------------------
+-- Messaging RPCs
+-- ---------------------------------------------------------------------------
+
+create or replace function public.vidjo_dm_send(
+	p_thread uuid,
+	p_body text,
+	p_client_id uuid
+)
+returns table (
+	id uuid,
+	thread_id uuid,
+	sender_id uuid,
+	client_id uuid,
+	body text,
+	created_at timestamptz
+)
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+	v_user uuid := auth.uid();
+	v_client uuid := coalesce(p_client_id, gen_random_uuid());
+	v_body text;
+	v_kind text;
+	v_other uuid;
+	v_existing public.vidjo_dm_messages%rowtype;
+begin
+	if v_user is null then
+		raise exception 'Sign in to send messages.';
+	end if;
+
+	if not public.vidjo_is_member() then
+		raise exception 'Create a VidJo account before sending messages.';
+	end if;
+
+	if not public.vidjo_dm_is_participant(p_thread) then
+		raise exception 'Conversation not found.';
+	end if;
+
+	select kind into v_kind from public.vidjo_dm_threads where id = p_thread;
+
+	if v_kind = 'direct' then
+		select user_id into v_other
+		from public.vidjo_dm_participants
+		where thread_id = p_thread and user_id <> v_user
+		limit 1;
+
+		if v_other is null or not public.vidjo_are_friends(v_user, v_other) then
+			raise exception 'You can only message friends.';
+		end if;
+	end if;
+
+	-- Retrying the same client id must return the original message, not a copy.
+	select * into v_existing
+	from public.vidjo_dm_messages m
+	where m.thread_id = p_thread
+		and m.sender_id = v_user
+		and m.client_id = v_client
+	limit 1;
+
+	if found then
+		return query
+		select v_existing.id, v_existing.thread_id, v_existing.sender_id,
+			v_existing.client_id, v_existing.body, v_existing.created_at;
+		return;
+	end if;
+
+	v_body := public.vidjo_dm_validate_body(p_body);
+
+	begin
+		insert into public.vidjo_dm_messages (thread_id, sender_id, client_id, body)
+		values (p_thread, v_user, v_client, v_body)
+		returning * into v_existing;
+	exception
+		when unique_violation then
+			select * into v_existing
+			from public.vidjo_dm_messages m
+			where m.thread_id = p_thread
+				and m.sender_id = v_user
+				and m.client_id = v_client
+			limit 1;
+	end;
+
+	if v_existing.id is null then
+		raise exception 'Could not send that message. Try again.';
+	end if;
+
+	update public.vidjo_dm_participants
+	set last_read_at = greatest(last_read_at, v_existing.created_at)
+	where thread_id = p_thread and user_id = v_user;
+
+	return query
+	select v_existing.id, v_existing.thread_id, v_existing.sender_id,
+		v_existing.client_id, v_existing.body, v_existing.created_at;
+end;
+$$;
+
+create or replace function public.vidjo_dm_send_direct(
+	p_friend uuid,
+	p_body text,
+	p_client_id uuid
+)
+returns table (
+	id uuid,
+	thread_id uuid,
+	sender_id uuid,
+	client_id uuid,
+	body text,
+	created_at timestamptz
+)
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+	v_user uuid := auth.uid();
+	v_client uuid := coalesce(p_client_id, gen_random_uuid());
+	v_body text;
+	v_thread uuid;
+	v_existing public.vidjo_dm_messages%rowtype;
+begin
+	if v_user is null then
+		raise exception 'Sign in to send messages.';
+	end if;
+
+	if not public.vidjo_is_member() then
+		raise exception 'Create a VidJo account before sending messages.';
+	end if;
+
+	if p_friend is null or p_friend = v_user then
+		raise exception 'Choose a friend to message.';
+	end if;
+
+	if not exists (select 1 from public.vidjo_profiles where user_id = p_friend) then
+		raise exception 'That account no longer exists.';
+	end if;
+
+	if not public.vidjo_are_friends(v_user, p_friend) then
+		raise exception 'You can only message friends.';
+	end if;
+
+	v_thread := public.vidjo_dm_ensure_direct(v_user, p_friend);
+
+	select * into v_existing
+	from public.vidjo_dm_messages m
+	where m.thread_id = v_thread
+		and m.sender_id = v_user
+		and m.client_id = v_client
+	limit 1;
+
+	if found then
+		return query
+		select v_existing.id, v_existing.thread_id, v_existing.sender_id,
+			v_existing.client_id, v_existing.body, v_existing.created_at;
+		return;
+	end if;
+
+	v_body := public.vidjo_dm_validate_body(p_body);
+
+	begin
+		insert into public.vidjo_dm_messages (thread_id, sender_id, client_id, body)
+		values (v_thread, v_user, v_client, v_body)
+		returning * into v_existing;
+	exception
+		when unique_violation then
+			select * into v_existing
+			from public.vidjo_dm_messages m
+			where m.thread_id = v_thread
+				and m.sender_id = v_user
+				and m.client_id = v_client
+			limit 1;
+	end;
+
+	if v_existing.id is null then
+		raise exception 'Could not send that message. Try again.';
+	end if;
+
+	update public.vidjo_dm_participants
+	set last_read_at = greatest(last_read_at, v_existing.created_at)
+	where thread_id = v_thread and user_id = v_user;
+
+	return query
+	select v_existing.id, v_existing.thread_id, v_existing.sender_id,
+		v_existing.client_id, v_existing.body, v_existing.created_at;
+end;
+$$;
+
+-- Opens (or creates) the direct thread for a friendship without sending
+-- anything. Empty direct threads stay out of the inbox until the first message.
+create or replace function public.vidjo_dm_open_direct(p_friend uuid)
+returns uuid
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+	v_user uuid := auth.uid();
+begin
+	if v_user is null then
+		raise exception 'Sign in to send messages.';
+	end if;
+
+	if not public.vidjo_is_member() then
+		raise exception 'Create a VidJo account before sending messages.';
+	end if;
+
+	if p_friend is null or p_friend = v_user then
+		raise exception 'Choose a friend to message.';
+	end if;
+
+	if not public.vidjo_are_friends(v_user, p_friend) then
+		raise exception 'You can only message friends.';
+	end if;
+
+	return public.vidjo_dm_ensure_direct(v_user, p_friend);
+end;
+$$;
+
+create or replace function public.vidjo_dm_create_group(
+	p_title text,
+	p_member_ids uuid[]
+)
+returns uuid
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+	v_user uuid := auth.uid();
+	v_title text := btrim(coalesce(p_title, ''));
+	v_ids uuid[];
+	v_id uuid;
+	v_thread uuid;
+begin
+	if v_user is null then
+		raise exception 'Sign in to create a group.';
+	end if;
+
+	if not public.vidjo_is_member() then
+		raise exception 'Create a VidJo account first.';
+	end if;
+
+	if char_length(v_title) = 0 or char_length(v_title) > 60 then
+		raise exception 'Group names must be 1-60 characters.';
+	end if;
+
+	select array_agg(distinct t.member_id) into v_ids
+	from unnest(p_member_ids) as t(member_id)
+	where t.member_id is not null and t.member_id <> v_user;
+
+	if v_ids is null or cardinality(v_ids) = 0 then
+		raise exception 'Choose at least one friend.';
+	end if;
+
+	if cardinality(v_ids) > 11 then
+		raise exception 'Groups can have at most 12 people.';
+	end if;
+
+	foreach v_id in array v_ids loop
+		if not public.vidjo_are_friends(v_user, v_id) then
+			raise exception 'You can only add your friends to a group.';
+		end if;
+	end loop;
+
+	insert into public.vidjo_dm_threads (kind, title, created_by)
+	values ('group', v_title, v_user)
+	returning id into v_thread;
+
+	insert into public.vidjo_dm_participants (thread_id, user_id, role, last_read_at)
+	values (v_thread, v_user, 'owner', now());
+
+	insert into public.vidjo_dm_participants (thread_id, user_id, role, last_read_at)
+	select v_thread, t.member_id, 'member', now()
+	from unnest(v_ids) as t(member_id);
+
+	return v_thread;
+end;
+$$;
+
+create or replace function public.vidjo_dm_add_members(
+	p_thread uuid,
+	p_member_ids uuid[]
+)
+returns integer
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+	v_user uuid := auth.uid();
+	v_role text;
+	v_kind text;
+	v_ids uuid[];
+	v_id uuid;
+	v_count integer;
+	v_added integer := 0;
+begin
+	if v_user is null then
+		raise exception 'Sign in first.';
+	end if;
+
+	if not public.vidjo_dm_is_participant(p_thread) then
+		raise exception 'Conversation not found.';
+	end if;
+
+	select kind into v_kind from public.vidjo_dm_threads where id = p_thread;
+
+	if v_kind <> 'group' then
+		raise exception 'Only group chats can add members.';
+	end if;
+
+	select role into v_role
+	from public.vidjo_dm_participants
+	where thread_id = p_thread and user_id = v_user;
+
+	if v_role <> 'owner' then
+		raise exception 'Only the group owner can add people.';
+	end if;
+
+	select array_agg(distinct t.member_id) into v_ids
+	from unnest(p_member_ids) as t(member_id)
+	where t.member_id is not null
+		and t.member_id <> v_user
+		and not exists (
+			select 1
+			from public.vidjo_dm_participants p
+			where p.thread_id = p_thread and p.user_id = t.member_id
+		);
+
+	if v_ids is null or cardinality(v_ids) = 0 then
+		return 0;
+	end if;
+
+	select count(*) into v_count
+	from public.vidjo_dm_participants
+	where thread_id = p_thread;
+
+	if v_count + cardinality(v_ids) > 12 then
+		raise exception 'Groups can have at most 12 people.';
+	end if;
+
+	foreach v_id in array v_ids loop
+		if not public.vidjo_are_friends(v_user, v_id) then
+			raise exception 'You can only add your friends to a group.';
+		end if;
+	end loop;
+
+	insert into public.vidjo_dm_participants (thread_id, user_id, role, last_read_at)
+	select p_thread, t.member_id, 'member', now()
+	from unnest(v_ids) as t(member_id);
+
+	get diagnostics v_added = row_count;
+	return v_added;
+end;
+$$;
+
+create or replace function public.vidjo_dm_remove_member(
+	p_thread uuid,
+	p_user uuid
+)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+	v_user uuid := auth.uid();
+	v_role text;
+	v_kind text;
+begin
+	if v_user is null then
+		raise exception 'Sign in first.';
+	end if;
+
+	if not public.vidjo_dm_is_participant(p_thread) then
+		raise exception 'Conversation not found.';
+	end if;
+
+	select kind into v_kind from public.vidjo_dm_threads where id = p_thread;
+
+	if v_kind <> 'group' then
+		raise exception 'Only group chats have members to remove.';
+	end if;
+
+	select role into v_role
+	from public.vidjo_dm_participants
+	where thread_id = p_thread and user_id = v_user;
+
+	if v_role <> 'owner' then
+		raise exception 'Only the group owner can remove people.';
+	end if;
+
+	if p_user = v_user then
+		raise exception 'Use Leave group to remove yourself.';
+	end if;
+
+	delete from public.vidjo_dm_participants
+	where thread_id = p_thread and user_id = p_user;
+
+	if not found then
+		raise exception 'That person is not in this group.';
+	end if;
+end;
+$$;
+
+create or replace function public.vidjo_dm_leave_group(p_thread uuid)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+	v_user uuid := auth.uid();
+	v_role text;
+	v_kind text;
+	v_next uuid;
+begin
+	if v_user is null then
+		raise exception 'Sign in first.';
+	end if;
+
+	if not public.vidjo_dm_is_participant(p_thread) then
+		raise exception 'Conversation not found.';
+	end if;
+
+	select kind into v_kind from public.vidjo_dm_threads where id = p_thread;
+
+	if v_kind <> 'group' then
+		raise exception 'Direct conversations cannot be left.';
+	end if;
+
+	select role into v_role
+	from public.vidjo_dm_participants
+	where thread_id = p_thread and user_id = v_user;
+
+	if v_role = 'owner' then
+		select user_id into v_next
+		from public.vidjo_dm_participants
+		where thread_id = p_thread and user_id <> v_user
+		order by joined_at
+		limit 1;
+
+		if v_next is null then
+			-- Last person out: remove the thread and everything in it.
+			delete from public.vidjo_dm_threads where id = p_thread;
+			return;
+		end if;
+
+		update public.vidjo_dm_participants
+		set role = 'member'
+		where thread_id = p_thread and user_id = v_user;
+
+		update public.vidjo_dm_participants
+		set role = 'owner'
+		where thread_id = p_thread and user_id = v_next;
+	end if;
+
+	delete from public.vidjo_dm_participants
+	where thread_id = p_thread and user_id = v_user;
+end;
+$$;
+
+create or replace function public.vidjo_dm_rename_group(
+	p_thread uuid,
+	p_title text
+)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+	v_user uuid := auth.uid();
+	v_role text;
+	v_kind text;
+	v_title text := btrim(coalesce(p_title, ''));
+begin
+	if v_user is null then
+		raise exception 'Sign in first.';
+	end if;
+
+	if not public.vidjo_dm_is_participant(p_thread) then
+		raise exception 'Conversation not found.';
+	end if;
+
+	select kind into v_kind from public.vidjo_dm_threads where id = p_thread;
+
+	if v_kind <> 'group' then
+		raise exception 'Only group chats can be renamed.';
+	end if;
+
+	select role into v_role
+	from public.vidjo_dm_participants
+	where thread_id = p_thread and user_id = v_user;
+
+	if v_role <> 'owner' then
+		raise exception 'Only the group owner can rename it.';
+	end if;
+
+	if char_length(v_title) = 0 or char_length(v_title) > 60 then
+		raise exception 'Group names must be 1-60 characters.';
+	end if;
+
+	update public.vidjo_dm_threads
+	set title = v_title
+	where id = p_thread;
+end;
+$$;
+
+create or replace function public.vidjo_dm_inbox()
+returns table (
+	thread_id uuid,
+	kind text,
+	title text,
+	members jsonb,
+	last_body text,
+	last_sender uuid,
+	last_sender_name text,
+	last_at timestamptz,
+	unread_count integer,
+	can_reply boolean
+)
+language sql
+stable
+security definer
+set search_path = public
+as $$
+	select
+		t.id,
+		t.kind,
+		t.title,
+		coalesce((
+			select jsonb_agg(
+				jsonb_build_object(
+					'id', p.user_id,
+					'name', coalesce(nullif(btrim(pr.display_name), ''), pr.username, 'VidJo student'),
+					'username', pr.username,
+					'avatar', pr.avatar_url,
+					'role', p.role
+				)
+				order by p.joined_at
+			)
+			from public.vidjo_dm_participants p
+			left join public.vidjo_profiles pr on pr.user_id = p.user_id
+			where p.thread_id = t.id
+		), '[]'::jsonb),
+		m.body,
+		m.sender_id,
+		coalesce(nullif(btrim(sp.display_name), ''), sp.username, 'VidJo student'),
+		m.created_at,
+		coalesce((
+			select count(*)::integer
+			from public.vidjo_dm_messages x
+			where x.thread_id = t.id
+				and x.sender_id <> me.user_id
+				and x.deleted_at is null
+				and x.created_at > me.last_read_at
+		), 0),
+		case
+			when t.kind = 'group' then true
+			else public.vidjo_are_friends(
+				me.user_id,
+				(
+					select p2.user_id
+					from public.vidjo_dm_participants p2
+					where p2.thread_id = t.id and p2.user_id <> me.user_id
+					limit 1
+				)
+			)
+		end
+	from public.vidjo_dm_threads t
+	join public.vidjo_dm_participants me
+		on me.thread_id = t.id and me.user_id = auth.uid()
+	left join lateral (
+		select mm.body, mm.sender_id, mm.created_at
+		from public.vidjo_dm_messages mm
+		where mm.thread_id = t.id and mm.deleted_at is null
+		order by mm.created_at desc, mm.id desc
+		limit 1
+	) m on true
+	left join public.vidjo_profiles sp on sp.user_id = m.sender_id
+	where auth.uid() is not null
+		and (t.last_message_at is not null or t.kind = 'group')
+	order by coalesce(t.last_message_at, t.created_at) desc;
+$$;
+
+create or replace function public.vidjo_dm_thread(
+	p_thread uuid,
+	p_before timestamptz default now(),
+	p_limit integer default 30
+)
+returns table (
+	id uuid,
+	thread_id uuid,
+	sender_id uuid,
+	client_id uuid,
+	sender_name text,
+	sender_username text,
+	sender_avatar text,
+	body text,
+	created_at timestamptz
+)
+language plpgsql
+stable
+security definer
+set search_path = public
+as $$
+declare
+	v_limit integer := greatest(1, least(coalesce(p_limit, 30), 100));
+begin
+	if not public.vidjo_dm_is_participant(p_thread) then
+		raise exception 'Conversation not found.';
+	end if;
+
+	return query
+	select
+		recent.id,
+		recent.thread_id,
+		recent.sender_id,
+		recent.client_id,
+		recent.sender_name,
+		recent.sender_username,
+		recent.sender_avatar,
+		recent.body,
+		recent.created_at
+	from (
+		select
+			m.id,
+			m.thread_id,
+			m.sender_id,
+			m.client_id,
+			coalesce(nullif(btrim(pr.display_name), ''), pr.username, 'VidJo student') as sender_name,
+			coalesce(pr.username, 'student') as sender_username,
+			pr.avatar_url as sender_avatar,
+			m.body,
+			m.created_at
+		from public.vidjo_dm_messages m
+		left join public.vidjo_profiles pr on pr.user_id = m.sender_id
+		where m.thread_id = p_thread
+			and m.deleted_at is null
+			and m.created_at < coalesce(p_before, now())
+		order by m.created_at desc, m.id desc
+		limit v_limit
+	) recent
+	order by recent.created_at asc, recent.id asc;
+end;
+$$;
+
+create or replace function public.vidjo_dm_thread_members(p_thread uuid)
+returns table (
+	user_id uuid,
+	name text,
+	username text,
+	avatar text,
+	role text,
+	joined_at timestamptz,
+	is_me boolean
+)
+language plpgsql
+stable
+security definer
+set search_path = public
+as $$
+begin
+	if not public.vidjo_dm_is_participant(p_thread) then
+		raise exception 'Conversation not found.';
+	end if;
+
+	return query
+	select
+		p.user_id,
+		coalesce(nullif(btrim(pr.display_name), ''), pr.username, 'VidJo student'),
+		coalesce(pr.username, 'student'),
+		pr.avatar_url,
+		p.role,
+		p.joined_at,
+		p.user_id = auth.uid()
+	from public.vidjo_dm_participants p
+	left join public.vidjo_profiles pr on pr.user_id = p.user_id
+	where p.thread_id = p_thread
+	order by (p.role = 'owner') desc, p.joined_at asc;
+end;
+$$;
+
+create or replace function public.vidjo_dm_mark_read(p_thread uuid)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+	if auth.uid() is null then
+		raise exception 'Sign in first.';
+	end if;
+
+	update public.vidjo_dm_participants
+	set last_read_at = greatest(last_read_at, now())
+	where thread_id = p_thread and user_id = auth.uid();
+
+	if not found then
+		raise exception 'Conversation not found.';
+	end if;
+end;
+$$;
+
+-- ---------------------------------------------------------------------------
+-- Messaging access control
+-- ---------------------------------------------------------------------------
+
+alter table public.vidjo_dm_threads enable row level security;
+alter table public.vidjo_dm_participants enable row level security;
+alter table public.vidjo_dm_messages enable row level security;
+
+drop policy if exists "vidjo dm threads select" on public.vidjo_dm_threads;
+create policy "vidjo dm threads select" on public.vidjo_dm_threads
+	for select to authenticated
+	using (public.vidjo_is_member() and public.vidjo_dm_is_participant(id));
+
+drop policy if exists "vidjo dm participants select" on public.vidjo_dm_participants;
+create policy "vidjo dm participants select" on public.vidjo_dm_participants
+	for select to authenticated
+	using (public.vidjo_is_member() and public.vidjo_dm_is_participant(thread_id));
+
+drop policy if exists "vidjo dm messages select" on public.vidjo_dm_messages;
+create policy "vidjo dm messages select" on public.vidjo_dm_messages
+	for select to authenticated
+	using (public.vidjo_is_member() and public.vidjo_dm_is_participant(thread_id));
+
+revoke all on public.vidjo_dm_threads from anon;
+revoke all on public.vidjo_dm_participants from anon;
+revoke all on public.vidjo_dm_messages from anon;
+
+grant select on public.vidjo_dm_threads to authenticated;
+grant select on public.vidjo_dm_participants to authenticated;
+grant select on public.vidjo_dm_messages to authenticated;
+
+revoke insert, update, delete on public.vidjo_dm_threads from authenticated;
+revoke insert, update, delete on public.vidjo_dm_participants from authenticated;
+revoke insert, update, delete on public.vidjo_dm_messages from authenticated;
+
+-- Trigger functions are never called directly.
+revoke all on function public.vidjo_dm_check_participants() from public;
+revoke all on function public.vidjo_dm_touch_thread() from public;
+revoke all on function public.vidjo_dm_censor_message() from public;
+revoke all on function public.vidjo_dm_check_participants() from anon, authenticated;
+revoke all on function public.vidjo_dm_touch_thread() from anon, authenticated;
+revoke all on function public.vidjo_dm_censor_message() from anon, authenticated;
+
+-- Helpers used by RLS or by other SECURITY DEFINER functions.
+revoke all on function public.vidjo_dm_is_participant(uuid) from public;
+revoke all on function public.vidjo_dm_is_participant(uuid) from anon;
+grant execute on function public.vidjo_dm_is_participant(uuid) to authenticated;
+
+revoke all on function public.vidjo_dm_direct_key(uuid, uuid) from public;
+revoke all on function public.vidjo_dm_direct_key(uuid, uuid) from anon, authenticated;
+
+revoke all on function public.vidjo_dm_ensure_direct(uuid, uuid) from public;
+revoke all on function public.vidjo_dm_ensure_direct(uuid, uuid) from anon, authenticated;
+
+revoke all on function public.vidjo_dm_validate_body(text) from public;
+revoke all on function public.vidjo_dm_validate_body(text) from anon, authenticated;
+
+-- Public RPCs.
+revoke all on function public.vidjo_dm_send(uuid, text, uuid) from public;
+revoke all on function public.vidjo_dm_send(uuid, text, uuid) from anon;
+grant execute on function public.vidjo_dm_send(uuid, text, uuid) to authenticated;
+
+revoke all on function public.vidjo_dm_send_direct(uuid, text, uuid) from public;
+revoke all on function public.vidjo_dm_send_direct(uuid, text, uuid) from anon;
+grant execute on function public.vidjo_dm_send_direct(uuid, text, uuid) to authenticated;
+
+revoke all on function public.vidjo_dm_open_direct(uuid) from public;
+revoke all on function public.vidjo_dm_open_direct(uuid) from anon;
+grant execute on function public.vidjo_dm_open_direct(uuid) to authenticated;
+
+revoke all on function public.vidjo_dm_create_group(text, uuid[]) from public;
+revoke all on function public.vidjo_dm_create_group(text, uuid[]) from anon;
+grant execute on function public.vidjo_dm_create_group(text, uuid[]) to authenticated;
+
+revoke all on function public.vidjo_dm_add_members(uuid, uuid[]) from public;
+revoke all on function public.vidjo_dm_add_members(uuid, uuid[]) from anon;
+grant execute on function public.vidjo_dm_add_members(uuid, uuid[]) to authenticated;
+
+revoke all on function public.vidjo_dm_remove_member(uuid, uuid) from public;
+revoke all on function public.vidjo_dm_remove_member(uuid, uuid) from anon;
+grant execute on function public.vidjo_dm_remove_member(uuid, uuid) to authenticated;
+
+revoke all on function public.vidjo_dm_leave_group(uuid) from public;
+revoke all on function public.vidjo_dm_leave_group(uuid) from anon;
+grant execute on function public.vidjo_dm_leave_group(uuid) to authenticated;
+
+revoke all on function public.vidjo_dm_rename_group(uuid, text) from public;
+revoke all on function public.vidjo_dm_rename_group(uuid, text) from anon;
+grant execute on function public.vidjo_dm_rename_group(uuid, text) to authenticated;
+
+revoke all on function public.vidjo_dm_inbox() from public;
+revoke all on function public.vidjo_dm_inbox() from anon;
+grant execute on function public.vidjo_dm_inbox() to authenticated;
+
+revoke all on function public.vidjo_dm_thread(uuid, timestamptz, integer) from public;
+revoke all on function public.vidjo_dm_thread(uuid, timestamptz, integer) from anon;
+grant execute on function public.vidjo_dm_thread(uuid, timestamptz, integer) to authenticated;
+
+revoke all on function public.vidjo_dm_thread_members(uuid) from public;
+revoke all on function public.vidjo_dm_thread_members(uuid) from anon;
+grant execute on function public.vidjo_dm_thread_members(uuid) to authenticated;
+
+revoke all on function public.vidjo_dm_mark_read(uuid) from public;
+revoke all on function public.vidjo_dm_mark_read(uuid) from anon;
+grant execute on function public.vidjo_dm_mark_read(uuid) to authenticated;
+
+-- ---------------------------------------------------------------------------
 -- Realtime publication
 -- ---------------------------------------------------------------------------
 
@@ -1743,7 +2798,10 @@ begin
 		'vidjo_friend_requests',
 		'vidjo_comments',
 		'vidjo_reactions',
-		'vidjo_community_members'
+		'vidjo_community_members',
+		'vidjo_dm_threads',
+		'vidjo_dm_participants',
+		'vidjo_dm_messages'
 	] loop
 		if not exists (
 			select 1

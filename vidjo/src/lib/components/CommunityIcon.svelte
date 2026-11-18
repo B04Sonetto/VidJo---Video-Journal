@@ -96,6 +96,9 @@
 		<path d="M19 12H5M11 18l-6-6 6-6"></path>
 	{:else if name === 'arrow-right'}
 		<path d="M5 12h14M13 6l6 6-6 6"></path>
+	{:else if name === 'send'}
+		<path d="m22 2-7 20-4-9-9-4Z"></path>
+		<path d="M22 2 11 13"></path>
 	{:else if name === 'plus'}
 		<path d="M12 5v14M5 12h14"></path>
 	{:else if name === 'settings'}

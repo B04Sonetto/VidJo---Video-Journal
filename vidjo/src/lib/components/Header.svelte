@@ -4,6 +4,7 @@
 	import { auth } from '#lib/state/auth.svelte';
 	import { profile } from '#lib/state/profile.svelte';
 	import { friends } from '#lib/state/friends.svelte';
+	import { messages } from '#lib/state/messages.svelte';
 	import { community } from '#lib/state/community.svelte';
 	import { TODAY } from '#lib/dates';
 	import { isSupabaseConfigured, supabase } from '#lib/supabase';
@@ -17,6 +18,20 @@
 	let menuOpen = $state(false);
 	let adminOpen = $state(false);
 	let newReports = $state(0);
+
+	const friendsBadge = $derived(friends.pendingCount + messages.unreadTotal);
+	const friendsBadgeLabel = $derived(
+		[
+			friends.pendingCount > 0
+				? `${friends.pendingCount} pending friend ${friends.pendingCount === 1 ? 'request' : 'requests'}`
+				: '',
+			messages.unreadTotal > 0
+				? `${messages.unreadTotal} unread ${messages.unreadTotal === 1 ? 'message' : 'messages'}`
+				: ''
+		]
+			.filter(Boolean)
+			.join(', ')
+	);
 
 	$effect(() => {
 		document.documentElement.setAttribute('data-theme', profile.theme);
@@ -104,6 +119,7 @@
 		await auth.signOut();
 		journal.reset();
 		friends.reset();
+		messages.reset();
 		community.reset();
 		profile.reset();
 	}
@@ -180,15 +196,16 @@
 				? 'bg-white/15 font-semibold text-white'
 				: 'text-lav hover:bg-white/[.08] hover:text-white'}"
 			aria-current={nav.view === 'friends' ? 'page' : undefined}
+			aria-label={`Friends${friendsBadgeLabel ? `, ${friendsBadgeLabel}` : ''}`}
 			onclick={() => nav.setView('friends')}
 		>
 			<CommunityIcon name="users" size={16} />
 			<span>Friends</span>
-			{#if friends.pendingCount > 0}
+			{#if friendsBadge > 0}
 				<span
 					class="absolute -top-1 -right-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-gold px-1 font-ui text-[10px] font-bold text-desk tabular-nums shadow-[0_0_0_2px_var(--color-desk)]"
 				>
-					{friends.pendingCount}
+					{friendsBadge > 9 ? '9+' : friendsBadge}
 				</span>
 			{/if}
 		</button>
@@ -457,7 +474,7 @@
 		'friends'
 			? 'bg-white/15 text-white shadow-[inset_0_1px_0_rgba(255,255,255,.12)]'
 			: 'text-lav/80 hover:bg-white/[.07] hover:text-white'}"
-		aria-label={`Friends${friends.pendingCount > 0 ? `, ${friends.pendingCount} pending` : ''}`}
+		aria-label={`Friends${friendsBadgeLabel ? `, ${friendsBadgeLabel}` : ''}`}
 		aria-current={nav.view === 'friends' ? 'page' : undefined}
 		onclick={() => nav.setView('friends')}
 	>
@@ -467,11 +484,11 @@
 		>
 			Friends
 		</span>
-		{#if friends.pendingCount > 0}
+		{#if friendsBadge > 0}
 			<span
 				class="absolute -top-0.5 right-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-gold px-1 font-ui text-[9px] font-bold text-desk tabular-nums"
 			>
-				{friends.pendingCount}
+				{friendsBadge > 9 ? '9+' : friendsBadge}
 			</span>
 		{/if}
 	</button>

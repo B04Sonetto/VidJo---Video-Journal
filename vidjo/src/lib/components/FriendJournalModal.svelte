@@ -1,6 +1,8 @@
 <script lang="ts">
 	import { untrack } from 'svelte';
 	import { friends } from '#lib/state/friends.svelte';
+	import { messages } from '#lib/state/messages.svelte';
+	import { nav } from '#lib/state/navigation.svelte';
 	import { auth } from '#lib/state/auth.svelte';
 	import { journal } from '#lib/state/journal.svelte';
 	import { profile } from '#lib/state/profile.svelte';
@@ -191,6 +193,14 @@
 		if (!code) return;
 		void navigator.clipboard?.writeText(code);
 		journal.toast(`Friend code ${code} copied!`);
+	}
+
+	function openMessages() {
+		if (!friend) return;
+		const target = friend;
+		onClose();
+		nav.openMessages();
+		void messages.openDirect(target);
 	}
 
 	function handleKey(event: KeyboardEvent) {
@@ -668,6 +678,15 @@
 							title="View profile"
 						>
 							<CommunityIcon name="user" size={16} />
+						</button>
+						<button
+							type="button"
+							class="flex size-10 items-center justify-center rounded-full bg-white/10 text-book-bg/85 transition-colors hover:bg-white/20 hover:text-book-bg"
+							onclick={openMessages}
+							aria-label="Message {friend.displayName}"
+							title="Message"
+						>
+							<CommunityIcon name="mail" size={16} />
 						</button>
 						<button
 							type="button"

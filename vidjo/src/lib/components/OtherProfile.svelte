@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { profile } from '#lib/state/profile.svelte';
 	import { friends } from '#lib/state/friends.svelte';
+	import { messages } from '#lib/state/messages.svelte';
 	import { journal } from '#lib/state/journal.svelte';
 	import { nav } from '#lib/state/navigation.svelte';
 	import { MOOD_BY_KEY } from '#lib/data/moods';
@@ -124,6 +125,17 @@
 		onClose();
 		nav.setView('friends');
 		friends.openJournal(userId);
+	}
+
+	function openMessages() {
+		const friend = friends.friends.find((item) => item.id === userId);
+		if (!friend) {
+			journal.toast('Add this student as a friend to send messages.');
+			return;
+		}
+		onClose();
+		nav.openMessages();
+		void messages.openDirect(friend);
 	}
 
 	function copyCode() {
@@ -302,6 +314,7 @@
 					<div class="mt-5 flex flex-wrap items-center justify-center gap-2.5">
 						{#if isFriend}
 							<Button icon="book" onclick={openNotebook}>Open notebook</Button>
+							<Button variant="outline" icon="mail" onclick={openMessages}>Message</Button>
 						{:else if incoming}
 							<Button icon="check" loading={busy} onclick={acceptRequest}>Accept request</Button>
 							<Button variant="outline" disabled={busy} onclick={declineRequest}>Decline</Button>

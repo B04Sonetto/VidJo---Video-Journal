@@ -141,6 +141,36 @@ Videos are uploaded to `vidjo-videos/<auth.uid()>/<date>/<timestamp>-<name>`.
 - **Journal pages:** Journal pages are cached in `localStorage` under `vidjo-journal-v3:<ownerId>` for offline viewing.
 - **Cache clearing:** On shared computers, users can clear cached data anytime from **Profile → Settings → Clear local cache** or by checking **"Clear cached pages on sign out"** in the account dropdown menu.
 
+## 9. Direct messages and group chats
+
+Messaging is friends-first and works only for signed-in accounts:
+
+- `public.vidjo_dm_threads` stores one row per conversation (`direct` or `group`).
+- `public.vidjo_dm_participants` stores membership, roles (`owner`/`member`), and
+  each person's read timestamp.
+- `public.vidjo_dm_messages` stores messages. A `client_id` makes retries
+  idempotent, so a flaky connection cannot create duplicates.
+
+Rules enforced by the schema:
+
+- Direct threads only exist between accepted friends. Sending re-checks the
+  friendship, so unfriending makes an existing direct thread read-only.
+- Groups are created by an owner who can only invite their own friends. Groups
+  can hold up to 12 people. Only the owner can add, remove, or rename members.
+- Every write goes through a `SECURITY DEFINER` RPC:
+  `vidjo_dm_send`, `vidjo_dm_send_direct`, `vidjo_dm_create_group`,
+  `vidjo_dm_add_members`, `vidjo_dm_remove_member`, `vidjo_dm_leave_group`,
+  `vidjo_dm_rename_group`, and `vidjo_dm_mark_read`.
+- Reads use `vidjo_dm_inbox`, `vidjo_dm_thread`, and `vidjo_dm_thread_members`.
+  Clients only receive `SELECT` grants on the three tables; direct inserts,
+  updates, and deletes are revoked.
+- Message bodies are censored server-side with the same word list as comments.
+- Senders are limited to 20 messages per minute and 200 per day.
+- `vidjo_dm_threads`, `vidjo_dm_participants`, and `vidjo_dm_messages` are in the
+  Realtime publication, so inboxes and open threads update live.
+
+Re-run `schema.sql` after deploying the messaging UI.
+
 ## Troubleshooting
 
 | Symptom                                         | Fix                                                                                                                                 |
