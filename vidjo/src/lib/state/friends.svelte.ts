@@ -19,6 +19,10 @@ import { cleanDisplayName, normalizeImageUrl } from '#lib/avatar';
 
 const FRIENDS_CACHE_KEY = 'vidjo-friends-cache';
 const SIGNED_URL_TTL = 60 * 60 * 2;
+/** Re-sign a little before expiry so an open page never flips to a broken video. */
+const SIGNED_URL_REFRESH_BEFORE = 60 * 10;
+/** Reopening Friends within this window reuses the data already in memory. */
+const REFRESH_FRESH_MS = 30_000;
 
 type ReactionKey = 'love' | 'spark' | 'warm' | 'proud';
 
@@ -61,6 +65,9 @@ class FriendsState {
 	private realtimeChannel: ReturnType<typeof supabase.channel> | null = null;
 	private refreshTimer: ReturnType<typeof setTimeout> | null = null;
 	private pendingNotificationsSeen = 0;
+	private lastRefreshAt = 0;
+	private refreshPromise: Promise<void> | null = null;
+	private signedUrls = new Map<string, { url: string; expiresAt: number }>();
 
 	get myFriendCode() {
 		return profile.friendCode;
@@ -192,6 +199,7 @@ class FriendsState {
 				await this.refreshRemote();
 				this.syncNotificationsFromFriendRequests();
 				this.remote = true;
+				this.lastRefreshAt = Date.now();
 			} catch (error) {
 				console.warn('[VidJo] Could not load friends from Supabase.', error);
 				this.remote = false;
@@ -201,6 +209,7 @@ class FriendsState {
 		} else {
 			this.loadCachedFriends();
 			this.posts = this.getMyFriendsEntries();
+			this.lastRefreshAt = Date.now();
 		}
 
 		this.loading = false;
@@ -209,22 +218,45 @@ class FriendsState {
 		this.subscribeToFriendRequests();
 	}
 
-	/** Re-fetch friends, shared pages, and notifications from Supabase. */
-	async refresh() {
-		if (!this.currentUserId || this.loading) return;
+	/**
+	 * Re-fetch friends, shared pages, and notifications from Supabase.
+	 *
+	 * Opening the Friends tab calls this on every mount, so reuse the data that
+	 * was just loaded instead of repeating the same round trips. Pass
+	 * `{ force: true }` for an explicit refresh.
+	 */
+	refresh(options: { force?: boolean; postsOnly?: boolean } = {}): Promise<void> {
+		if (!this.currentUserId) return Promise.resolve();
+		// Share one in-flight request instead of stacking duplicates. `init()`
+		// also sets `loading` while it performs the first load.
+		if (this.refreshPromise) return this.refreshPromise;
+		if (this.loading) return Promise.resolve();
+		if (!options.force && Date.now() - this.lastRefreshAt < REFRESH_FRESH_MS) {
+			return Promise.resolve();
+		}
+
+		this.refreshPromise = this.runRefresh(options.postsOnly ?? false).finally(() => {
+			this.refreshPromise = null;
+		});
+		return this.refreshPromise;
+	}
+
+	private async runRefresh(postsOnly: boolean) {
 		this.loading = true;
 
 		if (!isSupabaseConfigured || !auth.signedIn) {
 			this.posts = this.getMyFriendsEntries();
 			this.loading = false;
+			this.lastRefreshAt = Date.now();
 			return;
 		}
 
 		try {
-			await this.refreshRemote();
+			await this.refreshRemote(postsOnly);
 			this.syncNotificationsFromFriendRequests();
-			await this.loadCommentNotifications();
+			if (!postsOnly) await this.loadCommentNotifications();
 			this.remote = true;
+			this.lastRefreshAt = Date.now();
 		} catch (error) {
 			console.warn('[VidJo] Could not refresh friends from Supabase.', error);
 		} finally {
@@ -232,48 +264,38 @@ class FriendsState {
 		}
 	}
 
-	private async refreshRemote() {
+	private async refreshRemote(postsOnly = false) {
 		const userId = auth.user?.id || this.currentUserId;
 		if (!userId) throw new Error('You must be signed in.');
 
-		const { data: friendRows, error: friendError } = await supabase
-			.from('vidjo_friends')
-			.select('friend_id')
-			.eq('user_id', userId)
-			.eq('status', 'accepted');
+		let friendIds: string[];
 
-		if (friendError) throw friendError;
+		if (postsOnly) {
+			// Entry changes only affect the feed; the friend list and requests
+			// are handled by their own realtime subscriptions.
+			friendIds = this.friends.map((friend) => friend.id);
+		} else {
+			const { data: friendRows, error: friendError } = await supabase
+				.from('vidjo_friends')
+				.select('friend_id')
+				.eq('user_id', userId)
+				.eq('status', 'accepted');
 
-		const friendIds = [
-			...new Set((friendRows ?? []).map((row) => row.friend_id as string).filter(Boolean))
-		];
+			if (friendError) throw friendError;
 
-		let friendProfiles: Friend[] = [];
-		if (friendIds.length > 0) {
-			const { data: profiles, error: profileError } = await supabase
-				.from('vidjo_profiles')
-				.select('user_id, username, display_name, bio, avatar_url, friend_code')
-				.in('user_id', friendIds);
+			friendIds = [
+				...new Set((friendRows ?? []).map((row) => row.friend_id as string).filter(Boolean))
+			];
 
-			if (profileError) throw profileError;
+			const [friendProfiles, requests] = await Promise.all([
+				this.loadFriendProfiles(friendIds),
+				this.loadRequests(userId)
+			]);
 
-			friendProfiles = (profiles ?? []).map((row) => ({
-				id: row.user_id as string,
-				username: (row.username as string) || 'student',
-				displayName: cleanDisplayName(
-					(row.display_name as string) || (row.username as string),
-					'VidJo student'
-				),
-				avatarUrl: normalizeImageUrl((row.avatar_url as string) || null),
-				bio: (row.bio as string) || '',
-				friendCode: (row.friend_code as string) || '',
-				status: 'accepted'
-			}));
+			this.friends = friendProfiles;
+			this.persistFriendsCache();
+			this.friendRequests = requests;
 		}
-
-		this.friends = friendProfiles;
-		this.persistFriendsCache();
-		this.friendRequests = await this.loadRequests(userId);
 
 		const remotePosts = await this.loadFriendPosts(friendIds);
 		const ownPosts = this.getMyFriendsEntries();
@@ -283,6 +305,30 @@ class FriendsState {
 		this.stories = this.friends.slice(0, 8).map((friend) => ({
 			...friend,
 			hasNewPost: this.posts.some((post) => post.authorId === friend.id)
+		}));
+	}
+
+	private async loadFriendProfiles(friendIds: string[]): Promise<Friend[]> {
+		if (friendIds.length === 0) return [];
+
+		const { data: profiles, error: profileError } = await supabase
+			.from('vidjo_profiles')
+			.select('user_id, username, display_name, bio, avatar_url, friend_code')
+			.in('user_id', friendIds);
+
+		if (profileError) throw profileError;
+
+		return (profiles ?? []).map((row) => ({
+			id: row.user_id as string,
+			username: (row.username as string) || 'student',
+			displayName: cleanDisplayName(
+				(row.display_name as string) || (row.username as string),
+				'VidJo student'
+			),
+			avatarUrl: normalizeImageUrl((row.avatar_url as string) || null),
+			bio: (row.bio as string) || '',
+			friendCode: (row.friend_code as string) || '',
+			status: 'accepted'
 		}));
 	}
 
@@ -413,24 +459,11 @@ class FriendsState {
 
 				if (videoPath) {
 					try {
-						const { data: signed, error } = await supabase.storage
-							.from(VIDEO_BUCKET)
-							.createSignedUrl(videoPath, SIGNED_URL_TTL);
-						if (error || !signed?.signedUrl) {
-							console.warn('[VidJo] Could not sign a friend video URL.', {
-								path: videoPath,
-								status: error?.statusCode ?? null,
-								message: error?.message ?? 'No signed URL returned'
-							});
-							// The file was deleted or is no longer accessible. Treat the
-							// post as video-less so the feed stops asking for it.
-							videoPath = '';
-							videoThumbPath = '';
-						} else {
-							videoUrl = signed.signedUrl;
-						}
+						videoUrl = await this.signUrl(videoPath);
 					} catch (error) {
 						console.warn('[VidJo] Could not sign a friend video URL.', error);
+						// The file was deleted or is no longer accessible. Treat the
+						// post as video-less so the feed stops asking for it.
 						videoPath = '';
 						videoThumbPath = '';
 					}
@@ -438,12 +471,7 @@ class FriendsState {
 
 				if (videoThumbPath) {
 					try {
-						const { data: signed, error } = await supabase.storage
-							.from(VIDEO_BUCKET)
-							.createSignedUrl(videoThumbPath, SIGNED_URL_TTL);
-						if (!error && signed?.signedUrl) {
-							videoThumbUrl = signed.signedUrl;
-						}
+						videoThumbUrl = await this.signUrl(videoThumbPath);
 					} catch {
 						// Posters are optional; fall back to the video's first frame.
 					}
@@ -474,6 +502,30 @@ class FriendsState {
 				};
 			})
 		);
+	}
+
+	/**
+	 * Signed URLs are valid for two hours, so reusing them keeps refreshes and
+	 * remounts from hitting Storage for every video and poster again.
+	 */
+	private async signUrl(path: string): Promise<string> {
+		const now = Date.now();
+		const cached = this.signedUrls.get(path);
+		if (cached && cached.expiresAt - SIGNED_URL_REFRESH_BEFORE > now) return cached.url;
+
+		const { data, error } = await supabase.storage
+			.from(VIDEO_BUCKET)
+			.createSignedUrl(path, SIGNED_URL_TTL);
+
+		if (error || !data?.signedUrl) {
+			throw error ?? new Error('No signed URL returned');
+		}
+
+		this.signedUrls.set(path, {
+			url: data.signedUrl,
+			expiresAt: now + SIGNED_URL_TTL * 1000
+		});
+		return data.signedUrl;
 	}
 
 	private getMyFriendsEntries(): FriendPost[] {
@@ -729,6 +781,7 @@ class FriendsState {
 		}
 
 		await this.refreshRemote();
+		this.lastRefreshAt = Date.now();
 		track('friend_request_sent');
 		const message = result.message || 'Friend request sent!';
 		journal.toast(message);
@@ -761,6 +814,7 @@ class FriendsState {
 		}
 
 		await this.refreshRemote();
+		this.lastRefreshAt = Date.now();
 		this.syncNotificationsFromFriendRequests();
 		track('friend_request_accepted');
 		journal.toast(result.message || 'You are now friends!');
@@ -788,6 +842,7 @@ class FriendsState {
 		}
 
 		await this.refreshRemote();
+		this.lastRefreshAt = Date.now();
 		this.syncNotificationsFromFriendRequests();
 		track('friend_request_declined');
 		journal.toast('Friend request declined.');
@@ -815,6 +870,7 @@ class FriendsState {
 		}
 
 		await this.refreshRemote();
+		this.lastRefreshAt = Date.now();
 		this.syncNotificationsFromFriendRequests();
 		journal.toast('Friend request canceled.');
 	}
@@ -832,6 +888,7 @@ class FriendsState {
 			}
 
 			await this.refreshRemote();
+			this.lastRefreshAt = Date.now();
 		} else {
 			this.friends = this.friends.filter((friend) => friend.id !== friendId);
 			this.persistFriendsCache();
@@ -1017,7 +1074,7 @@ class FriendsState {
 							row.owner_id !== this.currentUserId &&
 							this.friends.some((friend) => friend.id === row.owner_id)
 						) {
-							this.scheduleRefresh();
+							this.scheduleRefresh('posts');
 						}
 					}
 				)
@@ -1027,11 +1084,13 @@ class FriendsState {
 		}
 	}
 
-	private scheduleRefresh() {
+	private scheduleRefresh(mode: 'full' | 'posts' = 'full') {
 		if (this.refreshTimer) clearTimeout(this.refreshTimer);
 		this.refreshTimer = setTimeout(() => {
 			this.refreshTimer = null;
-			void this.refresh();
+			// Realtime events are already debounced, so bypass the freshness
+			// window and load only what actually changed.
+			void this.refresh({ force: true, postsOnly: mode === 'posts' });
 		}, 900);
 	}
 
@@ -1352,6 +1411,9 @@ class FriendsState {
 		this.initializedFor = '';
 		this.loading = false;
 		this.remote = false;
+		this.lastRefreshAt = 0;
+		this.refreshPromise = null;
+		this.signedUrls.clear();
 		this.unsubscribeRealtime();
 	}
 }

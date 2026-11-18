@@ -10,6 +10,10 @@
 
 	type AdminTab = 'overview' | 'reports' | 'users' | 'bans';
 	type RoleFilter = 'all' | 'user' | 'admin' | 'banned';
+	type LoadKey = 'overview' | 'reports' | 'users';
+
+	const LOAD_FRESH_MS = 60_000;
+	const USERS_LIMIT = 1000;
 
 	type ReportRow = {
 		id: string;
@@ -80,11 +84,23 @@
 	let overviewError = $state('');
 	let reportsError = $state('');
 	let usersError = $state('');
-	let loading = $state(false);
+	let usersCapped = $state(false);
+	let pendingLoads = $state(0);
 	let userSearch = $state('');
 	let roleFilter = $state<RoleFilter>('all');
 	let busyUser = $state('');
 	let busyWarn = $state('');
+
+	/** Timestamps live outside `$state`: they gate loads but must not re-render. */
+	const loadedAt: Record<LoadKey, number> = { overview: 0, reports: 0, users: 0 };
+	const inFlight: Partial<Record<LoadKey, Promise<void>>> = {};
+	let loaded = $state<Record<LoadKey, boolean>>({
+		overview: false,
+		reports: false,
+		users: false
+	});
+
+	const loading = $derived(pendingLoads > 0);
 
 	function isAdmin() {
 		return (profile.profile?.user_role ?? '').trim().toLowerCase() === 'admin';
@@ -102,12 +118,16 @@
 
 	const tabs = $derived([
 		{ key: 'overview' as AdminTab, label: 'Overview', count: null as number | null },
-		{ key: 'reports' as AdminTab, label: 'Reports', count: reports.length },
-		{ key: 'users' as AdminTab, label: 'Users', count: users.length },
+		{
+			key: 'reports' as AdminTab,
+			label: 'Reports',
+			count: loaded.reports ? reports.length : null
+		},
+		{ key: 'users' as AdminTab, label: 'Users', count: loaded.users ? users.length : null },
 		{
 			key: 'bans' as AdminTab,
 			label: 'Ban list',
-			count: users.filter((user) => user.user_role === 'banned').length
+			count: loaded.users ? users.filter((user) => user.user_role === 'banned').length : null
 		}
 	]);
 
@@ -229,10 +249,12 @@
 			const { data, error: queryError } = await supabase
 				.from('vidjo_profiles')
 				.select(columns)
-				.order('created_at', { ascending: false });
+				.order('created_at', { ascending: false })
+				.limit(USERS_LIMIT);
 
 			if (!queryError) {
 				users = (data ?? []) as AdminUser[];
+				usersCapped = users.length >= USERS_LIMIT;
 				return;
 			}
 
@@ -240,7 +262,8 @@
 			const { data: fallback, error: fallbackError } = await supabase
 				.from('vidjo_profiles')
 				.select('user_id, username, display_name, avatar_url, user_role, created_at')
-				.order('created_at', { ascending: false });
+				.order('created_at', { ascending: false })
+				.limit(USERS_LIMIT);
 
 			if (fallbackError) throw queryError;
 
@@ -249,15 +272,27 @@
 				ban_reason: null,
 				banned_at: null
 			}));
+			usersCapped = users.length >= USERS_LIMIT;
 			usersError =
 				'Ban details are unavailable until the latest supabase/schema.sql is applied. Members can still be listed.';
 		} catch (err) {
 			users = [];
+			usersCapped = false;
 			usersError = errorText(err, 'Could not load members.');
 		}
 	}
 
-	async function loadAll() {
+	const loaders: Record<LoadKey, () => Promise<void>> = {
+		overview: loadOverview,
+		reports: loadReports,
+		users: loadUsers
+	};
+
+	/**
+	 * Loads only the section being viewed, and reuses a recent result when the
+	 * console is reopened. The Refresh button calls `loadAll()` to force it.
+	 */
+	async function ensureTab(target: AdminTab, options: { force?: boolean } = {}) {
 		if (!isSupabaseConfigured) {
 			error = 'Supabase is not configured for this build.';
 			return;
@@ -267,14 +302,34 @@
 			return;
 		}
 
-		loading = true;
-		error = '';
+		const key: LoadKey = target === 'bans' ? 'users' : target;
+		if (!options.force && Date.now() - loadedAt[key] < LOAD_FRESH_MS) return;
 
+		const running = inFlight[key];
+		if (running) return running;
+
+		error = '';
+		pendingLoads += 1;
+
+		const task = loaders[key]().finally(() => {
+			inFlight[key] = undefined;
+			pendingLoads = Math.max(0, pendingLoads - 1);
+		});
+		inFlight[key] = task;
+
+		await task;
+		loadedAt[key] = Date.now();
+		loaded[key] = true;
+	}
+
+	async function loadAll() {
 		// Each section loads on its own so one missing RPC or policy does not
 		// blank the whole console.
-		await Promise.all([loadOverview(), loadReports(), loadUsers()]);
-
-		loading = false;
+		await Promise.all([
+			ensureTab('overview', { force: true }),
+			ensureTab('reports', { force: true }),
+			ensureTab('users', { force: true })
+		]);
 	}
 
 	function askReason(action: 'warn' | 'ban', name: string) {
@@ -413,7 +468,7 @@
 
 	$effect(() => {
 		if (open && isAdmin()) {
-			void loadAll();
+			void ensureTab(tab);
 		}
 	});
 </script>
@@ -872,6 +927,12 @@
 								{filteredUsers.length} of {users.length}
 							</span>
 						</div>
+
+						{#if usersCapped}
+							<p class="mb-3 font-ui text-[11px] text-lav/70">
+								Showing the newest {USERS_LIMIT.toLocaleString()} members.
+							</p>
+						{/if}
 
 						<div class="mb-4 flex flex-wrap items-center gap-2">
 							<label class="relative min-w-[220px] flex-1">

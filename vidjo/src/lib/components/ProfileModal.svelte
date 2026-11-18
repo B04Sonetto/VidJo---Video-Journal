@@ -15,6 +15,7 @@
 		} else if (!isViewingOther) {
 			profile.viewedProfile = null;
 			profile.viewedProfilePosts = [];
+			profile.viewedProfileStreak = null;
 		}
 	});
 </script>
