@@ -106,6 +106,7 @@ alter table public.vidjo_entries add column if not exists video_thumb_path text;
 alter table public.vidjo_entries add column if not exists excluded_friend_ids text[] not null default '{}';
 alter table public.vidjo_entries add column if not exists included_friend_ids text[] not null default '{}';
 alter table public.vidjo_entries add column if not exists share_with_friends boolean not null default false;
+alter table public.vidjo_entries add column if not exists song jsonb;
 
 -- Migrate legacy public URLs to storage object paths
 update public.vidjo_entries
@@ -1981,8 +1982,7 @@ alter table public.vidjo_dm_messages add column if not exists image_path text;
 alter table public.vidjo_dm_messages add column if not exists gif_url text;
 alter table public.vidjo_dm_messages drop constraint if exists vidjo_dm_messages_body_check;
 alter table public.vidjo_dm_messages add constraint vidjo_dm_messages_body_check check (
-	char_length(btrim(body)) <= 2000
-	and (char_length(btrim(body)) >= 1 or image_path is not null or gif_url is not null)
+	char_length(btrim(coalesce(body, ''))) <= 2000
 );
 alter table public.vidjo_dm_messages drop constraint if exists vidjo_dm_messages_image_check;
 alter table public.vidjo_dm_messages add constraint vidjo_dm_messages_image_check check (
@@ -2971,6 +2971,8 @@ begin
 	order by recent.created_at asc, recent.id asc;
 end;
 $$;
+
+drop function if exists public.vidjo_dm_thread_members(uuid);
 
 create or replace function public.vidjo_dm_thread_members(p_thread uuid)
 returns table (

@@ -14,7 +14,16 @@ import {
 	getStoredVideo,
 	putStoredVideo
 } from '#lib/videoStore';
-import type { Entry, EntryRow, MoodKey, PaperStyle, Privacy, Side, Sticker } from '#lib/types';
+import type {
+	Entry,
+	EntryRow,
+	EntrySong,
+	MoodKey,
+	PaperStyle,
+	Privacy,
+	Side,
+	Sticker
+} from '#lib/types';
 
 const STORAGE_PREFIX = 'vidjo-journal-v3';
 const LEGACY_STORAGE_KEY = 'vidjo-journal-v2';
@@ -66,7 +75,9 @@ function videoContentType(blob: Blob, name: string): string {
 }
 
 /** Fill in missing fields from older cached entries, including legacy video URLs. */
-function normalizeEntry(raw: Partial<Entry> & { date: string; videoUrl?: string }): Entry {
+function normalizeEntry(
+	raw: Partial<Entry> & { date: string; videoUrl?: string; song?: unknown }
+): Entry {
 	return {
 		date: raw.date,
 		mood: raw.mood ?? '',
@@ -83,7 +94,8 @@ function normalizeEntry(raw: Partial<Entry> & { date: string; videoUrl?: string 
 		videoName: raw.videoName ?? '',
 		excludedFriendIds: Array.isArray(raw.excludedFriendIds) ? raw.excludedFriendIds : [],
 		includedFriendIds: Array.isArray(raw.includedFriendIds) ? raw.includedFriendIds : [],
-		shareWithFriends: Boolean(raw.shareWithFriends)
+		shareWithFriends: Boolean(raw.shareWithFriends),
+		song: normalizeSong(raw.song)
 	};
 }
 
@@ -103,6 +115,26 @@ function readPaper(): PaperStyle {
 	return 'lined';
 }
 
+function normalizeSong(raw: unknown): EntrySong | null {
+	if (!raw || typeof raw !== 'object') return null;
+	const song = raw as Record<string, unknown>;
+	const uri = typeof song.uri === 'string' ? song.uri : '';
+	const name = typeof song.name === 'string' ? song.name.trim() : '';
+	if (!uri || !name) return null;
+	const artists = typeof song.artists === 'string' ? song.artists.trim() : '';
+	const album = typeof song.album === 'string' ? song.album.trim() : '';
+	const image = typeof song.image === 'string' ? song.image : '';
+	const url = typeof song.url === 'string' ? song.url : '';
+	return {
+		uri,
+		name,
+		artists,
+		...(album ? { album } : {}),
+		...(image ? { image } : {}),
+		...(url ? { url } : {})
+	};
+}
+
 export function blankEntry(date: string, privacy: Privacy = 'private'): Entry {
 	return {
 		date,
@@ -120,11 +152,12 @@ export function blankEntry(date: string, privacy: Privacy = 'private'): Entry {
 		videoName: '',
 		excludedFriendIds: [],
 		includedFriendIds: [],
-		shareWithFriends: false
+		shareWithFriends: false,
+		song: null
 	};
 }
 
-function rowToEntry(row: EntryRow): Entry {
+function rowToEntry(row: EntryRow & { song?: unknown }): Entry {
 	return {
 		date: row.entry_date,
 		mood: row.mood ?? '',
@@ -141,7 +174,8 @@ function rowToEntry(row: EntryRow): Entry {
 		videoName: row.video_name ?? '',
 		excludedFriendIds: Array.isArray(row.excluded_friend_ids) ? row.excluded_friend_ids : [],
 		includedFriendIds: Array.isArray(row.included_friend_ids) ? row.included_friend_ids : [],
-		shareWithFriends: Boolean(row.share_with_friends)
+		shareWithFriends: Boolean(row.share_with_friends),
+		song: normalizeSong(row.song)
 	};
 }
 
@@ -166,7 +200,8 @@ function entryToRow(ownerId: string, entry: Entry): EntryRow {
 		included_friend_ids: [...entry.includedFriendIds],
 		share_with_friends: Boolean(entry.shareWithFriends),
 		video_url: null,
-		video_name: entry.videoName || null
+		video_name: entry.videoName || null,
+		song: entry.song ? { ...entry.song } : null
 	};
 }
 
@@ -531,7 +566,8 @@ class Journal {
 			!entry.refl &&
 			entry.stickers.length === 0 &&
 			!entry.videoPath &&
-			!this.videoFor(entry.date)
+			!this.videoFor(entry.date) &&
+			!entry.song
 		);
 	}
 
@@ -623,6 +659,15 @@ class Journal {
 		entry.mood = entry.mood === mood ? '' : mood;
 		entry.sample = false;
 		this.queueSave(this.current);
+	}
+
+	async setSongForCurrent(song: EntrySong | null) {
+		const entry = this.entries[this.current];
+		if (!entry) return;
+		entry.song = song ? { ...song } : null;
+		entry.sample = false;
+		this.queueSave(this.current);
+		await this.flush();
 	}
 
 	/**

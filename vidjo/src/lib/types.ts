@@ -52,6 +52,18 @@ export interface Entry {
 	 * restrictive (e.g. a friend listed here can view a 'private' page).
 	 */
 	includedFriendIds: string[];
+	/** Spotify song attached to this journal page (playable in-app for connected listeners). */
+	song: EntrySong | null;
+}
+
+/** Song attached to a journal page, shared in feeds/messages and playable via Spotify. */
+export interface EntrySong {
+	uri: string;
+	name: string;
+	artists: string;
+	album?: string;
+	image?: string;
+	url?: string;
 }
 
 /** Streak counts for a journal. Aggregate only, so it is safe to share with friends. */
@@ -82,6 +94,7 @@ export interface EntryRow {
 	/** Legacy public URL, read only so old rows can be migrated to `video_path`. */
 	video_url: string | null;
 	video_name: string | null;
+	song: EntrySong | null;
 }
 
 export interface Profile {
@@ -223,6 +236,7 @@ export interface FriendPost {
 	videoThumbPath?: string;
 	videoName?: string;
 	videoCaption?: string;
+	song?: EntrySong | null;
 	reactions: FriendPostReaction;
 	userReactions: ('love' | 'spark' | 'warm' | 'proud')[];
 	comments: FriendComment[];
@@ -281,6 +295,7 @@ export interface SharedJournalEntry {
 	videoPath?: string | null;
 	videoThumbPath?: string | null;
 	videoName?: string | null;
+	song?: EntrySong | null;
 }
 
 export interface DmForwarded {

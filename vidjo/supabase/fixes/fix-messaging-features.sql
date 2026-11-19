@@ -3,6 +3,9 @@
 --
 -- Run once in Supabase SQL Editor. Safe to re-run.
 
+-- Attached song on a journal page (Spotify track snapshot for in-app playback).
+alter table public.vidjo_entries add column if not exists song jsonb;
+
 -- ---------------------------------------------------------------------------
 -- 1. Message metadata
 -- ---------------------------------------------------------------------------

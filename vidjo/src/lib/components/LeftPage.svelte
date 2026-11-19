@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { tick } from 'svelte';
 	import { portal } from '#lib/actions/portal';
+	import AttachedSongCard from '#lib/components/AttachedSongCard.svelte';
 	import MoodPicker from '#lib/components/MoodPicker.svelte';
 	import CommunityIcon from '#lib/components/CommunityIcon.svelte';
 	import RecordVideoModal from '#lib/components/RecordVideoModal.svelte';
@@ -257,6 +258,12 @@
 			readonly={preview}
 			onSelect={(mood) => !preview && journal.toggleMood(mood)}
 		/>
+
+		{#if entry.song}
+			<div class="mx-auto mt-3 w-full max-w-[420px]">
+				<AttachedSongCard song={entry.song} compact label="Song on this page" />
+			</div>
+		{/if}
 	</div>
 
 	<div

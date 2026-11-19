@@ -5,6 +5,7 @@
 	import { MOOD_BY_KEY } from '#lib/data/moods';
 	import { STICKER_BY_KEY } from '#lib/data/stickers';
 	import { censor } from '#lib/censor';
+	import AttachedSongCard from '#lib/components/AttachedSongCard.svelte';
 	import Avatar from '#lib/components/Avatar.svelte';
 	import CommunityIcon from '#lib/components/CommunityIcon.svelte';
 	import PromptModal from '#lib/components/PromptModal.svelte';
@@ -309,6 +310,12 @@
 							{censor(post.refl)}
 						</p>
 					</div>
+				</div>
+			{/if}
+
+			{#if post.song}
+				<div class="mt-4">
+					<AttachedSongCard song={post.song} label="Song on this page" />
 				</div>
 			{/if}
 

@@ -14,6 +14,7 @@
 	import Button from '#lib/components/ui/Button.svelte';
 	import Spinner from '#lib/components/ui/Spinner.svelte';
 	import { censor } from '#lib/censor';
+	import AttachedSongCard from '#lib/components/AttachedSongCard.svelte';
 	import type { Friend, FriendPost } from '#lib/types';
 
 	let {
@@ -899,6 +900,11 @@
 								{/if}
 								{@render mindBlock(page, true)}
 								{@render reflBlock(page, true)}
+								{#if page.song}
+									<div class="mt-4">
+										<AttachedSongCard song={page.song} label="Song on this page" />
+									</div>
+								{/if}
 								{@render stickerRow(page, true)}
 								<div class="mt-4">{@render socialBlock(page)}</div>
 							</article>
@@ -932,6 +938,11 @@
 											<p class="mt-4 font-hand text-xl text-book-ink/60">
 												{firstName} did not write anything on this page.
 											</p>
+										{/if}
+										{#if page.song}
+											<div class="mt-4">
+												<AttachedSongCard song={page.song} compact label="Song on this page" />
+											</div>
 										{/if}
 									</section>
 								</div>
@@ -978,6 +989,11 @@
 												A quiet page. The picture says it all.
 											</p>
 										{/if}
+										{#if page.song}
+											<div class="mt-4">
+												<AttachedSongCard song={page.song} compact label="Song on this page" />
+											</div>
+										{/if}
 										{@render stickerRow(page, false)}
 									</div>
 								</div>
@@ -999,6 +1015,11 @@
 								{/if}
 								{@render mindBlock(page, false)}
 								{@render reflBlock(page, false)}
+								{#if page.song}
+									<div class="mt-4">
+										<AttachedSongCard song={page.song} label="Song on this page" />
+									</div>
+								{/if}
 								{@render stickerRow(page, false)}
 								<div class="mt-4">{@render socialBlock(page)}</div>
 							</article>

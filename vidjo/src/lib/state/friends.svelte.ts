@@ -4,6 +4,7 @@ import { isSupabaseConfigured, supabase, VIDEO_BUCKET } from '#lib/supabase';
 import { censor } from '#lib/censor';
 import type {
 	EntryRow,
+	EntrySong,
 	Friend,
 	FriendComment,
 	FriendPost,
@@ -55,6 +56,26 @@ function formatPostDate(date: string) {
 	const parsed = new Date(`${date}T00:00:00`);
 	if (Number.isNaN(parsed.getTime())) return date;
 	return parsed.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+}
+
+function normalizeSong(raw: unknown): EntrySong | null {
+	if (!raw || typeof raw !== 'object') return null;
+	const song = raw as Record<string, unknown>;
+	const uri = typeof song.uri === 'string' ? song.uri : '';
+	const name = typeof song.name === 'string' ? song.name.trim() : '';
+	if (!uri || !name) return null;
+	const artists = typeof song.artists === 'string' ? song.artists.trim() : '';
+	const album = typeof song.album === 'string' ? song.album.trim() : '';
+	const image = typeof song.image === 'string' ? song.image : '';
+	const url = typeof song.url === 'string' ? song.url : '';
+	return {
+		uri,
+		name,
+		artists,
+		...(album ? { album } : {}),
+		...(image ? { image } : {}),
+		...(url ? { url } : {})
+	};
 }
 
 class FriendsState {
@@ -622,6 +643,7 @@ class FriendsState {
 				videoName: videoPath ? row.video_name || '' : '',
 				videoUrl: '',
 				videoThumbUrl: '',
+				song: normalizeSong((row as EntryRow & { song?: unknown }).song),
 				reactions: { ...EMPTY_REACTIONS },
 				userReactions: [],
 				comments: [],
@@ -787,6 +809,7 @@ class FriendsState {
 					videoName: entry.videoName,
 					videoUrl: journal.sessionVideos[date],
 					videoThumbUrl: journal.sessionThumbs[date] || '',
+					song: entry.song ?? null,
 					reactions: { ...EMPTY_REACTIONS },
 					userReactions: [],
 					comments: [],

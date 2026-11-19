@@ -7,6 +7,8 @@
 	import CommunityIcon from '#lib/components/CommunityIcon.svelte';
 	import { spotify, type SpotifyTrack } from '#lib/state/spotify.svelte';
 	import { auth } from '#lib/state/auth.svelte';
+	import { journal } from '#lib/state/journal.svelte';
+	import { todayKey } from '#lib/dates';
 
 	let query = $state('');
 	let searchTimer: ReturnType<typeof setTimeout> | null = null;
@@ -52,11 +54,49 @@
 		void spotify.playTrack(track);
 	}
 
+	let seeking = $state(false);
+	let seekDraft = $state(0);
+
+	const progressMax = $derived(Math.max(spotify.duration || spotify.track?.duration_ms || 0, 0));
+	const displayPosition = $derived(
+		seeking ? seekDraft : Math.min(spotify.position, progressMax || spotify.position)
+	);
 	const progressPct = $derived(
-		spotify.duration > 0 ? Math.min(100, (spotify.position / spotify.duration) * 100) : 0
+		progressMax > 0 ? Math.min(100, (displayPosition / progressMax) * 100) : 0
+	);
+	const today = $derived(todayKey());
+	const isTodaySongAttached = $derived(
+		Boolean(
+			journal.entries[today]?.song &&
+			spotify.track?.uri &&
+			journal.entries[today]?.song?.uri === spotify.track.uri
+		)
 	);
 
 	const showBar = $derived(spotify.connected || spotify.track || spotify.panelOpen);
+
+	async function attachCurrentToToday() {
+		const song = spotify.currentSong();
+		if (!song) return;
+		const entry = journal.ensureEntry(today);
+		if (!entry) return;
+		journal.current = today;
+		journal.side = 'L';
+		await journal.setSongForCurrent(song);
+		journal.toast("Song attached to today's page");
+	}
+
+	function onSeekInput(e: Event) {
+		seeking = true;
+		seekDraft = Number((e.currentTarget as HTMLInputElement).value);
+	}
+
+	function onSeekCommit(e: Event) {
+		const value = Number((e.currentTarget as HTMLInputElement).value);
+		seeking = false;
+		seekDraft = value;
+		void spotify.seek(value);
+	}
 </script>
 
 {#if showBar}
@@ -235,21 +275,47 @@
 							</div>
 
 							<div class="mt-3">
-								<div class="h-1.5 overflow-hidden rounded-full bg-cover-edge/70">
-									<div
-										class="h-full rounded-full bg-[linear-gradient(90deg,var(--color-book-accent),var(--color-gold),#1DB954)] transition-[width]"
-										style="width: {progressPct}%"
-									></div>
-								</div>
+								<input
+									type="range"
+									min="0"
+									max={Math.max(progressMax, 1)}
+									value={Math.min(displayPosition, Math.max(progressMax, 1))}
+									step="1000"
+									class="spotify-seek h-2 w-full cursor-pointer appearance-none rounded-full disabled:cursor-not-allowed disabled:opacity-50"
+									style="background: linear-gradient(to right, var(--color-book-accent), #1DB954) {progressPct}%, color-mix(in srgb, var(--color-cover-edge) 85%, transparent) {progressPct}%"
+									oninput={onSeekInput}
+									onchange={onSeekCommit}
+									disabled={!spotify.canControl || progressMax <= 0}
+									aria-label="Seek playback position"
+								/>
 								<div
 									class="mt-1 flex items-center justify-between font-ui text-[10px] text-book-bg/55 tabular-nums"
 								>
-									<span>{spotify.formatTime(spotify.position)}</span>
-									<span
-										>{spotify.formatTime(spotify.duration || spotify.track?.duration_ms || 0)}</span
-									>
+									<span>{spotify.formatTime(displayPosition)}</span>
+									<span>{spotify.formatTime(progressMax)}</span>
 								</div>
 							</div>
+
+							{#if spotify.track?.uri}
+								<div class="mt-3 flex items-center gap-2">
+									<button
+										type="button"
+										class="inline-flex min-h-9 flex-1 items-center justify-center gap-2 rounded-xl border border-[#1DB954]/35 bg-[#1DB954]/15 px-3 font-ui text-[11px] font-bold text-[#DFFFEA] transition-colors hover:bg-[#1DB954]/25 disabled:cursor-not-allowed disabled:opacity-50"
+										onclick={() => void attachCurrentToToday()}
+										disabled={!spotify.track?.uri}
+										title={isTodaySongAttached
+											? "This song is attached to today's page"
+											: "Attach current song to today's journal page"}
+									>
+										<CommunityIcon name={isTodaySongAttached ? 'check' : 'music'} size={14} />
+										{isTodaySongAttached ? 'Attached to today' : "Attach to today's page"}
+									</button>
+								</div>
+								<p class="mt-1.5 px-1 font-ui text-[10px] text-book-bg/55">
+									Shows on today’s page and can be played from journal, friends, community, and
+									messages.
+								</p>
+							{/if}
 
 							<div class="mt-3 flex items-center justify-center gap-2">
 								<button
@@ -487,7 +553,8 @@
 			),
 			radial-gradient(120% 90% at 100% 100%, rgba(29, 185, 84, 0.16) 0%, transparent 55%);
 	}
-	.spotify-range::-webkit-slider-thumb {
+	.spotify-range::-webkit-slider-thumb,
+	.spotify-seek::-webkit-slider-thumb {
 		-webkit-appearance: none;
 		appearance: none;
 		width: 14px;
@@ -497,7 +564,8 @@
 		border: 2px solid var(--color-book-bg);
 		box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
 	}
-	.spotify-range::-moz-range-thumb {
+	.spotify-range::-moz-range-thumb,
+	.spotify-seek::-moz-range-thumb {
 		width: 14px;
 		height: 14px;
 		border-radius: 999px;

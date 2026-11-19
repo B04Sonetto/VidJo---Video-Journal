@@ -182,6 +182,27 @@ function mapSharedEntry(value: unknown): SharedJournalEntry | null {
 	const row = value as Record<string, unknown>;
 	const date = typeof row.date === 'string' ? row.date : '';
 	if (!date) return null;
+	const rawSong = row.song;
+	let song: SharedJournalEntry['song'] = null;
+	if (rawSong && typeof rawSong === 'object') {
+		const s = rawSong as Record<string, unknown>;
+		const uri = typeof s.uri === 'string' ? s.uri : '';
+		const name = typeof s.name === 'string' ? s.name.trim() : '';
+		if (uri && name) {
+			const artists = typeof s.artists === 'string' ? s.artists.trim() : '';
+			const album = typeof s.album === 'string' ? s.album.trim() : '';
+			const image = typeof s.image === 'string' ? s.image : '';
+			const url = typeof s.url === 'string' ? s.url : '';
+			song = {
+				uri,
+				name,
+				artists,
+				...(album ? { album } : {}),
+				...(image ? { image } : {}),
+				...(url ? { url } : {})
+			};
+		}
+	}
 	return {
 		date,
 		title: typeof row.title === 'string' ? row.title : '',
@@ -191,7 +212,8 @@ function mapSharedEntry(value: unknown): SharedJournalEntry | null {
 		pageCount: Number(row.pageCount) || 1,
 		videoPath: typeof row.videoPath === 'string' ? row.videoPath : null,
 		videoThumbPath: typeof row.videoThumbPath === 'string' ? row.videoThumbPath : null,
-		videoName: typeof row.videoName === 'string' ? row.videoName : null
+		videoName: typeof row.videoName === 'string' ? row.videoName : null,
+		song
 	};
 }
 

@@ -3,6 +3,7 @@
 	import { portal } from '#lib/actions/portal';
 	import { MOOD_BY_KEY } from '#lib/data/moods';
 	import { censor } from '#lib/censor';
+	import AttachedSongCard from '#lib/components/AttachedSongCard.svelte';
 	import Avatar from '#lib/components/Avatar.svelte';
 	import CommunityIcon from '#lib/components/CommunityIcon.svelte';
 	import type { SharedJournalEntry } from '#lib/types';
@@ -204,7 +205,13 @@
 							</div>
 						{/if}
 
-						{#if !mind && !refl}
+						{#if entry.song}
+							<div class="mt-4">
+								<AttachedSongCard song={entry.song} label="Song on this page" />
+							</div>
+						{/if}
+
+						{#if !mind && !refl && !entry.song}
 							<p class="mt-5 text-center font-hand text-lg text-book-ink/60">
 								This page has no writing yet.
 							</p>

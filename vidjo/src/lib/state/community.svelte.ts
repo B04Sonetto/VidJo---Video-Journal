@@ -12,6 +12,7 @@ import type {
 	CommunityPost,
 	CommunityRole,
 	CommunityRow,
+	EntrySong,
 	FriendComment,
 	FriendPost,
 	FriendPostReaction
@@ -170,6 +171,26 @@ function formatPostDate(date: string) {
 	const parsed = new Date(`${date}T00:00:00`);
 	if (Number.isNaN(parsed.getTime())) return date;
 	return parsed.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+}
+
+function normalizeSong(raw: unknown): EntrySong | null {
+	if (!raw || typeof raw !== 'object') return null;
+	const song = raw as Record<string, unknown>;
+	const uri = typeof song.uri === 'string' ? song.uri : '';
+	const name = typeof song.name === 'string' ? song.name.trim() : '';
+	if (!uri || !name) return null;
+	const artists = typeof song.artists === 'string' ? song.artists.trim() : '';
+	const album = typeof song.album === 'string' ? song.album.trim() : '';
+	const image = typeof song.image === 'string' ? song.image : '';
+	const url = typeof song.url === 'string' ? song.url : '';
+	return {
+		uri,
+		name,
+		artists,
+		...(album ? { album } : {}),
+		...(image ? { image } : {}),
+		...(url ? { url } : {})
+	};
 }
 
 class CommunityState {
@@ -809,6 +830,7 @@ class CommunityState {
 					videoName: videoPath ? (row.video_name as string) || '' : '',
 					videoUrl,
 					videoThumbUrl,
+					song: normalizeSong((row as { song?: unknown }).song),
 					reactions: { ...EMPTY_REACTIONS },
 					userReactions: [],
 					comments: [],

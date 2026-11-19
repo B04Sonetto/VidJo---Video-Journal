@@ -25,6 +25,7 @@ export function sampleEntries(): Entry[] {
 			excludedFriendIds: [],
 			includedFriendIds: [],
 			shareWithFriends: false,
+			song: null,
 			stickers: [
 				{ id: uid(), type: 'cloud', page: 'R', x: 82, y: 12, size: 96, rot: 8 },
 				{ id: uid(), type: 'sakura', page: 'L', x: 84, y: 88, size: 70, rot: -10 },
@@ -47,6 +48,7 @@ export function sampleEntries(): Entry[] {
 			excludedFriendIds: [],
 			includedFriendIds: [],
 			shareWithFriends: false,
+			song: null,
 			stickers: [
 				{ id: uid(), type: 'star', page: 'L', x: 14, y: 90, size: 84, rot: -12 },
 				{ id: uid(), type: 'yay', page: 'R', x: 78, y: 13, size: 110, rot: 6 },
@@ -69,6 +71,7 @@ export function sampleEntries(): Entry[] {
 			excludedFriendIds: [],
 			includedFriendIds: [],
 			shareWithFriends: false,
+			song: null,
 			stickers: [
 				{ id: uid(), type: 'moon', page: 'R', x: 84, y: 10, size: 90, rot: 12 },
 				{ id: uid(), type: 'zzz', page: 'L', x: 84, y: 92, size: 96, rot: -6 }

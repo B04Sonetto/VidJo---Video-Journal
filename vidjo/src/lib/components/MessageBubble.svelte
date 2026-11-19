@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { onDestroy, tick } from 'svelte';
 	import Avatar from '#lib/components/Avatar.svelte';
+	import AttachedSongCard from '#lib/components/AttachedSongCard.svelte';
 	import CommunityIcon from '#lib/components/CommunityIcon.svelte';
 	import MessageText from '#lib/components/MessageText.svelte';
 	import { censor } from '#lib/censor';
@@ -523,6 +524,11 @@
 											'A page from my journal.'
 									)}
 								</span>
+								{#if message.sharedEntry.song}
+									<span class="mt-2 block">
+										<AttachedSongCard song={message.sharedEntry.song} compact label="Song" />
+									</span>
+								{/if}
 								<span
 									class="mt-2 flex items-center gap-1 font-ui text-[10px] font-bold text-accent"
 								>

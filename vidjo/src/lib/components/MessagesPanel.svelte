@@ -317,7 +317,8 @@
 			pageCount: 2,
 			videoPath: entry?.videoPath ?? null,
 			videoThumbPath: entry?.videoThumbPath ?? null,
-			videoName: entry?.videoName ?? null
+			videoName: entry?.videoName ?? null,
+			song: entry?.song ?? null
 		};
 	}
 

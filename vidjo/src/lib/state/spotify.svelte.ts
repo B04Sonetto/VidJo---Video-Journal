@@ -66,6 +66,18 @@ class SpotifyState {
 		return this.connected && this.accountProduct !== '' && !isLikelyPremium(this.accountProduct);
 	}
 
+	currentSong() {
+		if (!this.track?.uri) return null;
+		return {
+			uri: this.track.uri,
+			name: this.track.name || 'Spotify track',
+			artists: this.track.artists || '',
+			...(this.track.album ? { album: this.track.album } : {}),
+			...(this.track.image ? { image: this.track.image } : {}),
+			...(this.track.url ? { url: this.track.url } : {})
+		};
+	}
+
 	async init() {
 		if (!browser) return;
 		if (this.initPromise) return this.initPromise;
@@ -346,6 +358,29 @@ class SpotifyState {
 		void this.init();
 	}
 
+	private getTrackId(track: { id?: string; uri?: string } | null | undefined) {
+		if (!track) return '';
+		if (track.id) return track.id;
+		if (track.uri?.startsWith('spotify:track:')) return track.uri.split(':').pop() || '';
+		return '';
+	}
+
+	private async fetchRecommendedTracks(seed: SpotifyTrack, count = 5): Promise<SpotifyTrack[]> {
+		const seedId = this.getTrackId(seed);
+		if (!seedId) return [];
+		try {
+			const res = await fetch(
+				`/api/spotify/recommendations?seed_track=${encodeURIComponent(seedId)}&limit=${count}`,
+				{ cache: 'no-store' }
+			);
+			const data = await res.json().catch(() => ({}));
+			if (!res.ok || !Array.isArray(data?.tracks)) return [];
+			return (data.tracks as SpotifyTrack[]).filter((t) => t?.uri && t.uri !== seed.uri);
+		} catch {
+			return [];
+		}
+	}
+
 	async search(query: string) {
 		const q = query.trim();
 		this.lastQuery = q;
@@ -408,10 +443,23 @@ class SpotifyState {
 		}
 
 		try {
+			// Start with a queue (seed + recommendations) so skipping/continuing
+			// playback can keep going instead of going quiet after one song.
+			let uris = [track.uri];
+			try {
+				const recs = await this.fetchRecommendedTracks(track, 8);
+				const extra = recs
+					.map((t) => t.uri)
+					.filter((u): u is string => Boolean(u) && u !== track.uri);
+				if (extra.length) uris = [track.uri, ...extra.slice(0, 8)];
+			} catch {
+				// fall back to single-track playback
+			}
+
 			const res = await fetch('/api/spotify/play', {
 				method: 'PUT',
 				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ device_id: this.deviceId, uris: [track.uri] })
+				body: JSON.stringify({ device_id: this.deviceId, uris })
 			});
 			const data = await res.json().catch(() => ({}));
 			if (res.status === 401) {
@@ -420,17 +468,21 @@ class SpotifyState {
 				return;
 			}
 			if (res.status === 403) {
-				this.error = 'Spotify Premium is required for in-app playback on this account.';
+				const msg = typeof data?.message === 'string' ? data.message : '';
+				this.error = msg || 'Spotify Premium is required for in-app playback on this account.';
 				return;
 			}
 			if (!res.ok) {
+				const msg = typeof data?.message === 'string' ? data.message : '';
 				this.error =
 					data?.error === 'device_not_found'
-						? 'VidJo player device not ready yet. Try again in a moment.'
-						: 'Could not start playback.';
+						? msg || 'VidJo player device not ready yet. Try again in a moment.'
+						: msg || 'Could not start playback.';
 				return;
 			}
 			this.track = track;
+			this.position = 0;
+			this.duration = track.duration_ms || this.duration;
 			this.playing = true;
 			this.panelOpen = true;
 			this.notice = `Playing ${track.name}`;
@@ -455,9 +507,55 @@ class SpotifyState {
 
 	async next() {
 		if (!this.player) return;
+		this.error = '';
 		try {
+			const state = await this.player.getCurrentState?.();
+			const currentSdkTrack = state?.track_window?.current_track;
+			const nextTracks = state?.track_window?.next_tracks || [];
+
+			// If there's no queued next track, keep listening with a recommendation.
+			if (state && nextTracks.length === 0) {
+				const seed: SpotifyTrack = {
+					uri: currentSdkTrack?.uri || this.track?.uri || '',
+					id: currentSdkTrack?.id || this.track?.id,
+					name: currentSdkTrack?.name || this.track?.name || 'Current track',
+					artists:
+						(currentSdkTrack?.artists || [])
+							.map((a: { name?: string }) => a?.name || '')
+							.filter(Boolean)
+							.join(', ') ||
+						this.track?.artists ||
+						'',
+					album: currentSdkTrack?.album?.name || this.track?.album || '',
+					image: currentSdkTrack?.album?.images?.[0]?.url || this.track?.image || '',
+					duration_ms: currentSdkTrack?.duration_ms || this.track?.duration_ms || 0
+				};
+
+				if (seed.uri) {
+					const recs = await this.fetchRecommendedTracks(seed, 6);
+					const nextTrack = recs.find((t) => t.uri && t.uri !== seed.uri);
+					if (nextTrack) {
+						await this.playTrack(nextTrack);
+						return;
+					}
+				}
+			}
+
 			await this.player.nextTrack();
 		} catch {
+			// Fallback: try a recommendation instead of going silent.
+			try {
+				if (this.track) {
+					const recs = await this.fetchRecommendedTracks(this.track, 6);
+					const nextTrack = recs.find((t) => t.uri && t.uri !== this.track?.uri);
+					if (nextTrack) {
+						await this.playTrack(nextTrack);
+						return;
+					}
+				}
+			} catch {
+				// ignore secondary failure
+			}
 			this.error = 'Could not skip track.';
 		}
 	}
