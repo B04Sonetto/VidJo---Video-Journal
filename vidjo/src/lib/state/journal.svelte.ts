@@ -1245,7 +1245,9 @@ class Journal {
 		if (!entry) return;
 
 		const definition = STICKER_BY_KEY[type];
-		const page = viewport.single ? this.side : this.lastPage;
+		// In the two-page spread the right (writing) page is the decorate target;
+		// stickers can still be dragged to the left page afterward.
+		const page = viewport.single ? this.side : 'R';
 
 		const sticker: Sticker = {
 			id: uid(),

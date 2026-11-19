@@ -261,7 +261,18 @@
 
 		{#if entry.song}
 			<div class="mx-auto mt-3 w-full max-w-[420px]">
-				<AttachedSongCard song={entry.song} compact label="Song on this page" />
+				<AttachedSongCard
+					song={entry.song}
+					compact
+					label="Song on this page"
+					onRemove={!preview
+						? async () => {
+								journal.current = date;
+								await journal.setSongForCurrent(null);
+								journal.toast('Song removed from this page');
+							}
+						: null}
+				/>
 			</div>
 		{/if}
 	</div>

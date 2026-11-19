@@ -6,11 +6,13 @@
 	let {
 		song,
 		compact = false,
-		label = 'Attached song'
+		label = 'Attached song',
+		onRemove = null
 	}: {
 		song: EntrySong | null | undefined;
 		compact?: boolean;
 		label?: string;
+		onRemove?: (() => void | Promise<void>) | null;
 	} = $props();
 
 	function toTrack(s: EntrySong) {
@@ -31,19 +33,28 @@
 		spotify.openPanel();
 		void spotify.playTrack(toTrack(song));
 	}
+
+	async function remove(event: MouseEvent) {
+		event.stopPropagation();
+		event.preventDefault();
+		if (!onRemove) return;
+		await onRemove();
+	}
 </script>
 
 {#if song}
-	<button
-		type="button"
-		class="song-card group w-full rounded-2xl border border-book-accent/35 bg-[linear-gradient(135deg,color-mix(in_srgb,var(--color-book-accent)_18%,var(--color-paper)),color-mix(in_srgb,#1DB954_10%,var(--color-paper-deep,transparent)))] text-left shadow-[0_8px_24px_rgba(0,0,0,.08)] transition-all hover:-translate-y-0.5 hover:border-book-accent/55 hover:shadow-[0_12px_28px_rgba(0,0,0,.12)] focus-visible:ring-2 focus-visible:ring-book-accent/50 focus-visible:outline-none {compact
-			? 'p-2'
-			: 'p-2.5'}"
-		onclick={(e) => play(e)}
-		title={`Play "${song.name}" on Spotify`}
-		aria-label={`Play attached song ${song.name}`}
+	<div
+		class="song-card group relative w-full rounded-2xl border border-book-accent/35 bg-[linear-gradient(135deg,color-mix(in_srgb,var(--color-book-accent)_18%,var(--color-paper)),color-mix(in_srgb,#1DB954_10%,var(--color-paper-deep,transparent)))] shadow-[0_8px_24px_rgba(0,0,0,.08)] transition-all hover:-translate-y-0.5 hover:border-book-accent/55 hover:shadow-[0_12px_28px_rgba(0,0,0,.12)]"
 	>
-		<div class="flex items-center gap-2.5">
+		<button
+			type="button"
+			class="flex w-full items-center gap-2.5 text-left focus-visible:rounded-2xl focus-visible:ring-2 focus-visible:ring-book-accent/50 focus-visible:outline-none {compact
+				? 'p-2'
+				: 'p-2.5'} {onRemove ? (compact ? 'pr-9' : 'pr-10') : ''}"
+			onclick={(e) => play(e)}
+			title={`Play "${song.name}" on Spotify`}
+			aria-label={`Play attached song ${song.name}`}
+		>
 			<div
 				class="relative shrink-0 overflow-hidden rounded-xl border border-line/70 bg-cover/30 {compact
 					? 'size-10'
@@ -93,6 +104,20 @@
 			>
 				<CommunityIcon name="spotify" size={compact ? 13 : 15} />
 			</span>
-		</div>
-	</button>
+		</button>
+
+		{#if onRemove}
+			<button
+				type="button"
+				class="absolute top-1.5 right-1.5 z-[2] flex items-center justify-center rounded-full border border-line/70 bg-paper/90 text-ink-soft shadow-sm transition-colors hover:border-danger/40 hover:bg-danger/10 hover:text-danger focus-visible:ring-2 focus-visible:ring-danger/40 focus-visible:outline-none {compact
+					? 'size-6'
+					: 'size-7'}"
+				onclick={remove}
+				aria-label="Remove attached song"
+				title="Remove song"
+			>
+				<CommunityIcon name="x" size={compact ? 11 : 13} />
+			</button>
+		{/if}
+	</div>
 {/if}

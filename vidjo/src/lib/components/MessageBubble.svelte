@@ -452,90 +452,92 @@
 					{/if}
 
 					{#if message.sharedEntry}
-						<button
-							type="button"
-							class="mt-1 block w-full overflow-hidden rounded-xl border border-gold/50 bg-book-bg text-left text-book-ink shadow-sm transition-transform hover:-translate-y-0.5 focus-visible:ring-2 focus-visible:ring-gold/60 focus-visible:outline-none {hasMedia
-								? 'max-w-[260px]'
-								: 'max-w-[300px] min-w-[220px]'}"
-							onclick={() =>
-								onOpenEntry(message.sharedEntry!, message.senderId, message.senderName)}
-							aria-label={`Open journal page from ${entryDate}`}
-						>
-							{#if message.sharedEntry.videoPath}
-								<!-- A still frame keeps the card light; the full video opens in the page modal. -->
-								<span class="relative block h-24 overflow-hidden bg-cover/40">
-									{#if entryThumbUrl}
-										<img
-											src={entryThumbUrl}
-											alt=""
-											class="block h-full w-full object-cover"
-											loading="lazy"
-											decoding="async"
-										/>
-									{:else}
+						<div class="mt-1 w-full {hasMedia ? 'max-w-[260px]' : 'max-w-[300px] min-w-[220px]'}">
+							<button
+								type="button"
+								class="block w-full overflow-hidden rounded-xl border border-gold/50 bg-book-bg text-left text-book-ink shadow-sm transition-transform hover:-translate-y-0.5 focus-visible:ring-2 focus-visible:ring-gold/60 focus-visible:outline-none"
+								onclick={() =>
+									onOpenEntry(message.sharedEntry!, message.senderId, message.senderName)}
+								aria-label={`Open journal page from ${entryDate}`}
+							>
+								{#if message.sharedEntry.videoPath}
+									<!-- A still frame keeps the card light; the full video opens in the page modal. -->
+									<span class="relative block h-24 overflow-hidden bg-cover/40">
+										{#if entryThumbUrl}
+											<img
+												src={entryThumbUrl}
+												alt=""
+												class="block h-full w-full object-cover"
+												loading="lazy"
+												decoding="async"
+											/>
+										{:else}
+											<span
+												class="block h-full w-full bg-[radial-gradient(ellipse_at_center,var(--color-cover)_0%,var(--color-desk)_85%)]"
+											></span>
+										{/if}
 										<span
-											class="block h-full w-full bg-[radial-gradient(ellipse_at_center,var(--color-cover)_0%,var(--color-desk)_85%)]"
-										></span>
-									{/if}
-									<span
-										class="absolute inset-0 flex items-center justify-center bg-gradient-to-t from-desk/50 to-transparent"
-									>
-										<span
-											class="flex size-9 items-center justify-center rounded-full bg-book-bg/95 text-book-ink shadow-lg"
+											class="absolute inset-0 flex items-center justify-center bg-gradient-to-t from-desk/50 to-transparent"
 										>
-											<CommunityIcon name="play" size={17} />
+											<span
+												class="flex size-9 items-center justify-center rounded-full bg-book-bg/95 text-book-ink shadow-lg"
+											>
+												<CommunityIcon name="play" size={17} />
+											</span>
 										</span>
-									</span>
-									{#if message.sharedEntry.videoName}
-										<span
-											class="absolute right-1.5 bottom-1.5 left-1.5 truncate font-ui text-[9px] font-semibold text-book-bg drop-shadow"
-										>
-											{message.sharedEntry.videoName}
-										</span>
-									{/if}
-								</span>
-							{/if}
-							<span class="block bg-gradient-to-r from-book-accent/25 to-cover/25 px-3 py-2">
-								<span class="flex items-center gap-1.5">
-									<span
-										class="flex size-6 items-center justify-center rounded-full bg-paper text-book-accent"
-									>
-										<CommunityIcon
-											name={MOOD_ICONS[message.sharedEntry.mood] || 'book'}
-											size={13}
-										/>
-									</span>
-									<span class="font-ui text-[10px] font-bold tracking-wide text-ink-soft uppercase">
-										Journal page
-									</span>
-									<span class="ml-auto font-ui text-[10px] text-ink-soft">{entryDate}</span>
-								</span>
-							</span>
-							<span class="block px-3 py-2.5">
-								<span class="block truncate font-display text-[15px] font-bold">
-									{message.sharedEntry.title || 'Untitled page'}
-								</span>
-								<span
-									class="mt-0.5 line-clamp-2 block font-hand text-[13px] leading-snug text-ink-soft"
-								>
-									{censor(
-										message.sharedEntry.mind ||
-											message.sharedEntry.refl ||
-											'A page from my journal.'
-									)}
-								</span>
-								{#if message.sharedEntry.song}
-									<span class="mt-2 block">
-										<AttachedSongCard song={message.sharedEntry.song} compact label="Song" />
+										{#if message.sharedEntry.videoName}
+											<span
+												class="absolute right-1.5 bottom-1.5 left-1.5 truncate font-ui text-[9px] font-semibold text-book-bg drop-shadow"
+											>
+												{message.sharedEntry.videoName}
+											</span>
+										{/if}
 									</span>
 								{/if}
-								<span
-									class="mt-2 flex items-center gap-1 font-ui text-[10px] font-bold text-accent"
-								>
-									Open page <CommunityIcon name="arrow-right" size={12} />
+								<span class="block bg-gradient-to-r from-book-accent/25 to-cover/25 px-3 py-2">
+									<span class="flex items-center gap-1.5">
+										<span
+											class="flex size-6 items-center justify-center rounded-full bg-paper text-book-accent"
+										>
+											<CommunityIcon
+												name={MOOD_ICONS[message.sharedEntry.mood] || 'book'}
+												size={13}
+											/>
+										</span>
+										<span
+											class="font-ui text-[10px] font-bold tracking-wide text-ink-soft uppercase"
+										>
+											Journal page
+										</span>
+										<span class="ml-auto font-ui text-[10px] text-ink-soft">{entryDate}</span>
+									</span>
 								</span>
-							</span>
-						</button>
+								<span class="block px-3 py-2.5">
+									<span class="block truncate font-display text-[15px] font-bold">
+										{message.sharedEntry.title || 'Untitled page'}
+									</span>
+									<span
+										class="mt-0.5 line-clamp-2 block font-hand text-[13px] leading-snug text-ink-soft"
+									>
+										{censor(
+											message.sharedEntry.mind ||
+												message.sharedEntry.refl ||
+												'A page from my journal.'
+										)}
+									</span>
+									<span
+										class="mt-2 flex items-center gap-1 font-ui text-[10px] font-bold text-accent"
+									>
+										Open page <CommunityIcon name="arrow-right" size={12} />
+									</span>
+								</span>
+							</button>
+							{#if message.sharedEntry.song}
+								<div class="mt-1.5">
+									<AttachedSongCard song={message.sharedEntry.song} compact label="Song" />
+								</div>
+							{/if}
+						</div>
 					{/if}
 
 					{#if editing}

@@ -65,12 +65,9 @@
 		progressMax > 0 ? Math.min(100, (displayPosition / progressMax) * 100) : 0
 	);
 	const today = $derived(todayKey());
+	const todaySong = $derived(journal.entries[today]?.song ?? null);
 	const isTodaySongAttached = $derived(
-		Boolean(
-			journal.entries[today]?.song &&
-			spotify.track?.uri &&
-			journal.entries[today]?.song?.uri === spotify.track.uri
-		)
+		Boolean(todaySong && spotify.track?.uri && todaySong.uri === spotify.track.uri)
 	);
 
 	const showBar = $derived(spotify.connected || spotify.track || spotify.panelOpen);
@@ -84,6 +81,15 @@
 		journal.side = 'L';
 		await journal.setSongForCurrent(song);
 		journal.toast("Song attached to today's page");
+	}
+
+	async function removeSongFromToday() {
+		const entry = journal.entries[today];
+		if (!entry?.song) return;
+		journal.current = today;
+		journal.side = 'L';
+		await journal.setSongForCurrent(null);
+		journal.toast("Song removed from today's page");
 	}
 
 	function onSeekInput(e: Event) {
@@ -296,20 +302,37 @@
 								</div>
 							</div>
 
-							{#if spotify.track?.uri}
+							{#if spotify.track?.uri || todaySong}
 								<div class="mt-3 flex items-center gap-2">
-									<button
-										type="button"
-										class="inline-flex min-h-9 flex-1 items-center justify-center gap-2 rounded-xl border border-[#1DB954]/35 bg-[#1DB954]/15 px-3 font-ui text-[11px] font-bold text-[#DFFFEA] transition-colors hover:bg-[#1DB954]/25 disabled:cursor-not-allowed disabled:opacity-50"
-										onclick={() => void attachCurrentToToday()}
-										disabled={!spotify.track?.uri}
-										title={isTodaySongAttached
-											? "This song is attached to today's page"
-											: "Attach current song to today's journal page"}
-									>
-										<CommunityIcon name={isTodaySongAttached ? 'check' : 'music'} size={14} />
-										{isTodaySongAttached ? 'Attached to today' : "Attach to today's page"}
-									</button>
+									{#if spotify.track?.uri}
+										<button
+											type="button"
+											class="inline-flex min-h-9 flex-1 items-center justify-center gap-2 rounded-xl border border-[#1DB954]/35 bg-[#1DB954]/15 px-3 font-ui text-[11px] font-bold text-[#DFFFEA] transition-colors hover:bg-[#1DB954]/25 disabled:cursor-not-allowed disabled:opacity-50"
+											onclick={() => void attachCurrentToToday()}
+											disabled={!spotify.track?.uri}
+											title={isTodaySongAttached
+												? "This song is attached to today's page"
+												: "Attach current song to today's journal page"}
+										>
+											<CommunityIcon name={isTodaySongAttached ? 'check' : 'music'} size={14} />
+											{isTodaySongAttached ? 'Attached to today' : "Attach to today's page"}
+										</button>
+									{:else}
+										<p class="flex-1 font-ui text-[11px] font-semibold text-book-bg/80">
+											Song attached to today’s page
+										</p>
+									{/if}
+									{#if todaySong}
+										<button
+											type="button"
+											class="inline-flex size-9 shrink-0 items-center justify-center rounded-xl border border-danger/40 bg-danger/10 text-danger transition-colors hover:bg-danger/20"
+											onclick={() => void removeSongFromToday()}
+											aria-label="Remove song from today's page"
+											title="Remove song from today's page"
+										>
+											<CommunityIcon name="x" size={14} />
+										</button>
+									{/if}
 								</div>
 								<p class="mt-1.5 px-1 font-ui text-[10px] text-book-bg/55">
 									Shows on today’s page and can be played from journal, friends, community, and

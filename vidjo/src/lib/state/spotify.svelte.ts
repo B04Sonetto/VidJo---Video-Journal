@@ -1,4 +1,4 @@
-const browser = typeof window !== 'undefined';
+﻿const browser = typeof window !== 'undefined';
 
 export type SpotifyTrack = {
 	uri: string;
@@ -505,57 +505,55 @@ class SpotifyState {
 		}
 	}
 
+	private async playRecommendedFrom(seed: SpotifyTrack | null | undefined): Promise<boolean> {
+		if (!seed?.uri && !seed?.id) return false;
+		try {
+			const recs = await this.fetchRecommendedTracks(seed as SpotifyTrack, 6);
+			const nextTrack = recs.find((t) => t.uri && t.uri !== seed?.uri);
+			if (nextTrack) {
+				await this.playTrack(nextTrack);
+				return true;
+			}
+		} catch {
+			// ignore
+		}
+		return false;
+	}
+
 	async next() {
 		if (!this.player) return;
 		this.error = '';
+		const seedFromTrack = this.track;
 		try {
 			const state = await this.player.getCurrentState?.();
 			const currentSdkTrack = state?.track_window?.current_track;
 			const nextTracks = state?.track_window?.next_tracks || [];
+			const seed: SpotifyTrack = {
+				uri: currentSdkTrack?.uri || this.track?.uri || '',
+				id: currentSdkTrack?.id || this.track?.id,
+				name: currentSdkTrack?.name || this.track?.name || 'Current track',
+				artists:
+					(currentSdkTrack?.artists || [])
+						.map((a: { name?: string }) => a?.name || '')
+						.filter(Boolean)
+						.join(', ') ||
+					this.track?.artists ||
+					'',
+				album: currentSdkTrack?.album?.name || this.track?.album || '',
+				image: currentSdkTrack?.album?.images?.[0]?.url || this.track?.image || '',
+				duration_ms: currentSdkTrack?.duration_ms || this.track?.duration_ms || 0
+			};
 
-			// If there's no queued next track, keep listening with a recommendation.
-			if (state && nextTracks.length === 0) {
-				const seed: SpotifyTrack = {
-					uri: currentSdkTrack?.uri || this.track?.uri || '',
-					id: currentSdkTrack?.id || this.track?.id,
-					name: currentSdkTrack?.name || this.track?.name || 'Current track',
-					artists:
-						(currentSdkTrack?.artists || [])
-							.map((a: { name?: string }) => a?.name || '')
-							.filter(Boolean)
-							.join(', ') ||
-						this.track?.artists ||
-						'',
-					album: currentSdkTrack?.album?.name || this.track?.album || '',
-					image: currentSdkTrack?.album?.images?.[0]?.url || this.track?.image || '',
-					duration_ms: currentSdkTrack?.duration_ms || this.track?.duration_ms || 0
-				};
-
-				if (seed.uri) {
-					const recs = await this.fetchRecommendedTracks(seed, 6);
-					const nextTrack = recs.find((t) => t.uri && t.uri !== seed.uri);
-					if (nextTrack) {
-						await this.playTrack(nextTrack);
-						return;
-					}
-				}
+			// If there's no queued next track, keep listening with a recommended track.
+			if (nextTracks.length === 0) {
+				if (await this.playRecommendedFrom(seed)) return;
+				this.error = 'Could not find a recommended track to play next.';
+				return;
 			}
 
 			await this.player.nextTrack();
 		} catch {
-			// Fallback: try a recommendation instead of going silent.
-			try {
-				if (this.track) {
-					const recs = await this.fetchRecommendedTracks(this.track, 6);
-					const nextTrack = recs.find((t) => t.uri && t.uri !== this.track?.uri);
-					if (nextTrack) {
-						await this.playTrack(nextTrack);
-						return;
-					}
-				}
-			} catch {
-				// ignore secondary failure
-			}
+			if (await this.playRecommendedFrom(seedFromTrack)) return;
 			this.error = 'Could not skip track.';
 		}
 	}
