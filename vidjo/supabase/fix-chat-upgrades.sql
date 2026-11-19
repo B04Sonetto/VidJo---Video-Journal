@@ -381,6 +381,8 @@ $$;
 
 drop function if exists public.vidjo_dm_send(uuid, text, uuid, text, text, uuid);
 drop function if exists public.vidjo_dm_thread(uuid, timestamptz, integer);
+-- The members result gained `nickname`, so CREATE OR REPLACE is not enough.
+drop function if exists public.vidjo_dm_thread_members(uuid);
 
 create or replace function public.vidjo_dm_send(
 	p_thread uuid,
