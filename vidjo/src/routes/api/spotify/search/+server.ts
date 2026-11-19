@@ -39,7 +39,10 @@ export const GET: RequestHandler = async ({ url, cookies }) => {
 			uri: track.uri,
 			id: track.id,
 			name: track.name,
-			artists: (track.artists || []).map((a) => a.name || '').filter(Boolean).join(', '),
+			artists: (track.artists || [])
+				.map((a) => a.name || '')
+				.filter(Boolean)
+				.join(', '),
 			album: track.album?.name || '',
 			image: track.album?.images?.[1]?.url || track.album?.images?.[0]?.url || '',
 			duration_ms: track.duration_ms || 0,

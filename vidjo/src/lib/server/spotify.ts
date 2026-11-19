@@ -1,5 +1,4 @@
 import type { Cookies } from '@sveltejs/kit';
-import { createHash, randomBytes } from 'node:crypto';
 
 const env = process.env as Record<string, string | undefined>;
 const dev = process.env.NODE_ENV !== 'production';
@@ -19,8 +18,16 @@ export const COOKIE_REFRESH = 'vidjo_spotify_refresh';
 const ACCOUNTS = 'https://accounts.spotify.com';
 const API = 'https://api.spotify.com/v1';
 
-function base64url(buffer: Buffer) {
-	return buffer.toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
+function base64url(bytes: Uint8Array) {
+	let binary = '';
+	for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
+	return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
+}
+
+function randomBytes(size: number) {
+	const bytes = new Uint8Array(size);
+	crypto.getRandomValues(bytes);
+	return bytes;
 }
 
 export function spotifyConfigured() {
@@ -40,9 +47,11 @@ export function getRedirectUri(origin: string) {
 	return `${origin}/auth/spotify/callback`;
 }
 
-export function createPkce() {
+export async function createPkce() {
 	const verifier = base64url(randomBytes(32));
-	const challenge = base64url(createHash('sha256').update(verifier).digest());
+	const data = new TextEncoder().encode(verifier);
+	const hash = await crypto.subtle.digest('SHA-256', data);
+	const challenge = base64url(new Uint8Array(hash));
 	const state = base64url(randomBytes(16));
 	return { verifier, challenge, state };
 }
@@ -74,7 +83,10 @@ export function authorizeUrl(origin: string, state: string, challenge: string) {
 function basicAuth() {
 	const id = env.SPOTIFY_CLIENT_ID || '';
 	const secret = env.SPOTIFY_CLIENT_SECRET || '';
-	return `Basic ${Buffer.from(`${id}:${secret}`).toString('base64')}`;
+	const bytes = new TextEncoder().encode(`${id}:${secret}`);
+	let binary = '';
+	for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
+	return `Basic ${btoa(binary)}`;
 }
 
 function asRecord(value: unknown): Record<string, unknown> | null {
