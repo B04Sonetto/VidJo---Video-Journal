@@ -13,6 +13,8 @@
 	import CommunityIcon from '#lib/components/CommunityIcon.svelte';
 	import Avatar from '#lib/components/Avatar.svelte';
 	import Button from '#lib/components/ui/Button.svelte';
+	import ConfirmModal from '#lib/components/ConfirmModal.svelte';
+	import PromptModal from '#lib/components/PromptModal.svelte';
 	import { THEMES, type ThemeName } from '#lib/themes';
 	import { USERNAME_MAX, validateUsername } from '#lib/username';
 
@@ -71,6 +73,8 @@
 	let editError = $state('');
 	let editSaving = $state(false);
 	let editSeed = '';
+	let confirmRemove = $state<'avatar' | 'banner' | null>(null);
+	let deleteAccountOpen = $state(false);
 
 	let settingsError = $state('');
 	let settingsSaving = $state(false);
@@ -348,6 +352,17 @@
 		nav.profileTab = tab;
 	}
 
+	function finishRemove() {
+		if (confirmRemove === 'avatar') {
+			editAvatar = '';
+			avatarFile = null;
+		} else if (confirmRemove === 'banner') {
+			editBanner = '';
+			bannerFile = null;
+		}
+		confirmRemove = null;
+	}
+
 	async function saveEdits(event: SubmitEvent) {
 		event.preventDefault();
 		if (editSaving) return;
@@ -500,8 +515,7 @@
 		journal.toast('Journal data exported');
 	}
 
-	async function deleteAccount() {
-		const confirmText = prompt('Type "DELETE" to confirm permanent account deletion:');
+	async function deleteAccount(confirmText: string) {
 		if (confirmText !== 'DELETE') return;
 
 		const userId = auth.user?.id ?? '';
@@ -758,21 +772,29 @@
 		</div>
 	</div>
 
-	{#if nav.profileTab === 'settings' && settingsDirty}
+	{#if nav.profileTab === 'settings'}
 		<div class="sticky top-2 z-30 mt-4">
 			<div
-				class="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-book-accent/50 bg-desk/95 px-4 py-3 shadow-[0_12px_32px_rgba(0,0,0,.45)] backdrop-blur-lg"
+				class="flex flex-wrap items-center justify-between gap-3 rounded-2xl border bg-desk/95 px-4 py-3 shadow-[0_12px_32px_rgba(0,0,0,.45)] backdrop-blur-lg {settingsDirty
+					? 'border-book-accent/50'
+					: 'border-cover-edge'}"
 			>
 				<div class="flex items-center gap-2.5">
 					<span
 						class="flex size-8 shrink-0 items-center justify-center rounded-full bg-book-accent/20 text-book-accent"
 						aria-hidden="true"
 					>
-						<CommunityIcon name="pen" size={15} />
+						<CommunityIcon name={settingsDirty ? 'pen' : 'check'} size={15} />
 					</span>
 					<div>
-						<p class="font-ui text-sm font-bold">Unsaved changes</p>
-						<p class="font-ui text-[11px] text-book-bg/65">Save to apply them to your journal.</p>
+						<p class="font-ui text-sm font-bold">
+							{settingsDirty ? 'Unsaved changes' : 'All changes saved'}
+						</p>
+						<p class="font-ui text-[11px] text-book-bg/65">
+							{settingsDirty
+								? 'Save to apply them to your journal.'
+								: 'Adjust any setting to enable saving.'}
+						</p>
 					</div>
 				</div>
 				<div class="flex w-full items-center gap-2 min-[480px]:w-auto">
@@ -1173,6 +1195,10 @@
 									<CommunityIcon name="plus" size={16} />
 								</label>
 							</div>
+							<p class="mt-3 font-ui text-[11px] leading-relaxed text-book-bg/65">
+								This color is used for your default profile picture and the cursor in navigation, so
+								picking one changes both.
+							</p>
 						</div>
 					{/if}
 
@@ -1507,7 +1533,12 @@
 					<Button class="w-full" variant="outline" icon="upload" onclick={exportJournal}>
 						Export journal data
 					</Button>
-					<Button class="w-full" variant="danger" icon="trash" onclick={deleteAccount}>
+					<Button
+						class="w-full"
+						variant="danger"
+						icon="trash"
+						onclick={() => (deleteAccountOpen = true)}
+					>
 						Delete my account
 					</Button>
 				</div>
@@ -1596,11 +1627,7 @@
 							<button
 								type="button"
 								class="justify-self-start font-ui text-[11px] font-semibold text-[#FF9B9B] hover:underline"
-								onclick={() => {
-									if (!confirm('Do you really want to remove photo?')) return;
-									editAvatar = '';
-									avatarFile = null;
-								}}
+								onclick={() => (confirmRemove = 'avatar')}
 							>
 								Remove photo
 							</button>
@@ -1634,11 +1661,7 @@
 							<button
 								type="button"
 								class="justify-self-start font-ui text-[11px] font-semibold text-[#FF9B9B] hover:underline"
-								onclick={() => {
-									if (!confirm('Do you really want to remove banner?')) return;
-									editBanner = '';
-									bannerFile = null;
-								}}
+								onclick={() => (confirmRemove = 'banner')}
 							>
 								Remove banner
 							</button>
@@ -1657,4 +1680,32 @@
 			</form>
 		</div>
 	{/if}
+
+	<ConfirmModal
+		open={confirmRemove !== null}
+		title={confirmRemove === 'avatar' ? 'Remove profile photo?' : 'Remove banner?'}
+		message={confirmRemove === 'avatar'
+			? 'Your current profile photo will be cleared. You can upload a new one any time.'
+			: 'Your current banner will be cleared. You can upload a new one any time.'}
+		confirmLabel="Remove"
+		onConfirm={finishRemove}
+		onCancel={() => (confirmRemove = null)}
+	/>
+
+	<PromptModal
+		open={deleteAccountOpen}
+		title="Delete your account?"
+		message="This removes your journal, pages, and profile for good. It cannot be undone."
+		placeholder="Type DELETE"
+		confirmLabel="Delete my account"
+		requiredPhrase="DELETE"
+		tone="danger"
+		icon="trash"
+		maxLength={6}
+		onConfirm={(value) => {
+			deleteAccountOpen = false;
+			void deleteAccount(value);
+		}}
+		onCancel={() => (deleteAccountOpen = false)}
+	/>
 </div>

@@ -44,8 +44,13 @@
 	let editingNoteId = $state<string | null>(null);
 	let editNoteText = $state('');
 	let openedFor: string | null = null;
+	let mindExpanded = $state(false);
+	let reflExpanded = $state(false);
 
 	const NOTE_MAX = 140;
+	/** Feed/reader previews stay compact until the reader asks to see the rest. */
+	const MIND_PREVIEW = 240;
+	const REFL_PREVIEW = 140;
 
 	const REACTIONS: {
 		key: 'love' | 'spark' | 'warm' | 'proud';
@@ -106,11 +111,16 @@
 		noteInput = '';
 		noteConfirmId = null;
 		unfriendOpen = false;
+		mindExpanded = false;
+		reflExpanded = false;
 	});
 
 	$effect(() => {
+		void index;
 		if (index >= sorted.length) index = Math.max(0, sorted.length - 1);
 		noteConfirmId = null;
+		mindExpanded = false;
+		reflExpanded = false;
 	});
 
 	$effect(() => {
@@ -383,12 +393,23 @@
 				: 'border border-line/70 bg-book-bg paper-lined'}"
 		>
 			<p
-				class="font-hand text-[22px] leading-[32px] [overflow-wrap:anywhere] whitespace-pre-wrap {dark
+				class="[overflow-wrap:anywhere] whitespace-pre-wrap {mindExpanded
+					? ''
+					: 'line-clamp-[8]'} font-hand text-[22px] leading-[32px] {dark
 					? 'text-book-bg'
 					: 'text-book-ink'}"
 			>
 				{censor(p.mind)}
 			</p>
+			{#if p.mind.length > MIND_PREVIEW}
+				<button
+					type="button"
+					class="mt-2 font-ui text-[11px] font-bold text-book-accent hover:underline"
+					onclick={() => (mindExpanded = !mindExpanded)}
+				>
+					{mindExpanded ? 'Show less' : 'Read the rest'}
+				</button>
+			{/if}
 		</div>
 	{/if}
 {/snippet}
@@ -406,12 +427,23 @@
 			<div class="min-w-0">
 				<span class="block font-ui text-[10px] font-semibold text-book-accent">Reflection</span>
 				<p
-					class="mt-0.5 font-hand text-lg leading-snug font-semibold [overflow-wrap:anywhere] whitespace-pre-wrap {dark
+					class="mt-0.5 [overflow-wrap:anywhere] whitespace-pre-wrap {reflExpanded
+						? ''
+						: 'line-clamp-[4]'} font-hand text-lg leading-snug font-semibold {dark
 						? 'text-book-bg'
 						: 'text-book-ink'}"
 				>
 					{censor(p.refl)}
 				</p>
+				{#if p.refl.length > REFL_PREVIEW}
+					<button
+						type="button"
+						class="mt-1 font-ui text-[10px] font-bold text-book-accent hover:underline"
+						onclick={() => (reflExpanded = !reflExpanded)}
+					>
+						{reflExpanded ? 'Show less' : 'Read the rest'}
+					</button>
+				{/if}
 			</div>
 		</div>
 	{/if}

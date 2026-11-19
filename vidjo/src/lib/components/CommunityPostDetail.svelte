@@ -7,6 +7,7 @@
 	import { censor } from '#lib/censor';
 	import Avatar from '#lib/components/Avatar.svelte';
 	import CommunityIcon from '#lib/components/CommunityIcon.svelte';
+	import PromptModal from '#lib/components/PromptModal.svelte';
 	import type { CommunityPost, FriendPostReaction } from '#lib/types';
 
 	let {
@@ -75,6 +76,7 @@
 	let editingCommentId = $state<string | null>(null);
 	let editCommentText = $state('');
 	let commentConfirmId = $state<string | null>(null);
+	let commentReportId = $state<string | null>(null);
 
 	const canModerate = $derived(community.canModerate(post.communitySlug ?? ''));
 	const canRemove = $derived(post.isOwner || post.authorId === auth.ownerId || canModerate);
@@ -97,7 +99,7 @@
 	}
 
 	function handleKey(event: KeyboardEvent) {
-		if (event.key === 'Escape') onClose();
+		if (event.key === 'Escape' && !commentReportId) onClose();
 	}
 
 	function submitComment(event: SubmitEvent) {
@@ -147,9 +149,14 @@
 		}
 	}
 
-	async function reportComment(commentId: string) {
-		const reason = prompt('Why are you reporting this note?')?.trim();
-		if (!reason) return;
+	function reportComment(commentId: string) {
+		commentReportId = commentId;
+	}
+
+	async function sendReport(reason: string) {
+		const commentId = commentReportId;
+		commentReportId = null;
+		if (!commentId) return;
 		const ok = await community.reportComment(post, commentId, reason);
 		journal.toast(
 			ok ? 'Report sent to moderators. Thank you.' : 'Could not send the report. Please try again.'
@@ -580,3 +587,16 @@
 		</div>
 	</div>
 </div>
+
+<PromptModal
+	open={commentReportId !== null}
+	title="Report this note"
+	message="Tell our moderators what is wrong with this note."
+	hint="Only moderators can see your reason."
+	placeholder="Unkind, unsafe, or off-topic…"
+	confirmLabel="Send report"
+	icon="shield"
+	maxLength={240}
+	onConfirm={(reason) => void sendReport(reason)}
+	onCancel={() => (commentReportId = null)}
+/>

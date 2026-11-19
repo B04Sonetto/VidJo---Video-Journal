@@ -368,10 +368,19 @@
 					</div>
 				</div>
 
-				<h3 class="mb-2.5 font-display text-[22px] font-bold">VidJos this month</h3>
-				<ul class="m-0 flex list-none flex-col gap-2 p-0">
+				<div class="mb-2 flex items-center justify-between gap-2">
+					<h3 class="font-display text-[20px] font-bold">VidJos this month</h3>
+					<span
+						class="shrink-0 rounded-full bg-accent/15 px-2 py-0.5 font-ui text-[11px] font-bold text-accent tabular-nums"
+					>
+						{monthEntries.length}
+					</span>
+				</div>
+				<ul
+					class="m-0 flex max-h-[232px] modal-scroll list-none flex-col gap-1.5 overflow-y-auto p-0 pr-1"
+				>
 					{#if monthEntries.length === 0}
-						<li class="font-hand text-[19px] text-ink-soft">
+						<li class="font-hand text-[17px] text-ink-soft">
 							No VidJos this month yet. Pick a day to start a page.
 						</li>
 					{:else}
@@ -380,18 +389,18 @@
 							<li>
 								<button
 									type="button"
-									class="flex min-h-14 w-full items-center gap-3 rounded-xl border-[1.5px] border-line bg-paper px-3 py-1.5 text-left font-hand text-lg text-ink hover:border-accent hover:bg-light"
+									class="flex min-h-12 w-full items-center gap-2.5 rounded-lg border-[1.5px] border-line bg-paper px-2.5 py-1 text-left font-hand text-lg text-ink hover:border-accent hover:bg-light"
 									onclick={() => pick(entry.date)}
 								>
-									<span class="size-[38px] flex-none [&>svg]:size-full">
+									<span class="size-[32px] flex-none [&>svg]:size-full">
 										<!-- eslint-disable-next-line svelte/no-at-html-tags -- static SVG from data/moods.ts -->
 										{@html mood?.svg ?? pencil}
 									</span>
 									<span class="min-w-0">
-										<b class="block truncate font-hand text-[19px] font-bold">
+										<b class="block truncate font-hand text-[17px] font-bold">
 											{entry.title || 'Untitled'}
 										</b>
-										<small class="font-hand text-[15px] text-ink-soft">
+										<small class="block truncate font-hand text-[13px] text-ink-soft">
 											{shortDate(entry.date)}{mood ? ` · ${mood.l}` : ''}{journal.videoFor(
 												entry.date
 											)

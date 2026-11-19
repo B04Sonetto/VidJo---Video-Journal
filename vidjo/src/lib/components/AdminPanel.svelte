@@ -2,6 +2,8 @@
 	import Avatar from '#lib/components/Avatar.svelte';
 	import CommunityIcon from '#lib/components/CommunityIcon.svelte';
 	import Button from '#lib/components/ui/Button.svelte';
+	import ConfirmModal from '#lib/components/ConfirmModal.svelte';
+	import PromptModal from '#lib/components/PromptModal.svelte';
 	import { profile } from '#lib/state/profile.svelte';
 	import { journal } from '#lib/state/journal.svelte';
 	import { isSupabaseConfigured, supabase } from '#lib/supabase';
@@ -91,6 +93,13 @@
 	let busyUser = $state('');
 	let busyWarn = $state('');
 	let busyDeleteComment = $state('');
+	let confirmDeleteReport = $state<ReportRow | null>(null);
+	let reasonPrompt = $state<{
+		action: 'warn' | 'ban';
+		userId: string;
+		name: string;
+		fallback: string;
+	} | null>(null);
 
 	/** Timestamps live outside `$state`: they gate loads but must not re-render. */
 	const loadedAt: Record<LoadKey, number> = { overview: 0, reports: 0, users: 0 };
@@ -333,27 +342,34 @@
 		]);
 	}
 
-	function askReason(action: 'warn' | 'ban', name: string) {
-		const fallback =
-			action === 'warn'
-				? 'Insulting another member'
-				: 'Repeated or serious community guideline violations.';
-		const value = prompt(
-			`${action === 'warn' ? 'Warning' : 'Ban'} reason for ${name}.\nThis reason is shown to the member.`,
-			fallback
-		);
-		if (value === null) return null;
-		return value.trim() || fallback;
+	function askReason(
+		action: 'warn' | 'ban',
+		userId: string | null | undefined,
+		name: string
+	): boolean {
+		if (!userId) return false;
+		reasonPrompt = {
+			action,
+			userId,
+			name,
+			fallback:
+				action === 'warn'
+					? 'Insulting another member'
+					: 'Repeated or serious community guideline violations.'
+		};
+		return true;
 	}
 
-	async function warnUser(userId: string | null | undefined, name: string) {
+	async function warnUser(userId: string | null | undefined, name: string, reason?: string) {
 		if (!userId) {
 			journal.toast('That comment has no author to warn.');
 			return;
 		}
 
-		const reason = askReason('warn', name);
-		if (!reason) return;
+		if (reason === undefined) {
+			askReason('warn', userId, name);
+			return;
+		}
 
 		busyWarn = userId;
 		error = '';
@@ -376,7 +392,6 @@
 
 	async function deleteReportedComment(report: ReportRow) {
 		if (!report.comment_id) return;
-		if (!confirm('Remove this reported comment for everyone? This cannot be undone.')) return;
 
 		busyDeleteComment = report.comment_id;
 		error = '';
@@ -399,14 +414,16 @@
 		}
 	}
 
-	async function banUser(userId: string | null | undefined, name: string) {
+	async function banUser(userId: string | null | undefined, name: string, reason?: string) {
 		if (!userId) {
 			journal.toast('That comment has no author to ban.');
 			return;
 		}
 
-		const reason = askReason('ban', name);
-		if (!reason) return;
+		if (reason === undefined) {
+			askReason('ban', userId, name);
+			return;
+		}
 
 		busyUser = userId;
 		error = '';
@@ -908,7 +925,7 @@
 														icon="trash"
 														loading={busyDeleteComment === report.comment_id}
 														disabled={Boolean(busyWarn || busyUser || busyDeleteComment)}
-														onclick={() => void deleteReportedComment(report)}
+														onclick={() => (confirmDeleteReport = report)}
 													>
 														Delete comment
 													</Button>
@@ -1258,3 +1275,37 @@
 		{/if}
 	</div>
 {/if}
+
+<ConfirmModal
+	open={confirmDeleteReport !== null}
+	title="Delete this comment?"
+	message="The comment will be removed for everyone and the report will be cleared. This cannot be undone."
+	confirmLabel="Delete comment"
+	onConfirm={() => {
+		const report = confirmDeleteReport;
+		confirmDeleteReport = null;
+		if (report) void deleteReportedComment(report);
+	}}
+	onCancel={() => (confirmDeleteReport = null)}
+/>
+
+<PromptModal
+	open={reasonPrompt !== null}
+	title={reasonPrompt?.action === 'warn' ? 'Warn this member' : 'Suspend this member'}
+	message={reasonPrompt ? `Reason for ${reasonPrompt.name}. This is shown to the member.` : ''}
+	hint="This is shown to the member."
+	initialValue={reasonPrompt?.fallback ?? ''}
+	placeholder="Write a clear reason"
+	confirmLabel={reasonPrompt?.action === 'warn' ? 'Send warning' : 'Suspend member'}
+	tone="danger"
+	icon="alert"
+	maxLength={240}
+	onConfirm={(reason) => {
+		const prompt = reasonPrompt;
+		reasonPrompt = null;
+		if (!prompt) return;
+		if (prompt.action === 'warn') void warnUser(prompt.userId, prompt.name, reason);
+		else void banUser(prompt.userId, prompt.name, reason);
+	}}
+	onCancel={() => (reasonPrompt = null)}
+/>

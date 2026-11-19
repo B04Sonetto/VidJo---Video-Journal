@@ -1195,6 +1195,45 @@ begin
 end;
 $$;
 
+-- Seeds the direct conversation for a new friendship so the friend never
+-- disappears from Messages / group-chat pickers before the first real note.
+create or replace function public.vidjo_dm_seed_friendship(p_user uuid, p_friend uuid)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+	v_thread uuid;
+	v_name text;
+begin
+	if p_user is null or p_friend is null or p_user = p_friend then
+		return;
+	end if;
+
+	v_thread := public.vidjo_dm_ensure_direct(p_user, p_friend);
+
+	if exists (select 1 from public.vidjo_dm_messages where thread_id = v_thread) then
+		return;
+	end if;
+
+	select coalesce(nullif(btrim(display_name), ''), username, 'VidJo student')
+	into v_name
+	from public.vidjo_profiles
+	where user_id = p_friend;
+
+	insert into public.vidjo_dm_messages (thread_id, sender_id, client_id, body)
+	values (
+		v_thread,
+		p_user,
+		gen_random_uuid(),
+		'🎉 ' || coalesce(v_name, 'Your new friend') || ' and you are now friends! Say hello.'
+	);
+end;
+$$;
+
+revoke all on function public.vidjo_dm_seed_friendship(uuid, uuid) from public, anon;
+
 create or replace function public.accept_friend_request(request_id uuid)
 returns jsonb
 language plpgsql
@@ -1233,6 +1272,8 @@ begin
 	update public.vidjo_friend_requests
 	set status = 'accepted', responded_at = now()
 	where id = request_id;
+
+	perform public.vidjo_dm_seed_friendship(curr_user, request_row.from_user);
 
 	return jsonb_build_object('success', true, 'message', 'You are now friends!');
 end;
@@ -2824,7 +2865,7 @@ as $$
 		m.gif_url,
 		m.sender_id,
 		coalesce(nullif(btrim(sp.display_name), ''), sp.username, 'VidJo student'),
-		m.created_at,
+		coalesce(m.created_at, t.created_at),
 		coalesce((
 			select count(*)::integer
 			from public.vidjo_dm_messages x
@@ -2857,7 +2898,6 @@ as $$
 	) m on true
 	left join public.vidjo_profiles sp on sp.user_id = m.sender_id
 	where auth.uid() is not null
-		and (t.last_message_at is not null or t.kind = 'group')
 	order by coalesce(t.last_message_at, t.created_at) desc;
 $$;
 

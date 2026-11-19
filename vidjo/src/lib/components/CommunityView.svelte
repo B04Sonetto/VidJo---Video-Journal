@@ -37,7 +37,10 @@
 	let rulesDraft = $state('');
 	let editingRules = $state(false);
 	let busyMemberId = $state<string | null>(null);
-	let reportTarget = $state<CommunityPost | null>(null);
+	type ReportContext =
+		| { kind: 'post'; post: CommunityPost }
+		| { kind: 'comment'; post: CommunityPost; commentId: string };
+	let reportTarget = $state<ReportContext | null>(null);
 	let reportReason = $state('');
 	let focusPostId = $state<string | null>(null);
 	let lastCommentTime = $state<Record<string, number>>({});
@@ -414,13 +417,17 @@
 	}
 
 	function openReport(post: CommunityPost) {
-		reportTarget = post;
+		reportTarget = { kind: 'post', post };
 		reportReason = '';
 	}
 
 	async function submitReport() {
-		if (!reportTarget || !reportReason.trim()) return;
-		const ok = await community.reportPost(reportTarget, reportReason);
+		const target = reportTarget;
+		if (!target || !reportReason.trim()) return;
+		const ok =
+			target.kind === 'comment'
+				? await community.reportComment(target.post, target.commentId, reportReason)
+				: await community.reportPost(target.post, reportReason);
 		reportTarget = null;
 		reportReason = '';
 		journal.toast(
@@ -463,13 +470,9 @@
 		}
 	}
 
-	async function reportComment(post: CommunityPost, commentId: string) {
-		const reason = prompt('Why are you reporting this note?')?.trim();
-		if (!reason) return;
-		const ok = await community.reportComment(post, commentId, reason);
-		journal.toast(
-			ok ? 'Report sent to moderators. Thank you.' : 'Could not send the report. Please try again.'
-		);
+	function reportComment(post: CommunityPost, commentId: string) {
+		reportTarget = { kind: 'comment', post, commentId };
+		reportReason = '';
 	}
 
 	function requestDelete(post: CommunityPost) {
@@ -1068,7 +1071,7 @@
 								class="mt-2.5 rounded border border-line/70 bg-book-bg paper-lined [background-position:0_6px] px-2.5 py-1.5"
 							>
 								<p
-									class="font-hand text-[17px] leading-[32px] [overflow-wrap:anywhere] whitespace-pre-wrap text-book-ink"
+									class="line-clamp-4 font-hand text-[17px] leading-[32px] [overflow-wrap:anywhere] whitespace-pre-wrap text-book-ink"
 								>
 									{censor(post.mind)}
 								</p>
@@ -1087,7 +1090,7 @@
 										>Reflection</span
 									>
 									<p
-										class="mt-0.5 font-hand text-base leading-snug font-semibold [overflow-wrap:anywhere] whitespace-pre-wrap text-book-ink"
+										class="mt-0.5 line-clamp-2 font-hand text-base leading-snug font-semibold [overflow-wrap:anywhere] whitespace-pre-wrap text-book-ink"
 									>
 										{censor(post.refl)}
 									</p>
@@ -1842,7 +1845,9 @@
 				class="flex items-start justify-between gap-3 bg-[linear-gradient(135deg,var(--color-cover-edge),var(--color-desk))] px-5 py-4 text-book-bg"
 			>
 				<div>
-					<h2 id="report-page-title" class="font-display text-xl font-bold">Report this page</h2>
+					<h2 id="report-page-title" class="font-display text-xl font-bold">
+						{reportTarget?.kind === 'comment' ? 'Report this note' : 'Report this page'}
+					</h2>
 					<p class="font-ui text-[11px] text-book-bg/70">Only moderators can see your reason.</p>
 				</div>
 				<button

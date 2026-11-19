@@ -660,7 +660,7 @@ as $$
 		), '[]'::jsonb),
 		m.body, m.image_path, m.gif_url, m.sender_id,
 		coalesce(nullif(btrim(sp.display_name), ''), sp.username, 'VidJo student'),
-		m.created_at,
+		coalesce(m.created_at, t.created_at),
 		coalesce((
 			select count(*)::integer from public.vidjo_dm_messages x
 			where x.thread_id = t.id and x.sender_id <> me.user_id
@@ -687,7 +687,6 @@ as $$
 	left join public.vidjo_profiles sp on sp.user_id = m.sender_id
 	left join public.vidjo_profiles dsp on dsp.user_id = m.deleted_by
 	where auth.uid() is not null
-		and (t.last_message_at is not null or t.kind = 'group')
 	order by coalesce(t.last_message_at, t.created_at) desc;
 $$;
 
