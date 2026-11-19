@@ -6,6 +6,7 @@
 	import { friends } from '#lib/state/friends.svelte';
 	import { messages } from '#lib/state/messages.svelte';
 	import { community } from '#lib/state/community.svelte';
+	import { spotify } from '#lib/state/spotify.svelte';
 	import { todayKey } from '#lib/dates';
 	import { isSupabaseConfigured, supabase } from '#lib/supabase';
 	import Avatar from '#lib/components/Avatar.svelte';
@@ -284,6 +285,26 @@
 		<CommunityIcon name="plus" size={16} />
 		<span class="min-[480px]:hidden">Today</span>
 		<span class="hidden min-[480px]:inline">Today's page</span>
+	</button>
+
+	<button
+		type="button"
+		class="relative flex size-10 shrink-0 items-center justify-center rounded-xl border border-cover-edge bg-desk-2/80 text-lav shadow-[0_6px_16px_rgba(0,0,0,.2)] transition-all hover:border-book-accent/50 hover:bg-cover/35 hover:text-book-bg active:scale-[.98] min-[480px]:size-11 {spotify.playing
+			? 'border-[#1DB954]/50 text-[#1ED760]'
+			: ''}"
+		onclick={() => spotify.togglePanel()}
+		aria-label={spotify.connected ? 'Open music player' : 'Connect and play music with Spotify'}
+		title={spotify.playing && spotify.track ? `Playing: ${spotify.track.name}` : 'Music'}
+	>
+		<CommunityIcon name={spotify.playing ? 'headphones' : 'spotify'} size={18} />
+		{#if spotify.connected}
+			<span
+				class="absolute -top-0.5 -right-0.5 size-2.5 rounded-full border-2 border-desk {spotify.playing
+					? 'bg-[#1DB954] shadow-[0_0_0_3px_rgba(29,185,84,.18)]'
+					: 'bg-book-accent'}"
+				aria-hidden="true"
+			></span>
+		{/if}
 	</button>
 
 	{#if isSupabaseConfigured}

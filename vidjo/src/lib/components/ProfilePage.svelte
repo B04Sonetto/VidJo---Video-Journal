@@ -16,6 +16,7 @@
 	import Button from '#lib/components/ui/Button.svelte';
 	import ConfirmModal from '#lib/components/ConfirmModal.svelte';
 	import PromptModal from '#lib/components/PromptModal.svelte';
+	import { spotify } from '#lib/state/spotify.svelte';
 	import { THEMES, type ThemeName } from '#lib/themes';
 	import { USERNAME_MAX, validateUsername } from '#lib/username';
 
@@ -1120,6 +1121,211 @@
 						{/if}
 					</div>
 				{/if}
+			</div>
+
+			<div
+				class="rounded-[26px] border border-cover-edge bg-desk-2 p-6 text-book-bg shadow-[0_18px_44px_rgba(0,0,0,.38)] lg:col-span-2"
+			>
+				<div class="flex flex-wrap items-center justify-between gap-4">
+					<div class="max-w-[620px]">
+						<div class="flex items-center gap-2.5">
+							<span
+								class="flex size-9 items-center justify-center rounded-xl bg-[#1DB954]/18 text-[#1ED760] shadow-[0_8px_20px_rgba(29,185,84,.12)]"
+							>
+								<CommunityIcon name="spotify" size={18} />
+							</span>
+							<h2 class="font-display text-xl font-bold">Music &amp; Spotify</h2>
+						</div>
+						<p class="mt-2 font-ui text-sm text-book-bg/65">
+							Connect your Spotify Premium account to search tracks and listen inside VidJo while
+							you write, browse, and reflect. The mini-player follows your journal theme and keeps
+							playing across views.
+						</p>
+					</div>
+					<div class="flex flex-wrap items-center gap-2">
+						{#if spotify.connected}
+							<Button variant="outline" icon="headphones" onclick={() => spotify.openPanel()}>
+								Open player
+							</Button>
+							<Button variant="outline" onclick={() => void spotify.disconnect()}>
+								Disconnect
+							</Button>
+						{:else}
+							<button
+								type="button"
+								class="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-[#1DB954] px-4 font-ui text-sm font-bold text-[#062012] shadow-[0_10px_24px_rgba(29,185,84,.24)] transition-all hover:bg-[#1ED760] active:scale-[.98] disabled:cursor-not-allowed disabled:opacity-60"
+								onclick={() => void spotify.connect()}
+								disabled={!spotify.configured}
+							>
+								<CommunityIcon name="spotify" size={16} />
+								Connect Spotify
+							</button>
+						{/if}
+					</div>
+				</div>
+
+				<div class="mt-4 grid gap-3 min-[720px]:grid-cols-[1.2fr_.8fr]">
+					<div
+						class="rounded-2xl border border-cover-edge bg-[linear-gradient(145deg,color-mix(in_srgb,var(--color-cover)_45%,transparent),color-mix(in_srgb,var(--color-desk)_75%,transparent))] p-4"
+					>
+						{#if spotify.connected}
+							<div class="flex items-center gap-3">
+								{#if spotify.accountImage}
+									<img
+										src={spotify.accountImage}
+										alt=""
+										class="size-12 rounded-xl border border-cover-edge/70 object-cover"
+									/>
+								{:else}
+									<div
+										class="flex size-12 items-center justify-center rounded-xl border border-cover-edge/70 bg-cover/40 text-[#1ED760]"
+									>
+										<CommunityIcon name="spotify" size={20} />
+									</div>
+								{/if}
+								<div class="min-w-0">
+									<p class="font-ui text-sm font-bold text-book-bg">
+										{spotify.accountName || 'Spotify account'} connected
+									</p>
+									<p class="font-ui text-xs text-book-bg/65">
+										{spotify.accountProduct
+											? `Plan: ${spotify.accountProduct}`
+											: 'Premium account required for in-app playback'}
+										{#if spotify.ready}
+											· Player ready{/if}
+									</p>
+								</div>
+								<span
+									class="ml-auto inline-flex items-center gap-1.5 rounded-full border border-[#1DB954]/35 bg-[#1DB954]/12 px-2.5 py-1 font-ui text-[11px] font-semibold text-[#BFF3D1]"
+								>
+									<span class="size-1.5 rounded-full bg-[#1ED760]"></span>
+									Connected
+								</span>
+							</div>
+							{#if spotify.track}
+								<div
+									class="mt-3 flex items-center gap-3 rounded-xl border border-cover-edge/70 bg-desk/35 p-2.5"
+								>
+									{#if spotify.track.image}
+										<img src={spotify.track.image} alt="" class="size-11 rounded-lg object-cover" />
+									{:else}
+										<div
+											class="flex size-11 items-center justify-center rounded-lg bg-cover/40 text-book-bg/50"
+										>
+											<CommunityIcon name="music" size={16} />
+										</div>
+									{/if}
+									<div class="min-w-0 flex-1">
+										<p class="truncate font-ui text-sm font-semibold">{spotify.track.name}</p>
+										<p class="truncate font-ui text-[11px] text-book-bg/65">
+											{spotify.track.artists || 'Now playing in VidJo'}
+										</p>
+									</div>
+									<button
+										type="button"
+										class="flex size-9 items-center justify-center rounded-full bg-cta text-cta-text"
+										onclick={() => void spotify.togglePlay()}
+										aria-label={spotify.playing ? 'Pause' : 'Play'}
+									>
+										<CommunityIcon name={spotify.playing ? 'pause' : 'play'} size={14} />
+									</button>
+								</div>
+							{:else}
+								<p class="mt-3 font-ui text-xs text-book-bg/65">
+									No track playing yet. Open the player to search and start listening.
+								</p>
+							{/if}
+							{#if spotify.error}
+								<p class="mt-3 font-ui text-xs font-semibold text-[#FFB4B4]">{spotify.error}</p>
+							{:else if spotify.notice}
+								<p class="mt-3 font-ui text-xs font-semibold text-[#BFF3D1]">{spotify.notice}</p>
+							{/if}
+						{:else}
+							<div class="flex items-start gap-3">
+								<div
+									class="flex size-11 shrink-0 items-center justify-center rounded-xl bg-[#1DB954]/15 text-[#1ED760]"
+								>
+									<CommunityIcon name="headphones" size={22} />
+								</div>
+								<div>
+									<p class="font-ui text-sm font-semibold">Listen without leaving your journal</p>
+									<p class="mt-1 font-ui text-xs leading-relaxed text-book-bg/65">
+										Search songs from Spotify, play them in a persistent mini-player, and keep the
+										music going as you move through pages and views.
+									</p>
+									<ul class="mt-2 space-y-1 font-ui text-[11px] text-book-bg/60">
+										<li>• Requires a Spotify Premium account for in-app playback</li>
+										<li>• Uses secure server-side token refresh (no secrets in the browser)</li>
+										<li>• Theme-matched controls and mini-player</li>
+									</ul>
+									{#if !spotify.configured}
+										<p class="mt-2 font-ui text-[11px] font-semibold text-[#FFCF8A]">
+											Spotify server configuration is missing. Add credentials and redeploy.
+										</p>
+									{/if}
+									{#if spotify.error}
+										<p class="mt-2 font-ui text-[11px] font-semibold text-[#FFB4B4]">
+											{spotify.error}
+										</p>
+									{/if}
+								</div>
+							</div>
+						{/if}
+					</div>
+
+					<div class="rounded-2xl border border-cover-edge bg-cover/15 p-4">
+						<p class="font-ui text-xs font-bold tracking-wide text-book-accent uppercase">
+							Quick actions
+						</p>
+						<div class="mt-3 grid gap-2">
+							<button
+								type="button"
+								class="flex items-center justify-between rounded-xl bg-cover/20 px-3 py-2.5 text-left font-ui text-sm hover:bg-cover/35 disabled:opacity-50"
+								onclick={() => spotify.openPanel()}
+								disabled={!spotify.configured}
+							>
+								<span class="flex items-center gap-2"
+									><CommunityIcon name="list-music" size={15} class="text-book-accent" />Search &
+									play</span
+								>
+								<CommunityIcon name="arrow-right" size={14} class="text-book-bg/60" />
+							</button>
+							{#if spotify.connected}
+								<button
+									type="button"
+									class="flex items-center justify-between rounded-xl bg-cover/20 px-3 py-2.5 text-left font-ui text-sm hover:bg-cover/35 disabled:opacity-50"
+									onclick={() => void spotify.togglePlay()}
+									disabled={!spotify.canControl && !spotify.track}
+								>
+									<span class="flex items-center gap-2"
+										><CommunityIcon
+											name={spotify.playing ? 'pause' : 'play'}
+											size={15}
+											class="text-book-accent"
+										/>{spotify.playing ? 'Pause music' : 'Resume music'}</span
+									>
+									<CommunityIcon name="arrow-right" size={14} class="text-book-bg/60" />
+								</button>
+							{:else}
+								<button
+									type="button"
+									class="flex items-center justify-between rounded-xl bg-cover/20 px-3 py-2.5 text-left font-ui text-sm hover:bg-cover/35 disabled:opacity-50"
+									onclick={() => void spotify.connect()}
+									disabled={!spotify.configured}
+								>
+									<span class="flex items-center gap-2"
+										><CommunityIcon name="spotify" size={15} class="text-[#1ED760]" />Connect
+										account</span
+									>
+									<CommunityIcon name="arrow-right" size={14} class="text-book-bg/60" />
+								</button>
+							{/if}
+						</div>
+						<p class="mt-3 font-ui text-[11px] leading-relaxed text-book-bg/55">
+							Playback happens in the VidJo web player device. Keep this tab open while listening.
+						</p>
+					</div>
+				</div>
 			</div>
 
 			<div

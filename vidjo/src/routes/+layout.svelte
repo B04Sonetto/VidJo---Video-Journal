@@ -3,6 +3,7 @@
 	import './layout.css';
 	import favicon from '#lib/assets/favicon.svg';
 	import PwaNotice from '#lib/components/PwaNotice.svelte';
+	import SpotifyPlayer from '#lib/components/SpotifyPlayer.svelte';
 	import { initFocusTrap } from '#lib/focusTrap';
 	import { profile } from '#lib/state/profile.svelte';
 	import { pwa } from '#lib/state/pwa.svelte';
@@ -40,3 +41,4 @@
 
 {@render children()}
 <PwaNotice />
+<SpotifyPlayer />

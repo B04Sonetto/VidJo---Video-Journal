@@ -187,6 +187,43 @@
 		<circle cx="12" cy="12" r="9"></circle>
 		<path d="M8.5 14.5a4.5 4.5 0 0 0 7 0"></path>
 		<path d="M9 9.5h.01M15 9.5h.01"></path>
+	{:else if name === 'pause'}
+		<rect x="6" y="4" width="4" height="16" rx="1.5"></rect>
+		<rect x="14" y="4" width="4" height="16" rx="1.5"></rect>
+	{:else if name === 'skip-back'}
+		<path d="M19 20 9 12l10-8Z"></path>
+		<path d="M5 19V5"></path>
+	{:else if name === 'skip-forward'}
+		<path d="m5 4 10 8-10 8Z"></path>
+		<path d="M19 5v14"></path>
+	{:else if name === 'volume-2'}
+		<path d="M11 5 6 9H2v6h4l5 4Z"></path>
+		<path d="M15.5 8.5a5 5 0 0 1 0 7"></path>
+		<path d="M18.5 5.5a9 9 0 0 1 0 13"></path>
+	{:else if name === 'volume-1'}
+		<path d="M11 5 6 9H2v6h4l5 4Z"></path>
+		<path d="M15.5 8.5a5 5 0 0 1 0 7"></path>
+	{:else if name === 'volume-x'}
+		<path d="M11 5 6 9H2v6h4l5 4Z"></path>
+		<path d="m22 9-6 6M16 9l6 6"></path>
+	{:else if name === 'spotify'}
+		<circle cx="12" cy="12" r="10"></circle>
+		<path d="M7.2 9.2c3.1-1 7.2-.7 10 .9"></path>
+		<path d="M8 12.2c2.5-.7 5.7-.4 7.8.9"></path>
+		<path d="M8.8 15c2-.5 4.2-.3 5.7.6"></path>
+	{:else if name === 'headphones'}
+		<path d="M4 13v4a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H4Z"></path>
+		<path d="M15 12h1a2 2 0 0 1 2 2v3a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2Z"></path>
+		<path d="M4 13a8 8 0 0 1 16 0"></path>
+	{:else if name === 'disc'}
+		<circle cx="12" cy="12" r="10"></circle>
+		<circle cx="12" cy="12" r="2.5"></circle>
+	{:else if name === 'list-music'}
+		<path d="M15 4h6M15 8h6M15 12h6"></path>
+		<path d="M8 18V6l5-1"></path>
+		<circle cx="6" cy="18" r="2"></circle>
+	{:else if name === 'chevron-up'}
+		<path d="m18 15-6-6-6 6"></path>
 	{:else}
 		<circle cx="12" cy="12" r="9"></circle>
 		<path d="M3 12h18"></path>
