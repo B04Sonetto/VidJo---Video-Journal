@@ -186,7 +186,9 @@
 	const isAdmin = $derived((profile.profile?.user_role ?? '').trim().toLowerCase() === 'admin');
 
 	// Look the detail post up by id so reactions/comments stay live in the modal.
-	let detailPost = $derived(detailPostId ? (allPosts.find((post) => post.id === detailPostId) ?? null) : null);
+	let detailPost = $derived(
+		detailPostId ? (allPosts.find((post) => post.id === detailPostId) ?? null) : null
+	);
 
 	let memberPosts = $derived.by(() => {
 		const joined = community.joinedSlugs;
@@ -233,7 +235,9 @@
 	function hotScore(post: CommunityPost) {
 		const posted = new Date(`${post.date}T00:00:00`).getTime();
 		const ageDays = Number.isNaN(posted) ? 0 : Math.max(0, (Date.now() - posted) / DAY_MS);
-		return (totalCheers(post.reactions) + post.comments.length * 0.75) / Math.pow(ageDays + 2, 1.35);
+		return (
+			(totalCheers(post.reactions) + post.comments.length * 0.75) / Math.pow(ageDays + 2, 1.35)
+		);
 	}
 
 	function sortedComments(post: CommunityPost) {
@@ -245,8 +249,7 @@
 		return list.sort(
 			(a, b) =>
 				community.commentReactionScoreSince(b, days) -
-					community.commentReactionScoreSince(a, days) ||
-				(b.createdAt ?? 0) - (a.createdAt ?? 0)
+					community.commentReactionScoreSince(a, days) || (b.createdAt ?? 0) - (a.createdAt ?? 0)
 		);
 	}
 
@@ -899,7 +902,7 @@
 									controls
 									playsinline
 									preload="metadata"
-									class="modal-video max-h-[290px] w-full bg-black object-contain"
+									class="max-h-[290px] w-full modal-video bg-black object-contain"
 								></video>
 								<span
 									class="pointer-events-none absolute top-2 left-2 rounded-full bg-desk/90 px-2 py-0.5 font-ui text-[9px] font-bold text-book-bg"
@@ -1147,23 +1150,25 @@
 								<div class="p-2.5">
 									<span class="mb-2 block font-ui text-[10px] font-semibold text-book-ink/70">
 										Community notes
-											<label class="ml-2 inline-flex items-center gap-1 font-ui text-[9px] font-normal text-book-ink/60">
-												Sort
-												<select
-													bind:value={commentSort}
-													aria-label="Sort community notes"
-													class="rounded-md border border-line bg-book-bg px-1.5 py-0.5 font-ui text-[9px] font-semibold text-book-ink focus:border-book-accent focus:outline-none"
-												>
-													<option value="newest">Newest</option>
-													<option value="top">Top</option>
-													<option value="week">This week</option>
-													<option value="month">This month</option>
-												</select>
-											</label>
+										<label
+											class="ml-2 inline-flex items-center gap-1 font-ui text-[9px] font-normal text-book-ink/60"
+										>
+											Sort
+											<select
+												bind:value={commentSort}
+												aria-label="Sort community notes"
+												class="rounded-md border border-line bg-book-bg px-1.5 py-0.5 font-ui text-[9px] font-semibold text-book-ink focus:border-book-accent focus:outline-none"
+											>
+												<option value="newest">Newest</option>
+												<option value="top">Top</option>
+												<option value="week">This week</option>
+												<option value="month">This month</option>
+											</select>
+										</label>
 									</span>
 
 									{#if post.comments.length > 0}
-										<div class="modal-scroll mb-2.5 max-h-[240px] space-y-2 overflow-y-auto pr-1">
+										<div class="mb-2.5 max-h-[240px] modal-scroll space-y-2 overflow-y-auto pr-1">
 											{#each sortedComments(post) as comment (comment.id)}
 												<div class="flex items-start gap-2 rounded-lg bg-paper-deep/80 p-2">
 													<Avatar
@@ -1235,19 +1240,21 @@
 														>
 															{censor(comment.text)}
 														</p>
-																												<div class="mt-1.5 flex flex-wrap items-center gap-1">
+														<div class="mt-1.5 flex flex-wrap items-center gap-1">
 															{#each REACTIONS as reaction (reaction.key)}
 																<button
 																	type="button"
-																	class="inline-flex items-center gap-0.5 rounded-full border px-1.5 py-0.5 font-ui text-[9px] font-bold transition-colors {(comment.userReactions ?? []).includes(
-																		reaction.key
-																	)
+																	class="inline-flex items-center gap-0.5 rounded-full border px-1.5 py-0.5 font-ui text-[9px] font-bold transition-colors {(
+																		comment.userReactions ?? []
+																	).includes(reaction.key)
 																		? reaction.active
 																		: 'border-line bg-book-bg text-book-ink/60 hover:bg-paper-deep'}"
 																	onclick={() =>
 																		community.toggleCommentReaction(post, comment, reaction.key)}
 																	aria-label={reaction.label}
-																	aria-pressed={(comment.userReactions ?? []).includes(reaction.key)}
+																	aria-pressed={(comment.userReactions ?? []).includes(
+																		reaction.key
+																	)}
 																>
 																	<CommunityIcon name={reaction.icon} size={10} />
 																	<span class="tabular-nums"
@@ -1267,7 +1274,12 @@
 																			<button
 																				type="button"
 																				class="rounded-md bg-[#9A5B5B] px-1.5 py-0.5 font-ui text-[9px] font-bold text-white hover:bg-[#7E4747]"
-																				onclick={() => deleteComment(post, comment.id, comment.authorId === auth.ownerId)}
+																				onclick={() =>
+																					deleteComment(
+																						post,
+																						comment.id,
+																						comment.authorId === auth.ownerId
+																					)}
 																			>
 																				Yes, delete
 																			</button>
@@ -1294,7 +1306,9 @@
 																			class="font-ui text-[9px] text-book-ink/70 hover:text-red-600"
 																			onclick={() => (commentConfirmId = comment.id)}
 																		>
-																			{isAdmin && comment.authorId !== auth.ownerId ? 'Remove (admin)' : 'Delete'}
+																			{isAdmin && comment.authorId !== auth.ownerId
+																				? 'Remove (admin)'
+																				: 'Delete'}
 																		</button>
 																	{/if}
 																{:else}
@@ -1437,7 +1451,7 @@
 					{/if}
 				</p>
 
-								{#if deleteHasVideo}
+				{#if deleteHasVideo}
 					<div class="mt-4 rounded-xl border border-amber-400/60 bg-amber-50/90 p-3">
 						<div class="flex items-start gap-2">
 							<CommunityIcon name="alert" size={16} class="mt-0.5 shrink-0 text-amber-700" />

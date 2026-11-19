@@ -584,7 +584,7 @@
 				</nav>
 
 				<!-- Body -->
-				<div class="modal-scroll min-h-0 flex-1 overflow-y-auto px-4 py-5 sm:px-7 sm:py-6">
+				<div class="min-h-0 flex-1 modal-scroll overflow-y-auto px-4 py-5 sm:px-7 sm:py-6">
 					{#if error}
 						<p
 							class="mb-4 rounded-xl border border-danger/60 bg-danger/20 px-4 py-3 font-ui text-sm text-danger-soft"
@@ -902,16 +902,16 @@
 
 											{#if report.reported_user_id}
 												<div class="flex flex-wrap gap-2">
-														<Button
-															size="sm"
-															variant="danger"
-															icon="trash"
-															loading={busyDeleteComment === report.comment_id}
-															disabled={Boolean(busyWarn || busyUser || busyDeleteComment)}
-															onclick={() => void deleteReportedComment(report)}
-														>
-															Delete comment
-														</Button>
+													<Button
+														size="sm"
+														variant="danger"
+														icon="trash"
+														loading={busyDeleteComment === report.comment_id}
+														disabled={Boolean(busyWarn || busyUser || busyDeleteComment)}
+														onclick={() => void deleteReportedComment(report)}
+													>
+														Delete comment
+													</Button>
 													<Button
 														size="sm"
 														variant="outline"

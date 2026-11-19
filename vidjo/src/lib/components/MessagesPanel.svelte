@@ -597,7 +597,7 @@
 					</button>
 				</div>
 
-				<div class="modal-scroll min-h-0 flex-1 overflow-y-auto p-2">
+				<div class="min-h-0 flex-1 modal-scroll overflow-y-auto p-2">
 					{#if friends.friends.length === 0}
 						<p class="px-4 py-8 text-center font-hand text-lg leading-snug text-book-ink/70">
 							Add a friend first. Messaging only works between friends.

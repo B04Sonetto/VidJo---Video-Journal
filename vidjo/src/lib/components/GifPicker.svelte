@@ -213,7 +213,7 @@
 				</div>
 			</form>
 
-			<div class="modal-scroll min-h-0 flex-1 overflow-y-auto p-3">
+			<div class="min-h-0 flex-1 modal-scroll overflow-y-auto p-3">
 				{#if loading}
 					<div class="grid grid-cols-3 gap-1.5" role="status" aria-label="Loading GIFs">
 						{#each skeletonSlots as slot (slot)}

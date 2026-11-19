@@ -8,7 +8,6 @@
 	import { censor } from '#lib/censor';
 	import Avatar from '#lib/components/Avatar.svelte';
 	import CommunityIcon from '#lib/components/CommunityIcon.svelte';
-	import Button from '#lib/components/ui/Button.svelte';
 	import type { CommunityPost, FriendPostReaction } from '#lib/types';
 
 	let {
@@ -36,8 +35,7 @@
 		return list.sort(
 			(a, b) =>
 				community.commentReactionScoreSince(b, days) -
-					community.commentReactionScoreSince(a, days) ||
-				(b.createdAt ?? 0) - (a.createdAt ?? 0)
+					community.commentReactionScoreSince(a, days) || (b.createdAt ?? 0) - (a.createdAt ?? 0)
 		);
 	}
 
@@ -80,9 +78,7 @@
 	let commentConfirmId = $state<string | null>(null);
 
 	const isAdmin = $derived((profile.profile?.user_role ?? '').trim().toLowerCase() === 'admin');
-	const canRemove = $derived(
-		post.isOwner || post.authorId === auth.ownerId || isAdmin
-	);
+	const canRemove = $derived(post.isOwner || post.authorId === auth.ownerId || isAdmin);
 	const mood = $derived(post.mood && MOOD_BY_KEY[post.mood] ? MOOD_BY_KEY[post.mood] : null);
 
 	const stickers = $derived.by(() => {
@@ -223,7 +219,9 @@
 		</div>
 
 		<!-- Scrollable content -->
-		<div class="modal-scroll min-h-0 flex-1 overflow-x-hidden overflow-y-auto px-4 py-5 min-[720px]:px-6">
+		<div
+			class="min-h-0 flex-1 modal-scroll overflow-x-hidden overflow-y-auto px-4 py-5 min-[720px]:px-6"
+		>
 			<!-- Media -->
 			{#if post.videoUrl}
 				<div class="overflow-hidden rounded-[3px] border border-line bg-black">
@@ -234,7 +232,7 @@
 						controls
 						playsinline
 						preload="metadata"
-						class="modal-video max-h-[420px] w-full bg-black object-contain"
+						class="max-h-[420px] w-full modal-video bg-black object-contain"
 					></video>
 				</div>
 			{:else if post.videoPath || post.videoName}
@@ -255,7 +253,10 @@
 					class="flex aspect-[16/9] flex-col items-center justify-center rounded-[3px] border border-line"
 					style="background: radial-gradient(circle at 50% 32%, {mood.c} 0%, var(--color-book-bg) 80%)"
 				>
-					<span class="size-28 drop-shadow-[0_6px_10px_rgba(0,0,0,.18)] [&>svg]:size-full" aria-hidden="true">
+					<span
+						class="size-28 drop-shadow-[0_6px_10px_rgba(0,0,0,.18)] [&>svg]:size-full"
+						aria-hidden="true"
+					>
 						<!-- eslint-disable-next-line svelte/no-at-html-tags -- trusted static mood SVG from app data -->
 						{@html mood.svg}
 					</span>
@@ -267,28 +268,38 @@
 
 			<!-- Title -->
 			{#if post.title}
-				<h2 class="mt-5 font-hand text-[30px] leading-[1.1] font-bold [overflow-wrap:anywhere] text-book-ink">
+				<h2
+					class="mt-5 font-hand text-[30px] leading-[1.1] font-bold [overflow-wrap:anywhere] text-book-ink"
+				>
 					{censor(post.title)}
 				</h2>
 			{/if}
 
 			<!-- Body -->
 			{#if post.mind}
-				<div class="mt-4 rounded border border-line/70 bg-book-bg paper-lined [background-position:0_6px] px-4 py-3">
-					<p class="font-hand text-[19px] leading-[32px] [overflow-wrap:anywhere] whitespace-pre-wrap text-book-ink">
+				<div
+					class="mt-4 rounded border border-line/70 bg-book-bg paper-lined [background-position:0_6px] px-4 py-3"
+				>
+					<p
+						class="font-hand text-[19px] leading-[32px] [overflow-wrap:anywhere] whitespace-pre-wrap text-book-ink"
+					>
 						{censor(post.mind)}
 					</p>
 				</div>
 			{/if}
 
 			{#if post.refl}
-				<div class="mt-3 flex items-start gap-2 rounded border border-line bg-paper-deep/80 px-3 py-2.5">
+				<div
+					class="mt-3 flex items-start gap-2 rounded border border-line bg-paper-deep/80 px-3 py-2.5"
+				>
 					<span class="mt-0.5 text-sm font-bold text-book-accent" aria-hidden="true">
 						<CommunityIcon name="star" size={14} />
 					</span>
 					<div class="min-w-0">
 						<span class="block font-ui text-[10px] font-semibold text-book-accent">Reflection</span>
-						<p class="mt-0.5 font-hand text-base leading-snug font-semibold [overflow-wrap:anywhere] whitespace-pre-wrap text-book-ink">
+						<p
+							class="mt-0.5 font-hand text-base leading-snug font-semibold [overflow-wrap:anywhere] whitespace-pre-wrap text-book-ink"
+						>
 							{censor(post.refl)}
 						</p>
 					</div>
@@ -299,7 +310,9 @@
 				<div class="mt-4 flex flex-wrap items-center gap-2 border-t border-line/60 pt-4">
 					{#each stickers as sticker, i (i)}
 						<span
-							class="inline-block w-10 {sticker.flat ? 'sticker-flat' : 'sticker-shadow'} [&>svg]:block [&>svg]:h-auto [&>svg]:w-full"
+							class="inline-block w-10 {sticker.flat
+								? 'sticker-flat'
+								: 'sticker-shadow'} [&>svg]:block [&>svg]:h-auto [&>svg]:w-full"
 							style="transform: rotate({stickerTilt(sticker.rot, i)}deg)"
 							aria-hidden="true"
 						>
@@ -340,7 +353,9 @@
 				<div class="p-3 min-[720px]:p-4">
 					<span class="mb-3 block font-ui text-[11px] font-semibold text-book-ink/70">
 						Community notes ({post.comments.length})
-						<label class="ml-2 inline-flex items-center gap-1 font-ui text-[9px] font-normal text-book-ink/60">
+						<label
+							class="ml-2 inline-flex items-center gap-1 font-ui text-[9px] font-normal text-book-ink/60"
+						>
 							Sort
 							<select
 								bind:value={commentSort}
@@ -356,7 +371,7 @@
 					</span>
 
 					{#if post.comments.length > 0}
-						<div class="modal-scroll mb-3 max-h-[320px] space-y-2 overflow-y-auto pr-1">
+						<div class="mb-3 max-h-[320px] modal-scroll space-y-2 overflow-y-auto pr-1">
 							{#each sortedComments() as comment (comment.id)}
 								<div class="flex items-start gap-2 rounded-lg bg-paper-deep/80 p-2.5">
 									<button
@@ -384,10 +399,15 @@
 													{comment.authorName}
 												</button>
 												{#if comment.authorId === auth.ownerId}
-													<span class="rounded-full bg-book-accent/15 px-1.5 py-0.5 font-ui text-[8px] font-bold text-book-accent">You</span>
+													<span
+														class="rounded-full bg-book-accent/15 px-1.5 py-0.5 font-ui text-[8px] font-bold text-book-accent"
+														>You</span
+													>
 												{/if}
 											</div>
-											<time class="shrink-0 font-ui text-[9px] text-book-ink/70">{comment.time}</time>
+											<time class="shrink-0 font-ui text-[9px] text-book-ink/70"
+												>{comment.time}</time
+											>
 										</div>
 
 										{#if editingCommentId === comment.id}
@@ -433,13 +453,13 @@
 											{censor(comment.text)}
 										</p>
 
-																				<div class="mt-2 flex flex-wrap items-center gap-1">
+										<div class="mt-2 flex flex-wrap items-center gap-1">
 											{#each REACTIONS as reaction (reaction.key)}
 												<button
 													type="button"
-													class="inline-flex items-center gap-1 rounded-full border px-2 py-0.5 font-ui text-[10px] font-bold transition-colors {(comment.userReactions ?? []).includes(
-														reaction.key
-													)
+													class="inline-flex items-center gap-1 rounded-full border px-2 py-0.5 font-ui text-[10px] font-bold transition-colors {(
+														comment.userReactions ?? []
+													).includes(reaction.key)
 														? reaction.active
 														: 'border-line bg-book-bg text-book-ink/60 hover:bg-paper-deep'}"
 													onclick={() =>
@@ -458,11 +478,14 @@
 												{#if comment.authorId === auth.ownerId || isAdmin}
 													{#if commentConfirmId === comment.id}
 														<div class="flex flex-wrap items-center gap-2">
-															<span class="font-ui text-[9px] font-semibold text-[#9A5B5B]">Delete this note?</span>
+															<span class="font-ui text-[9px] font-semibold text-[#9A5B5B]"
+																>Delete this note?</span
+															>
 															<button
 																type="button"
 																class="rounded-md bg-[#9A5B5B] px-2 py-0.5 font-ui text-[9px] font-bold text-white hover:bg-[#7E4747]"
-																onclick={() => deleteComment(comment.id, comment.authorId === auth.ownerId)}
+																onclick={() =>
+																	deleteComment(comment.id, comment.authorId === auth.ownerId)}
 															>
 																Yes, delete
 															</button>
@@ -477,19 +500,21 @@
 													{:else}
 														{#if comment.authorId === auth.ownerId}
 															<button
-															type="button"
-															class="font-ui text-[9px] text-book-ink/70 hover:text-book-accent"
-															onclick={() => startEditComment(comment.id, comment.text)}
-														>
-															Edit
-														</button>
+																type="button"
+																class="font-ui text-[9px] text-book-ink/70 hover:text-book-accent"
+																onclick={() => startEditComment(comment.id, comment.text)}
+															>
+																Edit
+															</button>
 														{/if}
 														<button
 															type="button"
 															class="ml-3 font-ui text-[9px] text-book-ink/70 hover:text-red-600"
 															onclick={() => (commentConfirmId = comment.id)}
 														>
-															{isAdmin && comment.authorId !== auth.ownerId ? 'Remove (admin)' : 'Delete'}
+															{isAdmin && comment.authorId !== auth.ownerId
+																? 'Remove (admin)'
+																: 'Delete'}
 														</button>
 													{/if}
 												{:else}
@@ -522,7 +547,10 @@
 							maxlength={COMMENT_MAX}
 							class="h-10 min-w-0 flex-1 rounded-lg border border-line bg-book-bg px-3 font-ui text-xs text-book-ink placeholder:text-book-ink/45 focus:border-book-accent focus:outline-none"
 						/>
-						<span class="shrink-0 font-ui text-[9px] text-book-ink/60 tabular-nums" aria-hidden="true">
+						<span
+							class="shrink-0 font-ui text-[9px] text-book-ink/60 tabular-nums"
+							aria-hidden="true"
+						>
 							{commentText.length}/{COMMENT_MAX}
 						</span>
 						<button

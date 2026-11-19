@@ -155,7 +155,7 @@
 			</div>
 
 			<!-- Body -->
-			<div class="modal-scroll flex-1 overflow-y-auto px-6 py-5">
+			<div class="flex-1 modal-scroll overflow-y-auto px-6 py-5">
 				{#if currentTab === 'friends'}
 					<!-- FRIENDS VIEW -->
 					<div class="flex flex-col gap-5">

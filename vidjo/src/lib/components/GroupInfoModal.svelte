@@ -138,7 +138,7 @@
 				</button>
 			</div>
 
-			<div class="modal-scroll min-h-0 flex-1 overflow-y-auto px-5 py-4">
+			<div class="min-h-0 flex-1 modal-scroll overflow-y-auto px-5 py-4">
 				{#if isOwner}
 					<div class="flex flex-wrap gap-2">
 						<button
@@ -196,7 +196,7 @@
 									All of your friends are already here.
 								</p>
 							{:else}
-								<ul class="modal-scroll max-h-[190px] space-y-1 overflow-y-auto">
+								<ul class="max-h-[190px] modal-scroll space-y-1 overflow-y-auto">
 									{#each available as friend (friend.id)}
 										{@const checked = selected.includes(friend.id)}
 										<li>
