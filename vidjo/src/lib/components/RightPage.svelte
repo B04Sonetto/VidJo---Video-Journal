@@ -5,7 +5,6 @@
 	import { journal, TITLE_MAX } from '#lib/state/journal.svelte';
 	import { friends } from '#lib/state/friends.svelte';
 	import { community } from '#lib/state/community.svelte';
-	import { nav } from '#lib/state/navigation.svelte';
 	import { viewport } from '#lib/state/viewport.svelte';
 	import CommunityIcon from '#lib/components/CommunityIcon.svelte';
 	import WritingModal from '#lib/components/WritingModal.svelte';
@@ -202,7 +201,7 @@
 
 	<!-- Each writing area scrolls on its own so the sharing + save row always
 	     stays on the same line as the journal, no matter how much is written. -->
-	<div class="relative mt-3 h-[170px] shrink-0 min-[640px]:h-[196px]">
+	<div class="relative mt-3 h-[132px] shrink-0 min-[640px]:h-[148px]">
 		<textarea
 			bind:this={mindEl}
 			id={`${id}-mind`}
@@ -299,61 +298,26 @@
 		</div>
 	{/if}
 
-	<!-- Community target and Save share one row that stays visible with the
-	     journal instead of spilling onto a new line or below the fold. -->
+	<!-- Save stays on the same row as the journal. The community picker is
+	     hidden for now; when community sharing is on, the button compacts. -->
 	<div
-		class="sticky z-[2] mt-1.5 flex shrink-0 items-center gap-2 border-t border-line/70 bg-[var(--color-book-bg)] pt-2 pb-1 {viewport.single
+		class="sticky z-[2] mt-1.5 flex shrink-0 items-center justify-between gap-2 border-t border-line/70 bg-[var(--color-book-bg)] pt-2 pb-1 {viewport.single
 			? 'bottom-[76px]'
 			: 'bottom-0'}"
 	>
-		{#if sharingWithCommunity && !preview}
-			{#if community.joinedCommunities.length === 0}
-				<Button
-					size="sm"
-					icon="globe"
-					class="min-w-0 flex-1"
-					onclick={() => nav.setView('community')}
-				>
-					Find communities
-				</Button>
-			{:else}
-				<div class="flex min-w-0 flex-1 items-center gap-1.5">
-					<CommunityIcon name="globe" size={14} class="shrink-0 text-accent" />
-					<label class="sr-only" for={`${id}-community`}>Post to community</label>
-					<select
-						id={`${id}-community`}
-						class="h-10 min-w-0 flex-1 rounded-lg border border-line bg-paper px-2.5 font-ui text-sm text-ink focus:border-accent focus:outline-none"
-						value={entry.communitySlug}
-						onchange={(event) => journal.setCommunity(event.currentTarget.value)}
-					>
-						<option value="">Choose a community…</option>
-						{#each community.joinedCommunities as item (item.slug)}
-							<option value={item.slug}>{item.tag} — {item.name}</option>
-						{/each}
-					</select>
-				</div>
-			{/if}
-		{:else}
-			<span class="min-w-0 flex-1 truncate font-hand text-base text-ink-soft">
-				{entry.title || 'Your page for today'}
-			</span>
-		{/if}
-
-		<span
-			class="hidden font-ui text-xs font-semibold text-ink-muted tabular-nums min-[520px]:inline"
-		>
+		<span class="font-ui text-xs font-semibold text-ink-muted tabular-nums">
 			{pageNumber}
 		</span>
 
 		<Button
-			size="lg"
-			class="h-11 shrink-0 px-4"
+			size={sharingWithCommunity && !preview ? 'sm' : 'md'}
+			class={sharingWithCommunity && !preview ? 'h-9 shrink-0 px-3' : 'h-10 shrink-0 px-4'}
 			icon="check"
 			loading={saving}
 			disabled={preview}
 			onclick={save}
 		>
-			{saving ? 'Saving…' : 'Save this page'}
+			{saving ? 'Saving…' : sharingWithCommunity && !preview ? 'Save' : 'Save this page'}
 		</Button>
 	</div>
 
