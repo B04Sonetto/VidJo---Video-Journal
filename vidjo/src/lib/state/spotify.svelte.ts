@@ -365,18 +365,59 @@ class SpotifyState {
 		return '';
 	}
 
-	private async fetchRecommendedTracks(seed: SpotifyTrack, count = 5): Promise<SpotifyTrack[]> {
+	private async fetchRecommendedTracks(
+		seed: SpotifyTrack,
+		count = 5,
+		opts: { surfaceErrors?: boolean } = {}
+	): Promise<SpotifyTrack[]> {
 		const seedId = this.getTrackId(seed);
-		if (!seedId) return [];
+		const seedUri = seed.uri || '';
+		const primaryArtist = (seed.artists || '').split(',')[0]?.trim() || '';
+		if (!seedId && !seedUri && !seed.name && !primaryArtist) return [];
 		try {
-			const res = await fetch(
-				`/api/spotify/recommendations?seed_track=${encodeURIComponent(seedId)}&limit=${count}`,
-				{ cache: 'no-store' }
-			);
+			const parts = [`limit=${encodeURIComponent(String(count))}`];
+			if (seedId) parts.push(`seed_track=${encodeURIComponent(seedId)}`);
+			if (seedUri) parts.push(`seed_uri=${encodeURIComponent(seedUri)}`);
+			if (seed.name) parts.push(`seed_name=${encodeURIComponent(seed.name)}`);
+			if (primaryArtist) parts.push(`seed_artist=${encodeURIComponent(primaryArtist)}`);
+			const res = await fetch(`/api/spotify/recommendations?${parts.join('&')}`, {
+				cache: 'no-store'
+			});
 			const data = await res.json().catch(() => ({}));
-			if (!res.ok || !Array.isArray(data?.tracks)) return [];
-			return (data.tracks as SpotifyTrack[]).filter((t) => t?.uri && t.uri !== seed.uri);
+			if (res.status === 401) {
+				this.connected = false;
+				if (opts.surfaceErrors) {
+					const msg = typeof data?.message === 'string' ? data.message : '';
+					this.error = msg || 'Spotify session expired. Reconnect to keep listening.';
+				}
+				return [];
+			}
+			if (res.status === 429) {
+				if (opts.surfaceErrors) {
+					const msg = typeof data?.message === 'string' ? data.message : '';
+					this.error = msg || 'Spotify is rate limiting requests. Try again shortly.';
+				}
+				return [];
+			}
+			if (!res.ok) {
+				if (opts.surfaceErrors) {
+					const msg = typeof data?.message === 'string' ? data.message : '';
+					this.error =
+						msg ||
+						(res.status === 404
+							? 'Could not load a recommended track (recommendations service unavailable).'
+							: 'Could not load a recommended track right now.');
+				}
+				return [];
+			}
+			if (!Array.isArray(data?.tracks)) return [];
+			return (data.tracks as SpotifyTrack[]).filter(
+				(t) => t?.uri && t.uri !== seed.uri && t.uri !== seedUri
+			);
 		} catch {
+			if (opts.surfaceErrors && !this.error) {
+				this.error = 'Could not load a recommended track right now.';
+			}
 			return [];
 		}
 	}
@@ -506,13 +547,81 @@ class SpotifyState {
 	}
 
 	private async playRecommendedFrom(seed: SpotifyTrack | null | undefined): Promise<boolean> {
-		if (!seed?.uri && !seed?.id) return false;
+		if (!seed?.uri && !seed?.id && !seed?.name && !seed?.artists) return false;
 		try {
-			const recs = await this.fetchRecommendedTracks(seed as SpotifyTrack, 6);
-			const nextTrack = recs.find((t) => t.uri && t.uri !== seed?.uri);
-			if (nextTrack) {
-				await this.playTrack(nextTrack);
-				return true;
+			const primary = seed as SpotifyTrack;
+			const attempts: SpotifyTrack[] = [primary];
+			const primaryArtist = (primary.artists || '').split(',')[0]?.trim() || '';
+			if (primaryArtist || primary.name) {
+				attempts.push({
+					uri: primary.uri || '',
+					id: primary.id || '',
+					name: '',
+					artists: primaryArtist
+				});
+			}
+			if (primary.name) {
+				attempts.push({
+					uri: primary.uri || '',
+					id: primary.id || '',
+					name: primary.name,
+					artists: ''
+				});
+			}
+			// Final generic fallbacks so "next" can keep playing even if similarity lookup fails.
+			attempts.push({ uri: '', id: '', name: "today's top hits", artists: '' });
+			attempts.push({ uri: '', id: '', name: 'popular', artists: '' });
+			attempts.push({ uri: '', id: '', name: 'top hits', artists: '' });
+
+			for (const attempt of attempts) {
+				const recs = await this.fetchRecommendedTracks(attempt, 8, {
+					surfaceErrors: true
+				});
+				const nextTrack = recs.find((t) => t.uri && t.uri !== primary.uri);
+				if (nextTrack) {
+					await this.playTrack(nextTrack);
+					return true;
+				}
+				// If auth/rate-limit was surfaced, don't loop into noisy fallbacks.
+				if (this.error) break;
+			}
+
+			// Last-resort: use search endpoint directly to pick any different playable track.
+			if (!this.error && this.connected) {
+				const queries = Array.from(
+					new Set(
+						["today's top hits", 'viral hits', 'top hits', 'popular', primaryArtist].filter(Boolean)
+					)
+				);
+				for (const q of queries) {
+					try {
+						const res = await fetch(`/api/spotify/search?q=${encodeURIComponent(q)}`, {
+							cache: 'no-store'
+						});
+						const data = await res.json().catch(() => ({}));
+						if (res.status === 401) {
+							this.connected = false;
+							const msg = typeof data?.message === 'string' ? data.message : '';
+							this.error = msg || 'Spotify session expired. Reconnect to keep listening.';
+							return false;
+						}
+						if (res.status === 429) {
+							const msg = typeof data?.message === 'string' ? data.message : '';
+							this.error = msg || 'Spotify is rate limiting requests. Try again shortly.';
+							return false;
+						}
+						if (!res.ok || !Array.isArray(data?.tracks)) continue;
+						const nextTrack = (data.tracks as SpotifyTrack[]).find(
+							(t) => t?.uri && t.uri !== primary.uri
+						);
+						if (nextTrack) {
+							await this.playTrack(nextTrack);
+							return true;
+						}
+					} catch {
+						// try next query
+					}
+				}
 			}
 		} catch {
 			// ignore
@@ -544,17 +653,24 @@ class SpotifyState {
 				duration_ms: currentSdkTrack?.duration_ms || this.track?.duration_ms || 0
 			};
 
-			// If there's no queued next track, keep listening with a recommended track.
-			if (nextTracks.length === 0) {
+			// If the SDK reports no queued next track (or state unavailable), keep listening
+			// with a recommendation so "next" doesn't go silent.
+			const hasKnownQueuedNext = Boolean(state) && nextTracks.length > 0;
+			if (!hasKnownQueuedNext) {
 				if (await this.playRecommendedFrom(seed)) return;
-				this.error = 'Could not find a recommended track to play next.';
-				return;
+				// If we couldn't read state, still try the SDK as a last attempt.
+				if (state && !this.error && this.connected) {
+					this.error = 'Could not find a recommended track to play next.';
+					return;
+				}
 			}
 
 			await this.player.nextTrack();
 		} catch {
 			if (await this.playRecommendedFrom(seedFromTrack)) return;
-			this.error = 'Could not skip track.';
+			if (!this.error && this.connected) {
+				this.error = 'Could not skip track.';
+			}
 		}
 	}
 

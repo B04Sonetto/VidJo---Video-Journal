@@ -44,8 +44,10 @@ function mapTrack(track: Record<string, unknown>) {
 	};
 }
 
-function dedupeTracks(items: unknown[], seedId: string, limit: number) {
-	const seen = new Set<string>(seedId ? [seedId] : []);
+function dedupeTracks(items: unknown[], seedId: string, seedUri: string, limit: number) {
+	const seen = new Set<string>();
+	if (seedId) seen.add(seedId);
+	if (seedUri) seen.add(seedUri);
 	const tracks: ReturnType<typeof mapTrack>[] = [];
 	for (const item of items) {
 		const rec = asRecord(item);
@@ -55,12 +57,51 @@ function dedupeTracks(items: unknown[], seedId: string, limit: number) {
 		const id =
 			mapped.id ||
 			(mapped.uri.startsWith('spotify:track:') ? mapped.uri.split(':').pop() || '' : '');
-		if (id && seen.has(id)) continue;
+		if ((id && seen.has(id)) || seen.has(mapped.uri)) continue;
 		if (id) seen.add(id);
+		seen.add(mapped.uri);
 		tracks.push(mapped);
 		if (tracks.length >= limit) break;
 	}
 	return tracks;
+}
+
+async function parseBody(res: Response): Promise<unknown> {
+	const raw = await res.text();
+	if (!raw) return null;
+	try {
+		return JSON.parse(raw) as unknown;
+	} catch {
+		return { raw };
+	}
+}
+
+async function searchTracks(
+	token: string,
+	q: string,
+	seedId: string,
+	seedUri: string,
+	limit: number
+) {
+	const searchParams = new URLSearchParams({
+		q,
+		type: 'track',
+		limit: String(Math.min(Math.max(limit + 10, 10), 20)),
+		market: 'from_token'
+	});
+	const res = await spotifyApi(`/search?${searchParams.toString()}`, token);
+	const data = await parseBody(res);
+	if (!res.ok) {
+		return {
+			ok: false as const,
+			status: res.status,
+			message: extractSpotifyMessage(data) || `Spotify search failed (${res.status})`
+		};
+	}
+	const root = asRecord(data);
+	const tracksObj = asRecord(root?.tracks);
+	const items = Array.isArray(tracksObj?.items) ? (tracksObj.items as unknown[]) : [];
+	return { ok: true as const, tracks: dedupeTracks(items, seedId, seedUri, limit) };
 }
 
 export const GET: RequestHandler = async ({ url, cookies }) => {
@@ -69,96 +110,182 @@ export const GET: RequestHandler = async ({ url, cookies }) => {
 		url.searchParams.get('seed_tracks') ||
 		''
 	).trim();
-	const seedUri = (url.searchParams.get('seed_uri') || '').trim();
+	const seedUriParam = (url.searchParams.get('seed_uri') || '').trim();
 	let seedId = seedTrack;
-	if (!seedId && seedUri.startsWith('spotify:track:')) {
-		seedId = seedUri.split(':').pop() || '';
+	if (!seedId && seedUriParam.startsWith('spotify:track:')) {
+		seedId = seedUriParam.split(':').pop() || '';
 	}
+	const seedUri = seedUriParam || (seedId ? `spotify:track:${seedId}` : '');
+	let seedName = (url.searchParams.get('seed_name') || '').trim();
+	let seedArtist = (url.searchParams.get('seed_artist') || '').trim();
+	let seedArtistId = '';
 
 	const limit = Math.max(1, Math.min(Number(url.searchParams.get('limit')) || 5, 10));
-	if (!seedId) return json({ tracks: [], error: 'missing_seed' }, { status: 400 });
+	if (!seedId && !seedName && !seedArtist) {
+		return json({ tracks: [], error: 'missing_seed' }, { status: 400 });
+	}
 
 	try {
 		const token = await getAccessToken(cookies);
 		if (!token) return json({ tracks: [], error: 'not_connected' }, { status: 401 });
 
-		// 1) Try Spotify recommendations (may be unavailable for some apps/endpoints).
-		try {
-			const params = new URLSearchParams({
-				limit: String(limit),
-				seed_tracks: seedId,
-				market: 'from_token'
-			});
-			const res = await spotifyApi(`/recommendations?${params.toString()}`, token.access_token);
-			const raw = await res.text();
-			let data: unknown = null;
-			try {
-				data = raw ? (JSON.parse(raw) as unknown) : null;
-			} catch {
-				data = raw ? { raw } : null;
-			}
-			if (res.ok) {
-				const root = asRecord(data);
-				const items = Array.isArray(root?.tracks) ? (root.tracks as unknown[]) : [];
-				const tracks = dedupeTracks(items, seedId, limit);
-				if (tracks.length) return json({ tracks });
-			}
-		} catch {
-			// fall through to search fallback
-		}
-
-		// 2) Fallback: find similar tracks via search using the seed track's artist/name.
-		let seedName = (url.searchParams.get('seed_name') || '').trim();
-		let seedArtist = (url.searchParams.get('seed_artist') || '').trim();
-		if (!seedName || !seedArtist) {
+		// Resolve seed metadata early (helps all fallbacks).
+		if (seedId) {
 			try {
 				const trackRes = await spotifyApi(
 					`/tracks/${encodeURIComponent(seedId)}?market=from_token`,
 					token.access_token
 				);
 				if (trackRes.ok) {
-					const t = asRecord(await trackRes.json().catch(() => null));
+					const t = asRecord(await parseBody(trackRes));
 					if (t) {
 						if (!seedName && typeof t.name === 'string') seedName = t.name;
 						const artists = Array.isArray(t.artists) ? t.artists : [];
 						const a0 = asRecord(artists[0]);
 						if (!seedArtist && a0 && typeof a0.name === 'string') seedArtist = a0.name;
+						if (!seedArtistId && a0 && typeof a0.id === 'string') seedArtistId = a0.id;
 					}
+				} else if (trackRes.status === 401) {
+					return json(
+						{
+							tracks: [],
+							error: 'not_connected',
+							message: extractSpotifyMessage(await parseBody(trackRes))
+						},
+						{ status: 401 }
+					);
+				}
+			} catch {
+				// ignore and continue with provided hints
+			}
+		}
+
+		// 1) Try Spotify recommendations when we have a seed track id.
+		if (seedId) {
+			try {
+				const params = new URLSearchParams({
+					limit: String(limit),
+					seed_tracks: seedId,
+					market: 'from_token'
+				});
+				const res = await spotifyApi(`/recommendations?${params.toString()}`, token.access_token);
+				if (res.ok) {
+					const data = await parseBody(res);
+					const root = asRecord(data);
+					const items = Array.isArray(root?.tracks) ? (root.tracks as unknown[]) : [];
+					const tracks = dedupeTracks(items, seedId, seedUri, limit);
+					if (tracks.length) return json({ tracks });
+				}
+				// 404/400/403 etc. from recommendations are common; fall through to fallbacks.
+			} catch {
+				// fall through
+			}
+		}
+
+		// 2) Artist top tracks fallback (good "keep listening" behavior).
+		if (seedArtistId) {
+			try {
+				const topRes = await spotifyApi(
+					`/artists/${encodeURIComponent(seedArtistId)}/top-tracks?market=from_token`,
+					token.access_token
+				);
+				if (topRes.ok) {
+					const topData = asRecord(await parseBody(topRes));
+					const items = Array.isArray(topData?.tracks) ? (topData.tracks as unknown[]) : [];
+					const tracks = dedupeTracks(items, seedId, seedUri, limit);
+					if (tracks.length) return json({ tracks });
 				}
 			} catch {
 				// ignore
 			}
 		}
 
-		const queries = [
-			seedArtist ? `artist:${seedArtist}` : '',
-			seedName ? `track:${seedName}` : ''
-		].filter(Boolean);
-		const q = queries.join(' ').trim() || seedArtist || seedName || 'top hits';
-		const searchParams = new URLSearchParams({
-			q,
-			type: 'track',
-			limit: String(Math.min(limit + 5, 20)),
-			market: 'from_token'
-		});
-		const searchRes = await spotifyApi(`/search?${searchParams.toString()}`, token.access_token);
-		const searchData = asRecord(await searchRes.json().catch(() => null));
-		if (!searchRes.ok) {
+		// 3) Search-based fallbacks.
+		const primaryArtist = seedArtist.split(',')[0]?.trim() || seedArtist;
+		const cleanName = seedName
+			.replace(/[()[\]"'’]/g, ' ')
+			.replace(/\s+/g, ' ')
+			.trim();
+		const cleanArtist = primaryArtist
+			.replace(/[()[\]"'’]/g, ' ')
+			.replace(/\s+/g, ' ')
+			.trim();
+
+		const candidates = Array.from(
+			new Set(
+				[
+					cleanArtist && cleanName ? `artist:"${cleanArtist}" ${cleanName}` : '',
+					cleanArtist && cleanName ? `${cleanArtist} ${cleanName}` : '',
+					cleanArtist ? `artist:"${cleanArtist}"` : '',
+					cleanArtist || primaryArtist,
+					cleanName || seedName,
+					seedArtist && seedArtist !== primaryArtist ? seedArtist : '',
+					"today's top hits",
+					'top hits',
+					'popular',
+					'viral hits',
+					'chill hits'
+				]
+					.map((q) => q.trim())
+					.filter(Boolean)
+			)
+		);
+
+		let lastError: { status: number; message: string } | null = null;
+		for (const q of candidates) {
+			try {
+				const result = await searchTracks(token.access_token, q, seedId, seedUri, limit);
+				if (!result.ok) {
+					lastError = { status: result.status, message: result.message };
+					if (result.status === 401) {
+						return json(
+							{ tracks: [], error: 'not_connected', message: result.message },
+							{ status: 401 }
+						);
+					}
+					continue;
+				}
+				if (result.tracks.length) return json({ tracks: result.tracks });
+			} catch {
+				// try next query
+			}
+		}
+
+		// 4) Final broad searches so "next" can keep playing even without a good seed match.
+		for (const q of ['global top 50', 'pop', 'new music', 'lofi', 'indie']) {
+			try {
+				const result = await searchTracks(token.access_token, q, seedId, seedUri, limit);
+				if (!result.ok) {
+					if (!lastError) lastError = { status: result.status, message: result.message };
+					if (result.status === 401) {
+						return json(
+							{ tracks: [], error: 'not_connected', message: result.message },
+							{ status: 401 }
+						);
+					}
+					continue;
+				}
+				if (result.tracks.length) return json({ tracks: result.tracks });
+			} catch {
+				// ignore
+			}
+		}
+
+		// If every query succeeded but all results were filtered out, return empty list (client can show generic).
+		// If we saw an upstream error and never found tracks, surface it.
+		if (lastError) {
 			return json(
 				{
 					tracks: [],
 					error: 'spotify_error',
-					status: searchRes.status,
-					message: extractSpotifyMessage(searchData) || 'Could not load a recommended next track'
+					status: lastError.status,
+					message: lastError.message
 				},
-				{ status: searchRes.status }
+				{ status: lastError.status }
 			);
 		}
 
-		const tracksObj = asRecord(searchData?.tracks);
-		const items = Array.isArray(tracksObj?.items) ? (tracksObj.items as unknown[]) : [];
-		const tracks = dedupeTracks(items, seedId, limit);
-		return json({ tracks });
+		return json({ tracks: [] });
 	} catch (err) {
 		const message = err instanceof Error ? err.message : 'Recommendations failed';
 		return json({ tracks: [], error: 'recommendations_failed', message }, { status: 500 });
