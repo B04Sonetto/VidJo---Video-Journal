@@ -11,8 +11,8 @@
 	import GroupInfoModal from '#lib/components/GroupInfoModal.svelte';
 	import GifPicker from '#lib/components/GifPicker.svelte';
 	import ProfileModal from '#lib/components/ProfileModal.svelte';
+	import SharedEntryModal from '#lib/components/SharedEntryModal.svelte';
 	import { journal } from '#lib/state/journal.svelte';
-	import { nav } from '#lib/state/navigation.svelte';
 	import { giphyEnabled, type GiphyGif } from '#lib/giphy';
 	import type { DmMessage, DmThreadSummary, Friend, SharedJournalEntry } from '#lib/types';
 
@@ -28,6 +28,11 @@
 	let profileUserId = $state<string | null>(null);
 	let forwardSource = $state<DmMessage | null>(null);
 	let pagePickerOpen = $state(false);
+	let sharedEntryView = $state<{
+		entry: SharedJournalEntry;
+		senderName: string;
+		senderAvatar: string;
+	} | null>(null);
 
 	const activeThread = $derived(messages.activeThread);
 	const messageList = $derived(messages.activeMessages);
@@ -215,8 +220,13 @@
 		profileOpen = true;
 	}
 
-	function openEntry(date: string) {
-		if (nav.jump(date, 'R')) journal.toast('Opened your journal page');
+	function openEntry(entry: SharedJournalEntry, senderId: string, senderName: string) {
+		const sender = activeThread?.members.find((member) => member.id === senderId);
+		sharedEntryView = {
+			entry,
+			senderName: sender?.name || senderName || 'A friend',
+			senderAvatar: sender?.avatar || ''
+		};
 	}
 
 	function entrySnapshot(date: string): SharedJournalEntry {
@@ -934,5 +944,12 @@
 			profileOpen = false;
 			profileUserId = null;
 		}}
+	/>
+	<SharedEntryModal
+		open={sharedEntryView !== null}
+		entry={sharedEntryView?.entry ?? null}
+		senderName={sharedEntryView?.senderName ?? 'A friend'}
+		senderAvatar={sharedEntryView?.senderAvatar ?? ''}
+		onClose={() => (sharedEntryView = null)}
 	/>
 {/if}

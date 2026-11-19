@@ -200,13 +200,13 @@
 		</div>
 	</div>
 
-	<!-- The writing area keeps its height no matter which sharing options or
-	     prompt are showing; the page scrolls instead of squeezing the textarea. -->
-	<div class="relative mt-3 flex min-h-[190px] flex-1 min-[640px]:min-h-[220px]">
+	<!-- Each writing area scrolls on its own so the sharing + save row always
+	     stays on the same line as the journal, no matter how much is written. -->
+	<div class="relative mt-3 h-[170px] shrink-0 min-[640px]:h-[196px]">
 		<textarea
 			bind:this={mindEl}
 			id={`${id}-mind`}
-			class="block h-full w-full resize-none border-0 bg-transparent px-1 pb-6 font-hand text-[1.375rem] leading-[2rem] text-ink placeholder:text-ink-muted focus:ring-0 focus:outline-offset-4"
+			class="block h-full w-full resize-none overflow-y-auto overscroll-contain border-0 bg-transparent px-1 pr-3.5 pb-6 font-hand text-[1.375rem] leading-[2rem] text-ink placeholder:text-ink-muted focus:ring-0 focus:outline-offset-4"
 			class:paper-lined={journal.paper === 'lined'}
 			maxlength="500"
 			placeholder="Talk about anything: your thoughts, feelings, experiences, or just what's happening in your day."
@@ -215,7 +215,7 @@
 			value={entry.mind}
 			oninput={(event) => update({ mind: event.currentTarget.value })}></textarea>
 		<span
-			class="absolute right-1.5 -bottom-0.5 rounded bg-paper px-1 font-ui text-sm text-ink-soft tabular-nums"
+			class="absolute right-3.5 -bottom-0.5 rounded bg-paper px-1 font-ui text-sm text-ink-soft tabular-nums"
 		>
 			{entry.mind.length}/500
 		</span>
@@ -242,10 +242,10 @@
 		{/if}
 	</div>
 
-	<div class="relative shrink-0">
+	<div class="relative mt-0.5 h-[92px] shrink-0">
 		<textarea
 			id={`${id}-refl`}
-			class="block h-24 w-full resize-none border-0 bg-transparent px-1 pb-6 font-hand text-[1.375rem] leading-[2rem] text-ink placeholder:text-ink-muted focus:ring-0 focus:outline-offset-4"
+			class="block h-full w-full resize-none overflow-y-auto overscroll-contain border-0 bg-transparent px-1 pr-3.5 pb-6 font-hand text-[1.375rem] leading-[2rem] text-ink placeholder:text-ink-muted focus:ring-0 focus:outline-offset-4"
 			class:paper-lined={journal.paper === 'lined'}
 			maxlength="300"
 			placeholder="Any thoughts, lessons, or things you want to remember?"
@@ -254,7 +254,7 @@
 			value={entry.refl}
 			oninput={(event) => update({ refl: event.currentTarget.value })}></textarea>
 		<span
-			class="absolute right-1.5 -bottom-0.5 rounded bg-paper px-1 font-ui text-sm text-ink-soft tabular-nums"
+			class="absolute right-3.5 -bottom-0.5 rounded bg-paper px-1 font-ui text-sm text-ink-soft tabular-nums"
 		>
 			{entry.refl.length}/300
 		</span>
@@ -299,55 +299,62 @@
 		</div>
 	{/if}
 
-	{#if sharingWithCommunity && !preview}
-		<div class="shrink-0 rounded-xl border-2 border-line bg-paper p-2.5">
-			{#if community.joinedCommunities.length === 0}
-				<div class="flex flex-wrap items-center justify-between gap-2">
-					<p class="font-hand text-base text-ink-soft">
-						Join a community to choose where this page appears.
-					</p>
-					<Button size="sm" icon="globe" onclick={() => nav.setView('community')}>
-						Find communities
-					</Button>
-				</div>
-			{:else}
-				<label
-					class="flex items-center gap-2 font-ui text-xs font-semibold text-ink-soft"
-					for={`${id}-community`}
-				>
-					<CommunityIcon name="globe" size={14} />
-					Post to community
-				</label>
-				<select
-					id={`${id}-community`}
-					class="mt-1 h-9 w-full rounded-lg border border-line bg-paper px-3 font-ui text-sm text-ink focus:border-accent focus:outline-none"
-					value={entry.communitySlug}
-					onchange={(event) => journal.setCommunity(event.currentTarget.value)}
-				>
-					<option value="">Choose a community…</option>
-					{#each community.joinedCommunities as item (item.slug)}
-						<option value={item.slug}>{item.tag} — {item.name}</option>
-					{/each}
-				</select>
-			{/if}
-		</div>
-	{/if}
-
-	<Button
-		size="lg"
-		class="mt-1.5 h-[54px] w-full shrink-0"
-		icon="check"
-		loading={saving}
-		disabled={preview}
-		onclick={save}
-	>
-		{saving ? 'Saving…' : 'Save this page'}
-	</Button>
-
+	<!-- Community target and Save share one row that stays visible with the
+	     journal instead of spilling onto a new line or below the fold. -->
 	<div
-		class="absolute right-0 bottom-3.5 left-0 text-center font-ui text-xs font-semibold text-ink-muted tabular-nums"
+		class="sticky z-[2] mt-1.5 flex shrink-0 items-center gap-2 border-t border-line/70 bg-[var(--color-book-bg)] pt-2 pb-1 {viewport.single
+			? 'bottom-[76px]'
+			: 'bottom-0'}"
 	>
-		{pageNumber}
+		{#if sharingWithCommunity && !preview}
+			{#if community.joinedCommunities.length === 0}
+				<Button
+					size="sm"
+					icon="globe"
+					class="min-w-0 flex-1"
+					onclick={() => nav.setView('community')}
+				>
+					Find communities
+				</Button>
+			{:else}
+				<div class="flex min-w-0 flex-1 items-center gap-1.5">
+					<CommunityIcon name="globe" size={14} class="shrink-0 text-accent" />
+					<label class="sr-only" for={`${id}-community`}>Post to community</label>
+					<select
+						id={`${id}-community`}
+						class="h-10 min-w-0 flex-1 rounded-lg border border-line bg-paper px-2.5 font-ui text-sm text-ink focus:border-accent focus:outline-none"
+						value={entry.communitySlug}
+						onchange={(event) => journal.setCommunity(event.currentTarget.value)}
+					>
+						<option value="">Choose a community…</option>
+						{#each community.joinedCommunities as item (item.slug)}
+							<option value={item.slug}>{item.tag} — {item.name}</option>
+						{/each}
+					</select>
+				</div>
+			{/if}
+		{:else}
+			<span class="min-w-0 flex-1 truncate font-hand text-base text-ink-soft">
+				{entry.title || 'Your page for today'}
+			</span>
+		{/if}
+
+		<span
+			class="hidden font-ui text-xs font-semibold text-ink-muted tabular-nums min-[520px]:inline"
+		>
+			{pageNumber}
+		</span>
+
+		<Button
+			size="lg"
+			class="h-11 shrink-0 px-4"
+			icon="check"
+			loading={saving}
+			disabled={preview}
+			onclick={save}
+		>
+			{saving ? 'Saving…' : 'Save this page'}
+		</Button>
 	</div>
 
 	<StickerLayer {entry} side="R" {preview} />

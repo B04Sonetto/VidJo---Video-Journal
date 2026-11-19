@@ -274,7 +274,9 @@
 
 <div
 	bind:this={host}
-	class="relative mx-auto w-full {viewport.single ? 'max-w-[720px]' : 'max-w-[1240px]'}"
+	class="relative mx-auto w-full overflow-x-clip {viewport.single
+		? 'max-w-[720px]'
+		: 'max-w-[1240px]'}"
 	style:height={viewport.single ? null : `${740 * scale}px`}
 >
 	<div

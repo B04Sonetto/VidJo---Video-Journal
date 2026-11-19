@@ -1,9 +1,9 @@
 <script lang="ts">
-	import { tick } from 'svelte';
+	import { onDestroy, tick } from 'svelte';
 	import Avatar from '#lib/components/Avatar.svelte';
 	import CommunityIcon from '#lib/components/CommunityIcon.svelte';
 	import { censor } from '#lib/censor';
-	import type { DmMessage } from '#lib/types';
+	import type { DmMessage, SharedJournalEntry } from '#lib/types';
 
 	let {
 		message,
@@ -34,7 +34,7 @@
 		onForward: (message: DmMessage) => void;
 		onReact: (message: DmMessage, emoji: string) => void;
 		onOpenProfile: (userId: string) => void;
-		onOpenEntry: (date: string) => void;
+		onOpenEntry: (entry: SharedJournalEntry, senderId: string, senderName: string) => void;
 	} = $props();
 
 	const QUICK_REACTIONS = ['❤️', '😂', '😮', '😢', '🔥', '🎉'];
@@ -53,6 +53,14 @@
 	let editing = $state(false);
 	let editValue = $state('');
 	let editEl = $state<HTMLTextAreaElement | null>(null);
+	let wrapperEl = $state<HTMLDivElement | null>(null);
+	let longPressing = $state(false);
+
+	const LONG_PRESS_MS = 450;
+	const MOVE_TOLERANCE = 12;
+	let pressTimer: ReturnType<typeof setTimeout> | null = null;
+	let pressOrigin: { x: number; y: number } | null = null;
+	let suppressClick = false;
 
 	const isGif = $derived(Boolean(message.gifUrl));
 	const hasMedia = $derived(Boolean(message.imagePath || message.gifUrl || message.previewUrl));
@@ -126,10 +134,72 @@
 			saveEdit();
 		}
 	}
+
+	/** Touch equivalent of the desktop hover toolbar. */
+	function clearPress() {
+		if (pressTimer) clearTimeout(pressTimer);
+		pressTimer = null;
+		pressOrigin = null;
+		longPressing = false;
+	}
+
+	function pointerDown(event: PointerEvent) {
+		// Mouse and desktop already get the hover toolbar.
+		if (event.pointerType === 'mouse') return;
+		if (message.pending || isDeleted || editing) return;
+
+		clearPress();
+		suppressClick = false;
+		pressOrigin = { x: event.clientX, y: event.clientY };
+		longPressing = true;
+		pressTimer = setTimeout(() => {
+			pressTimer = null;
+			longPressing = false;
+			pressOrigin = null;
+			menuOpen = true;
+			suppressClick = true;
+			if (typeof navigator !== 'undefined' && 'vibrate' in navigator) navigator.vibrate(15);
+		}, LONG_PRESS_MS);
+	}
+
+	function pointerMove(event: PointerEvent) {
+		if (!pressOrigin) return;
+		const dx = event.clientX - pressOrigin.x;
+		const dy = event.clientY - pressOrigin.y;
+		// Let the list scroll normally; only treat a still finger as a long press.
+		if (Math.hypot(dx, dy) > MOVE_TOLERANCE) clearPress();
+	}
+
+	function pointerUp() {
+		clearPress();
+	}
+
+	function handleContextMenu(event: MouseEvent) {
+		// Touch browsers fire this on long press — show our toolbar instead.
+		event.preventDefault();
+	}
+
+	function handleClickCapture(event: MouseEvent) {
+		if (!suppressClick) return;
+		suppressClick = false;
+		event.preventDefault();
+		event.stopPropagation();
+	}
+
+	function handleWindowPointerDown(event: PointerEvent) {
+		if (!menuOpen) return;
+		const target = event.target as Node | null;
+		if (target && wrapperEl && !wrapperEl.contains(target)) menuOpen = false;
+	}
+
+	onDestroy(clearPress);
 </script>
 
+<svelte:window onpointerdown={handleWindowPointerDown} />
+
 <div
-	class="group/message flex w-full items-start gap-2 {mine ? 'flex-row-reverse' : ''} {showHeader
+	bind:this={wrapperEl}
+	class="flex w-full items-start gap-2 {mine ? 'flex-row-reverse' : ''} {showHeader
 		? 'mt-3'
 		: 'mt-0.5'}"
 >
@@ -165,17 +235,17 @@
 			</button>
 		{/if}
 
-		<div class="relative max-w-full">
+		<div class="group/message relative w-fit max-w-full">
 			<!-- Hover / focus action bar -->
 			{#if !message.pending && !isDeleted}
 				<div
-					class="pointer-events-none absolute -top-10 z-20 flex max-w-[min(420px,80vw)] items-center gap-0.5 rounded-full border border-cover-edge bg-book-bg/95 p-1 opacity-0 shadow-[0_8px_20px_rgba(0,0,0,.28)] backdrop-blur transition-opacity group-focus-within/message:pointer-events-auto group-focus-within/message:opacity-100 group-hover/message:pointer-events-auto group-hover/message:opacity-100 {mine
+					class="pointer-events-none absolute -top-[76px] z-20 flex max-w-[min(420px,86vw)] flex-wrap items-center justify-center gap-0.5 rounded-[22px] border border-cover-edge bg-book-bg/95 p-1 opacity-0 shadow-[0_8px_20px_rgba(0,0,0,.28)] backdrop-blur transition-opacity group-focus-within/message:pointer-events-auto group-focus-within/message:opacity-100 group-hover/message:pointer-events-auto group-hover/message:opacity-100 sm:-top-10 sm:flex-nowrap sm:rounded-full {mine
 						? 'right-0'
 						: 'left-0'} {menuOpen ? 'pointer-events-auto opacity-100' : ''}"
 					role="toolbar"
 					aria-label="Message actions"
 				>
-					{#each QUICK_REACTIONS as emoji}
+					{#each QUICK_REACTIONS as emoji (emoji)}
 						<button
 							type="button"
 							class="flex size-7 items-center justify-center rounded-full text-sm leading-none transition-transform hover:scale-125 hover:bg-line/40"
@@ -237,6 +307,8 @@
 			{/if}
 
 			<div
+				role="presentation"
+				tabindex="-1"
 				class="rounded-2xl font-ui text-sm leading-relaxed [overflow-wrap:anywhere] {message.body ||
 				hasMedia ||
 				message.sharedEntry ||
@@ -247,7 +319,13 @@
 					? 'rounded-br-md bg-cta text-cta-text'
 					: 'rounded-bl-md border border-line bg-book-bg text-book-ink'} {message.pending
 					? 'opacity-70'
-					: ''}"
+					: ''} {longPressing ? 'select-none [-webkit-touch-callout:none]' : ''}"
+				onpointerdown={pointerDown}
+				onpointermove={pointerMove}
+				onpointerup={pointerUp}
+				onpointercancel={pointerUp}
+				oncontextmenu={handleContextMenu}
+				onclickcapture={handleClickCapture}
 			>
 				{#if isDeleted}
 					<p class="flex items-center gap-1.5 italic opacity-75">
@@ -318,7 +396,8 @@
 							class="mt-1 block w-full overflow-hidden rounded-xl border border-gold/50 bg-book-bg text-left text-book-ink shadow-sm transition-transform hover:-translate-y-0.5 focus-visible:ring-2 focus-visible:ring-gold/60 focus-visible:outline-none {hasMedia
 								? 'max-w-[260px]'
 								: 'max-w-[300px] min-w-[220px]'}"
-							onclick={() => onOpenEntry(message.sharedEntry!.date)}
+							onclick={() =>
+								onOpenEntry(message.sharedEntry!, message.senderId, message.senderName)}
 							aria-label={`Open journal page from ${entryDate}`}
 						>
 							<span class="block bg-gradient-to-r from-book-accent/25 to-cover/25 px-3 py-2">
