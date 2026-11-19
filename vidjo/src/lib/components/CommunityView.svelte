@@ -1466,7 +1466,7 @@
 <!-- Community browser -->
 {#if browseOpen}
 	<div
-		class="fixed inset-0 z-[55] flex items-center justify-center bg-black/80 p-4"
+		class="fixed inset-0 z-[55] flex items-center justify-center bg-[rgba(15,8,25,.78)] p-4"
 		role="dialog"
 		aria-modal="true"
 		aria-labelledby="browse-communities-title"
@@ -1580,7 +1580,7 @@
 {#if detailCommunity}
 	{@const item = detailCommunity}
 	<div
-		class="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 p-4"
+		class="fixed inset-0 z-[60] flex items-center justify-center bg-[rgba(15,8,25,.78)] p-4"
 		role="dialog"
 		aria-modal="true"
 		aria-labelledby="community-details-title"
@@ -1727,7 +1727,9 @@
 					{#if detailMembers.length > 0}
 						<div class="mt-2 max-h-[230px] modal-scroll space-y-2 overflow-y-auto pr-1">
 							{#each detailMembers as member (member.userId)}
-								<div class="flex flex-wrap items-center gap-2.5 rounded-xl bg-desk-2/70 p-2.5">
+								<div
+									class="flex flex-wrap items-center gap-2.5 rounded-xl border border-line/70 bg-paper-deep/70 p-2.5"
+								>
 									<button
 										type="button"
 										class="shrink-0 rounded-full"
@@ -1826,7 +1828,7 @@
 <!-- Report a community page -->
 {#if reportTarget}
 	<div
-		class="fixed inset-0 z-[65] flex items-center justify-center bg-black/80 p-4"
+		class="fixed inset-0 z-[65] flex items-center justify-center bg-[rgba(15,8,25,.78)] p-4"
 		role="dialog"
 		aria-modal="true"
 		aria-labelledby="report-page-title"
@@ -1889,7 +1891,7 @@
 <!-- Remove from community confirmation -->
 {#if deleteTarget}
 	<div
-		class="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4"
+		class="fixed inset-0 z-50 flex items-center justify-center bg-[rgba(15,8,25,.78)] p-4"
 		role="dialog"
 		aria-modal="true"
 		aria-labelledby="remove-page-title"
