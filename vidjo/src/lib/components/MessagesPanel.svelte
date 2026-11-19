@@ -42,6 +42,7 @@
 		thumbUrl: string;
 	} | null>(null);
 	let previewSrc = $state('');
+	let noticeTimer: ReturnType<typeof setTimeout> | null = null;
 
 	const activeThread = $derived(messages.activeThread);
 	const messageList = $derived(messages.activeMessages);
@@ -71,6 +72,23 @@
 		pinnedOpen = false;
 		infoOpen = false;
 		reportTarget = null;
+	});
+
+	$effect(() => {
+		// Success notices are transient; errors stay until the next action clears them.
+		const notice = messages.notice;
+		if (!notice) return;
+
+		if (noticeTimer) clearTimeout(noticeTimer);
+		noticeTimer = setTimeout(() => {
+			if (messages.notice === notice) messages.notice = '';
+			noticeTimer = null;
+		}, 4000);
+
+		return () => {
+			if (noticeTimer) clearTimeout(noticeTimer);
+			noticeTimer = null;
+		};
 	});
 
 	$effect(() => {
@@ -668,8 +686,21 @@
 				</div>
 
 				{#if messages.notice}
-					<div class="shrink-0 border-t border-line bg-book-accent/10 px-3 py-2">
-						<p class="font-ui text-xs font-semibold text-book-ink/80">{messages.notice}</p>
+					<div
+						class="flex shrink-0 items-center gap-2 border-t border-line bg-book-accent/10 px-3 py-2"
+					>
+						<p class="min-w-0 flex-1 font-ui text-xs font-semibold text-book-ink/80">
+							{messages.notice}
+						</p>
+						<button
+							type="button"
+							class="flex size-6 shrink-0 items-center justify-center rounded-full text-book-ink/60 transition-colors hover:bg-book-accent/20 hover:text-book-ink"
+							onclick={() => (messages.notice = '')}
+							aria-label="Dismiss notice"
+							title="Dismiss"
+						>
+							<CommunityIcon name="x" size={12} />
+						</button>
 					</div>
 				{/if}
 
