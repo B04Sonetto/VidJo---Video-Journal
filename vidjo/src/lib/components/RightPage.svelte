@@ -5,7 +5,6 @@
 	import { journal, TITLE_MAX } from '#lib/state/journal.svelte';
 	import { friends } from '#lib/state/friends.svelte';
 	import { community } from '#lib/state/community.svelte';
-	import { nav } from '#lib/state/navigation.svelte';
 	import { viewport } from '#lib/state/viewport.svelte';
 	import CommunityIcon from '#lib/components/CommunityIcon.svelte';
 	import WritingModal from '#lib/components/WritingModal.svelte';
@@ -51,6 +50,15 @@
 	$effect(() => {
 		// Preview is read-only, so never leave an editable full screen page open.
 		if (preview) editor = null;
+	});
+
+	$effect(() => {
+		// Only ever post to a community the user actually joined.
+		if (preview || !sharingWithCommunity || community.joinedCommunities.length === 0) return;
+		const stillJoined = community.joinedCommunities.some(
+			(item) => item.slug === entry.communitySlug
+		);
+		if (!stillJoined) journal.setCommunity(community.joinedCommunities[0].slug);
 	});
 
 	function update(patch: Partial<Entry>) {
@@ -299,49 +307,41 @@
 		</div>
 	{/if}
 
-	{#if sharingWithCommunity && !preview}
+	{#if sharingWithCommunity && !preview && community.joinedCommunities.length > 0}
 		<div
 			class="mt-2 flex shrink-0 items-center gap-2 rounded-xl border border-line bg-paper px-2.5 py-2"
 		>
 			<CommunityIcon name="globe" size={14} class="shrink-0 text-accent" />
 			<label class="sr-only" for={`${id}-community`}>Post to community</label>
-			{#if community.joinedCommunities.length === 0}
-				<span class="min-w-0 flex-1 truncate font-ui text-xs text-ink-soft">
-					Join a community to share this page.
-				</span>
-				<Button size="sm" icon="globe" onclick={() => nav.setView('community')}>
-					Find communities
-				</Button>
-			{:else}
-				<select
-					id={`${id}-community`}
-					class="h-9 min-w-0 flex-1 rounded-lg border border-line bg-book-bg px-2.5 font-ui text-sm text-ink focus:border-accent focus:outline-none"
-					value={entry.communitySlug}
-					onchange={(event) => journal.setCommunity(event.currentTarget.value)}
-				>
-					<option value="">Choose a community…</option>
-					{#each community.joinedCommunities as item (item.slug)}
-						<option value={item.slug}>{item.tag} — {item.name}</option>
-					{/each}
-				</select>
-			{/if}
+			<select
+				id={`${id}-community`}
+				class="h-9 min-w-0 flex-1 rounded-lg border border-line bg-book-bg px-2.5 font-ui text-sm text-ink focus:border-accent focus:outline-none"
+				value={entry.communitySlug}
+				onchange={(event) => journal.setCommunity(event.currentTarget.value)}
+			>
+				{#each community.joinedCommunities as item (item.slug)}
+					<option value={item.slug}>{item.tag} — {item.name}</option>
+				{/each}
+			</select>
 		</div>
 	{/if}
 
-	<Button
-		size="md"
-		class="mt-2 h-11 w-full shrink-0"
-		icon="check"
-		loading={saving}
-		disabled={preview}
-		onclick={save}
-	>
-		{saving ? 'Saving…' : sharingWithCommunity && !preview ? 'Save' : 'Save this page'}
-	</Button>
+	<div class="mt-2 flex shrink-0 items-center justify-between gap-2">
+		<span class="font-ui text-xs font-semibold text-ink-muted tabular-nums">
+			{pageNumber}
+		</span>
 
-	<p class="mt-1 shrink-0 text-center font-ui text-xs font-semibold text-ink-muted tabular-nums">
-		{pageNumber}
-	</p>
+		<Button
+			size="sm"
+			class="shrink-0"
+			icon="check"
+			loading={saving}
+			disabled={preview}
+			onclick={save}
+		>
+			{saving ? 'Saving…' : 'Save this page'}
+		</Button>
+	</div>
 
 	<StickerLayer {entry} side="R" {preview} />
 </section>
