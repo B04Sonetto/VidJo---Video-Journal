@@ -1,0 +1,14 @@
+{
+	"name": "vidjo-video-journal",
+	"private": true,
+	"description": "Root convenience scripts. The SvelteKit app lives in ./vidjo.",
+	"scripts": {
+		"dev": "npm --prefix vidjo run dev",
+		"build": "npm --prefix vidjo run build",
+		"preview": "npm --prefix vidjo run preview",
+		"check": "npm --prefix vidjo run check",
+		"lint": "npm --prefix vidjo run lint",
+		"format": "npm --prefix vidjo run format",
+		"install:app": "npm --prefix vidjo install"
+	}
+}

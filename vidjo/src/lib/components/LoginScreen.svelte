@@ -1,12 +1,109 @@
 <script lang="ts">
-	import { onMount, tick } from 'svelte';
-	import { auth } from '#lib/state/auth.svelte';
-	import { profile } from '#lib/state/profile.svelte';
-	import CommunityIcon from '#lib/components/CommunityIcon.svelte';
-	import Button from '#lib/components/ui/Button.svelte';
-	import { USERNAME_MAX, validateUsername } from '#lib/username';
+    import { onMount, tick } from 'svelte';
+    import { turnstileSiteKey } from '#lib/supabase';
+    import { auth } from '#lib/state/auth.svelte';
+    import { profile } from '#lib/state/profile.svelte';
+    import CommunityIcon from '#lib/components/CommunityIcon.svelte';
+    import Button from '#lib/components/ui/Button.svelte';
+    import { USERNAME_MAX, validateUsername } from '#lib/username';
 
-	type View = 'signin' | 'signup' | 'signup-2' | 'code';
+    
+type TurnstileApi = {
+	render: (
+		container: HTMLElement,
+		options: {
+			sitekey: string;
+			callback: (token: string) => void;
+			'expired-callback'?: () => void;
+			'error-callback'?: () => void;
+		}
+	) => string;
+	remove: (widgetId: string) => void;
+	reset: (widgetId: string) => void;
+};
+
+function getTurnstile(): TurnstileApi | undefined {
+	return (window as Window & { turnstile?: TurnstileApi }).turnstile;
+}
+
+let turnstileScriptPromise: Promise<void> | null = null;
+
+function loadTurnstileScript(): Promise<void> {
+	if (getTurnstile()) return Promise.resolve();
+
+	if (turnstileScriptPromise) return turnstileScriptPromise;
+
+	turnstileScriptPromise = new Promise((resolve, reject) => {
+		const script = document.createElement('script');
+		script.src =
+			'https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit';
+		script.async = true;
+		script.defer = true;
+
+		script.onload = () => resolve();
+		script.onerror = () => {
+			turnstileScriptPromise = null;
+			reject(new Error('Failed to load Cloudflare Turnstile.'));
+		};
+
+		document.head.appendChild(script);
+	});
+
+	return turnstileScriptPromise;
+}
+
+async function renderTurnstile() {
+	if (!turnstileSiteKey) {
+		error = 'CAPTCHA is not configured. Please contact support.';
+		return;
+	}
+
+	try {
+		await loadTurnstileScript();
+		await tick();
+
+		const api = getTurnstile();
+
+		if (!api || !turnstileContainer || turnstileWidgetId) return;
+
+		turnstileWidgetId = api.render(turnstileContainer, {
+			sitekey: turnstileSiteKey,
+
+			callback: (token: string) => {
+				captchaToken = token;
+				error = '';
+				turnstileReady = true;
+			},
+
+			'expired-callback': () => {
+				captchaToken = '';
+				turnstileReady = false;
+			},
+
+			'error-callback': () => {
+				captchaToken = '';
+				turnstileReady = false;
+				error = 'CAPTCHA verification failed. Please try again.';
+			}
+		});
+	} catch {
+		error = 'Could not load CAPTCHA. Check your internet connection and try again.';
+	}
+}
+
+function removeTurnstile() {
+	const api = getTurnstile();
+
+	if (api && turnstileWidgetId) {
+		api.remove(turnstileWidgetId);
+	}
+
+	turnstileWidgetId = null;
+	captchaToken = '';
+	turnstileReady = false;
+}
+
+type View = 'signin' | 'signup' | 'signup-2' | 'code';
 
 	let view = $state<View>('signin');
 	let email = $state('');
@@ -26,6 +123,10 @@
 	let forgotPassword = $state(false);
 	let codePurpose = $state<'otp' | 'signup'>('otp');
 	let autoTried = false;
+    let captchaToken = $state('');
+    let turnstileContainer = $state<HTMLDivElement | null>(null);
+    let turnstileWidgetId: string | null = null;
+    let turnstileReady = $state(false);
 
 	let usernameChecking = $state(false);
 	let usernameAvailable = $state<boolean | null>(null);
@@ -106,6 +207,7 @@
 			if (cooldownTimer) clearInterval(cooldownTimer);
 			if (usernameTimer) clearTimeout(usernameTimer);
 			usernameCheckSeq += 1;
+			removeTurnstile();
 		};
 	});
 
@@ -143,6 +245,9 @@
 
 	function switchView(next: View) {
 		view = next;
+		if (next !== 'signup-2') {
+	    removeTurnstile();
+}
 		error = '';
 		notice = '';
 		forgotPassword = false;
@@ -182,9 +287,11 @@
 			return;
 		}
 		view = 'signup-2';
-		void tick().then(() => {
-			(document.getElementById('vidjo-password') as HTMLInputElement | null)?.focus();
-		});
+
+        void tick().then(async () => {
+	        (document.getElementById('vidjo-password') as HTMLInputElement | null)?.focus();
+	        await renderTurnstile();
+        });
 	}
 
 	async function sendCode() {
@@ -399,84 +506,93 @@
 	}
 	// end ======================================================================================
 
-	async function createAccount() {
-		if (busy) return;
+	
+async function createAccount() {
+	if (busy) return;
 
-		error = '';
-		notice = '';
+	error = '';
+	notice = '';
 
-		// Re-validate everything (in case user navigated directly)
-		if (!validUsername(username)) {
-			error = validateUsername(username);
-			view = 'signup';
-			return;
-		}
-
-		if (usernameChecking) {
-			error = 'Still checking that username — give it a second and try again.';
-			return;
-		}
-
-		if (usernameAvailable === false) {
-			error = usernameError || 'That username is already taken. Try another.';
-			view = 'signup';
-			return;
-		}
-
-		if (!validEmail(email)) {
-			error = 'Enter a valid email address.';
-			view = 'signup';
-			emailInput?.focus();
-			return;
-		}
-
-		if (password.length < 6) {
-			error = 'Use a password with at least 6 characters.';
-			return;
-		}
-
-		if (password !== confirmPassword) {
-			error = 'The two passwords do not match.';
-			return;
-		}
-
-		busy = true;
-		try {
-			const result = await auth.signUp(
-				email.trim(),
-				password,
-				username.trim(),
-				nickname.trim() || username.trim()
-			);
-			if (result.error) {
-				error = result.error;
-				return;
-			}
-
-			if (result.needsConfirmation) {
-				codePurpose = 'signup';
-				view = 'code';
-				notice = result.resentConfirmation
-					? `That address already has a signup waiting. We sent a fresh code to ${email.trim()} — enter it to finish.`
-					: `We sent a confirmation email to ${email.trim()}. Click the link or enter the 6-digit code to finish.`;
-				startCooldown();
-				await tick();
-				codeInputs[0]?.focus();
-				return;
-			}
-
-			// No session and no confirmation request usually means the address
-			// already has an account. Point them at the sign-in form.
-			if (!auth.signedIn) {
-				view = 'signin';
-				notice = 'If you already have an account, sign in with your email and password.';
-			}
-		} catch {
-			error = 'Could not reach Supabase. Check your connection and try again.';
-		} finally {
-			busy = false;
-		}
+	// Re-validate everything (in case user navigated directly)
+	if (!validUsername(username)) {
+		error = validateUsername(username);
+		view = 'signup';
+		return;
 	}
+
+	if (usernameChecking) {
+		error = 'Still checking that username — give it a second and try again.';
+		return;
+	}
+
+	if (usernameAvailable === false) {
+		error = usernameError || 'That username is already taken. Try another.';
+		view = 'signup';
+		return;
+	}
+
+	if (!validEmail(email)) {
+		error = 'Enter a valid email address.';
+		view = 'signup';
+		emailInput?.focus();
+		return;
+	}
+
+	if (password.length < 6) {
+		error = 'Use a password with at least 6 characters.';
+		return;
+	}
+
+	if (password !== confirmPassword) {
+		error = 'The two passwords do not match.';
+		return;
+	}
+
+	if (!captchaToken) {
+		error = 'Please complete the CAPTCHA verification.';
+		return;
+	}
+
+	busy = true;
+	try {
+		const result = await auth.signUp(
+			email.trim(),
+			password,
+			username.trim(),
+			nickname.trim() || username.trim(),
+			captchaToken
+		);
+
+		if (result.error) {
+			error = result.error;
+			return;
+		}
+
+		if (result.needsConfirmation) {
+			codePurpose = 'signup';
+			view = 'code';
+			notice = result.resentConfirmation
+				? `That address already has a signup waiting. We sent a fresh code to ${email.trim()} — enter it to finish.`
+				: `We sent a confirmation email to ${email.trim()}. Click the link or enter the 6-digit code to finish.`;
+			startCooldown();
+			await tick();
+			codeInputs[0]?.focus();
+			return;
+		}
+
+		// No session and no confirmation request usually means the address
+		// already has an account. Point them at the sign-in form.
+		if (!auth.signedIn) {
+			view = 'signin';
+			notice = 'If you already have an account, sign in with your email and password.';
+		}
+	} catch {
+		error = 'Could not reach Supabase. Check your connection and try again.';
+	} finally {
+		busy = false;
+	}
+}
+
 
 	async function sendReset() {
 		if (busy) return;
@@ -896,6 +1012,9 @@
 						disabled={busy}
 						required
 					/>
+					<div class="mt-5 flex justify-center">
+	                    <div bind:this={turnstileContainer}></div>
+                    </div>
 
 					<Button type="submit" size="lg" class="mt-5 w-full" loading={busy} disabled={busy}>
 						{busy ? busyLabel : primaryLabel}

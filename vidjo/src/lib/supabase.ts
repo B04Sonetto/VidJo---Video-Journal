@@ -1,14 +1,15 @@
 import { createClient } from '@supabase/supabase-js';
 import {
-	PUBLIC_SUPABASE_ANON_KEY,
-	PUBLIC_SUPABASE_PUBLISHABLE_KEY,
-	PUBLIC_SUPABASE_URL
+    PUBLIC_SUPABASE_ANON_KEY,
+    PUBLIC_SUPABASE_PUBLISHABLE_KEY,
+    PUBLIC_SUPABASE_URL,
+    PUBLIC_TURNSTILE_SITE_KEY
 } from '$app/env/public';
-
 const PLACEHOLDER_URL = 'https://placeholder.supabase.co';
 const PLACEHOLDER_KEY = 'placeholder-anon-key';
 
 export const supabaseUrl = (PUBLIC_SUPABASE_URL ?? '').trim();
+export const turnstileSiteKey = (PUBLIC_TURNSTILE_SITE_KEY ?? '').trim();
 export const supabaseKey = (
 	PUBLIC_SUPABASE_PUBLISHABLE_KEY ||
 	PUBLIC_SUPABASE_ANON_KEY ||

@@ -224,13 +224,17 @@ class Auth {
 		return friendlyAuthError(error.message);
 	}
 
-	async resendSignup(email: string) {
+	//jazz modified this for captcha=====================================
+	async resendSignup(email: string, captchaToken?: string) {
 		if (!isSupabaseConfigured) return 'Sign-in is not configured for this build.';
 
 		const { error } = await supabase.auth.resend({
 			type: 'signup',
 			email,
-			options: { emailRedirectTo: callbackUrl() }
+			options: {
+                emailRedirectTo: callbackUrl(),
+                captchaToken
+            }
 		});
 
 		if (!error) return '';
@@ -383,7 +387,8 @@ class Auth {
 		email: string,
 		password: string,
 		username = '',
-		nickname = ''
+		nickname = '',
+		captchaToken = ''
 	): Promise<SignUpResult> {
 		if (!isSupabaseConfigured) {
 			return { error: 'Sign-in is not configured for this build.', needsConfirmation: false };
@@ -417,7 +422,8 @@ class Auth {
 							full_name: cleanNickname
 						}
 					: undefined,
-				emailRedirectTo: callbackUrl()
+				emailRedirectTo: callbackUrl(),
+                captchaToken
 			}
 		});
 
@@ -432,7 +438,7 @@ class Auth {
 			// Projects without enumeration prevention report the same situation
 			// as a direct error instead of an empty identities array.
 			if (/already registered|user already exists|email already/i.test(error.message)) {
-				const resendError = await this.resendSignup(cleanEmail);
+				const resendError = await this.resendSignup(cleanEmail, captchaToken);
 				if (!resendError) {
 					return { error: '', needsConfirmation: true, resentConfirmation: true };
 				}
@@ -447,7 +453,7 @@ class Auth {
 		// anyone who abandoned an earlier signup before entering the code.
 		// Ask Supabase to send a fresh confirmation code so they can finish it.
 		if (data.user && Array.isArray(data.user.identities) && data.user.identities.length === 0) {
-			const resendError = await this.resendSignup(cleanEmail);
+			const resendError = await this.resendSignup(cleanEmail, captchaToken);
 			if (!resendError) {
 				return { error: '', needsConfirmation: true, resentConfirmation: true };
 			}
