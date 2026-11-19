@@ -41,6 +41,15 @@ function seenPagesKey(userId: string) {
 	return `${SEEN_PAGES_KEY}:${userId}`;
 }
 
+/** Splits the legacy `ownerId:date` cache key back into its two parts. */
+function parseSeenKey(key: string): { ownerId: string; date: string } | null {
+	const split = key.indexOf(':');
+	if (split <= 0) return null;
+	const ownerId = key.slice(0, split);
+	const date = key.slice(split + 1);
+	return ownerId && date ? { ownerId, date } : null;
+}
+
 function formatPostDate(date: string) {
 	if (date === journal.current) return 'Today';
 	const parsed = new Date(`${date}T00:00:00`);
@@ -102,8 +111,10 @@ class FriendsState {
 		if (!authorId || !date) return;
 		const key = postKey(authorId, date);
 		if (this.seenPostKeys.has(key)) return;
+		// Clear the badge immediately, then sync in the background.
 		this.seenPostKeys.add(key);
 		this.persistSeenPages();
+		void this.pushSeenPages([{ ownerId: authorId, date }]);
 	}
 
 	private persistSeenPages() {
@@ -118,28 +129,97 @@ class FriendsState {
 		}
 	}
 
-	private loadSeenPosts() {
+	/** Store seen pages in Supabase so badges agree across devices. */
+	private async pushSeenPages(entries: { ownerId: string; date: string }[]) {
+		if (!isSupabaseConfigured || !auth.signedIn || entries.length === 0) return;
+		const valid = entries.filter(
+			(entry) => isUuid(entry.ownerId) && /^\d{4}-\d{2}-\d{2}$/.test(entry.date)
+		);
+		if (valid.length === 0) return;
+		try {
+			const { error } = await supabase.rpc('vidjo_friend_pages_mark_seen', {
+				p_entries: valid.map((entry) => ({ ownerId: entry.ownerId, date: entry.date }))
+			});
+			if (error) throw error;
+		} catch (error) {
+			// Keep the local mark; the next init retries the sync.
+			console.warn('[VidJo] Could not sync seen pages.', error);
+		}
+	}
+
+	/**
+	 * Supabase is the source of truth; localStorage stays as an offline cache
+	 * and as a migration path for the old browser-only read state.
+	 */
+	private async loadSeenPosts() {
 		if (!this.currentUserId) return;
 
-		let keys: string[] | null = null;
+		let localKeys: string[] | null = null;
 		try {
 			const raw = localStorage.getItem(seenPagesKey(this.currentUserId));
 			const parsed = raw ? JSON.parse(raw) : null;
 			if (Array.isArray(parsed)) {
-				keys = parsed.filter((key): key is string => typeof key === 'string');
+				localKeys = parsed.filter((key): key is string => typeof key === 'string');
 			}
 		} catch {
-			keys = null;
+			localKeys = null;
 		}
 
-		// First run after installing this: everything already on the shelf counts
-		// as read, so only pages shared from now on raise the "new" badge.
-		if (keys === null) {
-			keys = this.posts.map((post) => postKey(post.authorId, post.date));
+		let serverKeys: string[] | null = null;
+		if (isSupabaseConfigured && auth.signedIn) {
+			try {
+				const { data, error } = await supabase
+					.from('vidjo_friend_page_seen')
+					.select('owner_id, page_date')
+					.eq('user_id', this.currentUserId);
+				if (!error && data) {
+					serverKeys = data.map((row) => postKey(row.owner_id as string, row.page_date as string));
+				}
+			} catch (error) {
+				console.warn('[VidJo] Could not load seen pages.', error);
+			}
+		}
+
+		if (serverKeys !== null) {
+			const pending: { ownerId: string; date: string }[] = [];
+			// Fresh account with nothing recorded yet: treat everything already
+			// on the shelf as read so an existing feed does not light up at once.
+			if (serverKeys.length === 0 && localKeys === null) {
+				for (const post of this.posts) {
+					serverKeys.push(postKey(post.authorId, post.date));
+					pending.push({ ownerId: post.authorId, date: post.date });
+				}
+			}
+
+			const seen = new SvelteSet(serverKeys);
+			for (const key of localKeys ?? []) {
+				if (seen.has(key)) continue;
+				const parsed = parseSeenKey(key);
+				if (!parsed) continue;
+				seen.add(key);
+				pending.push(parsed);
+			}
+
+			this.seenPostKeys.clear();
+			for (const key of seen) this.seenPostKeys.add(key);
+			this.persistSeenPages();
+			void this.pushSeenPages(pending);
+			return;
+		}
+
+		// Offline, or the migration has not been applied yet: keep the old cache
+		// behaviour, but try to seed the server on a first run.
+		if (localKeys === null) {
+			localKeys = this.posts.map((post) => postKey(post.authorId, post.date));
+			void this.pushSeenPages(
+				localKeys
+					.map(parseSeenKey)
+					.filter((entry): entry is { ownerId: string; date: string } => Boolean(entry))
+			);
 		}
 
 		this.seenPostKeys.clear();
-		for (const key of keys) this.seenPostKeys.add(key);
+		for (const key of localKeys) this.seenPostKeys.add(key);
 		this.persistSeenPages();
 	}
 
@@ -273,7 +353,7 @@ class FriendsState {
 			this.lastRefreshAt = Date.now();
 		}
 
-		this.loadSeenPosts();
+		await this.loadSeenPosts();
 		this.loading = false;
 
 		this.subscribeToFriendRequests();
