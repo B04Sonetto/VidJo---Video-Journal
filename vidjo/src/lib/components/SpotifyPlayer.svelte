@@ -146,8 +146,9 @@
 							</p>
 							<button
 								type="button"
-								class="mt-4 inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-[#1DB954] px-5 font-ui text-sm font-bold text-[#062012] shadow-[0_10px_24px_rgba(29,185,84,.28)] transition-all hover:bg-[#1ED760] active:scale-[.98]"
+								class="mt-4 inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-[#1DB954] px-5 font-ui text-sm font-bold text-[#062012] shadow-[0_10px_24px_rgba(29,185,84,.28)] transition-all hover:bg-[#1ED760] active:scale-[.98] disabled:cursor-not-allowed disabled:opacity-60"
 								onclick={() => void spotify.connect()}
+								disabled={!spotify.configured}
 							>
 								<CommunityIcon name="spotify" size={18} />
 								Connect Spotify
@@ -155,6 +156,18 @@
 							<p class="mt-2 font-ui text-[11px] text-book-bg/55">
 								Requires your own Spotify Premium account.
 							</p>
+							{#if !spotify.configured}
+								<p class="mt-2 font-ui text-[11px] font-semibold text-[#FFCF8A]">
+									Spotify isn’t configured on the server yet.
+								</p>
+							{/if}
+							{#if spotify.error}
+								<p class="mt-2 font-ui text-[11px] font-semibold text-[#FFB4B4]">{spotify.error}</p>
+							{:else if spotify.notice}
+								<p class="mt-2 font-ui text-[11px] font-semibold text-[#BFF3D1]">
+									{spotify.notice}
+								</p>
+							{/if}
 						</div>
 					{:else}
 						{#if spotify.error}

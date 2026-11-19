@@ -124,6 +124,11 @@ self.addEventListener('fetch', (event) => {
 	// Never serve a stale worker or version manifest from the cache.
 	if (url.pathname.endsWith('/service-worker.js') || url.pathname.endsWith('/version.json')) return;
 
+	// Auth and API endpoints must always hit the network (OAuth redirects,
+	// token exchange/cookies, dynamic responses) and must not be intercepted
+	// or served from the offline shell fallback.
+	if (url.pathname.startsWith('/auth/') || url.pathname.startsWith('/api/')) return;
+
 	// Range requests are partial video responses; storing them would corrupt playback.
 	if (request.headers.has('range')) return;
 

@@ -270,7 +270,18 @@ class SpotifyState {
 	}
 
 	async connect() {
-		window.location.href = '/auth/spotify/login';
+		if (!browser) return;
+		if (!this.configured) {
+			this.error =
+				'Spotify is not configured on the server. Add SPOTIFY_CLIENT_ID and SPOTIFY_CLIENT_SECRET, then redeploy.';
+			this.panelOpen = true;
+			return;
+		}
+		this.error = '';
+		this.notice = '';
+		// Full top-level navigation to the server auth route. The service worker
+		// must bypass /auth/* so the OAuth redirect to Spotify is not intercepted.
+		window.location.assign('/auth/spotify/login');
 	}
 
 	async disconnect() {
