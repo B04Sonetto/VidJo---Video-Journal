@@ -83,25 +83,48 @@ async function searchTracks(
 	seedUri: string,
 	limit: number
 ) {
-	const searchParams = new URLSearchParams({
-		q,
-		type: 'track',
-		limit: String(Math.min(Math.max(limit + 10, 10), 20)),
-		market: 'from_token'
-	});
-	const res = await spotifyApi(`/search?${searchParams.toString()}`, token);
-	const data = await parseBody(res);
-	if (!res.ok) {
-		return {
-			ok: false as const,
-			status: res.status,
-			message: extractSpotifyMessage(data) || `Spotify search failed (${res.status})`
-		};
+	const target = Math.max(1, Math.min(Math.trunc(limit) || 5, 10));
+	const limitsToTry = [20, 10, 5, 1];
+
+	let lastFailure: { ok: false; status: number; message: string } | null = null;
+
+	for (const searchLimit of limitsToTry) {
+		const searchParams = new URLSearchParams({
+			q,
+			type: 'track',
+			limit: String(searchLimit),
+			market: 'from_token'
+		});
+		const res = await spotifyApi(`/search?${searchParams.toString()}`, token);
+		const data = await parseBody(res);
+		if (!res.ok) {
+			const message = extractSpotifyMessage(data) || `Spotify search failed (${res.status})`;
+			lastFailure = { ok: false, status: res.status, message };
+			// Some Spotify responses reject specific limit values in edge cases; retry with safer values.
+			if (res.status === 400 && /invalid limit/i.test(message)) {
+				continue;
+			}
+			return lastFailure;
+		}
+
+		const root = asRecord(data);
+		const tracksObj = asRecord(root?.tracks);
+		const items = Array.isArray(tracksObj?.items) ? (tracksObj.items as unknown[]) : [];
+		return { ok: true as const, tracks: dedupeTracks(items, seedId, seedUri, target) };
 	}
-	const root = asRecord(data);
-	const tracksObj = asRecord(root?.tracks);
-	const items = Array.isArray(tracksObj?.items) ? (tracksObj.items as unknown[]) : [];
-	return { ok: true as const, tracks: dedupeTracks(items, seedId, seedUri, limit) };
+
+	// If Spotify keeps rejecting search limits, return no tracks so callers can try other fallbacks.
+	if (lastFailure && lastFailure.status === 400 && /invalid limit/i.test(lastFailure.message)) {
+		return { ok: true as const, tracks: [] as ReturnType<typeof mapTrack>[] };
+	}
+
+	return (
+		lastFailure || {
+			ok: false as const,
+			status: 400,
+			message: 'Spotify search failed'
+		}
+	);
 }
 
 export const GET: RequestHandler = async ({ url, cookies }) => {
@@ -120,7 +143,8 @@ export const GET: RequestHandler = async ({ url, cookies }) => {
 	let seedArtist = (url.searchParams.get('seed_artist') || '').trim();
 	let seedArtistId = '';
 
-	const limit = Math.max(1, Math.min(Number(url.searchParams.get('limit')) || 5, 10));
+	const rawLimit = Number.parseInt(url.searchParams.get('limit') || '5', 10);
+	const limit = Math.max(1, Math.min(Number.isFinite(rawLimit) ? rawLimit : 5, 10));
 	if (!seedId && !seedName && !seedArtist) {
 		return json({ tracks: [], error: 'missing_seed' }, { status: 400 });
 	}
@@ -163,20 +187,29 @@ export const GET: RequestHandler = async ({ url, cookies }) => {
 		// 1) Try Spotify recommendations when we have a seed track id.
 		if (seedId) {
 			try {
-				const params = new URLSearchParams({
-					limit: String(limit),
-					seed_tracks: seedId,
-					market: 'from_token'
-				});
-				const res = await spotifyApi(`/recommendations?${params.toString()}`, token.access_token);
-				if (res.ok) {
+				const recLimits = [5, 10, 1];
+				for (const recLimit of recLimits) {
+					const params = new URLSearchParams({
+						limit: String(recLimit),
+						seed_tracks: seedId,
+						market: 'from_token'
+					});
+					const res = await spotifyApi(`/recommendations?${params.toString()}`, token.access_token);
+					if (res.ok) {
+						const data = await parseBody(res);
+						const root = asRecord(data);
+						const items = Array.isArray(root?.tracks) ? (root.tracks as unknown[]) : [];
+						const tracks = dedupeTracks(items, seedId, seedUri, limit);
+						if (tracks.length) return json({ tracks });
+						break;
+					}
 					const data = await parseBody(res);
-					const root = asRecord(data);
-					const items = Array.isArray(root?.tracks) ? (root.tracks as unknown[]) : [];
-					const tracks = dedupeTracks(items, seedId, seedUri, limit);
-					if (tracks.length) return json({ tracks });
+					const message = extractSpotifyMessage(data) || '';
+					// Retry only on invalid-limit edge cases; other statuses should fall through to fallbacks.
+					if (!(res.status === 400 && /invalid limit/i.test(message))) {
+						break;
+					}
 				}
-				// 404/400/403 etc. from recommendations are common; fall through to fallbacks.
 			} catch {
 				// fall through
 			}
@@ -274,6 +307,10 @@ export const GET: RequestHandler = async ({ url, cookies }) => {
 		// If every query succeeded but all results were filtered out, return empty list (client can show generic).
 		// If we saw an upstream error and never found tracks, surface it.
 		if (lastError) {
+			// If Spotify rejects limits in some environments, degrade gracefully so client fallback can continue.
+			if (lastError.status === 400 && /invalid limit/i.test(lastError.message)) {
+				return json({ tracks: [] });
+			}
 			return json(
 				{
 					tracks: [],

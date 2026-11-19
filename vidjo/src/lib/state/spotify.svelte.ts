@@ -374,8 +374,9 @@ class SpotifyState {
 		const seedUri = seed.uri || '';
 		const primaryArtist = (seed.artists || '').split(',')[0]?.trim() || '';
 		if (!seedId && !seedUri && !seed.name && !primaryArtist) return [];
+		const limit = Math.max(1, Math.min(Math.trunc(count) || 5, 10));
 		try {
-			const parts = [`limit=${encodeURIComponent(String(count))}`];
+			const parts = [`limit=${encodeURIComponent(String(limit))}`];
 			if (seedId) parts.push(`seed_track=${encodeURIComponent(seedId)}`);
 			if (seedUri) parts.push(`seed_uri=${encodeURIComponent(seedUri)}`);
 			if (seed.name) parts.push(`seed_name=${encodeURIComponent(seed.name)}`);
@@ -394,19 +395,25 @@ class SpotifyState {
 			}
 			if (res.status === 429) {
 				if (opts.surfaceErrors) {
-					const msg = typeof data?.message === 'string' ? data.message : '';
-					this.error = msg || 'Spotify is rate limiting requests. Try again shortly.';
+					const msg = typeof data?.message === 'string' ? data.message.trim() : '';
+					this.error =
+						msg && !/invalid limit/i.test(msg)
+							? msg
+							: 'Spotify is rate limiting requests. Try again shortly.';
 				}
 				return [];
 			}
 			if (!res.ok) {
 				if (opts.surfaceErrors) {
-					const msg = typeof data?.message === 'string' ? data.message : '';
-					this.error =
-						msg ||
-						(res.status === 404
-							? 'Could not load a recommended track (recommendations service unavailable).'
-							: 'Could not load a recommended track right now.');
+					const msg = typeof data?.message === 'string' ? data.message.trim() : '';
+					// "Invalid limit" can bubble up from upstream Spotify params in edge cases;
+					// don't surface it as a blocking error so fallback strategies can continue.
+					if (res.status === 404) {
+						this.error =
+							'Could not load a recommended track (recommendations service unavailable).';
+					} else if (msg && !/invalid limit/i.test(msg)) {
+						this.error = msg;
+					}
 				}
 				return [];
 			}
@@ -582,9 +589,14 @@ class SpotifyState {
 					await this.playTrack(nextTrack);
 					return true;
 				}
+				// "Invalid limit" can come from transient upstream quirks; don't let it block fallbacks.
+				if (this.error && /invalid limit/i.test(this.error)) this.error = '';
 				// If auth/rate-limit was surfaced, don't loop into noisy fallbacks.
 				if (this.error) break;
 			}
+
+			// If an upstream "invalid limit" slipped through, clear it and try direct search fallbacks.
+			if (this.error && /invalid limit/i.test(this.error)) this.error = '';
 
 			// Last-resort: use search endpoint directly to pick any different playable track.
 			if (!this.error && this.connected) {
@@ -601,16 +613,24 @@ class SpotifyState {
 						const data = await res.json().catch(() => ({}));
 						if (res.status === 401) {
 							this.connected = false;
-							const msg = typeof data?.message === 'string' ? data.message : '';
+							const msg = typeof data?.message === 'string' ? data.message.trim() : '';
 							this.error = msg || 'Spotify session expired. Reconnect to keep listening.';
 							return false;
 						}
 						if (res.status === 429) {
-							const msg = typeof data?.message === 'string' ? data.message : '';
-							this.error = msg || 'Spotify is rate limiting requests. Try again shortly.';
+							const msg = typeof data?.message === 'string' ? data.message.trim() : '';
+							this.error =
+								msg && !/invalid limit/i.test(msg)
+									? msg
+									: 'Spotify is rate limiting requests. Try again shortly.';
 							return false;
 						}
-						if (!res.ok || !Array.isArray(data?.tracks)) continue;
+						if (!res.ok) {
+							const msg = typeof data?.message === 'string' ? data.message : '';
+							if (msg && /invalid limit/i.test(msg)) continue;
+							continue;
+						}
+						if (!Array.isArray(data?.tracks)) continue;
 						const nextTrack = (data.tracks as SpotifyTrack[]).find(
 							(t) => t?.uri && t.uri !== primary.uri
 						);
