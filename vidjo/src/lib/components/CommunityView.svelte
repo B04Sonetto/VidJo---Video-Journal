@@ -17,7 +17,7 @@
 	import Spinner from '#lib/components/ui/Spinner.svelte';
 	import Skeleton from '#lib/components/ui/Skeleton.svelte';
 	import { censor } from '#lib/censor';
-	import type { CommunityPost, FriendPostReaction, MoodKey } from '#lib/types';
+	import type { CommunityPost, CommunityRole, FriendPostReaction, MoodKey } from '#lib/types';
 
 	let searchQuery = $state('');
 	let activeSlug = $state('all');
@@ -32,7 +32,13 @@
 	let detailPostId = $state<string | null>(null);
 	let profileModalOpen = $state(false);
 	let viewedUserId = $state<string | null>(null);
-	let showDiscovery = $state(false);
+	let browseOpen = $state(false);
+	let detailsSlug = $state<string | null>(null);
+	let rulesDraft = $state('');
+	let editingRules = $state(false);
+	let busyMemberId = $state<string | null>(null);
+	let reportTarget = $state<CommunityPost | null>(null);
+	let reportReason = $state('');
 	let focusPostId = $state<string | null>(null);
 	let lastCommentTime = $state<Record<string, number>>({});
 	let deleteTarget = $state<CommunityPost | null>(null);
@@ -67,13 +73,6 @@
 		'rotate-[1.2deg]',
 		'rotate-[-0.7deg]',
 		'rotate-[0.9deg]'
-	] as const;
-
-	const DISCOVERY_TILTS = [
-		'rotate-[-0.6deg]',
-		'rotate-[0.5deg]',
-		'rotate-[-0.3deg]',
-		'rotate-[0.7deg]'
 	] as const;
 
 	const REACTIONS: {
@@ -185,6 +184,33 @@
 
 	const isAdmin = $derived((profile.profile?.user_role ?? '').trim().toLowerCase() === 'admin');
 
+	const detailCommunity = $derived(
+		detailsSlug ? (community.communities.find((item) => item.slug === detailsSlug) ?? null) : null
+	);
+	const detailMembers = $derived(detailsSlug ? community.membersFor(detailsSlug) : []);
+	const detailOwner = $derived(detailsSlug ? community.ownerFor(detailsSlug) : null);
+	const canManageDetail = $derived(detailsSlug ? community.canManageRoles(detailsSlug) : false);
+	const canModerateDetail = $derived(detailsSlug ? community.canModerate(detailsSlug) : false);
+	const moderatorRemoving = $derived(
+		Boolean(
+			deleteTarget &&
+			!deleteTarget.isOwner &&
+			deleteTarget.authorId !== auth.ownerId &&
+			community.canModerate(deleteTarget.communitySlug ?? '')
+		)
+	);
+	const ROLE_LABELS: Record<CommunityRole, string> = {
+		none: 'Not a member',
+		member: 'Member',
+		moderator: 'Moderator',
+		admin: 'Admin',
+		owner: 'Owner'
+	};
+
+	function roleLabel(role: CommunityRole) {
+		return ROLE_LABELS[role] ?? 'Member';
+	}
+
 	// Look the detail post up by id so reactions/comments stay live in the modal.
 	let detailPost = $derived(
 		detailPostId ? (allPosts.find((post) => post.id === detailPostId) ?? null) : null
@@ -274,7 +300,7 @@
 			);
 		}
 
-		return [...posts].sort((a, b) => {
+		const sorted = [...posts].sort((a, b) => {
 			const byDate = b.date.localeCompare(a.date);
 			if (feedMode === 'week') return scoreFor(b, 7) - scoreFor(a, 7) || byDate;
 			if (feedMode === 'month') return scoreFor(b, 30) - scoreFor(a, 30) || byDate;
@@ -282,9 +308,15 @@
 			if (feedMode === 'hot') return hotScore(b) - hotScore(a) || byDate;
 			return byDate;
 		});
+
+		// Pinned pages behave like Reddit sticky posts: always at the top.
+		return [
+			...sorted.filter((post) => community.isPostPinned(post)),
+			...sorted.filter((post) => !community.isPostPinned(post))
+		];
 	});
 
-	let feedVisible = $derived(community.hasJoined && !showDiscovery);
+	let feedVisible = $derived(community.hasJoined);
 
 	function toggleComments(id: string) {
 		openComments = openComments === id ? null : id;
@@ -326,7 +358,7 @@
 		if (succeeded) {
 			await community.refresh();
 			activeSlug = slug;
-			showDiscovery = false;
+			browseOpen = false;
 		}
 	}
 
@@ -340,7 +372,64 @@
 
 	function openCommunity(slug: string) {
 		activeSlug = slug;
-		showDiscovery = false;
+		browseOpen = false;
+	}
+
+	function openDetails(slug: string) {
+		detailsSlug = slug;
+		rulesDraft = community.communities.find((item) => item.slug === slug)?.rules ?? '';
+		editingRules = false;
+	}
+
+	function openActiveDetails() {
+		if (activeSlug === 'all') {
+			browseOpen = true;
+			return;
+		}
+		openDetails(activeSlug);
+	}
+
+	async function saveRules() {
+		if (!detailsSlug) return;
+		const ok = await community.updateRules(detailsSlug, rulesDraft);
+		if (ok) editingRules = false;
+	}
+
+	async function changeRole(member: { userId: string }, role: CommunityRole) {
+		if (!detailsSlug || role === 'none') return;
+		busyMemberId = member.userId;
+		await community.setMemberRole(detailsSlug, member.userId, role);
+		busyMemberId = null;
+	}
+
+	async function removeMember(userId: string) {
+		if (!detailsSlug) return;
+		busyMemberId = userId;
+		await community.removeMember(detailsSlug, userId);
+		busyMemberId = null;
+	}
+
+	async function pinPost(post: CommunityPost) {
+		await community.togglePin(post);
+	}
+
+	function openReport(post: CommunityPost) {
+		reportTarget = post;
+		reportReason = '';
+	}
+
+	async function submitReport() {
+		if (!reportTarget || !reportReason.trim()) return;
+		const ok = await community.reportPost(reportTarget, reportReason);
+		reportTarget = null;
+		reportReason = '';
+		journal.toast(
+			ok ? 'Report sent to moderators. Thank you.' : 'Could not send the report. Please try again.'
+		);
+	}
+
+	function canModeratePost(post: CommunityPost) {
+		return post.isOwner || community.canModerate(post.communitySlug);
 	}
 
 	async function deleteComment(post: CommunityPost, commentId: string, isAuthor: boolean) {
@@ -406,6 +495,7 @@
 	}
 
 	function openProfile(userId: string) {
+		detailsSlug = null;
 		viewedUserId = userId;
 		profileModalOpen = true;
 	}
@@ -439,6 +529,21 @@
 	}
 </script>
 
+<svelte:window
+	onkeydown={(event) => {
+		if (event.key !== 'Escape') return;
+		if (reportTarget) {
+			reportTarget = null;
+		} else if (detailsSlug) {
+			detailsSlug = null;
+		} else if (browseOpen) {
+			browseOpen = false;
+		} else if (deleteTarget) {
+			deleteTarget = null;
+		}
+	}}
+/>
+
 <div class="mx-auto w-full max-w-[1240px] px-4 py-6 min-[900px]:px-6">
 	<PageHeader
 		title="Community"
@@ -451,6 +556,7 @@
 		{#snippet actions()}
 			{#if feedVisible}
 				<Button variant="outline" icon="grid" onclick={openRandomPage}>Open a random page</Button>
+				<Button variant="ghost" icon="shield" onclick={openActiveDetails}>Community info</Button>
 			{/if}
 			<Button icon="pen" onclick={() => nav.jump(todayKey())}>Share a page</Button>
 		{/snippet}
@@ -464,110 +570,36 @@
 			<Spinner size={36} class="mx-auto text-book-accent" />
 			<p class="mt-4 font-ui text-sm font-medium text-book-ink/70">Finding communities…</p>
 		</div>
-	{:else if !community.hasJoined || showDiscovery}
-		<!-- Discovery / join view -->
-		<section class="relative mt-7">
-			<div
-				class="pointer-events-none absolute inset-0 bg-gradient-to-br from-book-accent/10 to-cover/30"
-			></div>
-			<div class="relative z-10 flex flex-wrap items-end justify-between gap-3">
-				<div>
-					<h2 class="font-display text-3xl font-bold text-book-bg min-[720px]:text-4xl">
-						Communities to join
-					</h2>
-					<p class="mt-1 max-w-[640px] font-ui text-sm leading-relaxed text-book-bg/65">
-						Pick as many as you like. You can leave any time. Your journal pages stay private until
-						you choose to share one with a community.
-					</p>
-				</div>
-				<div class="flex items-center gap-3">
-					<span class="font-ui text-xs text-book-bg/60 tabular-nums">
-						{community.communities.length} available
-					</span>
-					{#if community.hasJoined}
-						<Button
-							variant="outline"
-							size="sm"
-							icon="arrow-left"
-							onclick={() => (showDiscovery = false)}
-						>
-							Back to feed
-						</Button>
-					{/if}
-				</div>
-			</div>
-
-			<div class="mt-6 grid gap-x-5 gap-y-8 min-[640px]:grid-cols-2 min-[1000px]:grid-cols-3">
-				{#each community.communities as item, index (item.slug)}
-					{@const tilt = DISCOVERY_TILTS[index % DISCOVERY_TILTS.length]}
-					<article
-						class="group relative flex min-w-0 flex-col overflow-hidden rounded-[8px] note-scrap text-book-ink shadow-[0_12px_26px_rgba(0,0,0,.42)] transition-all duration-200 hover:-translate-y-1 hover:rotate-0 hover:shadow-[0_18px_34px_rgba(0,0,0,.5)] {tilt}"
-					>
-						<div class="h-2 w-full" style="background: {item.color}" aria-hidden="true"></div>
-						<div class="flex flex-1 flex-col p-5">
-							<div class="flex items-start justify-between gap-3">
-								<span
-									class="flex size-12 shrink-0 items-center justify-center rounded-2xl border"
-									style="background: {item.color}1f; color: {item.color}; border-color: {item.color}55"
-								>
-									<CommunityIcon name={item.icon} size={24} />
-								</span>
-								<span
-									class="rounded-full bg-paper-deep px-2.5 py-1 font-ui text-[10px] font-semibold text-book-ink/70 tabular-nums"
-								>
-									{item.memberCount}
-									{item.memberCount === 1 ? 'member' : 'members'}
-								</span>
-							</div>
-
-							<div class="mt-3 flex flex-wrap items-center gap-2">
-								<h3 class="font-display text-xl leading-tight font-bold">{item.tag}</h3>
-								{#if item.joined}
-									<span
-										class="inline-flex items-center gap-1 rounded-full bg-[#E3F1E5] px-2 py-0.5 font-ui text-[9px] font-bold text-[#2F6B45]"
-									>
-										<CommunityIcon name="check" size={10} />
-										Joined
-									</span>
-								{/if}
-							</div>
-							<p class="font-ui text-xs font-semibold text-book-ink/70">{item.name}</p>
-							<p class="mt-2 flex-1 font-ui text-sm leading-relaxed text-book-ink/70">
-								{item.description}
-							</p>
-
-							<div
-								class="mt-3 flex items-center gap-1.5 font-ui text-sm text-book-ink/70 tabular-nums"
-							>
-								<CommunityIcon name="video" size={14} class="text-book-ink/45" />
-								{slugCounts[item.slug] ?? 0}
-								{(slugCounts[item.slug] ?? 0) === 1 ? 'shared page' : 'shared pages'}
-								visible to you
-							</div>
-
-							{#if item.joined}
-								<div class="mt-4 grid grid-cols-2 gap-2">
-									<Button size="sm" onclick={() => openCommunity(item.slug)}>Open feed</Button>
-									<Button size="sm" variant="note" onclick={() => leaveCommunity(item.slug)}>
-										Leave
-									</Button>
-								</div>
-							{:else}
-								<Button
-									class="mt-4 w-full"
-									size="sm"
-									icon="check"
-									onclick={() => joinAndOpen(item.slug)}
-								>
-									Join {item.tag}
-								</Button>
-							{/if}
-						</div>
-					</article>
-				{/each}
-			</div>
-		</section>
 	{:else}
+		{#if !community.hasJoined}
+			<section
+				class="mt-7 flex flex-col gap-4 rounded-[22px] border border-cover-edge bg-desk-2 p-5 text-book-bg shadow-[0_14px_30px_rgba(0,0,0,.35)] min-[720px]:flex-row min-[720px]:items-center min-[720px]:justify-between min-[720px]:p-6"
+			>
+				<div class="flex min-w-0 items-start gap-3">
+					<span
+						class="flex size-11 shrink-0 items-center justify-center rounded-2xl bg-book-accent/15 text-book-accent"
+					>
+						<CommunityIcon name="users" size={22} />
+					</span>
+					<div class="min-w-0">
+						<h2 class="font-display text-2xl leading-tight font-bold">
+							Find your corner of campus
+						</h2>
+						<p class="mt-1 max-w-[620px] font-ui text-sm leading-relaxed text-book-bg/65">
+							Join a community to see what people chose to share. Your journal stays private until
+							you decide to post a page.
+						</p>
+					</div>
+				</div>
+				<div class="flex shrink-0 flex-wrap gap-2">
+					<Button icon="grid" onclick={() => (browseOpen = true)}>Browse communities</Button>
+					<Button variant="outline" icon="pen" onclick={() => nav.jump(todayKey())}>
+						Write a page
+					</Button>
+				</div>
+			</section>
+		{/if}
+
 		<!-- Prompt + mood browser -->
 		<div class="mt-7 grid gap-6 min-[940px]:grid-cols-[minmax(0,380px)_minmax(0,1fr)]">
 			<section
@@ -701,7 +733,7 @@
 				<button
 					type="button"
 					class="flex shrink-0 items-center gap-1.5 rounded-full bg-cta px-3.5 py-2 font-ui text-xs font-bold text-cta-text shadow-sm transition-colors hover:bg-cta-hover"
-					onclick={() => (showDiscovery = true)}
+					onclick={() => (browseOpen = true)}
 				>
 					<CommunityIcon name="plus" size={13} />
 					Discover
@@ -1122,6 +1154,14 @@
 								</svg>
 								Notes <span class="tabular-nums">({post.comments.length})</span>
 							</button>
+							{#if community.isPostPinned(post)}
+								<span
+									class="inline-flex items-center gap-1 rounded-full bg-book-accent/15 px-2.5 py-1 font-ui text-[10px] font-bold note-accent"
+								>
+									<CommunityIcon name="pin" size={11} />
+									Pinned
+								</span>
+							{/if}
 							<button
 								type="button"
 								class="inline-flex items-center gap-1 rounded-full border border-line bg-book-bg px-2.5 py-1 font-ui text-[10px] font-bold text-book-ink/80 transition-colors hover:bg-paper-deep"
@@ -1131,13 +1171,39 @@
 								<CommunityIcon name="expand" size={12} />
 								Full page
 							</button>
-							{#if post.isOwner || post.authorId === auth.ownerId || isAdmin}
+							{#if post.communitySlug && canModeratePost(post)}
+								<button
+									type="button"
+									class="inline-flex items-center gap-1 rounded-full border border-line bg-book-bg px-2.5 py-1 font-ui text-[10px] font-bold text-book-ink/80 transition-colors hover:bg-paper-deep"
+									onclick={() => pinPost(post)}
+									aria-label={community.isPostPinned(post)
+										? 'Unpin this page'
+										: 'Pin this page to the community'}
+								>
+									<CommunityIcon name="pin" size={12} />
+									{community.isPostPinned(post) ? 'Unpin' : 'Pin'}
+								</button>
+							{/if}
+							{#if !post.isOwner}
+								<button
+									type="button"
+									class="inline-flex items-center gap-1 rounded-full border border-line bg-book-bg px-2.5 py-1 font-ui text-[10px] font-bold text-book-ink/70 transition-colors hover:bg-paper-deep hover:text-book-ink"
+									onclick={() => openReport(post)}
+									aria-label="Report this page to moderators"
+								>
+									<CommunityIcon name="alert" size={12} />
+									Report
+								</button>
+							{/if}
+							{#if canModeratePost(post)}
 								<button
 									type="button"
 									class="inline-flex items-center gap-1.5 rounded-full border border-[#D19A9A] bg-book-bg px-2.5 py-1 font-ui text-[10px] font-bold text-[#9A5B5B] transition-colors hover:bg-[#FBEAEA]"
 									onclick={() => requestDelete(post)}
 									aria-label="Remove page from this community"
-									title="Remove page from this community"
+									title={post.isOwner
+										? 'Remove page from this community'
+										: 'Remove page as moderator'}
 								>
 									<CommunityIcon name="user-minus" size={12} />
 									Remove
@@ -1265,7 +1331,7 @@
 														</div>
 														{#if !comment.id.startsWith('local-')}
 															<div class="mt-1 {editingCommentId === comment.id ? 'hidden' : ''}">
-																{#if comment.authorId === auth.ownerId || isAdmin}
+																{#if comment.authorId === auth.ownerId || community.canModerate(post.communitySlug ?? '')}
 																	{#if commentConfirmId === comment.id}
 																		<div class="flex flex-wrap items-center gap-2">
 																			<span class="font-ui text-[9px] font-semibold text-[#9A5B5B]"
@@ -1306,8 +1372,9 @@
 																			class="font-ui text-[9px] text-book-ink/70 hover:text-red-600"
 																			onclick={() => (commentConfirmId = comment.id)}
 																		>
-																			{isAdmin && comment.authorId !== auth.ownerId
-																				? 'Remove (admin)'
+																			{community.canModerate(post.communitySlug ?? '') &&
+																			comment.authorId !== auth.ownerId
+																				? 'Remove (mod)'
 																				: 'Delete'}
 																		</button>
 																	{/if}
@@ -1393,6 +1460,427 @@
 	</p>
 </div>
 
+<!-- Community browser -->
+{#if browseOpen}
+	<div
+		class="fixed inset-0 z-[55] flex items-center justify-center bg-black/80 p-4"
+		role="dialog"
+		aria-modal="true"
+		aria-labelledby="browse-communities-title"
+	>
+		<button
+			type="button"
+			class="absolute inset-0 h-full w-full cursor-default"
+			onclick={() => (browseOpen = false)}
+			aria-label="Close community browser"
+		></button>
+
+		<div
+			class="relative z-10 flex max-h-[86vh] w-full max-w-[720px] flex-col overflow-hidden rounded-[26px] border border-cover-edge note-scrap text-book-ink shadow-[0_25px_60px_rgba(0,0,0,.55)]"
+		>
+			<div
+				class="flex items-start justify-between gap-3 border-b border-line bg-[linear-gradient(135deg,var(--color-cover-edge),var(--color-desk))] px-5 py-4 text-book-bg"
+			>
+				<div>
+					<h2 id="browse-communities-title" class="font-display text-2xl font-bold">
+						Find your community
+					</h2>
+					<p class="mt-0.5 font-ui text-[11px] text-book-bg/70">
+						{community.communities.length} corners of campus · join as many as you like
+					</p>
+				</div>
+				<button
+					type="button"
+					class="flex size-9 shrink-0 items-center justify-center rounded-full bg-white/10 text-book-bg/80 transition-colors hover:bg-white/20 hover:text-book-bg"
+					onclick={() => (browseOpen = false)}
+					aria-label="Close"
+				>
+					<CommunityIcon name="x" size={16} />
+				</button>
+			</div>
+
+			<div class="min-h-0 flex-1 modal-scroll overflow-y-auto p-4">
+				<div class="grid gap-3 min-[560px]:grid-cols-2">
+					{#each community.communities as item (item.slug)}
+						<article class="min-w-0 rounded-2xl border border-line bg-book-bg/70 p-4">
+							<div class="flex items-start justify-between gap-2">
+								<span
+									class="flex size-10 shrink-0 items-center justify-center rounded-xl bg-desk-2 text-book-accent"
+								>
+									<CommunityIcon name={item.icon} size={21} />
+								</span>
+								<span
+									class="rounded-full bg-desk-2 px-2 py-0.5 font-ui text-[10px] font-semibold text-book-bg/70 tabular-nums"
+								>
+									{item.memberCount}
+									{item.memberCount === 1 ? 'member' : 'members'}
+								</span>
+							</div>
+
+							<h3 class="mt-3 font-display text-lg leading-tight font-bold">{item.tag}</h3>
+							<p class="font-ui text-[11px] font-semibold text-book-ink/60">{item.name}</p>
+							<p class="mt-1.5 font-ui text-xs leading-relaxed text-book-ink/70">
+								{item.description}
+							</p>
+							<p class="mt-2 font-ui text-[10px] text-book-ink/55 tabular-nums">
+								{slugCounts[item.slug] ?? 0}
+								{(slugCounts[item.slug] ?? 0) === 1 ? 'page' : 'pages'} visible to you ·
+								{roleLabel(item.myRole)}
+							</p>
+
+							<div class="mt-3 flex gap-2">
+								{#if item.joined}
+									<Button class="min-w-0 flex-1" size="sm" onclick={() => openCommunity(item.slug)}>
+										Open feed
+									</Button>
+									<Button size="sm" variant="note" onclick={() => leaveCommunity(item.slug)}>
+										Leave
+									</Button>
+								{:else}
+									<Button
+										class="min-w-0 flex-1"
+										size="sm"
+										icon="check"
+										onclick={() => joinAndOpen(item.slug)}
+									>
+										Join
+									</Button>
+								{/if}
+								<button
+									type="button"
+									class="flex min-h-9 shrink-0 items-center justify-center rounded-xl border border-line px-2.5 text-book-ink/70 transition-colors hover:bg-paper-deep hover:text-book-ink"
+									onclick={() => openDetails(item.slug)}
+									aria-label="View details for {item.name}"
+									title="Community details"
+								>
+									<CommunityIcon name="shield" size={14} />
+								</button>
+							</div>
+						</article>
+					{/each}
+				</div>
+			</div>
+
+			<div
+				class="flex items-center justify-between gap-3 border-t border-line bg-paper-deep/70 px-5 py-3"
+			>
+				<p class="font-ui text-[11px] text-book-ink/60">
+					Pages stay private unless you share them with a community.
+				</p>
+				<Button size="sm" variant="note" onclick={() => (browseOpen = false)}>Done</Button>
+			</div>
+		</div>
+	</div>
+{/if}
+
+<!-- Community details, leadership, and moderation -->
+{#if detailCommunity}
+	{@const item = detailCommunity}
+	<div
+		class="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 p-4"
+		role="dialog"
+		aria-modal="true"
+		aria-labelledby="community-details-title"
+	>
+		<button
+			type="button"
+			class="absolute inset-0 h-full w-full cursor-default"
+			onclick={() => (detailsSlug = null)}
+			aria-label="Close community details"
+		></button>
+
+		<div
+			class="relative z-10 flex max-h-[88vh] w-full max-w-[640px] flex-col overflow-hidden rounded-[26px] border border-cover-edge note-scrap text-book-ink shadow-[0_25px_60px_rgba(0,0,0,.55)]"
+		>
+			<div
+				class="flex items-start justify-between gap-3 bg-[linear-gradient(135deg,var(--color-cover-edge),var(--color-desk))] px-5 py-4 text-book-bg"
+			>
+				<div class="flex min-w-0 items-start gap-3">
+					<span
+						class="flex size-11 shrink-0 items-center justify-center rounded-2xl bg-white/10 text-book-bg"
+					>
+						<CommunityIcon name={item.icon} size={23} />
+					</span>
+					<div class="min-w-0">
+						<div class="flex flex-wrap items-center gap-2">
+							<h2
+								id="community-details-title"
+								class="font-display text-2xl leading-tight font-bold"
+							>
+								{item.tag}
+							</h2>
+							{#if canModerateDetail}
+								<span
+									class="rounded-full bg-white/15 px-2 py-0.5 font-ui text-[9px] font-bold text-book-bg"
+								>
+									Moderator tools
+								</span>
+							{/if}
+						</div>
+						<p class="font-ui text-[11px] text-book-bg/70">
+							{item.name} · {item.memberCount}
+							{item.memberCount === 1 ? 'member' : 'members'}
+						</p>
+					</div>
+				</div>
+				<button
+					type="button"
+					class="flex size-9 shrink-0 items-center justify-center rounded-full bg-white/10 text-book-bg/80 transition-colors hover:bg-white/20 hover:text-book-bg"
+					onclick={() => (detailsSlug = null)}
+					aria-label="Close"
+				>
+					<CommunityIcon name="x" size={16} />
+				</button>
+			</div>
+
+			<div class="min-h-0 flex-1 modal-scroll space-y-4 overflow-y-auto p-5">
+				<p class="font-ui text-sm leading-relaxed text-book-ink/75">{item.description}</p>
+
+				<div class="grid gap-3 min-[520px]:grid-cols-2">
+					<section class="rounded-2xl border border-line bg-book-bg/70 p-4">
+						<h3 class="font-ui text-xs font-bold text-book-accent">Who runs it</h3>
+						{#if detailOwner}
+							<button
+								type="button"
+								class="mt-2 flex items-center gap-2 text-left"
+								onclick={() => openProfile(detailOwner.userId)}
+							>
+								<Avatar
+									src={detailOwner.avatarUrl}
+									name={detailOwner.name}
+									className="size-8"
+									textClass="text-sm"
+									ring=""
+								/>
+								<span class="min-w-0">
+									<span class="block truncate font-hand text-base font-bold text-book-ink">
+										{detailOwner.name}
+									</span>
+									<span class="block font-ui text-[10px] text-book-ink/60">
+										@{detailOwner.username}
+									</span>
+								</span>
+							</button>
+						{:else}
+							<p class="mt-2 font-ui text-xs leading-relaxed text-book-ink/70">
+								Run by the VidJo team until an owner is assigned.
+							</p>
+						{/if}
+
+						{#if community.moderatorsFor(item.slug).length > 0}
+							<div class="mt-3 border-t border-line pt-2.5">
+								<p class="font-ui text-[10px] font-semibold text-book-ink/60">Leadership team</p>
+								<div class="mt-1.5 flex flex-wrap gap-1.5">
+									{#each community.moderatorsFor(item.slug) as leader (leader.userId)}
+										<span
+											class="rounded-full bg-desk-2 px-2 py-0.5 font-ui text-[10px] font-semibold text-book-bg/75"
+										>
+											{leader.name} · {roleLabel(leader.role)}
+										</span>
+									{/each}
+								</div>
+							</div>
+						{/if}
+					</section>
+
+					<section class="rounded-2xl border border-line bg-book-bg/70 p-4">
+						<div class="flex items-center justify-between gap-2">
+							<h3 class="font-ui text-xs font-bold text-book-accent">Community rules</h3>
+							{#if ['owner', 'admin'].includes(item.myRole)}
+								<button
+									type="button"
+									class="font-ui text-[10px] font-semibold note-accent hover:underline"
+									onclick={() => (editingRules = !editingRules)}
+								>
+									{editingRules ? 'Cancel' : 'Edit'}
+								</button>
+							{/if}
+						</div>
+						{#if editingRules}
+							<textarea
+								bind:value={rulesDraft}
+								rows="6"
+								maxlength="4000"
+								aria-label="Community rules"
+								class="mt-2 w-full resize-y rounded-xl border border-line bg-book-bg px-3 py-2 font-ui text-xs leading-relaxed text-book-ink focus:border-book-accent focus:outline-none"
+							></textarea>
+							<div class="mt-2 flex justify-end">
+								<Button size="sm" onclick={saveRules}>Save rules</Button>
+							</div>
+						{:else if item.rules.trim()}
+							<p class="mt-2 font-ui text-xs leading-relaxed whitespace-pre-wrap text-book-ink/70">
+								{item.rules}
+							</p>
+						{:else}
+							<p class="mt-2 font-ui text-xs leading-relaxed text-book-ink/60">
+								Be kind, keep pages on topic, and only share what you are comfortable sharing.
+							</p>
+						{/if}
+					</section>
+				</div>
+
+				<section class="rounded-2xl border border-line bg-book-bg/70 p-4">
+					<h3 class="font-ui text-xs font-bold text-book-accent">Members</h3>
+					{#if detailMembers.length > 0}
+						<div class="mt-2 max-h-[230px] modal-scroll space-y-2 overflow-y-auto pr-1">
+							{#each detailMembers as member (member.userId)}
+								<div class="flex flex-wrap items-center gap-2.5 rounded-xl bg-desk-2/70 p-2.5">
+									<button
+										type="button"
+										class="shrink-0 rounded-full"
+										onclick={() => openProfile(member.userId)}
+										aria-label="View {member.name}'s profile"
+									>
+										<Avatar
+											src={member.avatarUrl}
+											name={member.name}
+											className="size-8"
+											textClass="text-sm"
+											ring=""
+										/>
+									</button>
+									<button
+										type="button"
+										class="min-w-0 flex-1 text-left"
+										onclick={() => openProfile(member.userId)}
+									>
+										<span class="block truncate font-hand text-base font-bold text-book-ink">
+											{member.name}
+										</span>
+										<span class="block truncate font-ui text-[10px] text-book-ink/60">
+											@{member.username}
+										</span>
+									</button>
+
+									{#if canManageDetail && member.userId !== auth.ownerId && member.role !== 'owner'}
+										<select
+											value={member.role}
+											disabled={busyMemberId === member.userId}
+											onchange={(event) =>
+												changeRole(member, event.currentTarget.value as CommunityRole)}
+											aria-label="Set role for {member.name}"
+											class="h-9 rounded-lg border border-line bg-book-bg px-2 font-ui text-[11px] font-semibold text-book-ink focus:border-book-accent focus:outline-none disabled:opacity-50"
+										>
+											<option value="member">Member</option>
+											<option value="moderator">Moderator</option>
+											<option value="admin">Admin</option>
+											{#if isAdmin}
+												<option value="owner">Owner</option>
+											{/if}
+										</select>
+										<button
+											type="button"
+											class="flex size-9 items-center justify-center rounded-lg border border-line text-book-ink/60 transition-colors hover:bg-paper-deep hover:text-book-ink disabled:opacity-50"
+											disabled={busyMemberId === member.userId}
+											onclick={() => removeMember(member.userId)}
+											aria-label="Remove {member.name} from {item.name}"
+										>
+											<CommunityIcon name="x" size={14} />
+										</button>
+									{:else}
+										<span
+											class="rounded-full bg-paper-deep px-2 py-1 font-ui text-[10px] font-bold text-book-ink/70"
+										>
+											{roleLabel(member.role)}
+										</span>
+									{/if}
+								</div>
+							{/each}
+						</div>
+					{:else}
+						<p class="mt-2 font-ui text-xs leading-relaxed text-book-ink/60">
+							No members have joined yet.
+						</p>
+					{/if}
+				</section>
+			</div>
+
+			<div
+				class="flex flex-wrap items-center justify-between gap-2 border-t border-line bg-paper-deep/70 px-5 py-3"
+			>
+				<p class="font-ui text-[11px] text-book-ink/60">
+					{item.joined
+						? `You are a ${roleLabel(item.myRole).toLowerCase()}.`
+						: 'You have not joined yet.'}
+				</p>
+				<div class="flex flex-wrap gap-2">
+					{#if item.joined}
+						<Button size="sm" variant="note" onclick={() => leaveCommunity(item.slug)}>
+							Leave community
+						</Button>
+					{:else}
+						<Button size="sm" icon="check" onclick={() => joinAndOpen(item.slug)}>
+							Join community
+						</Button>
+					{/if}
+					<Button size="sm" variant="ghost" onclick={() => (detailsSlug = null)}>Close</Button>
+				</div>
+			</div>
+		</div>
+	</div>
+{/if}
+
+<!-- Report a community page -->
+{#if reportTarget}
+	<div
+		class="fixed inset-0 z-[65] flex items-center justify-center bg-black/80 p-4"
+		role="dialog"
+		aria-modal="true"
+		aria-labelledby="report-page-title"
+	>
+		<button
+			type="button"
+			class="absolute inset-0 h-full w-full cursor-default"
+			onclick={() => (reportTarget = null)}
+			aria-label="Close report dialog"
+		></button>
+
+		<div
+			class="relative z-10 w-full max-w-[440px] overflow-hidden rounded-[26px] border border-cover-edge note-scrap text-book-ink shadow-[0_25px_60px_rgba(0,0,0,.55)]"
+		>
+			<div
+				class="flex items-start justify-between gap-3 bg-[linear-gradient(135deg,var(--color-cover-edge),var(--color-desk))] px-5 py-4 text-book-bg"
+			>
+				<div>
+					<h2 id="report-page-title" class="font-display text-xl font-bold">Report this page</h2>
+					<p class="font-ui text-[11px] text-book-bg/70">Only moderators can see your reason.</p>
+				</div>
+				<button
+					type="button"
+					class="flex size-9 items-center justify-center rounded-full bg-white/10 text-book-bg/80 transition-colors hover:bg-white/20 hover:text-book-bg"
+					onclick={() => (reportTarget = null)}
+					aria-label="Close"
+				>
+					<CommunityIcon name="x" size={16} />
+				</button>
+			</div>
+
+			<div class="p-5">
+				<label for="report-reason" class="font-ui text-xs font-semibold text-book-ink/70">
+					What should moderators know?
+				</label>
+				<textarea
+					id="report-reason"
+					bind:value={reportReason}
+					rows="4"
+					maxlength="240"
+					placeholder="Unkind, unsafe, or off-topic…"
+					class="mt-1.5 w-full resize-none rounded-xl border border-line bg-book-bg px-3 py-2 font-ui text-xs leading-relaxed text-book-ink placeholder:text-book-ink/45 focus:border-book-accent focus:outline-none"
+				></textarea>
+				<p class="mt-1 text-right font-ui text-[10px] text-book-ink/55 tabular-nums">
+					{reportReason.length}/240
+				</p>
+				<div class="mt-4 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+					<Button variant="note" onclick={() => (reportTarget = null)}>Cancel</Button>
+					<Button icon="alert" disabled={!reportReason.trim()} onclick={submitReport}>
+						Send report
+					</Button>
+				</div>
+			</div>
+		</div>
+	</div>
+{/if}
+
 <!-- Remove from community confirmation -->
 {#if deleteTarget}
 	<div
@@ -1442,7 +1930,7 @@
 				</div>
 
 				<p class="mt-4 font-ui text-sm leading-relaxed text-book-ink/70">
-					{#if isAdmin && !deleteTarget.isOwner && deleteTarget.authorId !== auth.ownerId}
+					{#if moderatorRemoving}
 						This page will stop appearing in the community feed. The author's journal entry, video,
 						and stickers stay exactly where they are.
 					{:else}
@@ -1487,8 +1975,8 @@
 					>
 						{deleteBusy
 							? 'Removing…'
-							: isAdmin && !deleteTarget.isOwner && deleteTarget.authorId !== auth.ownerId
-								? 'Remove as admin'
+							: moderatorRemoving
+								? 'Remove as moderator'
 								: 'Remove from community'}
 					</Button>
 				</div>

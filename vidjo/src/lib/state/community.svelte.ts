@@ -8,7 +8,9 @@ import { censor } from '#lib/censor';
 import { cleanDisplayName, normalizeImageUrl } from '#lib/avatar';
 import type {
 	Community,
+	CommunityMember,
 	CommunityPost,
+	CommunityRole,
 	CommunityRow,
 	FriendComment,
 	FriendPost,
@@ -40,7 +42,23 @@ function reactionTime(time: string | null | undefined): number {
 	return Number.isNaN(parsed) ? Date.now() : parsed;
 }
 
-export const COMMUNITY_CATALOG: Omit<Community, 'memberCount' | 'joined'>[] = [
+type MemberRow = {
+	community_slug: string;
+	user_id: string;
+	role: string;
+	created_at: string;
+};
+
+const ROLES: CommunityRole[] = ['none', 'member', 'moderator', 'admin', 'owner'];
+
+function safeRole(value: unknown): CommunityRole {
+	return ROLES.includes(value as CommunityRole) ? (value as CommunityRole) : 'member';
+}
+
+export const COMMUNITY_CATALOG: Omit<
+	Community,
+	'memberCount' | 'joined' | 'ownerId' | 'rules' | 'myRole'
+>[] = [
 	{
 		slug: 'smallwins',
 		name: 'Small Wins',
@@ -157,6 +175,8 @@ function formatPostDate(date: string) {
 class CommunityState {
 	communities = $state<Community[]>([]);
 	posts = $state<CommunityPost[]>([]);
+	membersBySlug = $state<Record<string, CommunityMember[]>>({});
+	pinnedKeys = $state<Record<string, boolean>>({});
 	loading = $state(false);
 	remote = $state(false);
 
@@ -176,6 +196,47 @@ class CommunityState {
 
 	get joinedSlugs() {
 		return new Set(this.joinedCommunities.map((community) => community.slug));
+	}
+
+	private isGlobalAdmin() {
+		return (profile.profile?.user_role ?? '').trim().toLowerCase() === 'admin';
+	}
+
+	roleFor(slug: string): CommunityRole {
+		return this.communities.find((community) => community.slug === slug)?.myRole ?? 'none';
+	}
+
+	canModerate(slug: string) {
+		return ['owner', 'admin', 'moderator'].includes(this.roleFor(slug));
+	}
+
+	canManageRoles(slug: string) {
+		return ['owner', 'admin'].includes(this.roleFor(slug));
+	}
+
+	membersFor(slug: string): CommunityMember[] {
+		return this.membersBySlug[slug] ?? [];
+	}
+
+	ownerFor(slug: string): CommunityMember | null {
+		const ownerId = this.communities.find((community) => community.slug === slug)?.ownerId;
+		if (!ownerId) return null;
+		return this.membersFor(slug).find((member) => member.userId === ownerId) ?? null;
+	}
+
+	moderatorsFor(slug: string): CommunityMember[] {
+		return this.membersFor(slug).filter((member) =>
+			['owner', 'admin', 'moderator'].includes(member.role)
+		);
+	}
+
+	pinKey(slug: string, ownerId: string, date: string) {
+		return `${slug}:${ownerId}:${date}`;
+	}
+
+	isPostPinned(post: CommunityPost) {
+		if (!post.communitySlug) return false;
+		return Boolean(this.pinnedKeys[this.pinKey(post.communitySlug, post.authorId, post.date)]);
 	}
 
 	tagFor(slug: string) {
@@ -230,7 +291,10 @@ class CommunityState {
 		this.communities = COMMUNITY_CATALOG.map((community) => ({
 			...community,
 			memberCount: 0,
-			joined: this.readLocalMemberships(userId).includes(community.slug)
+			joined: this.readLocalMemberships(userId).includes(community.slug),
+			ownerId: null,
+			rules: '',
+			myRole: 'none'
 		}));
 		await this.refresh();
 		this.subscribeRealtime();
@@ -242,36 +306,63 @@ class CommunityState {
 
 		if (isSupabaseConfigured && auth.signedIn) {
 			try {
-				const [{ data: rows, error: communityError }, { data: members, error: memberError }] =
-					await Promise.all([
-						supabase.from('vidjo_communities').select('*').order('sort_order'),
-						supabase.from('vidjo_community_members').select('community_slug, user_id')
-					]);
+				const [{ data: rows, error: communityError }, richMembers] = await Promise.all([
+					supabase.from('vidjo_communities').select('*').order('sort_order'),
+					supabase
+						.from('vidjo_community_members')
+						.select('community_slug, user_id, role, created_at')
+				]);
 
 				if (communityError) throw communityError;
-				if (memberError) throw memberError;
+
+				let members: MemberRow[] = [];
+				if (richMembers.error) {
+					// Older projects can still join communities until the migration runs.
+					const basic = await supabase
+						.from('vidjo_community_members')
+						.select('community_slug, user_id');
+					if (basic.error) throw basic.error;
+					members = (basic.data ?? []).map((row) => ({
+						community_slug: row.community_slug as string,
+						user_id: row.user_id as string,
+						role: 'member',
+						created_at: ''
+					}));
+				} else {
+					members = (richMembers.data ?? []) as MemberRow[];
+				}
 
 				const counts: Record<string, number> = {};
 				const mine: string[] = [];
-				for (const member of members ?? []) {
+				for (const member of members) {
 					counts[member.community_slug] = (counts[member.community_slug] || 0) + 1;
 					if (member.user_id === this.currentUserId) mine.push(member.community_slug);
 				}
 
 				const catalog = (rows as CommunityRow[] | null) ?? [];
 				this.communities = catalog.length
-					? catalog.map((community) => ({
-							slug: community.slug,
-							name: community.name,
-							tag: community.tag,
-							description: community.description,
-							icon: community.icon,
-							color: community.color,
-							memberCount: counts[community.slug] || 0,
-							joined: mine.includes(community.slug)
-						}))
+					? catalog.map((community) => {
+							const mineRow = members.find(
+								(member) =>
+									member.community_slug === community.slug && member.user_id === this.currentUserId
+							);
+							return {
+								slug: community.slug,
+								name: community.name,
+								tag: community.tag,
+								description: community.description,
+								icon: community.icon,
+								color: community.color,
+								memberCount: counts[community.slug] || 0,
+								joined: mine.includes(community.slug),
+								ownerId: community.owner_id ?? null,
+								rules: community.rules ?? '',
+								myRole: this.isGlobalAdmin() ? 'admin' : mineRow ? safeRole(mineRow.role) : 'none'
+							};
+						})
 					: this.communities;
 				this.remote = true;
+				await Promise.all([this.loadCommunityMembers(members), this.loadPins()]);
 				await this.loadRemotePosts();
 			} catch (error) {
 				console.warn('[VidJo] Could not load communities from Supabase.', error);
@@ -279,6 +370,8 @@ class CommunityState {
 				this.posts = [];
 				this.reactionMap = {};
 				this.commentMap = {};
+				this.membersBySlug = {};
+				this.pinnedKeys = {};
 				this.applyLocalMemberships();
 			}
 		} else {
@@ -295,6 +388,76 @@ class CommunityState {
 			...community,
 			joined: joined.includes(community.slug)
 		}));
+	}
+
+	private async loadCommunityMembers(members: MemberRow[]) {
+		const ids = [...new Set(members.map((member) => member.user_id))].filter(Boolean);
+		const { data } = ids.length
+			? await supabase
+					.from('vidjo_profiles')
+					.select('user_id, username, display_name, avatar_url')
+					.in('user_id', ids)
+			: { data: [] };
+
+		const profiles = new Map(
+			(data ?? []).map((item) => [item.user_id as string, item as Record<string, string | null>])
+		);
+
+		const grouped: Record<string, CommunityMember[]> = {};
+		for (const row of members) {
+			const person = profiles.get(row.user_id);
+			const member: CommunityMember = {
+				userId: row.user_id,
+				name: cleanDisplayName(
+					(person?.display_name as string) || (person?.username as string) || 'Member'
+				),
+				username: (person?.username as string) || 'student',
+				avatarUrl: normalizeImageUrl((person?.avatar_url as string) || null),
+				role:
+					this.isGlobalAdmin() && row.user_id === this.currentUserId ? 'admin' : safeRole(row.role),
+				joinedAt: row.created_at || ''
+			};
+			(grouped[row.community_slug] ??= []).push(member);
+		}
+
+		for (const list of Object.values(grouped)) {
+			list.sort((a, b) => {
+				const weight: Record<CommunityRole, number> = {
+					owner: 0,
+					admin: 1,
+					moderator: 2,
+					member: 3,
+					none: 4
+				};
+				return weight[a.role] - weight[b.role] || a.name.localeCompare(b.name);
+			});
+		}
+
+		this.membersBySlug = grouped;
+	}
+
+	private async loadPins() {
+		try {
+			const { data, error } = await supabase
+				.from('vidjo_community_pinned_posts')
+				.select('community_slug, post_owner_id, post_date');
+			if (error) throw error;
+
+			const keys: Record<string, boolean> = {};
+			for (const row of data ?? []) {
+				keys[
+					this.pinKey(
+						row.community_slug as string,
+						row.post_owner_id as string,
+						row.post_date as string
+					)
+				] = true;
+			}
+			this.pinnedKeys = keys;
+		} catch {
+			// Pins are optional until the community migration is applied.
+			this.pinnedKeys = {};
+		}
 	}
 
 	private readLocalMemberships(userId: string): string[] {
@@ -336,12 +499,14 @@ class CommunityState {
 		if (isSupabaseConfigured && auth.signedIn) {
 			try {
 				const { error } = nextJoined
-					? await supabase
-							.from('vidjo_community_members')
-							.upsert(
-								{ community_slug: slug, user_id: this.currentUserId },
-								{ onConflict: 'community_slug,user_id' }
-							)
+					? await supabase.from('vidjo_community_members').upsert(
+							{
+								community_slug: slug,
+								user_id: this.currentUserId,
+								role: 'member'
+							},
+							{ onConflict: 'community_slug,user_id' }
+						)
 					: await supabase
 							.from('vidjo_community_members')
 							.delete()
@@ -382,24 +547,29 @@ class CommunityState {
 		if (!ownerId || !entryDate) return false;
 
 		const isMine = ownerId === this.currentUserId;
-		const isAdmin = (profile.profile?.user_role ?? '').trim().toLowerCase() === 'admin';
+		const slug =
+			this.posts.find((post) => post.id === postId)?.communitySlug ||
+			journal.entries[entryDate]?.communitySlug ||
+			'';
+		const isModerator = this.canModerate(slug);
 
-		if (!isMine && !isAdmin) {
+		if (!isMine && !isModerator) {
 			journal.toast('You can only remove your own pages.');
 			return false;
 		}
 
-		// An admin removing someone else's page uses the moderation RPC.
+		// A moderator removing someone else's page uses the community RPC.
 		if (!isMine) {
-			if (!isSupabaseConfigured || !auth.signedIn) {
+			if (!isSupabaseConfigured || !auth.signedIn || !slug) {
 				journal.toast('Community posts need a connection to VidJo.');
 				return false;
 			}
 
 			try {
-				const { data, error } = await supabase.rpc('vidjo_admin_unshare_post', {
-					p_owner_id: ownerId,
-					p_entry_date: entryDate
+				const { data, error } = await supabase.rpc('vidjo_community_unshare_post', {
+					p_slug: slug,
+					p_post_owner_id: ownerId,
+					p_post_date: entryDate
 				});
 				if (error) throw error;
 				if (!data) {
@@ -412,7 +582,7 @@ class CommunityState {
 				return true;
 			} catch (error) {
 				journal.toast('Could not remove that page. Try again.');
-				console.warn('[VidJo] Admin community post removal failed.', error);
+				console.warn('[VidJo] Community post removal failed.', error);
 				return false;
 			}
 		}
@@ -499,6 +669,16 @@ class CommunityState {
 				.on(
 					'postgres_changes',
 					{ event: '*', schema: 'public', table: 'vidjo_community_members' },
+					() => this.scheduleRefresh()
+				)
+				.on(
+					'postgres_changes',
+					{ event: '*', schema: 'public', table: 'vidjo_community_pinned_posts' },
+					() => this.scheduleRefresh()
+				)
+				.on(
+					'postgres_changes',
+					{ event: 'UPDATE', schema: 'public', table: 'vidjo_communities' },
 					() => this.scheduleRefresh()
 				)
 				.subscribe();
@@ -1028,8 +1208,9 @@ class CommunityState {
 		}
 	}
 
-	/** Admin moderation: remove any note, even one authored by someone else. */
+	/** Moderator moderation: remove any note, even one authored by someone else. */
 	async deleteCommentAsAdmin(post: FriendPost, commentId: string): Promise<boolean> {
+		const slug = 'communitySlug' in post ? String(post.communitySlug ?? '') : '';
 		const key = postKey(post.authorId, post.date);
 		const removed =
 			(this.commentMap[key] ?? []).find((comment) => comment.id === commentId) ??
@@ -1047,12 +1228,22 @@ class CommunityState {
 
 		if (!isSupabaseConfigured || commentId.startsWith('local-')) return true;
 
+		const communityResult = slug
+			? await supabase.rpc('vidjo_community_delete_comment', {
+					p_slug: slug,
+					p_comment_id: commentId
+				})
+			: null;
+		if (communityResult && !communityResult.error && communityResult.data) return true;
+
+		// Fallback for global admins on projects that have not applied the
+		// community migration yet.
 		const { data, error } = await supabase.rpc('vidjo_admin_delete_comment', {
 			p_comment_id: commentId
 		});
 		if (!error && data) return true;
 
-		console.warn('[VidJo] Admin comment removal failed.', error);
+		console.warn('[VidJo] Community comment removal failed.', communityResult?.error ?? error);
 		if (removed) {
 			this.commentMap = {
 				...this.commentMap,
@@ -1067,11 +1258,110 @@ class CommunityState {
 		return false;
 	}
 
+	async setMemberRole(slug: string, userId: string, role: CommunityRole): Promise<boolean> {
+		if (!this.canManageRoles(slug) || role === 'none') return false;
+		try {
+			const { error } = await supabase.rpc('vidjo_community_set_role', {
+				p_slug: slug,
+				p_user: userId,
+				p_role: role
+			});
+			if (error) throw error;
+			journal.toast(role === 'owner' ? 'Community owner updated.' : `Member set to ${role}.`);
+			await this.refresh();
+			return true;
+		} catch (error) {
+			journal.toast('Could not change that role.');
+			console.warn('[VidJo] Community role update failed.', error);
+			return false;
+		}
+	}
+
+	async removeMember(slug: string, userId: string): Promise<boolean> {
+		if (!this.canModerate(slug)) return false;
+		try {
+			const { error } = await supabase.rpc('vidjo_community_kick_member', {
+				p_slug: slug,
+				p_user: userId
+			});
+			if (error) throw error;
+			journal.toast('Member removed from this community.');
+			await this.refresh();
+			return true;
+		} catch (error) {
+			journal.toast('Could not remove that member.');
+			console.warn('[VidJo] Community member removal failed.', error);
+			return false;
+		}
+	}
+
+	async updateRules(slug: string, rules: string): Promise<boolean> {
+		if (!['owner', 'admin'].includes(this.roleFor(slug))) return false;
+		try {
+			const { error } = await supabase.rpc('vidjo_community_update_details', {
+				p_slug: slug,
+				p_rules: rules.slice(0, 4000)
+			});
+			if (error) throw error;
+			journal.toast('Community rules updated.');
+			await this.refresh();
+			return true;
+		} catch (error) {
+			journal.toast('Could not update the rules.');
+			console.warn('[VidJo] Community rules update failed.', error);
+			return false;
+		}
+	}
+
+	async togglePin(post: CommunityPost): Promise<boolean> {
+		if (!post.communitySlug || !this.canModerate(post.communitySlug)) return false;
+		const key = this.pinKey(post.communitySlug, post.authorId, post.date);
+		const before = Boolean(this.pinnedKeys[key]);
+		this.pinnedKeys = { ...this.pinnedKeys, [key]: !before };
+
+		try {
+			const { data, error } = await supabase.rpc('vidjo_community_toggle_pin', {
+				p_slug: post.communitySlug,
+				p_post_owner_id: post.authorId,
+				p_post_date: post.date
+			});
+			if (error) throw error;
+			const pinned = typeof data === 'boolean' ? data : !before;
+			this.pinnedKeys = { ...this.pinnedKeys, [key]: pinned };
+			journal.toast(pinned ? 'Page pinned to the community.' : 'Page unpinned.');
+			return true;
+		} catch (error) {
+			this.pinnedKeys = { ...this.pinnedKeys, [key]: before };
+			journal.toast('Could not pin that page.');
+			console.warn('[VidJo] Community pin update failed.', error);
+			return false;
+		}
+	}
+
+	async reportPost(post: CommunityPost, reason: string): Promise<boolean> {
+		if (!post.communitySlug || !isSupabaseConfigured || !auth.signedIn) return false;
+		try {
+			const { error } = await supabase.rpc('vidjo_community_report_post', {
+				p_slug: post.communitySlug,
+				p_post_owner_id: post.authorId,
+				p_post_date: post.date,
+				p_reason: reason.slice(0, 240)
+			});
+			if (error) throw error;
+			return true;
+		} catch (error) {
+			console.warn('[VidJo] Community post report failed.', error);
+			return false;
+		}
+	}
+
 	reset() {
 		this.unsubscribeRealtime();
 		this.currentUserId = '';
 		this.communities = [];
 		this.posts = [];
+		this.membersBySlug = {};
+		this.pinnedKeys = {};
 		this.reactionMap = {};
 		this.commentMap = {};
 		this.remote = false;

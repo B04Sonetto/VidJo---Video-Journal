@@ -171,6 +171,18 @@
 		<path d="M8 21H5a2 2 0 0 1-2-2v-3"></path>
 	{:else if name === 'logout'}
 		<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"></path>
+	{:else if name === 'reply'}
+		<path d="M9 17 4 12l5-5"></path>
+		<path d="M4 12h10a6 6 0 0 1 6 6v1"></path>
+	{:else if name === 'forward'}
+		<path d="m15 17 5-5-5-5"></path>
+		<path d="M20 12H10a6 6 0 0 0-6 6v1"></path>
+	{:else if name === 'pin'}
+		<path d="m15 3 6 6-3 1-4 4-1 5-2-2-5 5-1-1 5-5-2-2 5-1 4-4Z"></path>
+	{:else if name === 'smile'}
+		<circle cx="12" cy="12" r="9"></circle>
+		<path d="M8.5 14.5a4.5 4.5 0 0 0 7 0"></path>
+		<path d="M9 9.5h.01M15 9.5h.01"></path>
 	{:else}
 		<circle cx="12" cy="12" r="9"></circle>
 		<path d="M3 12h18"></path>

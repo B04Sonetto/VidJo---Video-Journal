@@ -1,3 +1,4 @@
+import { tick } from 'svelte';
 import { isSupabaseConfigured, supabase } from '#lib/supabase';
 import { auth } from '#lib/state/auth.svelte';
 import { profile } from '#lib/state/profile.svelte';
@@ -5,12 +6,16 @@ import { cleanDisplayName, normalizeImageUrl } from '#lib/avatar';
 import { detectRasterImageMime } from '#lib/imageUpload';
 import { isGiphyMediaUrl, type GiphyGif } from '#lib/giphy';
 import type {
+	DmForwarded,
 	DmMessage,
 	DmParticipant,
+	DmReaction,
+	DmSeenBy,
 	DmThreadKind,
 	DmThreadMember,
 	DmThreadSummary,
-	Friend
+	Friend,
+	SharedJournalEntry
 } from '#lib/types';
 
 const PAGE_SIZE = 30;
@@ -45,6 +50,9 @@ type InboxRow = {
 	last_at: string | null;
 	unread_count: number;
 	can_reply: boolean;
+	last_shared_entry: unknown;
+	last_deleted: boolean;
+	last_deleted_by_name: string | null;
 };
 
 type MessageRow = {
@@ -59,6 +67,18 @@ type MessageRow = {
 	image_path: string | null;
 	gif_url: string | null;
 	created_at: string;
+	edited_at: string | null;
+	deleted_at: string | null;
+	deleted_by_name: string | null;
+	reply_to: string | null;
+	reply_sender: string | null;
+	reply_body: string | null;
+	reply_deleted: boolean;
+	shared_entry: unknown;
+	forwarded_from: unknown;
+	reactions: unknown;
+	pinned: boolean;
+	seen_by: unknown;
 };
 
 type MemberRow = {
@@ -103,6 +123,60 @@ function mapMembers(value: unknown): DmParticipant[] {
 	});
 }
 
+function asArray(value: unknown): unknown[] {
+	return Array.isArray(value) ? value : [];
+}
+
+function mapReactions(value: unknown): DmReaction[] {
+	return asArray(value).flatMap((raw) => {
+		if (!raw || typeof raw !== 'object') return [];
+		const row = raw as Record<string, unknown>;
+		if (typeof row.emoji !== 'string' || !row.emoji) return [];
+		return [
+			{
+				emoji: row.emoji,
+				count: Number(row.count) || 0,
+				mine: Boolean(row.mine)
+			} satisfies DmReaction
+		];
+	});
+}
+
+function mapSeenBy(value: unknown): DmSeenBy[] {
+	return asArray(value).flatMap((raw) => {
+		if (!raw || typeof raw !== 'object') return [];
+		const row = raw as Record<string, unknown>;
+		if (typeof row.name !== 'string' || typeof row.at !== 'string') return [];
+		return [{ name: row.name, at: row.at } satisfies DmSeenBy];
+	});
+}
+
+function mapSharedEntry(value: unknown): SharedJournalEntry | null {
+	if (!value || typeof value !== 'object') return null;
+	const row = value as Record<string, unknown>;
+	const date = typeof row.date === 'string' ? row.date : '';
+	if (!date) return null;
+	return {
+		date,
+		title: typeof row.title === 'string' ? row.title : '',
+		mind: typeof row.mind === 'string' ? row.mind : '',
+		refl: typeof row.refl === 'string' ? row.refl : '',
+		mood: typeof row.mood === 'string' ? row.mood : '',
+		pageCount: Number(row.pageCount) || 1
+	};
+}
+
+function mapForwarded(value: unknown): DmForwarded | null {
+	if (!value || typeof value !== 'object') return null;
+	const row = value as Record<string, unknown>;
+	const body = typeof row.body === 'string' ? row.body : '';
+	if (!body) return null;
+	return {
+		name: typeof row.name === 'string' ? row.name : 'Someone',
+		body
+	};
+}
+
 function mapInboxRow(row: InboxRow): DmThreadSummary {
 	return {
 		threadId: row.thread_id,
@@ -116,7 +190,44 @@ function mapInboxRow(row: InboxRow): DmThreadSummary {
 		lastSenderName: row.last_sender_name,
 		lastAt: row.last_at,
 		unreadCount: Number(row.unread_count) || 0,
-		canReply: Boolean(row.can_reply)
+		canReply: Boolean(row.can_reply),
+		lastSharedEntry: mapSharedEntry(row.last_shared_entry),
+		lastDeleted: Boolean(row.last_deleted),
+		lastDeletedByName: row.last_deleted_by_name ?? null
+	};
+}
+
+type MessageExtras = Pick<
+	DmMessage,
+	| 'editedAt'
+	| 'deletedAt'
+	| 'deletedByName'
+	| 'replyTo'
+	| 'replySender'
+	| 'replyBody'
+	| 'replyDeleted'
+	| 'sharedEntry'
+	| 'forwardedFrom'
+	| 'reactions'
+	| 'pinned'
+	| 'seenBy'
+>;
+
+/** Fills in defaults so a row from an older database still renders safely. */
+function messageDefaults(row: Record<string, unknown>): MessageExtras {
+	return {
+		editedAt: typeof row.edited_at === 'string' ? row.edited_at : null,
+		deletedAt: typeof row.deleted_at === 'string' ? row.deleted_at : null,
+		deletedByName: typeof row.deleted_by_name === 'string' ? row.deleted_by_name : null,
+		replyTo: typeof row.reply_to === 'string' ? row.reply_to : null,
+		replySender: typeof row.reply_sender === 'string' ? row.reply_sender : null,
+		replyBody: typeof row.reply_body === 'string' ? row.reply_body : null,
+		replyDeleted: Boolean(row.reply_deleted),
+		sharedEntry: mapSharedEntry(row.shared_entry),
+		forwardedFrom: mapForwarded(row.forwarded_from),
+		reactions: mapReactions(row.reactions),
+		pinned: Boolean(row.pinned),
+		seenBy: mapSeenBy(row.seen_by)
 	};
 }
 
@@ -132,7 +243,8 @@ function mapMessage(row: MessageRow): DmMessage {
 		body: row.body,
 		imagePath: row.image_path ?? null,
 		gifUrl: row.gif_url ?? null,
-		createdAt: row.created_at
+		createdAt: row.created_at,
+		...messageDefaults(row)
 	};
 }
 
@@ -189,6 +301,8 @@ class MessagesState {
 	imageUrls = $state<Record<string, string>>({});
 
 	activeThreadId = $state<string | null>(null);
+	/** Message being replied to, shown in the composer. */
+	replyTo = $state<DmMessage | null>(null);
 	currentUserId = $state('');
 	/** True while the Messages panel is on screen, so hidden threads still count unread. */
 	panelVisible = $state(false);
@@ -241,6 +355,11 @@ class MessagesState {
 	get activeHasMore() {
 		if (!this.activeThreadId) return false;
 		return this.hasMoreByThread[this.activeThreadId] ?? false;
+	}
+
+	/** The current user's pinned messages in the open thread, oldest pin first. */
+	get activePinned() {
+		return this.activeMessages.filter((message) => message.pinned);
 	}
 
 	/** The other person in a direct conversation. */
@@ -323,6 +442,7 @@ class MessagesState {
 		this.error = '';
 		this.notice = '';
 		this.activeThreadId = threadId;
+		this.replyTo = null;
 
 		const thread = this.activeThread;
 		if (thread && !thread.canReply) {
@@ -347,8 +467,22 @@ class MessagesState {
 
 	closeThread() {
 		this.activeThreadId = null;
+		this.replyTo = null;
 		this.error = '';
 		this.notice = '';
+	}
+
+	setReply(message: DmMessage | null) {
+		this.replyTo = message;
+		if (message) this.focusComposer();
+	}
+
+	private focusComposer() {
+		if (typeof document === 'undefined') return;
+		void tick().then(() => {
+			const el = document.getElementById('dm-composer') as HTMLTextAreaElement | null;
+			el?.focus();
+		});
 	}
 
 	/** Called by the panel so background messages are not auto-marked read. */
@@ -417,7 +551,9 @@ class MessagesState {
 			if (error) throw error;
 
 			const rows = ((data ?? []) as MessageRow[]).map(mapMessage);
-			this.setMessages(threadId, mergeMessages(rows, existing));
+			// Fresh server rows win over cached copies so edits, deletes and
+			// reactions are reflected when a thread is reloaded.
+			this.setMessages(threadId, mergeMessages(existing, rows));
 			void this.ensureImageUrls(rows.map((message) => message.imagePath));
 			this.hasMoreByThread = {
 				...this.hasMoreByThread,
@@ -469,11 +605,233 @@ class MessagesState {
 		this.error = '';
 		const clientId = newClientId();
 		const optimistic = this.optimisticMessage(threadId, clientId, trimmed, null);
+		const reply = this.replyTo;
+		if (reply) {
+			optimistic.replyTo = reply.id;
+			optimistic.replySender = reply.senderName;
+			optimistic.replyBody = reply.deletedAt ? '' : reply.body;
+			optimistic.replyDeleted = Boolean(reply.deletedAt);
+		}
 
 		this.setMessages(threadId, mergeMessages(this.messagesByThread[threadId] ?? [], [optimistic]));
 		this.scrollRequest += 1;
 
-		return this.transmit(threadId, clientId, trimmed, null, null, optimistic);
+		const ok = await this.transmit(
+			threadId,
+			clientId,
+			trimmed,
+			null,
+			null,
+			optimistic,
+			reply?.id ?? null
+		);
+		if (ok && reply && this.replyTo?.clientId === reply.clientId) this.replyTo = null;
+		return ok;
+	}
+
+	async editMessage(message: DmMessage, body: string): Promise<boolean> {
+		const clean = body.trim().slice(0, 2000);
+		if (!clean || message.pending || message.deletedAt) return false;
+
+		this.error = '';
+		try {
+			const { error } = await supabase.rpc('vidjo_dm_edit_message', {
+				p_message: message.id,
+				p_body: clean
+			});
+			if (error) throw error;
+
+			this.patchMessage(message.threadId, message.clientId, {
+				body: clean,
+				editedAt: new Date().toISOString()
+			});
+			return true;
+		} catch (error) {
+			this.error = errorMessage(error);
+			return false;
+		}
+	}
+
+	async deleteMessage(message: DmMessage): Promise<boolean> {
+		if (message.pending || message.deletedAt) return false;
+
+		this.error = '';
+		try {
+			const { error } = await supabase.rpc('vidjo_dm_delete_message', {
+				p_message: message.id
+			});
+			if (error) throw error;
+
+			this.patchMessage(message.threadId, message.clientId, {
+				body: '',
+				imagePath: null,
+				gifUrl: null,
+				sharedEntry: null,
+				forwardedFrom: null,
+				replyTo: null,
+				deletedAt: new Date().toISOString(),
+				deletedByName: this.senderInfo(message.senderId).name
+			});
+			void this.scheduleInboxRefresh(0, true);
+			return true;
+		} catch (error) {
+			this.error = errorMessage(error);
+			return false;
+		}
+	}
+
+	async toggleReaction(message: DmMessage, emoji: string): Promise<boolean> {
+		if (message.pending || message.deletedAt) return false;
+
+		const before = message.reactions;
+		const existing = before.find((reaction) => reaction.emoji === emoji);
+		const after = existing
+			? before
+					.map((reaction) =>
+						reaction.emoji === emoji
+							? { ...reaction, count: reaction.count - 1, mine: !reaction.mine }
+							: reaction
+					)
+					.filter((reaction) => reaction.count > 0)
+			: [...before, { emoji, count: 1, mine: true }];
+
+		this.patchMessage(message.threadId, message.clientId, { reactions: after });
+
+		try {
+			const { error } = await supabase.rpc('vidjo_dm_toggle_reaction', {
+				p_message: message.id,
+				p_emoji: emoji
+			});
+			if (error) throw error;
+			return true;
+		} catch (error) {
+			this.patchMessage(message.threadId, message.clientId, { reactions: before });
+			this.error = errorMessage(error);
+			return false;
+		}
+	}
+
+	async togglePin(message: DmMessage): Promise<boolean> {
+		if (message.pending || message.deletedAt) return false;
+
+		try {
+			const { data, error } = await supabase.rpc('vidjo_dm_toggle_pin', {
+				p_message: message.id
+			});
+			if (error) throw error;
+
+			const pinned = typeof data === 'boolean' ? data : !message.pinned;
+			this.patchMessage(message.threadId, message.clientId, { pinned });
+			this.notice = pinned ? 'Pinned in this conversation.' : 'Removed from your pins.';
+			return true;
+		} catch (error) {
+			this.error = errorMessage(error);
+			return false;
+		}
+	}
+
+	/** Sends a snapshot of a journal page as a rich card. */
+	async sendEntry(entry: SharedJournalEntry): Promise<boolean> {
+		const threadId = this.activeThreadId;
+		if (!threadId || !this.activeThread?.canReply) {
+			this.error = 'You can only message friends.';
+			return false;
+		}
+
+		this.error = '';
+		const clientId = newClientId();
+		const optimistic = this.optimisticMessage(threadId, clientId, '', null);
+		optimistic.sharedEntry = entry;
+		const reply = this.replyTo;
+		if (reply) {
+			optimistic.replyTo = reply.id;
+			optimistic.replySender = reply.senderName;
+			optimistic.replyBody = reply.deletedAt ? '' : reply.body;
+		}
+
+		this.setMessages(threadId, mergeMessages(this.messagesByThread[threadId] ?? [], [optimistic]));
+		this.scrollRequest += 1;
+
+		try {
+			const { data, error } = await supabase.rpc('vidjo_dm_send_entry', {
+				p_thread: threadId,
+				p_entry: entry,
+				p_client_id: clientId,
+				p_reply_to: reply?.id ?? null
+			});
+			if (error) throw error;
+
+			const row = Array.isArray(data) ? data[0] : data;
+			if (row && typeof row === 'object') {
+				const record = row as Record<string, unknown>;
+				const sender = this.senderInfo(this.currentUserId || auth.ownerId);
+				const message: DmMessage = {
+					id: typeof record.id === 'string' ? record.id : optimistic.id,
+					threadId,
+					senderId: typeof record.sender_id === 'string' ? record.sender_id : optimistic.senderId,
+					clientId: typeof record.client_id === 'string' ? record.client_id : clientId,
+					senderName: sender.name,
+					senderUsername: sender.username,
+					senderAvatar: sender.avatar,
+					body: typeof record.body === 'string' ? record.body : '',
+					imagePath: typeof record.image_path === 'string' ? record.image_path : null,
+					gifUrl: typeof record.gif_url === 'string' ? record.gif_url : null,
+					createdAt:
+						typeof record.created_at === 'string' ? record.created_at : optimistic.createdAt,
+					...messageDefaults(record),
+					sharedEntry: entry,
+					replyTo: optimistic.replyTo,
+					replySender: optimistic.replySender,
+					replyBody: optimistic.replyBody
+				};
+				this.setMessages(threadId, mergeMessages(this.messagesByThread[threadId] ?? [], [message]));
+				this.applyPreview(threadId, message);
+			}
+
+			if (reply && this.replyTo?.clientId === reply.clientId) this.replyTo = null;
+			return true;
+		} catch (error) {
+			this.setMessages(
+				threadId,
+				(this.messagesByThread[threadId] ?? []).filter((item) => item.clientId !== clientId)
+			);
+			this.error = errorMessage(error);
+			return false;
+		}
+	}
+
+	async forwardTo(message: DmMessage, threadId: string): Promise<boolean> {
+		if (!threadId || message.pending || message.deletedAt) return false;
+
+		this.error = '';
+		try {
+			const { error } = await supabase.rpc('vidjo_dm_forward', {
+				p_thread: threadId,
+				p_source: message.id,
+				p_client_id: newClientId()
+			});
+			if (error) throw error;
+
+			this.notice = 'Message forwarded.';
+			if (threadId === this.activeThreadId) {
+				await this.loadThread(threadId);
+			} else {
+				void this.scheduleInboxRefresh(0, true);
+			}
+			return true;
+		} catch (error) {
+			this.error = errorMessage(error);
+			return false;
+		}
+	}
+
+	private patchMessage(threadId: string, clientId: string, patch: Partial<DmMessage>) {
+		this.setMessages(
+			threadId,
+			(this.messagesByThread[threadId] ?? []).map((item) =>
+				item.clientId === clientId ? { ...item, ...patch } : item
+			)
+		);
 	}
 
 	async sendGif(gif: GiphyGif, caption = ''): Promise<boolean> {
@@ -622,7 +980,19 @@ class MessagesState {
 			gifUrl,
 			previewUrl,
 			createdAt: new Date().toISOString(),
-			pending: true
+			pending: true,
+			editedAt: null,
+			deletedAt: null,
+			deletedByName: null,
+			replyTo: null,
+			replySender: null,
+			replyBody: null,
+			replyDeleted: false,
+			sharedEntry: null,
+			forwardedFrom: null,
+			reactions: [],
+			pinned: false,
+			seenBy: []
 		};
 	}
 
@@ -632,7 +1002,8 @@ class MessagesState {
 		body: string,
 		imagePath: string | null,
 		gifUrl: string | null,
-		optimistic: DmMessage
+		optimistic: DmMessage,
+		replyTo: string | null = null
 	): Promise<boolean> {
 		try {
 			// Older databases only know the 3-argument function. Text messages
@@ -646,6 +1017,7 @@ class MessagesState {
 			};
 			if (imagePath) params.p_image_path = imagePath;
 			if (gifUrl) params.p_gif_url = gifUrl;
+			if (replyTo) params.p_reply_to = replyTo;
 
 			const { data, error } = await supabase.rpc('vidjo_dm_send', params);
 			if (error) throw error;
@@ -667,7 +1039,14 @@ class MessagesState {
 					imagePath: typeof record.image_path === 'string' ? record.image_path : imagePath,
 					gifUrl: typeof record.gif_url === 'string' ? record.gif_url : gifUrl,
 					createdAt:
-						typeof record.created_at === 'string' ? record.created_at : optimistic.createdAt
+						typeof record.created_at === 'string' ? record.created_at : optimistic.createdAt,
+					...messageDefaults(record),
+					// Keep optimistic-only reply metadata when the database does not
+					// echo it back on the send response.
+					replyTo: optimistic.replyTo,
+					replySender: optimistic.replySender,
+					replyBody: optimistic.replyBody,
+					replyDeleted: optimistic.replyDeleted
 				};
 
 				this.setMessages(threadId, mergeMessages(this.messagesByThread[threadId] ?? [], [message]));
@@ -950,6 +1329,7 @@ class MessagesState {
 		this.hasMoreByThread = {};
 		this.imageUrls = {};
 		this.activeThreadId = null;
+		this.replyTo = null;
 		this.currentUserId = '';
 		this.loadingInbox = false;
 		this.loadingThread = false;
@@ -988,7 +1368,10 @@ class MessagesState {
 			lastGifUrl: message.gifUrl,
 			lastSender: message.senderId,
 			lastSenderName: message.senderName,
-			lastAt: message.createdAt
+			lastAt: message.createdAt,
+			lastSharedEntry: message.sharedEntry,
+			lastDeleted: Boolean(message.deletedAt),
+			lastDeletedByName: message.deletedByName
 		};
 
 		this.threads = [updated, ...this.threads.filter((thread) => thread.threadId !== threadId)];
@@ -1023,7 +1406,10 @@ class MessagesState {
 			lastSenderName: null,
 			lastAt: null,
 			unreadCount: 0,
-			canReply: true
+			canReply: true,
+			lastSharedEntry: null,
+			lastDeleted: false,
+			lastDeletedByName: null
 		};
 	}
 
@@ -1062,7 +1448,18 @@ class MessagesState {
 				.on(
 					'postgres_changes',
 					{ event: 'UPDATE', schema: 'public', table: 'vidjo_dm_messages' },
-					() => this.scheduleInboxRefresh()
+					(payload) => this.handleMessageUpdate(payload.new)
+				)
+				.on('postgres_changes', { event: '*', schema: 'public', table: 'vidjo_dm_reactions' }, () =>
+					this.reloadActiveThread()
+				)
+				.on('postgres_changes', { event: '*', schema: 'public', table: 'vidjo_dm_pins' }, () =>
+					this.reloadActiveThread()
+				)
+				.on(
+					'postgres_changes',
+					{ event: 'UPDATE', schema: 'public', table: 'vidjo_dm_participants' },
+					(payload) => this.handleParticipantUpdate(payload.new)
 				)
 				.on(
 					'postgres_changes',
@@ -1106,7 +1503,8 @@ class MessagesState {
 			body: typeof row.body === 'string' ? row.body : '',
 			imagePath: typeof row.image_path === 'string' ? row.image_path : null,
 			gifUrl: typeof row.gif_url === 'string' ? row.gif_url : null,
-			createdAt: typeof row.created_at === 'string' ? row.created_at : new Date().toISOString()
+			createdAt: typeof row.created_at === 'string' ? row.created_at : new Date().toISOString(),
+			...messageDefaults(row)
 		};
 
 		if (message.imagePath) void this.ensureImageUrls([message.imagePath]);
@@ -1130,6 +1528,9 @@ class MessagesState {
 				lastSender: senderId,
 				lastSenderName: message.senderName,
 				lastAt: message.createdAt,
+				lastSharedEntry: message.sharedEntry,
+				lastDeleted: Boolean(message.deletedAt),
+				lastDeletedByName: message.deletedByName,
 				unreadCount: mine || active ? 0 : existing.unreadCount + 1
 			};
 			this.threads = [updated, ...this.threads.filter((thread) => thread.threadId !== threadId)];
@@ -1143,6 +1544,58 @@ class MessagesState {
 			this.scrollRequest += 1;
 			this.queueRead(threadId);
 		}
+	}
+
+	/** Applies edits, deletes and new reactions to an already-open bubble. */
+	private handleMessageUpdate(raw: unknown) {
+		if (!raw || typeof raw !== 'object') return;
+		const row = raw as Record<string, unknown>;
+		const threadId = typeof row.thread_id === 'string' ? row.thread_id : '';
+		const clientId = typeof row.client_id === 'string' ? row.client_id : '';
+		if (!threadId || !clientId) return;
+
+		const current = (this.messagesByThread[threadId] ?? []).find(
+			(item) => item.clientId === clientId
+		);
+		if (current) {
+			const sender = this.senderInfo(current.senderId);
+			const updated: DmMessage = {
+				...current,
+				...messageDefaults(row),
+				body: typeof row.body === 'string' ? row.body : current.body,
+				imagePath: typeof row.image_path === 'string' ? row.image_path : null,
+				gifUrl: typeof row.gif_url === 'string' ? row.gif_url : null,
+				senderName: sender.name
+			};
+			this.patchMessage(threadId, clientId, {
+				body: updated.body,
+				imagePath: updated.imagePath,
+				gifUrl: updated.gifUrl,
+				editedAt: updated.editedAt,
+				deletedAt: updated.deletedAt,
+				deletedByName: updated.deletedByName,
+				sharedEntry: updated.sharedEntry,
+				forwardedFrom: updated.forwardedFrom,
+				pinned: updated.pinned
+			});
+		}
+
+		void this.scheduleInboxRefresh(0, true);
+	}
+
+	/** Reactions and pins live in their own tables, so refresh the open page. */
+	private reloadActiveThread() {
+		const threadId = this.activeThreadId;
+		if (!threadId || this.loadingThread || this.loadingOlder) return;
+		void this.loadThread(threadId);
+	}
+
+	/** A peer opening the thread changes our seen receipts. */
+	private handleParticipantUpdate(raw: unknown) {
+		if (!raw || typeof raw !== 'object') return;
+		const row = raw as Record<string, unknown>;
+		if (typeof row.last_read_at !== 'string') return;
+		this.reloadActiveThread();
 	}
 
 	private handleThreadChange(payload: { eventType?: string; new?: unknown }) {

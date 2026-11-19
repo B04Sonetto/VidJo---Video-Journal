@@ -125,6 +125,11 @@
 		void loadReportBadge();
 	});
 
+	function openFriends() {
+		nav.setFriendsTab('shelf');
+		nav.setView('friends');
+	}
+
 	async function signOut() {
 		menuOpen = false;
 		const owner = auth.ownerId;
@@ -212,7 +217,7 @@
 				: 'text-lav hover:bg-white/[.08] hover:text-white'}"
 			aria-current={nav.view === 'friends' ? 'page' : undefined}
 			aria-label={`Friends${friendsBadgeLabel ? `, ${friendsBadgeLabel}` : ''}`}
-			onclick={() => nav.setView('friends')}
+			onclick={openFriends}
 		>
 			<CommunityIcon name="users" size={16} />
 			<span>Friends</span>
@@ -491,7 +496,7 @@
 			: 'text-lav/80 hover:bg-white/[.07] hover:text-white'}"
 		aria-label={`Friends${friendsBadgeLabel ? `, ${friendsBadgeLabel}` : ''}`}
 		aria-current={nav.view === 'friends' ? 'page' : undefined}
-		onclick={() => nav.setView('friends')}
+		onclick={openFriends}
 	>
 		<CommunityIcon name="users" size={20} />
 		<span

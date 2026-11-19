@@ -10,8 +10,11 @@
 	import NewGroupModal from '#lib/components/NewGroupModal.svelte';
 	import GroupInfoModal from '#lib/components/GroupInfoModal.svelte';
 	import GifPicker from '#lib/components/GifPicker.svelte';
+	import ProfileModal from '#lib/components/ProfileModal.svelte';
+	import { journal } from '#lib/state/journal.svelte';
+	import { nav } from '#lib/state/navigation.svelte';
 	import { giphyEnabled, type GiphyGif } from '#lib/giphy';
-	import type { DmThreadSummary, Friend } from '#lib/types';
+	import type { DmMessage, DmThreadSummary, Friend, SharedJournalEntry } from '#lib/types';
 
 	let draft = $state('');
 	let composerEl = $state<HTMLTextAreaElement | null>(null);
@@ -21,6 +24,10 @@
 	let infoOpen = $state(false);
 	let gifOpen = $state(false);
 	let fileInputEl = $state<HTMLInputElement | null>(null);
+	let profileOpen = $state(false);
+	let profileUserId = $state<string | null>(null);
+	let forwardSource = $state<DmMessage | null>(null);
+	let pagePickerOpen = $state(false);
 
 	const activeThread = $derived(messages.activeThread);
 	const messageList = $derived(messages.activeMessages);
@@ -95,6 +102,12 @@
 				: mine
 					? 'You: '
 					: '';
+		if (thread.lastDeleted) {
+			return `${thread.lastDeletedByName || 'Someone'} deleted this message`;
+		}
+		if (thread.lastSharedEntry) {
+			return `${prefix}Journal page: ${thread.lastSharedEntry.title || 'Untitled'}`;
+		}
 		const label = thread.lastBody ? censor(thread.lastBody) : hasGif ? 'GIF' : 'Photo';
 		return prefix + label;
 	}
@@ -180,6 +193,57 @@
 		await messages.openDirect(friend);
 	}
 
+	async function copyMessage(message: DmMessage) {
+		const text = message.sharedEntry
+			? `${message.sharedEntry.title || 'Journal page'} — ${message.sharedEntry.mind || message.sharedEntry.refl}`
+			: censor(message.body);
+		if (!text?.trim()) return;
+		try {
+			await navigator.clipboard.writeText(text);
+			journal.toast('Copied to clipboard');
+		} catch {
+			journal.toast('Could not copy that message');
+		}
+	}
+
+	function editMessage(message: DmMessage, body: string) {
+		void messages.editMessage(message, body);
+	}
+
+	function openProfile(userId: string) {
+		profileUserId = userId;
+		profileOpen = true;
+	}
+
+	function openEntry(date: string) {
+		if (nav.jump(date, 'R')) journal.toast('Opened your journal page');
+	}
+
+	function entrySnapshot(date: string): SharedJournalEntry {
+		const entry = journal.entries[date];
+		return {
+			date,
+			title: entry?.title ?? '',
+			mind: entry?.mind ?? '',
+			refl: entry?.refl ?? '',
+			mood: entry?.mood ?? '',
+			pageCount: 2
+		};
+	}
+
+	async function sendPage(date: string) {
+		pagePickerOpen = false;
+		await messages.sendEntry(entrySnapshot(date));
+	}
+
+	async function forwardTo(threadId: string) {
+		const source = forwardSource;
+		forwardSource = null;
+		if (!source) return;
+		const ok = await messages.forwardTo(source, threadId);
+		if (ok) messages.setReply(null);
+	}
+
 	function handleWindowKey(event: KeyboardEvent) {
 		if (event.key !== 'Escape') return;
 		if (!messages.activeThreadId) return;
@@ -207,9 +271,7 @@
 		</p>
 	</div>
 {:else}
-	<div
-		class="mt-6 grid gap-4 min-[980px]:grid-cols-[300px_minmax(0,1fr)] min-[980px]:items-stretch"
-	>
+	<div class="grid gap-4 min-[980px]:grid-cols-[300px_minmax(0,1fr)] min-[980px]:items-stretch">
 		<!-- Conversation list -->
 		<section
 			class="min-h-0 flex-col overflow-hidden rounded-[22px] border border-cover-edge note-scrap text-book-ink shadow-[0_14px_30px_rgba(0,0,0,.35)] {messages.activeThreadId
@@ -246,7 +308,7 @@
 				</div>
 			</div>
 
-			<div class="min-h-0 flex-1 overflow-y-auto p-2">
+			<div class="min-h-0 flex-1 modal-scroll overflow-y-auto p-2">
 				{#if messages.loadingInbox && messages.threads.length === 0}
 					<div class="space-y-2 p-1" role="status" aria-label="Loading conversations">
 						{#each [0, 1, 2] as slot (slot)}
@@ -356,7 +418,7 @@
 		<!-- Open conversation -->
 		<section
 			class="min-h-0 flex-col overflow-hidden border border-cover-edge note-scrap text-book-ink shadow-[0_14px_30px_rgba(0,0,0,.35)] {messages.activeThreadId
-				? 'fixed inset-x-0 top-0 bottom-[calc(env(safe-area-inset-bottom)+58px)] z-40 flex rounded-b-[22px] pt-[env(safe-area-inset-top)] min-[900px]:bottom-0'
+				? 'fixed inset-x-0 top-0 bottom-[calc(env(safe-area-inset-bottom)+58px)] z-30 flex rounded-b-[22px] pt-[env(safe-area-inset-top)] min-[900px]:bottom-0'
 				: 'hidden'} min-[980px]:static min-[980px]:z-auto min-[980px]:flex min-[980px]:h-[640px] min-[980px]:rounded-[22px] min-[980px]:pt-0"
 		>
 			{#if activeThread}
@@ -410,7 +472,7 @@
 				</header>
 
 				<div
-					class="min-h-0 flex-1 overflow-y-auto px-3 py-3"
+					class="min-h-0 flex-1 modal-scroll overflow-y-auto px-3 py-3"
 					bind:this={logEl}
 					role="log"
 					aria-live="polite"
@@ -421,6 +483,32 @@
 							<p class="font-hand text-lg text-book-ink/60">Opening the conversation…</p>
 						</div>
 					{:else}
+						{#if messages.activePinned.length}
+							<div class="mb-3 rounded-xl border border-gold/45 bg-book-accent/10 p-2">
+								<p
+									class="mb-1.5 flex items-center gap-1.5 font-ui text-[10px] font-bold text-book-ink/70 uppercase"
+								>
+									<CommunityIcon name="pin" size={12} /> Pinned by you
+								</p>
+								<div class="flex flex-col gap-1">
+									{#each messages.activePinned as pinned (pinned.clientId)}
+										<button
+											type="button"
+											class="flex items-center gap-2 rounded-lg px-2 py-1 text-left transition-colors hover:bg-paper-deep/70"
+											onclick={() => messages.setReply(pinned)}
+											title="Reply to pinned message"
+										>
+											<span class="shrink-0 font-ui text-[10px] font-bold text-accent">
+												{pinned.senderName.split(/\s+/)[0]}
+											</span>
+											<span class="min-w-0 flex-1 truncate font-ui text-[11px] text-book-ink/75">
+												{censor(pinned.body || pinned.sharedEntry?.title || 'Attachment')}
+											</span>
+										</button>
+									{/each}
+								</div>
+							</div>
+						{/if}
 						{#if messages.activeHasMore}
 							<div class="mb-3 text-center">
 								<button
@@ -457,6 +545,15 @@
 										message.gifUrl ||
 										''}
 									onOpenImage={(src) => window.open(src, '_blank', 'noopener,noreferrer')}
+									onReply={(item) => messages.setReply(item)}
+									onCopy={(item) => void copyMessage(item)}
+									onDelete={(item) => void messages.deleteMessage(item)}
+									onEdit={editMessage}
+									onPin={(item) => void messages.togglePin(item)}
+									onForward={(item) => (forwardSource = item)}
+									onReact={(item, emoji) => void messages.toggleReaction(item, emoji)}
+									onOpenProfile={openProfile}
+									onOpenEntry={openEntry}
 								/>
 							{/each}
 						{/if}
@@ -490,6 +587,29 @@
 							onchange={pickImage}
 							aria-hidden="true"
 						/>
+						{#if messages.replyTo}
+							<div
+								class="mb-2 flex items-center gap-2 rounded-xl border border-gold/50 bg-paper-deep px-2.5 py-1.5"
+							>
+								<CommunityIcon name="reply" size={14} class="shrink-0 text-accent" />
+								<div class="min-w-0 flex-1">
+									<p class="font-ui text-[10px] font-bold text-accent">
+										Replying to {messages.replyTo.senderName}
+									</p>
+									<p class="truncate font-ui text-[11px] text-book-ink/70">
+										{censor(messages.replyTo.body || 'Attachment')}
+									</p>
+								</div>
+								<button
+									type="button"
+									class="flex size-7 shrink-0 items-center justify-center rounded-full text-book-ink/70 hover:bg-line/50"
+									onclick={() => messages.setReply(null)}
+									aria-label="Cancel reply"
+								>
+									<CommunityIcon name="x" size={13} />
+								</button>
+							</div>
+						{/if}
 						<div class="flex items-end gap-2">
 							<label class="sr-only" for="dm-composer">Write a message</label>
 							<button
@@ -500,6 +620,15 @@
 								title="Attach a photo"
 							>
 								<CommunityIcon name="camera" size={17} />
+							</button>
+							<button
+								type="button"
+								class="flex size-10 shrink-0 items-center justify-center rounded-full border border-line bg-book-bg text-book-ink/80 transition-colors hover:bg-paper-deep hover:text-book-ink"
+								onclick={() => (pagePickerOpen = true)}
+								aria-label="Send a journal page"
+								title="Send a journal page"
+							>
+								<CommunityIcon name="book" size={17} />
 							</button>
 							{#if giphyEnabled}
 								<button
@@ -637,7 +766,173 @@
 		</div>
 	{/if}
 
+	<!-- Forward to a conversation -->
+	{#if forwardSource}
+		<div
+			class="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4"
+			role="dialog"
+			aria-modal="true"
+			aria-labelledby="forward-title"
+		>
+			<button
+				type="button"
+				class="fixed inset-0 h-full w-full cursor-default"
+				onclick={() => (forwardSource = null)}
+				aria-label="Close forward dialog"
+			></button>
+			<div
+				class="relative z-10 flex max-h-[80vh] w-full max-w-[420px] flex-col overflow-hidden rounded-[26px] border border-cover-edge note-scrap text-book-ink shadow-[0_25px_60px_rgba(0,0,0,.55)]"
+			>
+				<div class="flex items-center justify-between gap-3 border-b border-line px-5 py-4">
+					<div>
+						<h2 id="forward-title" class="font-display text-xl font-bold">Forward message</h2>
+						<p class="mt-0.5 line-clamp-1 font-ui text-[11px] text-book-ink/60">
+							{censor(forwardSource.body || forwardSource.sharedEntry?.title || 'Attachment')}
+						</p>
+					</div>
+					<button
+						type="button"
+						class="flex size-9 items-center justify-center rounded-full bg-book-bg text-book-ink/70 transition-colors hover:bg-paper-deep hover:text-book-ink"
+						onclick={() => (forwardSource = null)}
+						aria-label="Close"
+					>
+						<CommunityIcon name="x" size={16} />
+					</button>
+				</div>
+				<div class="min-h-0 flex-1 modal-scroll overflow-y-auto p-2">
+					{#if messages.threads.length === 0}
+						<p class="px-4 py-8 text-center font-hand text-lg text-book-ink/70">
+							Start a conversation first.
+						</p>
+					{:else}
+						<ul class="space-y-1">
+							{#each messages.threads as thread (thread.threadId)}
+								{@const peer = messages.peerFor(thread)}
+								<li>
+									<button
+										type="button"
+										class="flex w-full items-center gap-3 rounded-xl px-2.5 py-2.5 text-left transition-colors hover:bg-paper-deep"
+										onclick={() => void forwardTo(thread.threadId)}
+									>
+										{#if thread.kind === 'group'}
+											<span
+												class="flex size-10 shrink-0 items-center justify-center rounded-full bg-cover/45 text-book-accent"
+											>
+												<CommunityIcon name="users" size={17} />
+											</span>
+										{:else}
+											<Avatar
+												src={peer?.avatar ?? null}
+												name={peer?.name ?? 'Friend'}
+												className="size-10"
+												textClass="text-base"
+												ring="ring-2 ring-gold/40"
+											/>
+										{/if}
+										<span class="min-w-0 flex-1 truncate font-display text-[15px] font-bold">
+											{messages.threadLabel(thread)}
+										</span>
+										<CommunityIcon name="forward" size={15} class="shrink-0 text-book-ink/50" />
+									</button>
+								</li>
+							{/each}
+						</ul>
+					{/if}
+				</div>
+			</div>
+		</div>
+	{/if}
+
+	<!-- Send a journal page -->
+	{#if pagePickerOpen}
+		<div
+			class="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4"
+			role="dialog"
+			aria-modal="true"
+			aria-labelledby="send-page-title"
+		>
+			<button
+				type="button"
+				class="fixed inset-0 h-full w-full cursor-default"
+				onclick={() => (pagePickerOpen = false)}
+				aria-label="Close journal page picker"
+			></button>
+			<div
+				class="relative z-10 flex max-h-[82vh] w-full max-w-[460px] flex-col overflow-hidden rounded-[26px] border border-cover-edge note-scrap text-book-ink shadow-[0_25px_60px_rgba(0,0,0,.55)]"
+			>
+				<div class="flex items-center justify-between gap-3 border-b border-line px-5 py-4">
+					<div>
+						<h2 id="send-page-title" class="font-display text-xl font-bold">Send a journal page</h2>
+						<p class="font-ui text-[11px] text-book-ink/60">
+							Your friend gets a page they can open.
+						</p>
+					</div>
+					<button
+						type="button"
+						class="flex size-9 items-center justify-center rounded-full bg-book-bg text-book-ink/70 transition-colors hover:bg-paper-deep hover:text-book-ink"
+						onclick={() => (pagePickerOpen = false)}
+						aria-label="Close"
+					>
+						<CommunityIcon name="x" size={16} />
+					</button>
+				</div>
+				<div class="min-h-0 flex-1 modal-scroll overflow-y-auto p-2">
+					{#if journal.sortedDates.length === 0}
+						<p class="px-4 py-8 text-center font-hand text-lg text-book-ink/70">
+							Write a page first, then share it here.
+						</p>
+					{:else}
+						<ul class="space-y-1.5">
+							{#each journal.sortedDates.slice(0, 30) as date (date)}
+								{@const entry = journal.entries[date]}
+								{@const when = new Date(`${date}T12:00:00`)}
+								<li>
+									<button
+										type="button"
+										class="flex w-full items-center gap-3 rounded-xl border border-line bg-book-bg/70 px-3 py-2.5 text-left transition-colors hover:border-gold/60 hover:bg-paper-deep"
+										onclick={() => void sendPage(date)}
+									>
+										<span
+											class="flex size-9 shrink-0 items-center justify-center rounded-lg bg-book-accent/20 text-book-accent"
+										>
+											<CommunityIcon name="book" size={17} />
+										</span>
+										<span class="min-w-0 flex-1">
+											<span class="block truncate font-display text-[15px] font-bold">
+												{entry?.title || 'Untitled page'}
+											</span>
+											<span class="block truncate font-ui text-[11px] text-book-ink/60">
+												{Number.isNaN(when.getTime())
+													? date
+													: when.toLocaleDateString(undefined, {
+															month: 'short',
+															day: 'numeric',
+															year: 'numeric'
+														})}
+												{#if entry?.mind}
+													· {entry.mind.slice(0, 40)}{/if}
+											</span>
+										</span>
+										<CommunityIcon name="send" size={15} class="shrink-0 text-accent" />
+									</button>
+								</li>
+							{/each}
+						</ul>
+					{/if}
+				</div>
+			</div>
+		</div>
+	{/if}
+
 	<NewGroupModal open={newGroupOpen} onClose={() => (newGroupOpen = false)} />
 	<GroupInfoModal open={infoOpen} thread={activeThread} onClose={() => (infoOpen = false)} />
 	<GifPicker open={gifOpen} onClose={() => (gifOpen = false)} onPick={pickGif} />
+	<ProfileModal
+		open={profileOpen}
+		userId={profileUserId}
+		onClose={() => {
+			profileOpen = false;
+			profileUserId = null;
+		}}
+	/>
 {/if}

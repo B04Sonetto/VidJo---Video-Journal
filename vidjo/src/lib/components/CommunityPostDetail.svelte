@@ -1,6 +1,5 @@
 <script lang="ts">
 	import { auth } from '#lib/state/auth.svelte';
-	import { profile } from '#lib/state/profile.svelte';
 	import { community } from '#lib/state/community.svelte';
 	import { journal } from '#lib/state/journal.svelte';
 	import { MOOD_BY_KEY } from '#lib/data/moods';
@@ -77,8 +76,8 @@
 	let editCommentText = $state('');
 	let commentConfirmId = $state<string | null>(null);
 
-	const isAdmin = $derived((profile.profile?.user_role ?? '').trim().toLowerCase() === 'admin');
-	const canRemove = $derived(post.isOwner || post.authorId === auth.ownerId || isAdmin);
+	const canModerate = $derived(community.canModerate(post.communitySlug ?? ''));
+	const canRemove = $derived(post.isOwner || post.authorId === auth.ownerId || canModerate);
 	const mood = $derived(post.mood && MOOD_BY_KEY[post.mood] ? MOOD_BY_KEY[post.mood] : null);
 
 	const stickers = $derived.by(() => {
@@ -475,7 +474,7 @@
 
 										{#if !comment.id.startsWith('local-')}
 											<div class="mt-1 {editingCommentId === comment.id ? 'hidden' : ''}">
-												{#if comment.authorId === auth.ownerId || isAdmin}
+												{#if comment.authorId === auth.ownerId || canModerate}
 													{#if commentConfirmId === comment.id}
 														<div class="flex flex-wrap items-center gap-2">
 															<span class="font-ui text-[9px] font-semibold text-[#9A5B5B]"
@@ -512,8 +511,8 @@
 															class="ml-3 font-ui text-[9px] text-book-ink/70 hover:text-red-600"
 															onclick={() => (commentConfirmId = comment.id)}
 														>
-															{isAdmin && comment.authorId !== auth.ownerId
-																? 'Remove (admin)'
+															{canModerate && comment.authorId !== auth.ownerId
+																? 'Remove (mod)'
 																: 'Delete'}
 														</button>
 													{/if}
@@ -572,8 +571,8 @@
 						onclick={() => onRemove(post)}
 					>
 						<CommunityIcon name="user-minus" size={13} />
-						{isAdmin && !post.isOwner && post.authorId !== auth.ownerId
-							? 'Remove as admin'
+						{canModerate && !post.isOwner && post.authorId !== auth.ownerId
+							? 'Remove as moderator'
 							: 'Remove from community'}
 					</button>
 				</div>

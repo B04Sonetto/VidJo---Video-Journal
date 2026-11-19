@@ -246,24 +246,30 @@
 	}}
 />
 
-<div class="mx-auto w-full max-w-[1240px] px-4 py-6 min-[900px]:px-6">
-	<PageHeader
-		title="Friends"
-		description="Open a friend's notebook to read the pages they shared. Nothing else is visible."
-	>
-		{#snippet meta()}
-			{friends.friendCount}
-			{friends.friendCount === 1 ? 'friend' : 'friends'}
-		{/snippet}
-		{#snippet actions()}
-			<Button variant="ghost" trailingIcon="arrow-right" onclick={() => nav.jump(todayKey())}>
-				Open my journal
-			</Button>
-			<Button icon="plus" onclick={openAddFriend}>Add a friend</Button>
-		{/snippet}
-	</PageHeader>
+<div
+	class="mx-auto w-full max-w-[1240px] {nav.friendsTab === 'messages'
+		? 'px-3 py-4 min-[900px]:px-6 min-[900px]:py-6'
+		: 'px-4 py-6 min-[900px]:px-6'}"
+>
+	{#if nav.friendsTab === 'shelf'}
+		<PageHeader
+			title="Friends"
+			description="Open a friend's notebook to read the pages they shared. Nothing else is visible."
+		>
+			{#snippet meta()}
+				{friends.friendCount}
+				{friends.friendCount === 1 ? 'friend' : 'friends'}
+			{/snippet}
+			{#snippet actions()}
+				<Button variant="ghost" trailingIcon="arrow-right" onclick={() => nav.jump(todayKey())}>
+					Open my journal
+				</Button>
+				<Button icon="plus" onclick={openAddFriend}>Add a friend</Button>
+			{/snippet}
+		</PageHeader>
+	{/if}
 
-	<div class="mt-6 flex flex-wrap items-center justify-between gap-3">
+	{#snippet sectionTabs()}
 		<div
 			class="inline-flex rounded-full border border-cover-edge bg-desk-2/80 p-1"
 			role="tablist"
@@ -311,395 +317,400 @@
 				{friends.pendingCount === 1 ? 'friend request is' : 'friend requests are'} waiting on the Shelf.
 			</p>
 		{/if}
+	{/snippet}
+
+	<div
+		class="flex flex-wrap items-center justify-between gap-3 {nav.friendsTab === 'messages'
+			? 'mb-3'
+			: 'mt-6'}"
+	>
+		{@render sectionTabs()}
 	</div>
 
 	{#if nav.friendsTab === 'messages'}
 		<MessagesPanel />
-	{/if}
+	{:else}
+		<div class="grid gap-6 min-[1040px]:grid-cols-[minmax(0,1fr)_340px] min-[1040px]:items-start">
+			<!-- Shelf -->
+			<section
+				class="rounded-[22px] border border-cover-edge bg-desk-2 p-5 shadow-[0_14px_30px_rgba(0,0,0,.35)] min-[720px]:p-7"
+			>
+				<div class="flex flex-wrap items-center justify-between gap-3">
+					<div class="flex items-baseline gap-3">
+						<h2 class="font-display text-[26px] leading-none font-bold text-book-bg">The shelf</h2>
+						<span class="font-ui text-sm text-book-bg/65 tabular-nums">
+							{friends.friendCount}
+							{friends.friendCount === 1 ? 'friend' : 'friends'}
+						</span>
+					</div>
 
-	<div
-		class="mt-7 grid gap-6 min-[1040px]:grid-cols-[minmax(0,1fr)_340px] min-[1040px]:items-start"
-		class:hidden={nav.friendsTab === 'messages'}
-	>
-		<!-- Shelf -->
-		<section
-			class="rounded-[22px] border border-cover-edge bg-desk-2 p-5 shadow-[0_14px_30px_rgba(0,0,0,.35)] min-[720px]:p-7"
-		>
-			<div class="flex flex-wrap items-center justify-between gap-3">
-				<div class="flex items-baseline gap-3">
-					<h2 class="font-display text-[26px] leading-none font-bold text-book-bg">The shelf</h2>
-					<span class="font-ui text-sm text-book-bg/65 tabular-nums">
-						{friends.friendCount}
-						{friends.friendCount === 1 ? 'friend' : 'friends'}
-					</span>
-				</div>
-
-				<div class="flex items-center gap-1 rounded-full border border-cover-edge bg-desk/60 p-1">
-					{#each FILTERS as filter (filter.key)}
-						<button
-							type="button"
-							class="min-h-8 rounded-full px-3 py-1.5 font-ui text-[11px] font-bold transition-colors {friends.activeFilter ===
-							filter.key
-								? 'bg-cta text-cta-text'
-								: 'text-book-bg/70 hover:text-book-bg'}"
-							onclick={() => friends.setFilter(filter.key)}
-							aria-pressed={friends.activeFilter === filter.key}
-						>
-							{filter.label}
-						</button>
-					{/each}
-				</div>
-			</div>
-
-			<div class="mt-6">
-				{#if friends.loading && shelves.length === 0}
-					<div class="grid grid-cols-2 gap-x-6 gap-y-6 min-[720px]:grid-cols-3">
-						{#each [0, 1, 2] as slot (slot)}
-							<div>
-								<Skeleton class="aspect-[3/4] w-full rounded-[6px_12px_12px_6px]" />
-								<Skeleton class="mx-auto mt-3 h-3.5 w-2/3" />
-							</div>
+					<div class="flex items-center gap-1 rounded-full border border-cover-edge bg-desk/60 p-1">
+						{#each FILTERS as filter (filter.key)}
+							<button
+								type="button"
+								class="min-h-8 rounded-full px-3 py-1.5 font-ui text-[11px] font-bold transition-colors {friends.activeFilter ===
+								filter.key
+									? 'bg-cta text-cta-text'
+									: 'text-book-bg/70 hover:text-book-bg'}"
+								onclick={() => friends.setFilter(filter.key)}
+								aria-pressed={friends.activeFilter === filter.key}
+							>
+								{filter.label}
+							</button>
 						{/each}
 					</div>
-				{:else}
-					{#each shelfRows as row, rowIndex (rowIndex)}
-						<div class={rowIndex === 0 ? '' : 'mt-9'}>
-							<div class="grid grid-cols-2 gap-x-6 gap-y-6 min-[720px]:grid-cols-3">
-								{#each row as item, itemIndex (item.kind === 'shelf' ? item.shelf.friend.id : `add-${itemIndex}`)}
-									{#if item.kind === 'add'}
-										<button
-											type="button"
-											class="flex aspect-[3/4] w-full flex-col items-center justify-center gap-2.5 rounded-lg border border-cover p-3 text-center text-book-bg/70 transition-colors hover:border-book-accent hover:bg-cover/30 hover:text-book-bg"
-											onclick={openAddFriend}
-											aria-label="Add a friend with a friend code"
-										>
-											<span
-												class="flex size-9 items-center justify-center rounded-full border border-cover text-book-accent"
-												aria-hidden="true"
-											>
-												<CommunityIcon name="plus" size={16} />
-											</span>
-											<span class="font-hand text-xl leading-tight font-bold">Add a friend</span>
-											<span class="font-ui text-[10px] leading-tight text-book-bg/60">
-												with a friend code
-											</span>
-										</button>
-										<div class="mt-3 h-6" aria-hidden="true"></div>
-									{:else}
-										{@const shelf = item.shelf}
-										{@const cover = coverFor(shelf.friend.id + shelf.friend.displayName)}
-										{@const sticker = stickerFor(shelf.friend.id + shelf.friend.displayName)}
-										{@const moodPost = shelf.posts.find(
-											(entry) => entry.mood && MOOD_BY_KEY[entry.mood]
-										)}
-										<div class="min-w-0">
+				</div>
+
+				<div class="mt-6">
+					{#if friends.loading && shelves.length === 0}
+						<div class="grid grid-cols-2 gap-x-6 gap-y-6 min-[720px]:grid-cols-3">
+							{#each [0, 1, 2] as slot (slot)}
+								<div>
+									<Skeleton class="aspect-[3/4] w-full rounded-[6px_12px_12px_6px]" />
+									<Skeleton class="mx-auto mt-3 h-3.5 w-2/3" />
+								</div>
+							{/each}
+						</div>
+					{:else}
+						{#each shelfRows as row, rowIndex (rowIndex)}
+							<div class={rowIndex === 0 ? '' : 'mt-9'}>
+								<div class="grid grid-cols-2 gap-x-6 gap-y-6 min-[720px]:grid-cols-3">
+									{#each row as item, itemIndex (item.kind === 'shelf' ? item.shelf.friend.id : `add-${itemIndex}`)}
+										{#if item.kind === 'add'}
 											<button
 												type="button"
-												class="group relative block w-full text-left"
-												onclick={() => openReader(shelf)}
-												aria-label="Open {shelf.friend.displayName}'s notebook, {shelf.newCount}
-												new pages"
+												class="flex aspect-[3/4] w-full flex-col items-center justify-center gap-2.5 rounded-lg border border-cover p-3 text-center text-book-bg/70 transition-colors hover:border-book-accent hover:bg-cover/30 hover:text-book-bg"
+												onclick={openAddFriend}
+												aria-label="Add a friend with a friend code"
 											>
-												{#if shelf.newCount > 0}
-													<span
-														class="absolute -top-1.5 -right-1.5 z-10 flex h-[22px] min-w-[22px] items-center justify-center rounded-full bg-gold px-1 font-ui text-[11px] font-bold text-desk shadow-[0_0_0_3px_var(--color-desk-2)]"
-													>
-														{shelf.newCount}
-													</span>
-												{/if}
-
 												<span
-													class="relative block aspect-[3/4] overflow-hidden rounded-[6px_12px_12px_6px] shadow-[0_12px_20px_rgba(0,0,0,.5),inset_-3px_0_0_rgba(255,255,255,.08)] transition-transform duration-200 group-hover:-translate-y-1"
-													style="background: linear-gradient(135deg, {cover[0]}, {cover[1]})"
+													class="flex size-9 items-center justify-center rounded-full border border-cover text-book-accent"
+													aria-hidden="true"
 												>
-													<span
-														class="absolute inset-y-0 left-0 w-[13%] bg-black/30"
-														aria-hidden="true"
-													></span>
-													<span
-														class="absolute inset-2 left-[19%] rounded-[8px] border border-gold/40"
-														aria-hidden="true"
-													></span>
-
-													{#if shelf.isOwner}
-														<span
-															class="absolute top-[8%] left-[21%] z-10 rounded-full bg-white/20 px-1.5 py-0.5 font-ui text-[8px] font-bold text-white"
-														>
-															Your notebook
-														</span>
-													{/if}
-
-													<span
-														class="absolute top-1/2 right-[12%] left-[26%] -translate-y-1/2 -rotate-2 rounded bg-paper px-1.5 py-1 text-center font-hand text-[22px] leading-none font-bold text-ink shadow-[0_2px_4px_rgba(0,0,0,.3)]"
-													>
-														<span class="block truncate">
-															{firstName(shelf.friend.displayName)}
-														</span>
-													</span>
-
-													{#if sticker}
-														<span
-															class="absolute top-[9%] right-[8%] w-[36%] rotate-[8deg] sticker-shadow [&>svg]:block [&>svg]:h-auto [&>svg]:w-full"
-															aria-hidden="true"
-														>
-															<!-- eslint-disable-next-line svelte/no-at-html-tags -- static SVG from data/stickers.ts -->
-															{@html sticker.svg}
-														</span>
-													{/if}
+													<CommunityIcon name="plus" size={16} />
+												</span>
+												<span class="font-hand text-xl leading-tight font-bold">Add a friend</span>
+												<span class="font-ui text-[10px] leading-tight text-book-bg/60">
+													with a friend code
 												</span>
 											</button>
-
-											<div
-												class="mt-3 flex items-center justify-center gap-2 text-[13px] leading-tight text-book-bg/70"
-											>
-												{#if moodPost?.mood && MOOD_BY_KEY[moodPost.mood]}
-													<span class="size-5 shrink-0 [&>svg]:size-full" aria-hidden="true">
-														<!-- eslint-disable-next-line svelte/no-at-html-tags -- static SVG from data/moods.ts -->
-														{@html MOOD_BY_KEY[moodPost.mood].svg}
-													</span>
-												{:else}
-													<svg
-														class="size-5 shrink-0 text-gold"
-														viewBox="0 0 24 24"
-														fill="none"
-														stroke="currentColor"
-														stroke-width="1.8"
-														stroke-linejoin="round"
-														aria-hidden="true"
-													>
-														<path d="m12 3 1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9Z"
-														></path>
-													</svg>
-												{/if}
-												<span>
+											<div class="mt-3 h-6" aria-hidden="true"></div>
+										{:else}
+											{@const shelf = item.shelf}
+											{@const cover = coverFor(shelf.friend.id + shelf.friend.displayName)}
+											{@const sticker = stickerFor(shelf.friend.id + shelf.friend.displayName)}
+											{@const moodPost = shelf.posts.find(
+												(entry) => entry.mood && MOOD_BY_KEY[entry.mood]
+											)}
+											<div class="min-w-0">
+												<button
+													type="button"
+													class="group relative block w-full text-left"
+													onclick={() => openReader(shelf)}
+													aria-label="Open {shelf.friend.displayName}'s notebook, {shelf.newCount}
+												new pages"
+												>
 													{#if shelf.newCount > 0}
-														{shelf.newCount} new
-														{shelf.newCount === 1 ? 'page' : 'pages'}
-													{:else if shelf.posts.length > 0}
-														{shelf.posts.length} shared
-														{shelf.posts.length === 1 ? 'page' : 'pages'}
-													{:else}
-														No shared pages
+														<span
+															class="absolute -top-1.5 -right-1.5 z-10 flex h-[22px] min-w-[22px] items-center justify-center rounded-full bg-gold px-1 font-ui text-[11px] font-bold text-desk shadow-[0_0_0_3px_var(--color-desk-2)]"
+														>
+															{shelf.newCount}
+														</span>
 													{/if}
-												</span>
+
+													<span
+														class="relative block aspect-[3/4] overflow-hidden rounded-[6px_12px_12px_6px] shadow-[0_12px_20px_rgba(0,0,0,.5),inset_-3px_0_0_rgba(255,255,255,.08)] transition-transform duration-200 group-hover:-translate-y-1"
+														style="background: linear-gradient(135deg, {cover[0]}, {cover[1]})"
+													>
+														<span
+															class="absolute inset-y-0 left-0 w-[13%] bg-black/30"
+															aria-hidden="true"
+														></span>
+														<span
+															class="absolute inset-2 left-[19%] rounded-[8px] border border-gold/40"
+															aria-hidden="true"
+														></span>
+
+														{#if shelf.isOwner}
+															<span
+																class="absolute top-[8%] left-[21%] z-10 rounded-full bg-white/20 px-1.5 py-0.5 font-ui text-[8px] font-bold text-white"
+															>
+																Your notebook
+															</span>
+														{/if}
+
+														<span
+															class="absolute top-1/2 right-[12%] left-[26%] -translate-y-1/2 -rotate-2 rounded bg-paper px-1.5 py-1 text-center font-hand text-[22px] leading-none font-bold text-ink shadow-[0_2px_4px_rgba(0,0,0,.3)]"
+														>
+															<span class="block truncate">
+																{firstName(shelf.friend.displayName)}
+															</span>
+														</span>
+
+														{#if sticker}
+															<span
+																class="absolute top-[9%] right-[8%] w-[36%] rotate-[8deg] sticker-shadow [&>svg]:block [&>svg]:h-auto [&>svg]:w-full"
+																aria-hidden="true"
+															>
+																<!-- eslint-disable-next-line svelte/no-at-html-tags -- static SVG from data/stickers.ts -->
+																{@html sticker.svg}
+															</span>
+														{/if}
+													</span>
+												</button>
+
+												<div
+													class="mt-3 flex items-center justify-center gap-2 text-[13px] leading-tight text-book-bg/70"
+												>
+													{#if moodPost?.mood && MOOD_BY_KEY[moodPost.mood]}
+														<span class="size-5 shrink-0 [&>svg]:size-full" aria-hidden="true">
+															<!-- eslint-disable-next-line svelte/no-at-html-tags -- static SVG from data/moods.ts -->
+															{@html MOOD_BY_KEY[moodPost.mood].svg}
+														</span>
+													{:else}
+														<svg
+															class="size-5 shrink-0 text-gold"
+															viewBox="0 0 24 24"
+															fill="none"
+															stroke="currentColor"
+															stroke-width="1.8"
+															stroke-linejoin="round"
+															aria-hidden="true"
+														>
+															<path d="m12 3 1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9Z"
+															></path>
+														</svg>
+													{/if}
+													<span>
+														{#if shelf.newCount > 0}
+															{shelf.newCount} new
+															{shelf.newCount === 1 ? 'page' : 'pages'}
+														{:else if shelf.posts.length > 0}
+															{shelf.posts.length} shared
+															{shelf.posts.length === 1 ? 'page' : 'pages'}
+														{:else}
+															No shared pages
+														{/if}
+													</span>
+												</div>
 											</div>
-										</div>
-									{/if}
-								{/each}
-							</div>
+										{/if}
+									{/each}
+								</div>
 
-							<div
-								class="mx-[-8px] mt-2 h-4 rounded-[4px] bg-[linear-gradient(var(--color-cover),var(--color-cover-edge))] shadow-[0_8px_12px_rgba(0,0,0,.4)]"
-								aria-hidden="true"
-							></div>
-						</div>
-					{/each}
-				{/if}
-			</div>
-
-			{#if !friends.loading && friends.friendCount === 0}
-				<p class="mt-6 text-center font-ui text-sm leading-relaxed text-book-bg/65">
-					Your shelf is waiting. Add a friend with their code and their notebook will appear here.
-				</p>
-			{/if}
-		</section>
-
-		<!-- Sidebar -->
-		<aside class="space-y-4">
-			<!-- Moods -->
-			<section
-				class="rounded-[20px] note-scrap p-5 text-book-ink shadow-[0_10px_26px_rgba(0,0,0,.35)]"
-			>
-				<h2 class="font-display text-[23px] leading-tight font-bold text-book-ink">
-					How everyone's feeling
-				</h2>
-				<p class="mt-1 font-hand text-lg leading-tight text-book-ink/70">
-					Only the mood. No details.
-				</p>
-
-				{#if moodPeek.length > 0}
-					<div class="mt-4 flex flex-wrap gap-x-3 gap-y-4">
-						{#each moodPeek as item (item.key)}
-							<div class="flex min-w-[60px] flex-col items-center gap-1 text-center">
 								<div
-									class="flex size-14 items-center justify-center rounded-full shadow-[0_0_0_1px_var(--color-line)]"
-									style="background: {item.mood.c}88"
-								>
-									<span class="size-10 [&>svg]:size-full" aria-hidden="true">
-										<!-- eslint-disable-next-line svelte/no-at-html-tags -- static SVG from data/moods.ts -->
-										{@html item.mood.svg}
+									class="mx-[-8px] mt-2 h-4 rounded-[4px] bg-[linear-gradient(var(--color-cover),var(--color-cover-edge))] shadow-[0_8px_12px_rgba(0,0,0,.4)]"
+									aria-hidden="true"
+								></div>
+							</div>
+						{/each}
+					{/if}
+				</div>
+
+				{#if !friends.loading && friends.friendCount === 0}
+					<p class="mt-6 text-center font-ui text-sm leading-relaxed text-book-bg/65">
+						Your shelf is waiting. Add a friend with their code and their notebook will appear here.
+					</p>
+				{/if}
+			</section>
+
+			<!-- Sidebar -->
+			<aside class="space-y-4">
+				<!-- Moods -->
+				<section
+					class="rounded-[20px] note-scrap p-5 text-book-ink shadow-[0_10px_26px_rgba(0,0,0,.35)]"
+				>
+					<h2 class="font-display text-[23px] leading-tight font-bold text-book-ink">
+						How everyone's feeling
+					</h2>
+					<p class="mt-1 font-hand text-lg leading-tight text-book-ink/70">
+						Only the mood. No details.
+					</p>
+
+					{#if moodPeek.length > 0}
+						<div class="mt-4 flex flex-wrap gap-x-3 gap-y-4">
+							{#each moodPeek as item (item.key)}
+								<div class="flex min-w-[60px] flex-col items-center gap-1 text-center">
+									<div
+										class="flex size-14 items-center justify-center rounded-full shadow-[0_0_0_1px_var(--color-line)]"
+										style="background: {item.mood.c}88"
+									>
+										<span class="size-10 [&>svg]:size-full" aria-hidden="true">
+											<!-- eslint-disable-next-line svelte/no-at-html-tags -- static SVG from data/moods.ts -->
+											{@html item.mood.svg}
+										</span>
+									</div>
+									<span
+										class="max-w-[68px] truncate font-hand text-lg leading-none font-bold text-book-ink"
+									>
+										{firstName(item.friend.displayName)}
+									</span>
+									<span class="font-hand text-[13px] leading-none text-book-ink/70">
+										{item.when.toLowerCase()}
 									</span>
 								</div>
-								<span
-									class="max-w-[68px] truncate font-hand text-lg leading-none font-bold text-book-ink"
-								>
-									{firstName(item.friend.displayName)}
-								</span>
-								<span class="font-hand text-[13px] leading-none text-book-ink/70">
-									{item.when.toLowerCase()}
-								</span>
-							</div>
-						{/each}
-					</div>
-				{:else}
-					<p class="mt-4 font-hand text-base leading-snug text-book-ink/70">
-						No moods shared yet. When friends post, their weather shows up here.
-					</p>
-				{/if}
-			</section>
-
-			<!-- Requests -->
-			<section
-				class="rounded-[20px] note-scrap p-5 text-book-ink shadow-[0_10px_26px_rgba(0,0,0,.35)]"
-			>
-				<div class="flex items-start justify-between gap-2">
-					<h2 class="font-display text-[23px] leading-tight font-bold text-book-ink">
-						Friend requests
-					</h2>
-					{#if friends.pendingCount > 0}
-						<span
-							class="rounded-full bg-book-accent/20 px-2 py-0.5 font-ui text-[11px] font-bold note-accent"
-						>
-							{friends.pendingCount}
-						</span>
-					{/if}
-				</div>
-				<p class="mt-1 font-hand text-lg leading-tight text-book-ink/70">
-					{#if friends.incomingRequests.length > 0}
-						{friends.incomingRequests.length}
-						{friends.incomingRequests.length === 1 ? 'person wants' : 'people want'} to read your shared
-						pages.
+							{/each}
+						</div>
 					{:else}
-						No one is waiting right now.
+						<p class="mt-4 font-hand text-base leading-snug text-book-ink/70">
+							No moods shared yet. When friends post, their weather shows up here.
+						</p>
 					{/if}
-				</p>
+				</section>
 
-				{#if incoming.length > 0 || outgoing.length > 0}
-					<div class="mt-3 space-y-3">
-						{#each incoming as request (request.id)}
-							<div class="flex flex-wrap items-center gap-2.5">
-								<Avatar
-									src={request.fromAvatarUrl}
-									name={request.fromDisplayName}
-									className="size-11"
-									textClass="text-lg"
-									ring="ring-2 ring-gold/40"
-								/>
-								<div class="min-w-[90px] flex-1">
-									<div class="truncate font-hand text-xl leading-tight font-bold text-book-ink">
-										{request.fromDisplayName || 'VidJo student'}
-									</div>
-									<div class="truncate font-ui text-[11px] text-book-ink/70">
-										@{request.fromUsername}
-									</div>
-								</div>
-								<div class="flex gap-1.5">
-									<button
-										type="button"
-										class="min-h-9 rounded-lg bg-cta px-3 font-ui text-xs font-semibold text-cta-text transition-colors hover:bg-cta-hover"
-										onclick={() => friends.acceptFriendRequest(request.id)}
-									>
-										Accept
-									</button>
-									<button
-										type="button"
-										class="min-h-9 rounded-lg border-[1.5px] border-line px-3 font-ui text-xs font-semibold text-book-ink/80 transition-colors hover:bg-paper-deep"
-										onclick={() => friends.declineFriendRequest(request.id)}
-									>
-										Decline
-									</button>
-								</div>
-							</div>
-						{/each}
-
-						{#if friends.incomingRequests.length > incoming.length}
-							<p class="font-ui text-[11px] text-book-ink/70">
-								+{friends.incomingRequests.length - incoming.length} more waiting below in the list.
-							</p>
+				<!-- Requests -->
+				<section
+					class="rounded-[20px] note-scrap p-5 text-book-ink shadow-[0_10px_26px_rgba(0,0,0,.35)]"
+				>
+					<div class="flex items-start justify-between gap-2">
+						<h2 class="font-display text-[23px] leading-tight font-bold text-book-ink">
+							Friend requests
+						</h2>
+						{#if friends.pendingCount > 0}
+							<span
+								class="rounded-full bg-book-accent/20 px-2 py-0.5 font-ui text-[11px] font-bold note-accent"
+							>
+								{friends.pendingCount}
+							</span>
 						{/if}
-
-						{#each outgoing as request (request.id)}
-							<div class="flex flex-wrap items-center gap-2.5 border-t border-line pt-3">
-								<Avatar
-									src={request.toAvatarUrl}
-									name={request.toDisplayName || 'VidJo student'}
-									className="size-10"
-									textClass="text-base"
-									ring="ring-2 ring-lav/40"
-								/>
-								<div class="min-w-[90px] flex-1">
-									<div class="truncate font-hand text-lg leading-tight font-bold text-book-ink">
-										{request.toDisplayName || 'Request sent'}
-									</div>
-									<div class="font-ui text-[11px] text-book-ink/70">Waiting to be accepted</div>
-								</div>
-								<button
-									type="button"
-									class="min-h-9 rounded-lg border border-line px-2.5 font-ui text-[11px] font-semibold text-book-ink/70 transition-colors hover:bg-paper-deep hover:text-book-ink"
-									onclick={() => friends.cancelFriendRequest(request.id)}
-								>
-									Cancel
-								</button>
-							</div>
-						{/each}
 					</div>
-				{:else}
-					<p class="mt-3 font-hand text-base leading-snug text-book-ink/70">
-						Share your friend code below to get discovered by classmates.
+					<p class="mt-1 font-hand text-lg leading-tight text-book-ink/70">
+						{#if friends.incomingRequests.length > 0}
+							{friends.incomingRequests.length}
+							{friends.incomingRequests.length === 1 ? 'person wants' : 'people want'} to read your shared
+							pages.
+						{:else}
+							No one is waiting right now.
+						{/if}
 					</p>
-				{/if}
-			</section>
 
-			<!-- Friend code -->
-			<section
-				class="rounded-[20px] note-scrap p-5 text-book-ink shadow-[0_10px_26px_rgba(0,0,0,.35)]"
-			>
-				<h2 class="font-display text-[23px] leading-tight font-bold text-book-ink">
-					Invite a friend
-				</h2>
-				<p class="mt-1 font-hand text-lg leading-tight text-book-ink/70">
-					Friends add you with your friend code. Usernames and links will not work.
-				</p>
+					{#if incoming.length > 0 || outgoing.length > 0}
+						<div class="mt-3 space-y-3">
+							{#each incoming as request (request.id)}
+								<div class="flex flex-wrap items-center gap-2.5">
+									<Avatar
+										src={request.fromAvatarUrl}
+										name={request.fromDisplayName}
+										className="size-11"
+										textClass="text-lg"
+										ring="ring-2 ring-gold/40"
+									/>
+									<div class="min-w-[90px] flex-1">
+										<div class="truncate font-hand text-xl leading-tight font-bold text-book-ink">
+											{request.fromDisplayName || 'VidJo student'}
+										</div>
+										<div class="truncate font-ui text-[11px] text-book-ink/70">
+											@{request.fromUsername}
+										</div>
+									</div>
+									<div class="flex gap-1.5">
+										<button
+											type="button"
+											class="min-h-9 rounded-lg bg-cta px-3 font-ui text-xs font-semibold text-cta-text transition-colors hover:bg-cta-hover"
+											onclick={() => friends.acceptFriendRequest(request.id)}
+										>
+											Accept
+										</button>
+										<button
+											type="button"
+											class="min-h-9 rounded-lg border-[1.5px] border-line px-3 font-ui text-xs font-semibold text-book-ink/80 transition-colors hover:bg-paper-deep"
+											onclick={() => friends.declineFriendRequest(request.id)}
+										>
+											Decline
+										</button>
+									</div>
+								</div>
+							{/each}
 
-				<div class="mt-4 flex flex-wrap gap-2.5">
-					<label class="sr-only" for="my-friend-code">Your friend code</label>
-					<input
-						id="my-friend-code"
-						readonly
-						value={friends.myFriendCode}
-						class="h-11 min-w-0 flex-1 rounded-xl border border-line bg-book-bg px-3.5 font-hand text-lg font-bold tracking-wide text-book-ink select-all"
-					/>
-					<button
-						type="button"
-						class="min-h-11 rounded-xl bg-cta px-4 font-ui text-sm font-semibold text-cta-text transition-colors hover:bg-cta-hover"
-						onclick={copyMyCode}
-					>
-						{copied ? 'Copied!' : 'Copy code'}
-					</button>
-				</div>
+							{#if friends.incomingRequests.length > incoming.length}
+								<p class="font-ui text-[11px] text-book-ink/70">
+									+{friends.incomingRequests.length - incoming.length} more waiting below in the list.
+								</p>
+							{/if}
 
-				<div class="mt-3 flex items-start gap-2 border-t border-line pt-3">
-					<svg
-						class="mt-0.5 size-4 shrink-0 note-accent"
-						viewBox="0 0 24 24"
-						fill="none"
-						stroke="currentColor"
-						stroke-width="2"
-						stroke-linecap="round"
-						stroke-linejoin="round"
-						aria-hidden="true"
-					>
-						<circle cx="8" cy="15" r="4"></circle>
-						<path d="m10.85 12.15 8.65-8.65M18 5l3 3M15 8l3 3"></path>
-					</svg>
-					<p class="font-ui text-[11px] leading-relaxed text-book-ink/70">
-						Share your code only with classmates you want on your shelf. Nothing else about your
-						journal becomes visible.
+							{#each outgoing as request (request.id)}
+								<div class="flex flex-wrap items-center gap-2.5 border-t border-line pt-3">
+									<Avatar
+										src={request.toAvatarUrl}
+										name={request.toDisplayName || 'VidJo student'}
+										className="size-10"
+										textClass="text-base"
+										ring="ring-2 ring-lav/40"
+									/>
+									<div class="min-w-[90px] flex-1">
+										<div class="truncate font-hand text-lg leading-tight font-bold text-book-ink">
+											{request.toDisplayName || 'Request sent'}
+										</div>
+										<div class="font-ui text-[11px] text-book-ink/70">Waiting to be accepted</div>
+									</div>
+									<button
+										type="button"
+										class="min-h-9 rounded-lg border border-line px-2.5 font-ui text-[11px] font-semibold text-book-ink/70 transition-colors hover:bg-paper-deep hover:text-book-ink"
+										onclick={() => friends.cancelFriendRequest(request.id)}
+									>
+										Cancel
+									</button>
+								</div>
+							{/each}
+						</div>
+					{:else}
+						<p class="mt-3 font-hand text-base leading-snug text-book-ink/70">
+							Share your friend code below to get discovered by classmates.
+						</p>
+					{/if}
+				</section>
+
+				<!-- Friend code -->
+				<section
+					class="rounded-[20px] note-scrap p-5 text-book-ink shadow-[0_10px_26px_rgba(0,0,0,.35)]"
+				>
+					<h2 class="font-display text-[23px] leading-tight font-bold text-book-ink">
+						Invite a friend
+					</h2>
+					<p class="mt-1 font-hand text-lg leading-tight text-book-ink/70">
+						Friends add you with your friend code. Usernames and links will not work.
 					</p>
-				</div>
-			</section>
-		</aside>
-	</div>
+
+					<div class="mt-4 flex flex-wrap gap-2.5">
+						<label class="sr-only" for="my-friend-code">Your friend code</label>
+						<input
+							id="my-friend-code"
+							readonly
+							value={friends.myFriendCode}
+							class="h-11 min-w-0 flex-1 rounded-xl border border-line bg-book-bg px-3.5 font-hand text-lg font-bold tracking-wide text-book-ink select-all"
+						/>
+						<button
+							type="button"
+							class="min-h-11 rounded-xl bg-cta px-4 font-ui text-sm font-semibold text-cta-text transition-colors hover:bg-cta-hover"
+							onclick={copyMyCode}
+						>
+							{copied ? 'Copied!' : 'Copy code'}
+						</button>
+					</div>
+
+					<div class="mt-3 flex items-start gap-2 border-t border-line pt-3">
+						<svg
+							class="mt-0.5 size-4 shrink-0 note-accent"
+							viewBox="0 0 24 24"
+							fill="none"
+							stroke="currentColor"
+							stroke-width="2"
+							stroke-linecap="round"
+							stroke-linejoin="round"
+							aria-hidden="true"
+						>
+							<circle cx="8" cy="15" r="4"></circle>
+							<path d="m10.85 12.15 8.65-8.65M18 5l3 3M15 8l3 3"></path>
+						</svg>
+						<p class="font-ui text-[11px] leading-relaxed text-book-ink/70">
+							Share your code only with classmates you want on your shelf. Nothing else about your
+							journal becomes visible.
+						</p>
+					</div>
+				</section>
+			</aside>
+		</div>
+	{/if}
 </div>
 
 <!-- Add friend modal -->

@@ -102,6 +102,8 @@ export interface Profile {
 	updated_at: string;
 }
 
+export type CommunityRole = 'none' | 'member' | 'moderator' | 'admin' | 'owner';
+
 export interface Community {
 	slug: string;
 	name: string;
@@ -111,6 +113,10 @@ export interface Community {
 	color: string;
 	memberCount: number;
 	joined: boolean;
+	/** Null when the project has no assigned owner yet. */
+	ownerId: string | null;
+	rules: string;
+	myRole: CommunityRole;
 }
 
 export interface CommunityRow {
@@ -121,6 +127,17 @@ export interface CommunityRow {
 	icon: string;
 	color: string;
 	sort_order: number;
+	owner_id: string | null;
+	rules: string | null;
+}
+
+export interface CommunityMember {
+	userId: string;
+	name: string;
+	username: string;
+	avatarUrl: string | null;
+	role: CommunityRole;
+	joinedAt: string;
 }
 
 export interface CommunityPost extends FriendPost {
@@ -242,6 +259,32 @@ export interface DmParticipant {
 	role: DmRole;
 }
 
+export interface DmReaction {
+	emoji: string;
+	count: number;
+	mine: boolean;
+}
+
+export interface DmSeenBy {
+	name: string;
+	at: string;
+}
+
+/** A snapshot of a journal page, sent as a rich message card. */
+export interface SharedJournalEntry {
+	date: string;
+	title: string;
+	mind: string;
+	refl: string;
+	mood: string;
+	pageCount: number;
+}
+
+export interface DmForwarded {
+	name: string;
+	body: string;
+}
+
 export interface DmThreadSummary {
 	threadId: string;
 	kind: DmThreadKind;
@@ -256,6 +299,9 @@ export interface DmThreadSummary {
 	lastAt: string | null;
 	unreadCount: number;
 	canReply: boolean;
+	lastSharedEntry: SharedJournalEntry | null;
+	lastDeleted: boolean;
+	lastDeletedByName: string | null;
 }
 
 export interface DmMessage {
@@ -276,6 +322,18 @@ export interface DmMessage {
 	createdAt: string;
 	/** True while the optimistic bubble waits for the server. */
 	pending?: boolean;
+	editedAt: string | null;
+	deletedAt: string | null;
+	deletedByName: string | null;
+	replyTo: string | null;
+	replySender: string | null;
+	replyBody: string | null;
+	replyDeleted: boolean;
+	sharedEntry: SharedJournalEntry | null;
+	forwardedFrom: DmForwarded | null;
+	reactions: DmReaction[];
+	pinned: boolean;
+	seenBy: DmSeenBy[];
 }
 
 export interface DmThreadMember {
