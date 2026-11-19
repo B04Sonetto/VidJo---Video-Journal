@@ -54,6 +54,8 @@ export type SignUpResult = {
 	error: string;
 	/** True when Supabase created the user but still needs the email confirmed. */
 	needsConfirmation: boolean;
+	/** True when an earlier, unconfirmed signup was resumed and a new code was sent. */
+	resentConfirmation?: boolean;
 };
 
 class Auth {
@@ -387,6 +389,9 @@ class Auth {
 			return { error: 'Sign-in is not configured for this build.', needsConfirmation: false };
 		}
 
+		// Supabase treats addresses case-insensitively; normalise here so the
+		// sign-up, resend and code verification all use the same address.
+		const cleanEmail = email.trim().toLowerCase();
 		const cleanUsername = username.trim();
 		const cleanNickname = nickname.trim() || cleanUsername;
 		if (cleanUsername) {
@@ -400,7 +405,7 @@ class Auth {
 		}
 
 		const { data, error } = await supabase.auth.signUp({
-			email,
+			email: cleanEmail,
 			password,
 			options: {
 				data: cleanUsername
@@ -417,20 +422,39 @@ class Auth {
 		});
 
 		if (error) {
-			const message =
-				error.status === 429
-					? 'Too many attempts. Wait a minute, then try again.'
-					: friendlyAuthError(error.message);
-			return { error: message, needsConfirmation: false };
+			if (error.status === 429) {
+				return {
+					error: 'Too many attempts. Wait a minute, then try again.',
+					needsConfirmation: false
+				};
+			}
+
+			// Projects without enumeration prevention report the same situation
+			// as a direct error instead of an empty identities array.
+			if (/already registered|user already exists|email already/i.test(error.message)) {
+				const resendError = await this.resendSignup(cleanEmail);
+				if (!resendError) {
+					return { error: '', needsConfirmation: true, resentConfirmation: true };
+				}
+			}
+
+			return { error: friendlyAuthError(error.message), needsConfirmation: false };
 		}
 
-		// With email confirmation enabled, Supabase does not return an error when
-		// the address is already registered. It returns a user with no identities
-		// instead, so detect that and tell the person to sign in rather than
-		// pretending a new account was created.
+		// With email confirmation and "Prevent email enumeration" enabled,
+		// Supabase does not return an error for a registered address. It returns
+		// a user with no identities and sends no email, which used to strand
+		// anyone who abandoned an earlier signup before entering the code.
+		// Ask Supabase to send a fresh confirmation code so they can finish it.
 		if (data.user && Array.isArray(data.user.identities) && data.user.identities.length === 0) {
+			const resendError = await this.resendSignup(cleanEmail);
+			if (!resendError) {
+				return { error: '', needsConfirmation: true, resentConfirmation: true };
+			}
+
 			return {
-				error: 'An account with this email already exists. Sign in with your password instead.',
+				error:
+					'That email already has an account. Sign in with your password, or use "Forgot password" to reset it.',
 				needsConfirmation: false
 			};
 		}

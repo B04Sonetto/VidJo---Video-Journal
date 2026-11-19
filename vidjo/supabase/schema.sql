@@ -348,24 +348,28 @@ $$;
 revoke all on function public.is_username_available(text) from public;
 grant execute on function public.is_username_available(text) to anon, authenticated;
 
--- Trigger to automatically create a profile row when a new user registers.
--- Accounts without a real username (for example, a first-time Google sign-in)
--- deliberately get no profile row: the app shows the completion screen so the
--- person chooses their own username. Provider photos are never copied, so every
--- account starts with the same initial-letter avatar.
-create or replace function public.vidjo_handle_new_user()
-returns trigger
+-- Profile creation is deliberately tied to email confirmation. If it ran on
+-- auth.users INSERT, an unfinished email/password signup would already reserve
+-- the username and create the account before the code was entered. That is why
+-- retrying the same address used to say "username already taken" and never
+-- sent a fresh code. OAuth users arrive confirmed and are handled by the INSERT
+-- trigger; email/password users are handled when email_confirmed_at is set.
+create or replace function public.vidjo_create_profile_for_user(
+	p_user_id uuid,
+	p_meta jsonb
+)
+returns void
 language plpgsql
 security definer
 set search_path = public
 as $$
 declare
-	raw_user text := coalesce(new.raw_user_meta_data->>'username', new.raw_user_meta_data->>'user_name', '');
+	raw_user text := coalesce(p_meta->>'username', p_meta->>'user_name', '');
 	clean_user text := trim(raw_user);
 	display text := coalesce(
-		nullif(trim(new.raw_user_meta_data->>'nickname'), ''),
-		nullif(trim(new.raw_user_meta_data->>'display_name'), ''),
-		nullif(trim(new.raw_user_meta_data->>'full_name'), ''),
+		nullif(trim(p_meta->>'nickname'), ''),
+		nullif(trim(p_meta->>'display_name'), ''),
+		nullif(trim(p_meta->>'full_name'), ''),
 		clean_user
 	);
 	candidate text;
@@ -377,7 +381,7 @@ begin
 		or char_length(clean_user) > 10
 		or clean_user !~ '^[A-Za-z0-9_.-]{2,10}$'
 	then
-		return new;
+		return;
 	end if;
 
 	base := substr(clean_user, 1, 10);
@@ -387,7 +391,7 @@ begin
 	-- the 10-character limit.
 	while exists (
 		select 1 from public.vidjo_profiles
-		where lower(username) = lower(candidate) and user_id <> new.id
+		where lower(username) = lower(candidate) and user_id <> p_user_id
 	) loop
 		candidate := substr(base, 1, greatest(1, 10 - char_length(counter::text))) || counter::text;
 		counter := counter + 1;
@@ -398,12 +402,40 @@ begin
 	end if;
 
 	insert into public.vidjo_profiles (user_id, username, display_name, user_role)
-	values (new.id, candidate, display, 'user')
+	values (p_user_id, candidate, display, 'user')
 	on conflict (user_id) do update set
 		username = excluded.username,
 		display_name = excluded.display_name,
 		updated_at = now();
+end;
+$$;
 
+create or replace function public.vidjo_handle_new_user()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+	if new.email_confirmed_at is not null then
+		perform public.vidjo_create_profile_for_user(new.id, new.raw_user_meta_data);
+	end if;
+	return new;
+end;
+$$;
+
+create or replace function public.vidjo_handle_confirmed_user()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+	if new.email_confirmed_at is not null
+		and old.email_confirmed_at is distinct from new.email_confirmed_at
+	then
+		perform public.vidjo_create_profile_for_user(new.id, new.raw_user_meta_data);
+	end if;
 	return new;
 end;
 $$;
@@ -412,6 +444,16 @@ drop trigger if exists on_auth_user_created_profile on auth.users;
 create trigger on_auth_user_created_profile
 	after insert on auth.users
 	for each row execute function public.vidjo_handle_new_user();
+
+drop trigger if exists on_auth_user_confirmed_profile on auth.users;
+create trigger on_auth_user_confirmed_profile
+	after update of email_confirmed_at on auth.users
+	for each row execute function public.vidjo_handle_confirmed_user();
+
+-- Accounts without a real username (for example, a first-time Google sign-in)
+-- deliberately get no profile row: the app shows the completion screen so the
+-- person chooses their own username. Provider photos are never copied, so every
+-- account starts with the same initial-letter avatar.
 
 -- Backfill existing users into vidjo_profiles. Only accounts that already have a
 -- real username are inserted; unfinished OAuth accounts stay profile-less until
@@ -432,6 +474,7 @@ where (
 		u.raw_app_meta_data->>'vidjo_registered' = 'true'
 		or u.raw_user_meta_data->>'vidjo_registered' = 'true'
 	)
+	and u.email_confirmed_at is not null
 	and nullif(trim(u.raw_user_meta_data->>'username'), '') is not null
 	and char_length(trim(u.raw_user_meta_data->>'username')) between 2 and 10
 	and trim(u.raw_user_meta_data->>'username') ~ '^[A-Za-z0-9_.-]{2,10}$'

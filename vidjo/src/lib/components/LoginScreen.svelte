@@ -128,7 +128,13 @@
 	}
 
 	function validEmail(value: string) {
-		return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim());
+		const clean = value.trim();
+		if (!/^[^\s@]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/.test(clean)) return false;
+		const [local, domain] = clean.split('@');
+		if (!local || !domain) return false;
+		if (local.startsWith('.') || local.endsWith('.') || local.includes('..')) return false;
+		if (domain.startsWith('.') || domain.endsWith('.') || domain.includes('..')) return false;
+		return true;
 	}
 
 	function validUsername(value: string) {
@@ -450,7 +456,9 @@
 			if (result.needsConfirmation) {
 				codePurpose = 'signup';
 				view = 'code';
-				notice = `We sent a confirmation email to ${email.trim()}. Click the link or enter the 6-digit code to finish.`;
+				notice = result.resentConfirmation
+					? `That address already has a signup waiting. We sent a fresh code to ${email.trim()} — enter it to finish.`
+					: `We sent a confirmation email to ${email.trim()}. Click the link or enter the 6-digit code to finish.`;
 				startCooldown();
 				await tick();
 				codeInputs[0]?.focus();
@@ -676,15 +684,27 @@
 
 			<form class="mt-6" onsubmit={submit} novalidate aria-busy={busy}>
 				{#if view === 'code'}
-					<button
-						type="button"
-						class="mb-4 inline-flex items-center gap-1.5 font-ui text-[13px] font-medium text-accent hover:underline"
-						onclick={useDifferentEmail}
-						disabled={busy}
-					>
-						<CommunityIcon name="arrow-left" size={15} />
-						Use a different email
-					</button>
+					<div class="mb-4 flex flex-wrap items-center gap-x-4 gap-y-1">
+						<button
+							type="button"
+							class="inline-flex items-center gap-1.5 font-ui text-[13px] font-medium text-accent hover:underline"
+							onclick={useDifferentEmail}
+							disabled={busy}
+						>
+							<CommunityIcon name="arrow-left" size={15} />
+							Use a different email
+						</button>
+						{#if codePurpose === 'signup'}
+							<button
+								type="button"
+								class="font-ui text-[13px] font-medium text-accent hover:underline"
+								onclick={() => switchView('signin')}
+								disabled={busy}
+							>
+								Already confirmed? Sign in
+							</button>
+						{/if}
+					</div>
 
 					<fieldset class="m-0 border-0 p-0">
 						<legend class="mb-2 font-ui text-[13px] font-bold text-ink">6-digit code</legend>

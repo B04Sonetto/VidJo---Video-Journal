@@ -40,7 +40,7 @@ export function isNotebookStyle(value: unknown): value is NotebookStyle {
 	return value === 'scrapbook' || value === 'dark' || value === 'spread' || value === 'polaroid';
 }
 
-interface Preferences {
+export interface Preferences {
 	accentColor: string;
 	theme: ThemeName;
 	defaultPrivacy: Privacy;
@@ -51,7 +51,7 @@ interface Preferences {
 	notebookStyle: NotebookStyle;
 }
 
-const DEFAULT_PREFERENCES: Preferences = {
+export const DEFAULT_PREFERENCES: Preferences = {
 	accentColor: '#51397A',
 	theme: 'classic',
 	defaultPrivacy: 'private',

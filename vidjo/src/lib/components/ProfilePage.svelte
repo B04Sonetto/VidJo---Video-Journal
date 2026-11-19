@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { auth } from '#lib/state/auth.svelte';
 	import { censor } from '#lib/censor';
-	import { profile, type NotebookStyle } from '#lib/state/profile.svelte';
+	import { DEFAULT_PREFERENCES, profile, type NotebookStyle } from '#lib/state/profile.svelte';
 	import { journal } from '#lib/state/journal.svelte';
 	import { friends } from '#lib/state/friends.svelte';
 	import { community } from '#lib/state/community.svelte';
@@ -40,6 +40,20 @@
 		{ id: 'plain', label: 'Plain' }
 	] as const;
 
+	type AppearanceSection = 'accent' | 'theme' | 'paper' | 'text' | 'notebook';
+
+	let openSections = $state<Record<AppearanceSection, boolean>>({
+		accent: true,
+		theme: false,
+		paper: false,
+		text: false,
+		notebook: false
+	});
+
+	function toggleSection(id: AppearanceSection) {
+		openSections[id] = !openSections[id];
+	}
+
 	let copied = $state(false);
 	let copyTimer: ReturnType<typeof setTimeout> | null = null;
 
@@ -60,6 +74,7 @@
 
 	let settingsError = $state('');
 	let settingsSaving = $state(false);
+	let installHelpOpen = $state(false);
 
 	type SettingsDraft = {
 		accentColor: string;
@@ -107,6 +122,37 @@
 		settingsSeed = key;
 		settingsDraft = currentSettings();
 	});
+
+	// Drives the sticky save bar: it only appears while the draft differs from
+	// the saved preferences, so the button is always within reach when it matters.
+	let settingsDirty = $derived(
+		settingsDraft.accentColor !== profile.accentColor ||
+			settingsDraft.theme !== profile.theme ||
+			settingsDraft.defaultPrivacy !== profile.defaultPrivacy ||
+			settingsDraft.allowFriendRequests !== profile.allowFriendRequests ||
+			settingsDraft.clearCacheOnSignOut !== profile.clearCacheOnSignOut ||
+			settingsDraft.paperStyle !== profile.paperStyle ||
+			settingsDraft.fontSize !== profile.fontSize ||
+			settingsDraft.notebookStyle !== profile.notebookStyle
+	);
+
+	// Compact labels shown on collapsed Appearance sections.
+	let themeLabel = $derived(
+		THEMES.find((theme) => theme.id === settingsDraft.theme)?.label ?? 'Classic'
+	);
+	let paperLabel = $derived(
+		paperStyles.find((option) => option.id === settingsDraft.paperStyle)?.label ?? 'Lined'
+	);
+	let textLabel = $derived(
+		settingsDraft.fontSize === 'sm'
+			? 'Small'
+			: settingsDraft.fontSize === 'lg'
+				? 'Large'
+				: 'Default'
+	);
+	let notebookLabel = $derived(
+		notebookStyles.find((option) => option.id === settingsDraft.notebookStyle)?.label ?? 'Scrapbook'
+	);
 
 	let totalPages = $derived(
 		Object.values(journal.entries).filter(
@@ -360,28 +406,68 @@
 		nav.profileTab = 'overview';
 	}
 
+	function applySettings(draft: SettingsDraft) {
+		profile.accentColor = draft.accentColor;
+		profile.theme = draft.theme;
+		profile.defaultPrivacy = draft.defaultPrivacy;
+		profile.allowFriendRequests = draft.allowFriendRequests;
+		profile.clearCacheOnSignOut = draft.clearCacheOnSignOut;
+		profile.paperStyle = draft.paperStyle;
+		profile.fontSize = draft.fontSize;
+		profile.notebookStyle = draft.notebookStyle;
+		journal.setPaper(draft.paperStyle);
+	}
+
 	async function saveSettings() {
+		if (settingsSaving) return;
 		settingsSaving = true;
 		settingsError = '';
 
-		profile.accentColor = settingsDraft.accentColor;
-		profile.theme = settingsDraft.theme;
-		profile.defaultPrivacy = settingsDraft.defaultPrivacy;
-		profile.allowFriendRequests = settingsDraft.allowFriendRequests;
-		profile.clearCacheOnSignOut = settingsDraft.clearCacheOnSignOut;
-		profile.paperStyle = settingsDraft.paperStyle;
-		profile.fontSize = settingsDraft.fontSize;
-		profile.notebookStyle = settingsDraft.notebookStyle;
-		journal.setPaper(settingsDraft.paperStyle);
+		// Keep the previously saved values so a failed request can be rolled
+		// back locally instead of leaving the draft looking like it was saved.
+		const previous = currentSettings();
+		applySettings(settingsDraft);
 
 		const result = await profile.savePreferences();
 		settingsSaving = false;
 		if (result.error) {
+			applySettings(previous);
 			settingsError = result.error;
 			journal.toast('Could not save settings');
 			return;
 		}
 		journal.toast('Settings saved');
+	}
+
+	function discardSettings() {
+		settingsDraft = currentSettings();
+		settingsError = '';
+		journal.toast('Settings changes discarded');
+	}
+
+	function resetSettings() {
+		settingsDraft = {
+			accentColor: DEFAULT_PREFERENCES.accentColor,
+			theme: DEFAULT_PREFERENCES.theme,
+			defaultPrivacy: DEFAULT_PREFERENCES.defaultPrivacy,
+			allowFriendRequests: DEFAULT_PREFERENCES.allowFriendRequests,
+			clearCacheOnSignOut: DEFAULT_PREFERENCES.clearCacheOnSignOut,
+			paperStyle: DEFAULT_PREFERENCES.paperStyle,
+			fontSize: DEFAULT_PREFERENCES.fontSize,
+			notebookStyle: DEFAULT_PREFERENCES.notebookStyle
+		};
+		settingsError = '';
+		journal.toast('Defaults restored — save to apply');
+	}
+
+	async function installApp() {
+		if (pwa.canInstall) {
+			const outcome = await pwa.promptInstall();
+			if (outcome === 'accepted') journal.toast('VidJo installed');
+			else if (outcome === 'unavailable') installHelpOpen = true;
+			return;
+		}
+		installHelpOpen = !installHelpOpen;
 	}
 
 	function clearCache() {
@@ -660,10 +746,57 @@
 					onclick={() => setTab(tab.id)}
 				>
 					{tab.label}
+					{#if tab.id === 'settings' && settingsDirty}
+						<span
+							class="size-1.5 rounded-full bg-gold"
+							title="Unsaved settings"
+							aria-label="Unsaved settings"
+						></span>
+					{/if}
 				</button>
 			{/each}
 		</div>
 	</div>
+
+	{#if nav.profileTab === 'settings' && settingsDirty}
+		<div class="sticky top-2 z-30 mt-4">
+			<div
+				class="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-book-accent/50 bg-desk/95 px-4 py-3 shadow-[0_12px_32px_rgba(0,0,0,.45)] backdrop-blur-lg"
+			>
+				<div class="flex items-center gap-2.5">
+					<span
+						class="flex size-8 shrink-0 items-center justify-center rounded-full bg-book-accent/20 text-book-accent"
+						aria-hidden="true"
+					>
+						<CommunityIcon name="pen" size={15} />
+					</span>
+					<div>
+						<p class="font-ui text-sm font-bold">Unsaved changes</p>
+						<p class="font-ui text-[11px] text-book-bg/65">Save to apply them to your journal.</p>
+					</div>
+				</div>
+				<div class="flex w-full items-center gap-2 min-[480px]:w-auto">
+					<Button
+						class="flex-1 min-[480px]:flex-none"
+						size="sm"
+						variant="outline"
+						onclick={discardSettings}
+					>
+						Discard
+					</Button>
+					<Button
+						class="flex-1 min-[480px]:flex-none"
+						size="sm"
+						icon="check"
+						loading={settingsSaving}
+						onclick={saveSettings}
+					>
+						Save settings
+					</Button>
+				</div>
+			</div>
+		</div>
+	{/if}
 
 	{#if nav.profileTab === 'overview'}
 		<div class="mt-6 grid gap-6 lg:grid-cols-[1.1fr_.9fr]">
@@ -925,207 +1058,378 @@
 	{:else if nav.profileTab === 'settings'}
 		<div class="mt-6 grid gap-6 lg:grid-cols-2">
 			<div
+				class="rounded-[26px] border border-cover-edge bg-desk-2 p-6 text-book-bg shadow-[0_18px_44px_rgba(0,0,0,.38)] lg:col-span-2"
+			>
+				<div class="flex flex-wrap items-center justify-between gap-4">
+					<div class="max-w-[560px]">
+						<h2 class="font-display text-xl font-bold">Install VidJo</h2>
+						<p class="mt-1 font-ui text-sm text-book-bg/65">
+							Add VidJo to your home screen for a full-screen journal that opens without the
+							browser, and keeps saved pages available offline.
+						</p>
+					</div>
+					<div class="flex flex-wrap items-center gap-2">
+						{#if pwa.installed}
+							<span
+								class="inline-flex min-h-11 items-center gap-2 rounded-xl border border-[#3F7A4F]/60 bg-[#3F7A4F]/20 px-4 font-ui text-sm font-bold text-[#9BE0AC]"
+							>
+								<CommunityIcon name="check" size={15} />
+								Installed
+							</span>
+						{:else}
+							<Button
+								icon={pwa.canInstall ? 'rocket' : 'settings'}
+								onclick={() => void installApp()}
+							>
+								{pwa.canInstall ? 'Install VidJo' : 'How to install'}
+							</Button>
+						{/if}
+						{#if pwa.showUpdateCard}
+							<Button variant="outline" icon="refresh" onclick={() => pwa.applyUpdate()}>
+								Update app
+							</Button>
+						{/if}
+					</div>
+				</div>
+				{#if installHelpOpen && !pwa.installed}
+					<div
+						class="mt-4 rounded-xl border border-cover-edge bg-cover/20 p-4 font-ui text-xs leading-relaxed text-book-bg/75"
+					>
+						{#if pwa.showIosHint}
+							<p>
+								On iPhone or iPad, tap <b class="text-book-bg">Share</b> in Safari, then
+								<b class="text-book-bg">Add to Home Screen</b>.
+							</p>
+						{:else}
+							<p>
+								Open your browser menu and choose <b class="text-book-bg">Install app</b> or
+								<b class="text-book-bg">Add to Home Screen</b>. Chrome and Edge also show an install
+								icon in the address bar.
+							</p>
+						{/if}
+					</div>
+				{/if}
+			</div>
+
+			<div
 				class="rounded-[26px] border border-cover-edge bg-desk-2 p-6 text-book-bg shadow-[0_18px_44px_rgba(0,0,0,.38)]"
 			>
-				<h2 class="font-display text-xl font-bold">Appearance</h2>
-				<p class="mt-1 font-ui text-sm text-book-bg/65">
-					Your accent color follows you across the app.
-				</p>
+				<div class="flex flex-wrap items-start justify-between gap-3">
+					<div>
+						<h2 class="font-display text-xl font-bold">Appearance</h2>
+						<p class="mt-1 font-ui text-sm text-book-bg/65">
+							Your accent color follows you across the app.
+						</p>
+					</div>
+					<Button size="sm" variant="outline" icon="refresh" onclick={resetSettings}>
+						Reset to defaults
+					</Button>
+				</div>
 
-				<p class="mt-5 font-ui text-xs font-semibold text-book-accent">Accent color</p>
-				<div class="mt-2 flex flex-wrap gap-2.5">
-					{#each accentChoices as color (color)}
-						<button
-							type="button"
-							class="size-10 rounded-full border-2 transition-transform hover:scale-105 {settingsDraft.accentColor ===
-							color
-								? 'border-book-bg'
-								: 'border-transparent'}"
-							style="background: {color}"
-							aria-label={`Use accent color ${color}`}
-							aria-pressed={settingsDraft.accentColor === color}
-							onclick={() => (settingsDraft.accentColor = color)}
-						></button>
-					{/each}
-					<label
-						class="flex size-10 cursor-pointer items-center justify-center rounded-full border-2 border-cover text-book-bg/70 transition-colors hover:border-cover hover:text-book-bg"
+				<div class="mt-5 overflow-hidden rounded-xl border border-cover-edge/60">
+					<button
+						type="button"
+						class="flex w-full items-center justify-between gap-3 bg-cover/15 px-4 py-3 text-left transition-colors hover:bg-cover/25"
+						aria-expanded={openSections.accent}
+						onclick={() => toggleSection('accent')}
 					>
-						<input
-							type="color"
-							class="size-0 overflow-hidden opacity-0"
-							value={settingsDraft.accentColor}
-							oninput={(event) => (settingsDraft.accentColor = event.currentTarget.value)}
+						<span class="flex min-w-0 items-center gap-2.5">
+							<span class="font-ui text-sm font-bold">Accent color</span>
+							<span class="truncate font-ui text-[11px] text-book-bg/65">
+								{settingsDraft.accentColor}
+							</span>
+						</span>
+						<CommunityIcon
+							name="chevron-down"
+							size={15}
+							class="shrink-0 transition-transform {openSections.accent ? 'rotate-180' : ''}"
 						/>
-						<CommunityIcon name="plus" size={16} />
-					</label>
-				</div>
+					</button>
+					{#if openSections.accent}
+						<div class="border-t border-cover-edge/60 px-4 py-4">
+							<div class="flex flex-wrap gap-2.5">
+								{#each accentChoices as color (color)}
+									<button
+										type="button"
+										class="size-10 rounded-full border-2 transition-transform hover:scale-105 {settingsDraft.accentColor ===
+										color
+											? 'border-book-bg'
+											: 'border-transparent'}"
+										style="background: {color}"
+										aria-label={`Use accent color ${color}`}
+										aria-pressed={settingsDraft.accentColor === color}
+										onclick={() => (settingsDraft.accentColor = color)}
+									></button>
+								{/each}
+								<label
+									class="flex size-10 cursor-pointer items-center justify-center rounded-full border-2 border-cover text-book-bg/70 transition-colors hover:border-cover hover:text-book-bg"
+								>
+									<input
+										type="color"
+										class="size-0 overflow-hidden opacity-0"
+										value={settingsDraft.accentColor}
+										oninput={(event) => (settingsDraft.accentColor = event.currentTarget.value)}
+									/>
+									<CommunityIcon name="plus" size={16} />
+								</label>
+							</div>
+						</div>
+					{/if}
 
-				<p class="mt-6 font-ui text-xs font-semibold text-book-accent">Journal theme</p>
-				<div class="mt-2 grid gap-2">
-					{#each THEMES as theme (theme.id)}
-						<button
-							type="button"
-							class="flex items-center justify-between rounded-xl px-4 py-3 transition-colors {settingsDraft.theme ===
-							theme.id
-								? 'bg-cta text-cta-text'
-								: 'bg-cover/20 hover:bg-cover/35'}"
-							onclick={() => (settingsDraft.theme = theme.id)}
-						>
-							<span class="flex items-center gap-2.5 font-ui text-sm">
-								<span
-									class="size-4 rounded-full ring-2 ring-book-bg/30"
-									style="background: {theme.swatch}"
-								></span>
-								{theme.label}
-							</span>
-							{#if settingsDraft.theme === theme.id}
-								<CommunityIcon name="check" size={16} />
-							{/if}
-						</button>
-					{/each}
-				</div>
-
-				<p class="mt-6 font-ui text-xs font-semibold text-book-accent">Default paper style</p>
-				<div class="mt-2 grid grid-cols-2 gap-2">
-					{#each paperStyles as option (option.id)}
-						<button
-							type="button"
-							class="flex items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-colors {settingsDraft.paperStyle ===
-							option.id
-								? 'bg-cta text-cta-text'
-								: 'bg-cover/20 hover:bg-cover/35'}"
-							onclick={() => (settingsDraft.paperStyle = option.id)}
-							aria-pressed={settingsDraft.paperStyle === option.id}
-						>
-							<span
-								class="h-10 w-14 shrink-0 rounded-md border border-line bg-paper {option.id ===
-								'lined'
-									? 'paper-lined'
-									: option.id === 'dotted'
-										? 'paper-dotted'
-										: option.id === 'grid'
-											? 'paper-grid'
-											: ''}"
-								aria-hidden="true"
-							></span>
-							<span class="flex min-w-0 flex-1 items-center justify-between gap-2">
-								<span class="font-ui text-sm font-semibold">{option.label}</span>
-								{#if settingsDraft.paperStyle === option.id}
-									<CommunityIcon name="check" size={16} />
-								{/if}
-							</span>
-						</button>
-					{/each}
-				</div>
-				<p class="mt-2 font-ui text-[11px] text-book-bg/65">
-					Each preview shows the paper texture used on new journal pages.
-				</p>
-
-				<p class="mt-6 font-ui text-xs font-semibold text-book-accent">Text size</p>
-				<div class="mt-2 flex items-center gap-4">
-					<span class="font-ui text-xs text-book-bg/65">A</span>
-					<select
-						bind:value={settingsDraft.fontSize}
-						class="rounded-lg border border-cover-edge bg-desk px-3 py-2 font-ui text-sm text-book-bg focus:border-book-accent focus:outline-none"
+					<button
+						type="button"
+						class="flex w-full items-center justify-between gap-3 bg-cover/15 px-4 py-3 text-left transition-colors hover:bg-cover/25"
+						aria-expanded={openSections.theme}
+						onclick={() => toggleSection('theme')}
 					>
-						<option value="sm">Small</option>
-						<option value="base">Default</option>
-						<option value="lg">Large</option>
-					</select>
-					<span class="font-ui text-xs text-book-bg/65">A</span>
-				</div>
-				<p
-					class="mt-2 rounded-lg border border-cover-edge bg-desk px-3 py-2 font-hand leading-snug text-book-bg/90"
-					style:font-size={settingsDraft.fontSize === 'sm'
-						? '0.95rem'
-						: settingsDraft.fontSize === 'lg'
-							? '1.35rem'
-							: '1.1rem'}
-				>
-					Today felt like a page worth keeping.
-				</p>
-				<p class="mt-1 font-ui text-[11px] text-book-bg/65">
-					The preview and your journal writing scale after you save.
-				</p>
+						<span class="flex min-w-0 items-center gap-2.5">
+							<span class="font-ui text-sm font-bold">Journal theme</span>
+							<span class="truncate font-ui text-[11px] text-book-bg/65">{themeLabel}</span>
+						</span>
+						<CommunityIcon
+							name="chevron-down"
+							size={15}
+							class="shrink-0 transition-transform {openSections.theme ? 'rotate-180' : ''}"
+						/>
+					</button>
+					{#if openSections.theme}
+						<div class="border-t border-cover-edge/60 px-4 py-4">
+							<div class="grid gap-2">
+								{#each THEMES as theme (theme.id)}
+									<button
+										type="button"
+										class="flex items-center justify-between rounded-xl px-4 py-3 transition-colors {settingsDraft.theme ===
+										theme.id
+											? 'bg-cta text-cta-text'
+											: 'bg-cover/20 hover:bg-cover/35'}"
+										onclick={() => (settingsDraft.theme = theme.id)}
+									>
+										<span class="flex items-center gap-2.5 font-ui text-sm">
+											<span
+												class="size-4 rounded-full ring-2 ring-book-bg/30"
+												style="background: {theme.swatch}"
+											></span>
+											{theme.label}
+										</span>
+										{#if settingsDraft.theme === theme.id}
+											<CommunityIcon name="check" size={16} />
+										{/if}
+									</button>
+								{/each}
+							</div>
+						</div>
+					{/if}
 
-				<p class="mt-6 font-ui text-xs font-semibold text-book-accent">Friend notebook style</p>
-				<div class="mt-2 grid grid-cols-2 gap-2">
-					{#each notebookStyles as option (option.id)}
-						<button
-							type="button"
-							class="flex flex-col gap-2 rounded-xl p-2.5 text-left transition-colors {settingsDraft.notebookStyle ===
-							option.id
-								? 'bg-cta text-cta-text'
-								: 'bg-cover/20 hover:bg-cover/35'}"
-							onclick={() => (settingsDraft.notebookStyle = option.id)}
-							aria-pressed={settingsDraft.notebookStyle === option.id}
-						>
-							<span
-								class="relative block h-[72px] w-full overflow-hidden rounded-lg border border-cover-edge bg-desk"
-								aria-hidden="true"
+					<button
+						type="button"
+						class="flex w-full items-center justify-between gap-3 bg-cover/15 px-4 py-3 text-left transition-colors hover:bg-cover/25"
+						aria-expanded={openSections.paper}
+						onclick={() => toggleSection('paper')}
+					>
+						<span class="flex min-w-0 items-center gap-2.5">
+							<span class="font-ui text-sm font-bold">Default paper style</span>
+							<span class="truncate font-ui text-[11px] text-book-bg/65">{paperLabel}</span>
+						</span>
+						<CommunityIcon
+							name="chevron-down"
+							size={15}
+							class="shrink-0 transition-transform {openSections.paper ? 'rotate-180' : ''}"
+						/>
+					</button>
+					{#if openSections.paper}
+						<div class="border-t border-cover-edge/60 px-4 py-4">
+							<div class="grid grid-cols-2 gap-2">
+								{#each paperStyles as option (option.id)}
+									<button
+										type="button"
+										class="flex items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-colors {settingsDraft.paperStyle ===
+										option.id
+											? 'bg-cta text-cta-text'
+											: 'bg-cover/20 hover:bg-cover/35'}"
+										onclick={() => (settingsDraft.paperStyle = option.id)}
+										aria-pressed={settingsDraft.paperStyle === option.id}
+									>
+										<span
+											class="h-10 w-14 shrink-0 rounded-md border border-line bg-paper {option.id ===
+											'lined'
+												? 'paper-lined'
+												: option.id === 'dotted'
+													? 'paper-dotted'
+													: option.id === 'grid'
+														? 'paper-grid'
+														: ''}"
+											aria-hidden="true"
+										></span>
+										<span class="flex min-w-0 flex-1 items-center justify-between gap-2">
+											<span class="font-ui text-sm font-semibold">{option.label}</span>
+											{#if settingsDraft.paperStyle === option.id}
+												<CommunityIcon name="check" size={16} />
+											{/if}
+										</span>
+									</button>
+								{/each}
+							</div>
+							<p class="mt-2 font-ui text-[11px] text-book-bg/65">
+								Each preview shows the paper texture used on new journal pages.
+							</p>
+						</div>
+					{/if}
+
+					<button
+						type="button"
+						class="flex w-full items-center justify-between gap-3 bg-cover/15 px-4 py-3 text-left transition-colors hover:bg-cover/25"
+						aria-expanded={openSections.text}
+						onclick={() => toggleSection('text')}
+					>
+						<span class="flex min-w-0 items-center gap-2.5">
+							<span class="font-ui text-sm font-bold">Text size</span>
+							<span class="truncate font-ui text-[11px] text-book-bg/65">{textLabel}</span>
+						</span>
+						<CommunityIcon
+							name="chevron-down"
+							size={15}
+							class="shrink-0 transition-transform {openSections.text ? 'rotate-180' : ''}"
+						/>
+					</button>
+					{#if openSections.text}
+						<div class="space-y-2 border-t border-cover-edge/60 px-4 py-4">
+							<div class="flex items-center gap-4">
+								<span class="font-ui text-xs text-book-bg/65">A</span>
+								<select
+									bind:value={settingsDraft.fontSize}
+									class="rounded-lg border border-cover-edge bg-desk px-3 py-2 font-ui text-sm text-book-bg focus:border-book-accent focus:outline-none"
+								>
+									<option value="sm">Small</option>
+									<option value="base">Default</option>
+									<option value="lg">Large</option>
+								</select>
+								<span class="font-ui text-xs text-book-bg/65">A</span>
+							</div>
+							<p
+								class="mt-2 rounded-lg border border-cover-edge bg-desk px-3 py-2 font-hand leading-snug text-book-bg/90"
+								style:font-size={settingsDraft.fontSize === 'sm'
+									? '0.95rem'
+									: settingsDraft.fontSize === 'lg'
+										? '1.35rem'
+										: '1.1rem'}
 							>
-								{#if option.id === 'scrapbook'}
-									<span
-										class="absolute inset-x-4 inset-y-2 rotate-[-2deg] rounded-sm note-scrap shadow-md"
+								Today felt like a page worth keeping.
+							</p>
+							<p class="mt-1 font-ui text-[11px] text-book-bg/65">
+								The preview and your journal writing scale after you save.
+							</p>
+						</div>
+					{/if}
+
+					<button
+						type="button"
+						class="flex w-full items-center justify-between gap-3 bg-cover/15 px-4 py-3 text-left transition-colors hover:bg-cover/25"
+						aria-expanded={openSections.notebook}
+						onclick={() => toggleSection('notebook')}
+					>
+						<span class="flex min-w-0 items-center gap-2.5">
+							<span class="font-ui text-sm font-bold">Friend notebook style</span>
+							<span class="truncate font-ui text-[11px] text-book-bg/65">{notebookLabel}</span>
+						</span>
+						<CommunityIcon
+							name="chevron-down"
+							size={15}
+							class="shrink-0 transition-transform {openSections.notebook ? 'rotate-180' : ''}"
+						/>
+					</button>
+					{#if openSections.notebook}
+						<div class="border-t border-cover-edge/60 px-4 py-4">
+							<div class="grid grid-cols-2 gap-2">
+								{#each notebookStyles as option (option.id)}
+									<button
+										type="button"
+										class="flex flex-col gap-2 rounded-xl p-2.5 text-left transition-colors {settingsDraft.notebookStyle ===
+										option.id
+											? 'bg-cta text-cta-text'
+											: 'bg-cover/20 hover:bg-cover/35'}"
+										onclick={() => (settingsDraft.notebookStyle = option.id)}
+										aria-pressed={settingsDraft.notebookStyle === option.id}
 									>
-										<span class="absolute top-2 left-2 h-1.5 w-8 rounded-full bg-book-accent/70"
-										></span>
-										<span class="absolute top-5 left-2 h-1 w-[70%] rounded-full bg-line"></span>
-										<span class="absolute top-7 left-2 h-1 w-[55%] rounded-full bg-line"></span>
-									</span>
-								{:else if option.id === 'dark'}
-									<span
-										class="absolute inset-x-4 inset-y-2 rounded-md border border-book-accent/60 bg-[linear-gradient(160deg,var(--color-cover),var(--color-desk))]"
-									>
-										<span class="absolute top-2 left-2 h-1.5 w-8 rounded-full bg-book-accent"
-										></span>
-										<span class="absolute top-5 left-2 h-1 w-[70%] rounded-full bg-book-accent/40"
-										></span>
-										<span class="absolute top-7 left-2 h-1 w-[55%] rounded-full bg-book-accent/40"
-										></span>
-									</span>
-								{:else if option.id === 'spread'}
-									<span
-										class="absolute inset-x-3 inset-y-2 flex overflow-hidden rounded-sm bg-cover-edge p-0.5"
-									>
-										<span class="relative flex-1 note-scrap">
-											<span class="absolute inset-2 rounded-sm bg-cover/50"></span>
+										<span
+											class="relative block h-[72px] w-full overflow-hidden rounded-lg border border-cover-edge bg-desk"
+											aria-hidden="true"
+										>
+											{#if option.id === 'scrapbook'}
+												<span
+													class="absolute inset-x-4 inset-y-2 rotate-[-2deg] rounded-sm note-scrap shadow-md"
+												>
+													<span
+														class="absolute top-2 left-2 h-1.5 w-8 rounded-full bg-book-accent/70"
+													></span>
+													<span class="absolute top-5 left-2 h-1 w-[70%] rounded-full bg-line"
+													></span>
+													<span class="absolute top-7 left-2 h-1 w-[55%] rounded-full bg-line"
+													></span>
+												</span>
+											{:else if option.id === 'dark'}
+												<span
+													class="absolute inset-x-4 inset-y-2 rounded-md border border-book-accent/60 bg-[linear-gradient(160deg,var(--color-cover),var(--color-desk))]"
+												>
+													<span class="absolute top-2 left-2 h-1.5 w-8 rounded-full bg-book-accent"
+													></span>
+													<span
+														class="absolute top-5 left-2 h-1 w-[70%] rounded-full bg-book-accent/40"
+													></span>
+													<span
+														class="absolute top-7 left-2 h-1 w-[55%] rounded-full bg-book-accent/40"
+													></span>
+												</span>
+											{:else if option.id === 'spread'}
+												<span
+													class="absolute inset-x-3 inset-y-2 flex overflow-hidden rounded-sm bg-cover-edge p-0.5"
+												>
+													<span class="relative flex-1 note-scrap">
+														<span class="absolute inset-2 rounded-sm bg-cover/50"></span>
+													</span>
+													<span class="relative flex-1 bg-book-bg">
+														<span class="absolute top-2 left-2 h-1 w-[70%] rounded-full bg-line"
+														></span>
+														<span class="absolute top-4 left-2 h-1 w-[55%] rounded-full bg-line"
+														></span>
+														<span class="absolute top-6 left-2 h-1 w-[65%] rounded-full bg-line"
+														></span>
+													</span>
+												</span>
+											{:else}
+												<span
+													class="absolute top-2 left-4 h-[58px] w-[44px] rotate-[-5deg] rounded-[2px] note-scrap shadow-md"
+												>
+													<span
+														class="absolute -top-1 left-2 h-1.5 w-5 rotate-[4deg] bg-book-accent/70"
+													></span>
+													<span class="absolute inset-x-1 top-1.5 h-[36px] bg-cover/60"></span>
+												</span>
+												<span
+													class="absolute top-3 right-3 h-[46px] w-[52px] rotate-[3deg] rounded-[2px] note-scrap shadow-md"
+												>
+													<span class="absolute top-2 left-2 h-1 w-[70%] rounded-full bg-line"
+													></span>
+													<span class="absolute top-4 left-2 h-1 w-[50%] rounded-full bg-line"
+													></span>
+												</span>
+											{/if}
 										</span>
-										<span class="relative flex-1 bg-book-bg">
-											<span class="absolute top-2 left-2 h-1 w-[70%] rounded-full bg-line"></span>
-											<span class="absolute top-4 left-2 h-1 w-[55%] rounded-full bg-line"></span>
-											<span class="absolute top-6 left-2 h-1 w-[65%] rounded-full bg-line"></span>
+										<span class="flex items-center justify-between gap-2">
+											<span class="font-ui text-sm font-semibold">{option.label}</span>
+											{#if settingsDraft.notebookStyle === option.id}
+												<CommunityIcon name="check" size={16} />
+											{/if}
 										</span>
-									</span>
-								{:else}
-									<span
-										class="absolute top-2 left-4 h-[58px] w-[44px] rotate-[-5deg] rounded-[2px] note-scrap shadow-md"
-									>
-										<span class="absolute -top-1 left-2 h-1.5 w-5 rotate-[4deg] bg-book-accent/70"
-										></span>
-										<span class="absolute inset-x-1 top-1.5 h-[36px] bg-cover/60"></span>
-									</span>
-									<span
-										class="absolute top-3 right-3 h-[46px] w-[52px] rotate-[3deg] rounded-[2px] note-scrap shadow-md"
-									>
-										<span class="absolute top-2 left-2 h-1 w-[70%] rounded-full bg-line"></span>
-										<span class="absolute top-4 left-2 h-1 w-[50%] rounded-full bg-line"></span>
-									</span>
-								{/if}
-							</span>
-							<span class="flex items-center justify-between gap-2">
-								<span class="font-ui text-sm font-semibold">{option.label}</span>
-								{#if settingsDraft.notebookStyle === option.id}
-									<CommunityIcon name="check" size={16} />
-								{/if}
-							</span>
-							<span class="-mt-1.5 font-ui text-[11px] opacity-75">{option.hint}</span>
-						</button>
-					{/each}
+										<span class="-mt-1.5 font-ui text-[11px] opacity-75">{option.hint}</span>
+									</button>
+								{/each}
+							</div>
+							<p class="mt-2 font-ui text-[11px] text-book-bg/65">
+								Changes how a friend's pages look when you open their notebook.
+							</p>
+						</div>
+					{/if}
 				</div>
-				<p class="mt-2 font-ui text-[11px] text-book-bg/65">
-					Changes how a friend's pages look when you open their notebook.
-				</p>
 			</div>
 
 			<div
@@ -1206,45 +1510,6 @@
 					<Button class="w-full" variant="danger" icon="trash" onclick={deleteAccount}>
 						Delete my account
 					</Button>
-				</div>
-			</div>
-
-			<div
-				class="rounded-[26px] border border-cover-edge bg-desk-2 p-6 text-book-bg shadow-[0_18px_44px_rgba(0,0,0,.38)] lg:col-span-2"
-			>
-				<div class="flex flex-wrap items-start justify-between gap-4">
-					<div class="max-w-[560px]">
-						<h2 class="font-display text-xl font-bold">Install VidJo</h2>
-						<p class="mt-1 font-ui text-sm text-book-bg/65">
-							Add VidJo to your home screen for a full-screen journal that opens without the
-							browser, and keeps saved pages available offline.
-						</p>
-					</div>
-
-					{#if pwa.installed}
-						<span
-							class="inline-flex min-h-11 items-center gap-2 rounded-xl border border-[#3F7A4F]/60 bg-[#3F7A4F]/20 px-4 font-ui text-sm font-bold text-[#9BE0AC]"
-						>
-							<CommunityIcon name="check" size={15} />
-							Installed
-						</span>
-					{:else if pwa.canInstall}
-						<Button icon="rocket" onclick={() => void pwa.promptInstall()}>Install VidJo</Button>
-					{:else if pwa.showIosHint}
-						<p
-							class="rounded-xl border border-cover-edge bg-cover/20 px-4 py-3 font-ui text-xs leading-relaxed text-book-bg/70"
-						>
-							In Safari, tap <b class="text-book-bg">Share</b>, then
-							<b class="text-book-bg">Add to Home Screen</b>.
-						</p>
-					{:else}
-						<p
-							class="rounded-xl border border-cover-edge bg-cover/20 px-4 py-3 font-ui text-xs leading-relaxed text-book-bg/70"
-						>
-							Open your browser menu and choose <b class="text-book-bg">Install app</b> or
-							<b class="text-book-bg">Add to Home Screen</b>.
-						</p>
-					{/if}
 				</div>
 			</div>
 		</div>
