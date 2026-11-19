@@ -120,9 +120,9 @@
 </script>
 
 <section
-	class="page right z-[1] flex flex-col gap-2.5 font-hand {viewport.single
-		? 'relative min-h-[680px] w-full rounded-[14px] px-4 pt-6 pb-12 min-[480px]:px-6 min-[640px]:px-8'
-		: 'absolute h-[700px] w-[560px] overflow-y-auto overscroll-contain rounded-l-[3px] rounded-r-[14px] px-10 pt-[34px] pb-4'}"
+	class="page right z-[1] flex h-[700px] flex-col gap-2.5 overflow-hidden font-hand {viewport.single
+		? 'relative w-full rounded-[14px] px-4 pt-6 pb-6 min-[480px]:px-6 min-[640px]:px-8'
+		: 'absolute w-[560px] overscroll-contain rounded-l-[3px] rounded-r-[14px] px-10 pt-[34px] pb-4'}"
 	style:background-color="var(--color-book-bg)"
 	style:color="var(--color-book-ink)"
 	class:left-[580px]={!viewport.single && !preview}
@@ -208,9 +208,10 @@
 		</div>
 	</div>
 
-	<!-- Each writing area scrolls on its own so the sharing + save row always
-	     stays on the same line as the journal, no matter how much is written. -->
-	<div class="relative mt-3 h-[128px] shrink-0 min-[640px]:h-[140px]">
+	<!-- The mind editor flexes to fill whatever space is left after the fixed
+	     sections, so turning on Friends and Community never pushes Save or the
+	     page number past the bottom of the page. Its own text still scrolls. -->
+	<div class="relative mt-3 min-h-[64px] flex-1">
 		<textarea
 			bind:this={mindEl}
 			id={`${id}-mind`}
@@ -280,54 +281,63 @@
 		/>
 	</div>
 
-	{#if sharingWithFriends && !preview && friends.friends.length > 0}
-		<div
-			class="mt-2 flex shrink-0 flex-wrap items-center gap-1.5"
-			role="group"
-			aria-label="Friend visibility"
-		>
-			<span class="font-ui text-xs font-semibold text-ink-soft">Visible to friends</span>
-			<span class="sr-only"
-				>Tap a friend to hide this page from them, or tap again to let them see it.</span
-			>
-			{#each friends.friends as friend (friend.id)}
-				<button
-					type="button"
-					class="rounded-full border px-2.5 py-0.5 font-ui text-xs font-semibold transition-all {isExcluded(
-						friend.id
-					)
-						? 'border-red-500 bg-red-500/10 text-red-700'
-						: 'border-line bg-paper/70 text-ink-soft hover:bg-light'}"
-					onclick={() => toggleFriend(friend.id)}
-					title={isExcluded(friend.id) ? 'Hidden from this friend' : 'This friend can see it'}
+	<!-- Friends and Community share one compact panel. Both rows stay a single
+	     line (friends scroll sideways), so the page height never changes when
+	     either or both are switched on. -->
+	{#if !preview && ((sharingWithFriends && friends.friends.length > 0) || (sharingWithCommunity && community.joinedCommunities.length > 0))}
+		<div class="mt-1.5 shrink-0 space-y-1.5 rounded-xl border border-line/70 bg-paper/60 p-2">
+			{#if sharingWithFriends && friends.friends.length > 0}
+				<div
+					class="flex min-w-0 items-center gap-1.5 overflow-x-auto pb-0.5"
+					role="group"
+					aria-label="Friend visibility"
 				>
-					{friend.displayName.split(' ')[0]}
-				</button>
-			{/each}
+					<span class="shrink-0 font-ui text-xs font-semibold text-ink-soft">
+						Visible to friends
+					</span>
+					<span class="sr-only"
+						>Tap a friend to hide this page from them, or tap again to let them see it.</span
+					>
+					{#each friends.friends as friend (friend.id)}
+						<button
+							type="button"
+							class="shrink-0 rounded-full border px-2.5 py-0.5 font-ui text-xs font-semibold transition-all {isExcluded(
+								friend.id
+							)
+								? 'border-red-500 bg-red-500/10 text-red-700'
+								: 'border-line bg-paper/70 text-ink-soft hover:bg-light'}"
+							onclick={() => toggleFriend(friend.id)}
+							title={isExcluded(friend.id) ? 'Hidden from this friend' : 'This friend can see it'}
+						>
+							{friend.displayName.split(' ')[0]}
+						</button>
+					{/each}
+				</div>
+			{/if}
+
+			{#if sharingWithCommunity && community.joinedCommunities.length > 0}
+				<div class="flex min-w-0 items-center gap-1.5">
+					<CommunityIcon name="globe" size={14} class="shrink-0 text-accent" />
+					<label class="sr-only" for={`${id}-community`}>Post to community</label>
+					<select
+						id={`${id}-community`}
+						class="h-9 min-w-0 flex-1 rounded-lg border border-line bg-book-bg px-2.5 font-ui text-sm text-ink focus:border-accent focus:outline-none"
+						value={entry.communitySlug}
+						onchange={(event) => journal.setCommunity(event.currentTarget.value)}
+					>
+						{#each community.joinedCommunities as item (item.slug)}
+							<option value={item.slug}>{item.tag} — {item.name}</option>
+						{/each}
+					</select>
+				</div>
+			{/if}
 		</div>
 	{/if}
 
-	{#if sharingWithCommunity && !preview && community.joinedCommunities.length > 0}
-		<div
-			class="mt-2 flex shrink-0 items-center gap-2 rounded-xl border border-line bg-paper px-2.5 py-2"
+	<div class="relative mt-2 flex shrink-0 items-center justify-end gap-2">
+		<span
+			class="absolute left-1/2 -translate-x-1/2 font-ui text-xs font-semibold text-ink-muted tabular-nums"
 		>
-			<CommunityIcon name="globe" size={14} class="shrink-0 text-accent" />
-			<label class="sr-only" for={`${id}-community`}>Post to community</label>
-			<select
-				id={`${id}-community`}
-				class="h-9 min-w-0 flex-1 rounded-lg border border-line bg-book-bg px-2.5 font-ui text-sm text-ink focus:border-accent focus:outline-none"
-				value={entry.communitySlug}
-				onchange={(event) => journal.setCommunity(event.currentTarget.value)}
-			>
-				{#each community.joinedCommunities as item (item.slug)}
-					<option value={item.slug}>{item.tag} — {item.name}</option>
-				{/each}
-			</select>
-		</div>
-	{/if}
-
-	<div class="mt-2 flex shrink-0 items-center justify-between gap-2">
-		<span class="font-ui text-xs font-semibold text-ink-muted tabular-nums">
 			{pageNumber}
 		</span>
 
