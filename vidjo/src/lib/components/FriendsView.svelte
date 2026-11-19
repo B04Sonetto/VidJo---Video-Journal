@@ -21,6 +21,7 @@
 		friend: Friend;
 		posts: FriendPost[];
 		isOwner: boolean;
+		newPosts: FriendPost[];
 		newCount: number;
 		latest: string;
 	};
@@ -85,7 +86,8 @@
 	}
 
 	function openReader(shelf: Shelf) {
-		friends.openJournal(shelf.friend.id);
+		// Land on the unread page instead of always showing the newest one.
+		friends.openJournal(shelf.friend.id, shelf.newPosts[0]?.date ?? null);
 	}
 
 	async function copyMyCode() {
@@ -162,8 +164,13 @@
 
 		const list: Shelf[] = [];
 		const ownPosts = visible.filter((post) => post.isOwner);
+		const unread = (posts: FriendPost[]) =>
+			posts
+				.filter((post) => !friends.isPostSeen(post))
+				.sort((a, b) => b.date.localeCompare(a.date));
 
 		if (ownPosts.length > 0) {
+			const newPosts = unread(ownPosts);
 			list.push({
 				friend: {
 					id: profile.profile?.user_id || 'me',
@@ -175,18 +182,21 @@
 				},
 				posts: ownPosts,
 				isOwner: true,
-				newCount: ownPosts.filter((post) => post.date === todayKey()).length,
+				newPosts,
+				newCount: newPosts.length,
 				latest: ownPosts[0]?.date ?? ''
 			});
 		}
 
 		for (const friend of friends.friends) {
 			const posts = byAuthor[friend.id] ?? [];
+			const newPosts = unread(posts);
 			list.push({
 				friend,
 				posts,
 				isOwner: false,
-				newCount: posts.filter((post) => post.date === todayKey()).length,
+				newPosts,
+				newCount: newPosts.length,
 				latest: posts[0]?.date ?? ''
 			});
 		}
@@ -402,13 +412,16 @@
 											{@const moodPost = shelf.posts.find(
 												(entry) => entry.mood && MOOD_BY_KEY[entry.mood]
 											)}
+											{@const shelfLabel = `Open ${shelf.friend.displayName}'s notebook, ${shelf.newCount} new pages${shelf.newPosts[0] ? `, newest ${shelf.newPosts[0].dateFormatted}` : ''}`}
 											<div class="min-w-0">
 												<button
 													type="button"
 													class="group relative block w-full text-left"
 													onclick={() => openReader(shelf)}
-													aria-label="Open {shelf.friend.displayName}'s notebook, {shelf.newCount}
-												new pages"
+													aria-label={shelfLabel}
+													title={shelf.newPosts[0]
+														? `New page: ${shelf.newPosts[0].dateFormatted}`
+														: undefined}
 												>
 													{#if shelf.newCount > 0}
 														<span
@@ -485,6 +498,9 @@
 														{#if shelf.newCount > 0}
 															{shelf.newCount} new
 															{shelf.newCount === 1 ? 'page' : 'pages'}
+															<span class="font-semibold text-gold"
+																>· {shelf.newPosts[0].dateFormatted}</span
+															>
 														{:else if shelf.posts.length > 0}
 															{shelf.posts.length} shared
 															{shelf.posts.length === 1 ? 'page' : 'pages'}

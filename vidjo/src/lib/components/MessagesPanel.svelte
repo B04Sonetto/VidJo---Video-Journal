@@ -12,6 +12,7 @@
 	import GifPicker from '#lib/components/GifPicker.svelte';
 	import ProfileModal from '#lib/components/ProfileModal.svelte';
 	import SharedEntryModal from '#lib/components/SharedEntryModal.svelte';
+	import ImageLightbox from '#lib/components/ImageLightbox.svelte';
 	import { journal } from '#lib/state/journal.svelte';
 	import { giphyEnabled, type GiphyGif } from '#lib/giphy';
 	import type { DmMessage, DmThreadSummary, Friend, SharedJournalEntry } from '#lib/types';
@@ -32,11 +33,21 @@
 		entry: SharedJournalEntry;
 		senderName: string;
 		senderAvatar: string;
+		videoUrl: string;
+		thumbUrl: string;
 	} | null>(null);
+	let previewSrc = $state('');
 
 	const activeThread = $derived(messages.activeThread);
 	const messageList = $derived(messages.activeMessages);
 	const canReply = $derived(activeThread?.canReply ?? false);
+	const lastMineIndex = $derived.by(() => {
+		const me = messages.currentUserId || auth.ownerId;
+		for (let i = messageList.length - 1; i >= 0; i -= 1) {
+			if (messageList[i].senderId === me) return i;
+		}
+		return -1;
+	});
 
 	$effect(() => {
 		// While the panel is hidden, incoming messages must count as unread.
@@ -225,7 +236,9 @@
 		sharedEntryView = {
 			entry,
 			senderName: sender?.name || senderName || 'A friend',
-			senderAvatar: sender?.avatar || ''
+			senderAvatar: sender?.avatar || '',
+			videoUrl: entry.videoPath ? (messages.videoUrls[entry.videoPath] ?? '') : '',
+			thumbUrl: entry.videoThumbPath ? (messages.videoUrls[entry.videoThumbPath] ?? '') : ''
 		};
 	}
 
@@ -237,7 +250,10 @@
 			mind: entry?.mind ?? '',
 			refl: entry?.refl ?? '',
 			mood: entry?.mood ?? '',
-			pageCount: 2
+			pageCount: 2,
+			videoPath: entry?.videoPath ?? null,
+			videoThumbPath: entry?.videoThumbPath ?? null,
+			videoName: entry?.videoName ?? null
 		};
 	}
 
@@ -550,11 +566,18 @@
 									{message}
 									mine={message.senderId === (messages.currentUserId || auth.ownerId)}
 									showHeader={showSender(index)}
+									showSeen={lastMineIndex === index}
+									entryVideoUrl={message.sharedEntry?.videoPath
+										? (messages.videoUrls[message.sharedEntry.videoPath] ?? '')
+										: ''}
+									entryThumbUrl={message.sharedEntry?.videoThumbPath
+										? (messages.videoUrls[message.sharedEntry.videoThumbPath] ?? '')
+										: ''}
 									imageSrc={message.previewUrl ||
 										messages.imageUrls[message.imagePath ?? ''] ||
 										message.gifUrl ||
 										''}
-									onOpenImage={(src) => window.open(src, '_blank', 'noopener,noreferrer')}
+									onOpenImage={(src) => (previewSrc = src)}
 									onReply={(item) => messages.setReply(item)}
 									onCopy={(item) => void copyMessage(item)}
 									onDelete={(item) => void messages.deleteMessage(item)}
@@ -950,6 +973,9 @@
 		entry={sharedEntryView?.entry ?? null}
 		senderName={sharedEntryView?.senderName ?? 'A friend'}
 		senderAvatar={sharedEntryView?.senderAvatar ?? ''}
+		videoUrl={sharedEntryView?.videoUrl ?? ''}
+		thumbUrl={sharedEntryView?.thumbUrl ?? ''}
 		onClose={() => (sharedEntryView = null)}
 	/>
+	<ImageLightbox open={Boolean(previewSrc)} src={previewSrc} onClose={() => (previewSrc = '')} />
 {/if}

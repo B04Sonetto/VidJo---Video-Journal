@@ -232,9 +232,9 @@ class Auth {
 			type: 'signup',
 			email,
 			options: {
-                emailRedirectTo: callbackUrl(),
-                captchaToken
-            }
+				emailRedirectTo: callbackUrl(),
+				captchaToken
+			}
 		});
 
 		if (!error) return '';
@@ -423,7 +423,7 @@ class Auth {
 						}
 					: undefined,
 				emailRedirectTo: callbackUrl(),
-                captchaToken
+				captchaToken
 			}
 		});
 

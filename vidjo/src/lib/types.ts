@@ -278,6 +278,9 @@ export interface SharedJournalEntry {
 	refl: string;
 	mood: string;
 	pageCount: number;
+	videoPath?: string | null;
+	videoThumbPath?: string | null;
+	videoName?: string | null;
 }
 
 export interface DmForwarded {

@@ -44,6 +44,8 @@
 	let editingNoteId = $state<string | null>(null);
 	let editNoteText = $state('');
 	let openedFor: string | null = null;
+	/** Pages that were still unread when this notebook was opened. */
+	let newAtOpen = $state<Set<string>>(new Set());
 	let mindExpanded = $state(false);
 	let reflExpanded = $state(false);
 
@@ -92,6 +94,7 @@
 	$effect(() => {
 		if (!open) {
 			openedFor = null;
+			newAtOpen = new Set();
 			return;
 		}
 
@@ -108,11 +111,26 @@
 
 		openedFor = key;
 		index = at >= 0 ? at : 0;
+		// Snapshot the unread pages before viewing marks them as read, so the
+		// reader can still point out which one was new.
+		newAtOpen = new Set(
+			untrack(() =>
+				sorted
+					.filter((post) => !friends.isPostSeen(post))
+					.map((post) => `${post.authorId}:${post.date}`)
+			)
+		);
 		noteInput = '';
 		noteConfirmId = null;
 		unfriendOpen = false;
 		mindExpanded = false;
 		reflExpanded = false;
+	});
+
+	// Opening a page (or flipping to it) is what clears its "new" notification.
+	$effect(() => {
+		if (!open || !page) return;
+		friends.markPageSeen(page.authorId, page.date);
 	});
 
 	$effect(() => {
@@ -1012,12 +1030,19 @@
 				<Button variant="outline" size="sm" onclick={() => go(-1)} disabled={sorted.length <= 1}>
 					← Previous
 				</Button>
-				<span class="font-ui text-xs font-semibold text-book-bg/70 tabular-nums">
-					{#if sorted.length > 0}
-						Page {index + 1} of {sorted.length}
-					{:else}
-						Empty notebook
+				<span class="flex items-center gap-2">
+					{#if page && newAtOpen.has(`${page.authorId}:${page.date}`)}
+						<span class="rounded-full bg-gold px-2 py-0.5 font-ui text-[10px] font-bold text-desk">
+							New
+						</span>
 					{/if}
+					<span class="font-ui text-xs font-semibold text-book-bg/70 tabular-nums">
+						{#if sorted.length > 0}
+							Page {index + 1} of {sorted.length}
+						{:else}
+							Empty notebook
+						{/if}
+					</span>
 				</span>
 				<Button variant="outline" size="sm" onclick={() => go(1)} disabled={sorted.length <= 1}>
 					Next →

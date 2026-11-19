@@ -32,6 +32,20 @@
 			.filter(Boolean)
 			.join(', ')
 	);
+	/** Alerts (bell on desktop, Alerts on mobile) now includes unread messages too. */
+	const alertsBadge = $derived(friends.unreadCount + messages.unreadTotal);
+	const alertsBadgeLabel = $derived(
+		[
+			friends.unreadCount > 0
+				? `${friends.unreadCount} unread ${friends.unreadCount === 1 ? 'notification' : 'notifications'}`
+				: '',
+			messages.unreadTotal > 0
+				? `${messages.unreadTotal} unread ${messages.unreadTotal === 1 ? 'message' : 'messages'}`
+				: ''
+		]
+			.filter(Boolean)
+			.join(', ')
+	);
 
 	$effect(() => {
 		document.documentElement.setAttribute('data-theme', profile.theme);
@@ -248,15 +262,15 @@
 				? 'bg-white/15 font-semibold text-white'
 				: 'text-lav hover:bg-white/[.08] hover:text-white'}"
 			aria-current={nav.view === 'notifications' ? 'page' : undefined}
-			aria-label={`Notifications${friends.unreadCount > 0 ? `, ${friends.unreadCount} unread` : ''}`}
+			aria-label={`Notifications${alertsBadgeLabel ? `, ${alertsBadgeLabel}` : ''}`}
 			onclick={() => nav.setView('notifications')}
 		>
 			<CommunityIcon name="bell" size={16} />
-			{#if friends.unreadCount > 0}
+			{#if alertsBadge > 0}
 				<span
 					class="absolute -top-1 -right-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-danger px-1 font-ui text-[10px] font-bold text-white tabular-nums shadow-[0_0_0_2px_var(--color-desk)]"
 				>
-					{friends.unreadCount > 9 ? '9+' : friends.unreadCount}
+					{alertsBadge > 9 ? '9+' : alertsBadge}
 				</span>
 			{/if}
 		</button>
@@ -536,7 +550,7 @@
 			? 'bg-white/15 text-white shadow-[inset_0_1px_0_rgba(255,255,255,.12)]'
 			: 'text-lav/80 hover:bg-white/[.07] hover:text-white'}"
 		aria-current={nav.view === 'notifications' ? 'page' : undefined}
-		aria-label={`Alerts${friends.unreadCount > 0 ? `, ${friends.unreadCount} unread` : ''}`}
+		aria-label={`Alerts${alertsBadgeLabel ? `, ${alertsBadgeLabel}` : ''}`}
 		onclick={() => nav.setView('notifications')}
 	>
 		<CommunityIcon name="bell" size={20} />
@@ -545,11 +559,11 @@
 		>
 			Alerts
 		</span>
-		{#if friends.unreadCount > 0}
+		{#if alertsBadge > 0}
 			<span
 				class="absolute -top-0.5 right-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-danger px-1 font-ui text-[9px] font-bold text-book-bg tabular-nums"
 			>
-				{friends.unreadCount > 9 ? '9+' : friends.unreadCount}
+				{alertsBadge > 9 ? '9+' : alertsBadge}
 			</span>
 		{/if}
 	</button>

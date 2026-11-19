@@ -1,5 +1,5 @@
 import { tick } from 'svelte';
-import { isSupabaseConfigured, supabase } from '#lib/supabase';
+import { isSupabaseConfigured, supabase, VIDEO_BUCKET } from '#lib/supabase';
 import { auth } from '#lib/state/auth.svelte';
 import { profile } from '#lib/state/profile.svelte';
 import { cleanDisplayName, normalizeImageUrl } from '#lib/avatar';
@@ -27,6 +27,8 @@ const DM_IMAGE_MAX_BYTES = 5 * 1024 * 1024;
 const DM_IMAGE_TTL_SECONDS = 60 * 60 * 12;
 const IMAGE_URL_CACHE_MAX = 300;
 const IMAGE_URL_REFRESH_BEFORE_MS = 60_000;
+const VIDEO_URL_TTL_SECONDS = 60 * 60 * 2;
+const VIDEO_URL_REFRESH_BEFORE_MS = 60_000;
 /** While a thread is open, coalesce read receipts into one write per second. */
 const READ_DEBOUNCE_MS = 1_000;
 
@@ -162,7 +164,10 @@ function mapSharedEntry(value: unknown): SharedJournalEntry | null {
 		mind: typeof row.mind === 'string' ? row.mind : '',
 		refl: typeof row.refl === 'string' ? row.refl : '',
 		mood: typeof row.mood === 'string' ? row.mood : '',
-		pageCount: Number(row.pageCount) || 1
+		pageCount: Number(row.pageCount) || 1,
+		videoPath: typeof row.videoPath === 'string' ? row.videoPath : null,
+		videoThumbPath: typeof row.videoThumbPath === 'string' ? row.videoThumbPath : null,
+		videoName: typeof row.videoName === 'string' ? row.videoName : null
 	};
 }
 
@@ -299,6 +304,8 @@ class MessagesState {
 	hasMoreByThread = $state<Record<string, boolean>>({});
 	/** Signed URLs for photo messages, keyed by storage path. */
 	imageUrls = $state<Record<string, string>>({});
+	/** Signed URLs for videos on shared journal cards, keyed by storage path. */
+	videoUrls = $state<Record<string, string>>({});
 
 	activeThreadId = $state<string | null>(null);
 	/** Message being replied to, shown in the composer. */
@@ -323,8 +330,10 @@ class MessagesState {
 	private inboxQueuedForce = false;
 	private lastInboxAt = 0;
 	private imageRequests = new Set<string>();
+	private videoRequests = new Set<string>();
 	/** Signed URL expiry per storage path, used to refresh and evict the cache. */
 	private imageUrlExpiry: Record<string, number> = {};
+	private videoUrlExpiry: Record<string, number> = {};
 	/** Read receipts waiting to be written, coalesced per thread. */
 	private readTimers: Record<string, ReturnType<typeof setTimeout>> = {};
 	private readPending = new Set<string>();
@@ -555,6 +564,7 @@ class MessagesState {
 			// reactions are reflected when a thread is reloaded.
 			this.setMessages(threadId, mergeMessages(existing, rows));
 			void this.ensureImageUrls(rows.map((message) => message.imagePath));
+			void this.ensureVideoUrls(rows.map((message) => message.sharedEntry?.videoPath));
 			this.hasMoreByThread = {
 				...this.hasMoreByThread,
 				[threadId]: rows.length >= PAGE_SIZE
@@ -751,6 +761,7 @@ class MessagesState {
 
 		this.setMessages(threadId, mergeMessages(this.messagesByThread[threadId] ?? [], [optimistic]));
 		this.scrollRequest += 1;
+		if (entry.videoPath) void this.ensureVideoUrls([entry.videoPath]);
 
 		try {
 			const { data, error } = await supabase.rpc('vidjo_dm_send_entry', {
@@ -834,6 +845,13 @@ class MessagesState {
 		);
 	}
 
+	private applyReplyMeta(message: DmMessage, reply: DmMessage | null) {
+		if (!reply) return;
+		message.replyTo = reply.id;
+		message.replySender = reply.senderName;
+		message.replyBody = reply.deletedAt ? '' : reply.body;
+	}
+
 	async sendGif(gif: GiphyGif, caption = ''): Promise<boolean> {
 		const threadId = this.activeThreadId;
 		if (!threadId || !gif?.fullUrl) return false;
@@ -851,13 +869,25 @@ class MessagesState {
 
 		const cleanCaption = caption.trim().slice(0, 2000);
 		const clientId = newClientId();
+		const reply = this.replyTo;
 		const optimistic = this.optimisticMessage(threadId, clientId, cleanCaption, null, gif.fullUrl);
+		this.applyReplyMeta(optimistic, reply);
 
 		this.error = '';
 		this.setMessages(threadId, mergeMessages(this.messagesByThread[threadId] ?? [], [optimistic]));
 		this.scrollRequest += 1;
 
-		return this.transmit(threadId, clientId, cleanCaption, null, gif.fullUrl, optimistic);
+		const ok = await this.transmit(
+			threadId,
+			clientId,
+			cleanCaption,
+			null,
+			gif.fullUrl,
+			optimistic,
+			reply?.id ?? null
+		);
+		if (ok && reply && this.replyTo?.clientId === reply.clientId) this.replyTo = null;
+		return ok;
 	}
 
 	async sendImage(file: File, caption = ''): Promise<boolean> {
@@ -890,6 +920,7 @@ class MessagesState {
 
 		const cleanCaption = caption.trim().slice(0, 2000);
 		const clientId = newClientId();
+		const reply = this.replyTo;
 		const previewUrl = URL.createObjectURL(file);
 		const optimistic = this.optimisticMessage(
 			threadId,
@@ -899,6 +930,7 @@ class MessagesState {
 			null,
 			previewUrl
 		);
+		this.applyReplyMeta(optimistic, reply);
 
 		this.error = '';
 		this.setMessages(threadId, mergeMessages(this.messagesByThread[threadId] ?? [], [optimistic]));
@@ -924,7 +956,16 @@ class MessagesState {
 			if (signError) throw signError;
 			if (signed?.signedUrl) this.rememberImageUrl(path, signed.signedUrl);
 
-			const ok = await this.transmit(threadId, clientId, cleanCaption, path, null, optimistic);
+			const ok = await this.transmit(
+				threadId,
+				clientId,
+				cleanCaption,
+				path,
+				null,
+				optimistic,
+				reply?.id ?? null
+			);
+			if (ok && reply && this.replyTo?.clientId === reply.clientId) this.replyTo = null;
 
 			if (!ok) {
 				// The message row was never created, so do not leave an orphan file.
@@ -1138,6 +1179,56 @@ class MessagesState {
 		}
 	}
 
+	private async ensureVideoUrls(paths: (string | null | undefined)[]) {
+		const now = Date.now();
+		const wanted = [
+			...new Set(
+				paths.filter((path): path is string => typeof path === 'string' && path.length > 0)
+			)
+		];
+		const missing = wanted.filter((path) => {
+			if (this.videoRequests.has(path)) return false;
+			const url = this.videoUrls[path];
+			if (!url) return true;
+			return (this.videoUrlExpiry[path] ?? 0) - now < VIDEO_URL_REFRESH_BEFORE_MS;
+		});
+		if (missing.length === 0) return;
+
+		missing.forEach((path) => this.videoRequests.add(path));
+		try {
+			const { data, error } = await supabase.storage
+				.from(VIDEO_BUCKET)
+				.createSignedUrls(missing, VIDEO_URL_TTL_SECONDS);
+			if (error) throw error;
+			for (const item of data ?? []) {
+				if (item?.path && item.signedUrl) {
+					this.videoUrls = { ...this.videoUrls, [item.path]: item.signedUrl };
+					this.videoUrlExpiry[item.path] = Date.now() + VIDEO_URL_TTL_SECONDS * 1000;
+				}
+			}
+		} catch {
+			await Promise.all(
+				missing.map(async (path) => {
+					if (this.videoUrls[path]) return;
+					try {
+						const { data, error: signError } = await supabase.storage
+							.from(VIDEO_BUCKET)
+							.createSignedUrl(path, VIDEO_URL_TTL_SECONDS);
+						if (signError) throw signError;
+						if (data?.signedUrl) {
+							this.videoUrls = { ...this.videoUrls, [path]: data.signedUrl };
+							this.videoUrlExpiry[path] = Date.now() + VIDEO_URL_TTL_SECONDS * 1000;
+						}
+					} catch {
+						// A page may be private; the card still shows its writing.
+					}
+				})
+			);
+		} finally {
+			missing.forEach((path) => this.videoRequests.delete(path));
+		}
+	}
+
 	async markRead(threadId: string) {
 		if (!threadId) return;
 
@@ -1328,6 +1419,7 @@ class MessagesState {
 		this.membersByThread = {};
 		this.hasMoreByThread = {};
 		this.imageUrls = {};
+		this.videoUrls = {};
 		this.activeThreadId = null;
 		this.replyTo = null;
 		this.currentUserId = '';
@@ -1344,6 +1436,8 @@ class MessagesState {
 		this.lastInboxAt = 0;
 		this.imageRequests.clear();
 		this.imageUrlExpiry = {};
+		this.videoRequests.clear();
+		this.videoUrlExpiry = {};
 		this.readPending.clear();
 		for (const timer of Object.values(this.readTimers)) clearTimeout(timer);
 		this.readTimers = {};
@@ -1508,6 +1602,7 @@ class MessagesState {
 		};
 
 		if (message.imagePath) void this.ensureImageUrls([message.imagePath]);
+		if (message.sharedEntry?.videoPath) void this.ensureVideoUrls([message.sharedEntry.videoPath]);
 
 		const existing = this.threads.find((thread) => thread.threadId === threadId);
 		const active = this.panelVisible && threadId === this.activeThreadId;

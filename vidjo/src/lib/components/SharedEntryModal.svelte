@@ -12,12 +12,16 @@
 		entry,
 		senderName = 'A friend',
 		senderAvatar = '',
+		videoUrl = '',
+		thumbUrl = '',
 		onClose
 	}: {
 		open: boolean;
 		entry: SharedJournalEntry | null;
 		senderName?: string;
 		senderAvatar?: string;
+		videoUrl?: string;
+		thumbUrl?: string;
 		onClose: () => void;
 	} = $props();
 
@@ -112,6 +116,21 @@
 					<CommunityIcon name="x" size={18} />
 				</button>
 			</header>
+
+			{#if entry?.videoPath && videoUrl}
+				<div class="border-b border-line bg-black">
+					<video
+						class="mx-auto max-h-[50vh] w-full object-contain"
+						src={videoUrl}
+						poster={thumbUrl || undefined}
+						controls
+						playsinline
+						preload="metadata"
+					>
+						<track kind="captions" />
+					</video>
+				</div>
+			{/if}
 
 			<div class="min-h-0 flex-1 modal-scroll overflow-y-auto p-4 min-[720px]:p-6">
 				<article

@@ -10,6 +10,7 @@
 	import { isSupabaseConfigured, supabase, VIDEO_BUCKET } from '#lib/supabase';
 	import { normalizeImageUrl, optimizedBannerUrl } from '#lib/avatar';
 	import { captureError } from '#lib/observability';
+	import { portal } from '#lib/actions/portal';
 	import CommunityIcon from '#lib/components/CommunityIcon.svelte';
 	import Avatar from '#lib/components/Avatar.svelte';
 	import Button from '#lib/components/ui/Button.svelte';
@@ -772,50 +773,38 @@
 		</div>
 	</div>
 
-	{#if nav.profileTab === 'settings'}
-		<div class="sticky top-2 z-30 mt-4">
-			<div
-				class="flex flex-wrap items-center justify-between gap-3 rounded-2xl border bg-desk/95 px-4 py-3 shadow-[0_12px_32px_rgba(0,0,0,.45)] backdrop-blur-lg {settingsDirty
-					? 'border-book-accent/50'
-					: 'border-cover-edge'}"
-			>
-				<div class="flex items-center gap-2.5">
-					<span
-						class="flex size-8 shrink-0 items-center justify-center rounded-full bg-book-accent/20 text-book-accent"
-						aria-hidden="true"
-					>
-						<CommunityIcon name={settingsDirty ? 'pen' : 'check'} size={15} />
-					</span>
-					<div>
-						<p class="font-ui text-sm font-bold">
-							{settingsDirty ? 'Unsaved changes' : 'All changes saved'}
-						</p>
-						<p class="font-ui text-[11px] text-book-bg/65">
-							{settingsDirty
-								? 'Save to apply them to your journal.'
-								: 'Adjust any setting to enable saving.'}
-						</p>
-					</div>
+	{#if nav.profileTab === 'settings' && settingsDirty}
+		<div
+			use:portal
+			class="fixed right-4 bottom-4 z-[80] w-[min(360px,calc(100vw-32px))] rounded-2xl border border-book-accent/50 bg-desk/95 p-4 shadow-[0_16px_44px_rgba(0,0,0,.55)] backdrop-blur-lg"
+			role="region"
+			aria-label="Unsaved settings"
+		>
+			<div class="flex items-start gap-2.5">
+				<span
+					class="flex size-8 shrink-0 items-center justify-center rounded-full bg-book-accent/20 text-book-accent"
+					aria-hidden="true"
+				>
+					<CommunityIcon name="pen" size={15} />
+				</span>
+				<div>
+					<p class="font-ui text-sm font-bold">Unsaved changes</p>
+					<p class="font-ui text-[11px] text-book-bg/65">Save to apply them to your journal.</p>
 				</div>
-				<div class="flex w-full items-center gap-2 min-[480px]:w-auto">
-					<Button
-						class="flex-1 min-[480px]:flex-none"
-						size="sm"
-						variant="outline"
-						onclick={discardSettings}
-					>
-						Discard
-					</Button>
-					<Button
-						class="flex-1 min-[480px]:flex-none"
-						size="sm"
-						icon="check"
-						loading={settingsSaving}
-						onclick={saveSettings}
-					>
-						Save settings
-					</Button>
-				</div>
+			</div>
+			<div class="mt-3 flex items-center gap-2">
+				<Button class="flex-1" size="sm" variant="outline" onclick={discardSettings}>
+					Discard
+				</Button>
+				<Button
+					class="flex-1"
+					size="sm"
+					icon="check"
+					loading={settingsSaving}
+					onclick={saveSettings}
+				>
+					Save settings
+				</Button>
 			</div>
 		</div>
 	{/if}

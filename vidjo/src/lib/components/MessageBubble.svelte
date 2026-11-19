@@ -9,7 +9,10 @@
 		message,
 		mine,
 		showHeader,
+		showSeen = false,
 		imageSrc,
+		entryVideoUrl = '',
+		entryThumbUrl = '',
 		onOpenImage,
 		onReply,
 		onCopy,
@@ -24,7 +27,10 @@
 		message: DmMessage;
 		mine: boolean;
 		showHeader: boolean;
+		showSeen?: boolean;
 		imageSrc: string;
+		entryVideoUrl?: string;
+		entryThumbUrl?: string;
 		onOpenImage: (src: string) => void;
 		onReply: (message: DmMessage) => void;
 		onCopy: (message: DmMessage) => void;
@@ -353,7 +359,7 @@
 					{#if message.forwardedFrom}
 						<div class="mb-1.5 rounded-r-md border-l-2 border-dashed border-lav px-2 py-1">
 							<p class="font-ui text-[10px] font-bold opacity-80">
-								Forwarded from {message.forwardedFrom.name}
+								{label} forwarded a message
 							</p>
 							<p class="line-clamp-3 font-ui text-[11px] opacity-70">
 								{censor(message.forwardedFrom.body)}
@@ -367,7 +373,7 @@
 								type="button"
 								class="block cursor-zoom-in"
 								onclick={() => onOpenImage(imageSrc)}
-								aria-label={isGif ? 'Open GIF in a new tab' : 'Open photo in a new tab'}
+								aria-label={isGif ? 'View GIF' : 'View photo'}
 							>
 								<img
 									src={imageSrc}
@@ -400,6 +406,18 @@
 								onOpenEntry(message.sharedEntry!, message.senderId, message.senderName)}
 							aria-label={`Open journal page from ${entryDate}`}
 						>
+							{#if message.sharedEntry.videoPath && entryVideoUrl}
+								<video
+									class="block max-h-40 w-full bg-black object-cover"
+									src={entryVideoUrl}
+									poster={entryThumbUrl || undefined}
+									muted
+									playsinline
+									preload="metadata"
+								>
+									<track kind="captions" />
+								</video>
+							{/if}
 							<span class="block bg-gradient-to-r from-book-accent/25 to-cover/25 px-3 py-2">
 								<span class="flex items-center gap-1.5">
 									<span
@@ -504,7 +522,7 @@
 			{#if message.editedAt && !isDeleted}
 				<span class="italic opacity-70">(edited)</span>
 			{/if}
-			{#if seenLabel}
+			{#if showSeen && seenLabel}
 				<span class="text-book-accent">· {seenLabel}</span>
 			{/if}
 			{#if !message.pending && !isDeleted}

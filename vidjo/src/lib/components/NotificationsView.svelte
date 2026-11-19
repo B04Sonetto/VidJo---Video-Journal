@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { censor } from '#lib/censor';
 	import { friends } from '#lib/state/friends.svelte';
+	import { messages } from '#lib/state/messages.svelte';
 	import { nav } from '#lib/state/navigation.svelte';
 	import { todayKey } from '#lib/dates';
 	import Avatar from '#lib/components/Avatar.svelte';
@@ -9,7 +10,7 @@
 	import Button from '#lib/components/ui/Button.svelte';
 	import type { NotificationItem } from '#lib/types';
 
-	type FilterKey = 'all' | 'requests' | 'comments';
+	type FilterKey = 'all' | 'requests' | 'comments' | 'messages';
 	type RequestNotification = NotificationItem & { type: 'friend_request' };
 
 	let filter = $state<FilterKey>('all');
@@ -34,14 +35,36 @@
 			.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
 	);
 
-	const visibleRequests = $derived(filter === 'comments' ? [] : requestNotifications);
-	const visibleComments = $derived(filter === 'requests' ? [] : commentNotifications);
-	const visibleCount = $derived(visibleRequests.length + visibleComments.length);
+	/** Unread DM conversations are shown here as notifications on both mobile and desktop. */
+	const unreadThreads = $derived.by(() =>
+		messages.threads
+			.filter((thread) => thread.unreadCount > 0)
+			.sort((a, b) => {
+				const aTime = a.lastAt ? new Date(a.lastAt).getTime() : 0;
+				const bTime = b.lastAt ? new Date(b.lastAt).getTime() : 0;
+				return bTime - aTime;
+			})
+	);
+
+	const visibleRequests = $derived(
+		filter === 'comments' || filter === 'messages' ? [] : requestNotifications
+	);
+	const visibleComments = $derived(
+		filter === 'requests' || filter === 'messages' ? [] : commentNotifications
+	);
+	const visibleMessages = $derived(
+		filter === 'requests' || filter === 'comments' ? [] : unreadThreads
+	);
+	const visibleCount = $derived(
+		visibleRequests.length + visibleComments.length + visibleMessages.length
+	);
+	const trayCount = $derived(friends.notifications.length + unreadThreads.length);
 
 	const filters = $derived([
-		{ key: 'all' as const, label: 'Everything', count: friends.notifications.length },
+		{ key: 'all' as const, label: 'Everything', count: trayCount },
 		{ key: 'requests' as const, label: 'Requests', count: requestNotifications.length },
-		{ key: 'comments' as const, label: 'Comments', count: commentNotifications.length }
+		{ key: 'comments' as const, label: 'Comments', count: commentNotifications.length },
+		{ key: 'messages' as const, label: 'Messages', count: unreadThreads.length }
 	]);
 
 	function requestIdFor(item: RequestNotification) {
@@ -91,6 +114,30 @@
 			...(d.getFullYear() === now.getFullYear() ? {} : { year: 'numeric' })
 		});
 	}
+
+	function threadName(thread: (typeof unreadThreads)[number]) {
+		return thread.kind === 'group' && thread.title
+			? thread.title
+			: thread.lastSenderName || messages.threadLabel(thread) || 'A friend';
+	}
+
+	function threadAvatar(thread: (typeof unreadThreads)[number]) {
+		if (thread.kind === 'group') return '';
+		return thread.members.find((member) => member.id === thread.lastSender)?.avatar ?? '';
+	}
+
+	function threadPreview(thread: (typeof unreadThreads)[number]) {
+		if (thread.lastDeleted) return 'Original message was deleted';
+		if (thread.lastSharedEntry) return 'Shared a journal page';
+		if (thread.lastGifUrl) return 'Sent a GIF';
+		if (thread.lastImagePath) return 'Sent a photo';
+		return censor(thread.lastBody || 'New message');
+	}
+
+	function openMessageThread(threadId: string) {
+		nav.openMessages();
+		void messages.openThread(threadId);
+	}
 </script>
 
 {#snippet envelope(large: boolean)}
@@ -125,8 +172,8 @@
 		{#snippet meta()}
 			<span class="inline-flex items-center gap-1.5">
 				<CommunityIcon name="mail" size={12} class="text-book-accent" />
-				{friends.notifications.length}
-				{friends.notifications.length === 1 ? 'note in the tray' : 'notes in the tray'}
+				{trayCount}
+				{trayCount === 1 ? 'note in the tray' : 'notes in the tray'}
 			</span>
 		{/snippet}
 		{#snippet actions()}
@@ -137,7 +184,7 @@
 		{/snippet}
 	</PageHeader>
 
-	{#if friends.notifications.length === 0}
+	{#if trayCount === 0}
 		<!-- Empty tray -->
 		<div
 			class="relative mt-7 overflow-hidden rounded-[24px] bg-book-bg px-6 py-14 text-center text-book-ink shadow-[0_16px_34px_rgba(0,0,0,.4)] min-[720px]:py-16"
@@ -161,8 +208,8 @@
 			<p
 				class="relative mx-auto mt-2 max-w-[440px] font-hand text-xl leading-snug text-book-ink/70"
 			>
-				The tray is empty. When someone asks to be friends or leaves a note on one of your pages, it
-				will land right here.
+				The tray is empty. Friend requests, notes on your pages, and unread messages will land right
+				here.
 			</p>
 			<div class="relative mt-6 flex flex-wrap justify-center gap-2.5">
 				<Button icon="book" onclick={() => nav.setView('journal')}>Back to my journal</Button>
@@ -248,6 +295,27 @@
 						</span>
 						<span class="font-ui text-[9px] font-bold tracking-[.16em] text-book-ink/70 uppercase">
 							Comments
+						</span>
+					</button>
+
+					<button
+						type="button"
+						class="flex min-w-[104px] flex-1 flex-col items-center gap-1 rounded-[6px] border border-dashed border-gold/70 bg-book-bg px-3 py-2.5 text-book-ink shadow-[0_6px_14px_rgba(0,0,0,.28)] transition duration-150 hover:-translate-y-0.5 hover:shadow-[0_10px_18px_rgba(0,0,0,.35)] min-[720px]:flex-none {filter ===
+						'messages'
+							? 'ring-2 ring-gold/70 ring-offset-2 ring-offset-desk-2'
+							: ''}"
+						onclick={() => (filter = 'messages')}
+						aria-pressed={filter === 'messages'}
+						aria-label={`Show ${unreadThreads.length} unread conversations`}
+					>
+						<span class="flex size-7 items-center justify-center rounded-full bg-gold/20 text-gold">
+							<CommunityIcon name="mail" size={14} />
+						</span>
+						<span class="font-display text-[26px] leading-none font-bold tabular-nums">
+							{unreadThreads.length}
+						</span>
+						<span class="font-ui text-[9px] font-bold tracking-[.16em] text-book-ink/70 uppercase">
+							Messages
 						</span>
 					</button>
 				</div>
@@ -506,6 +574,99 @@
 					</section>
 				{/if}
 
+				{#if visibleMessages.length > 0}
+					<section aria-labelledby="notifications-messages">
+						<div class="flex items-center gap-2.5">
+							<span
+								class="flex size-8 shrink-0 items-center justify-center rounded-full bg-gold/15 text-gold"
+							>
+								<CommunityIcon name="mail" size={15} />
+							</span>
+							<h2
+								id="notifications-messages"
+								class="font-display text-[25px] leading-none font-bold text-book-bg"
+							>
+								Unread messages
+							</h2>
+							<span
+								class="rounded-full bg-gold/20 px-2 py-0.5 font-ui text-[11px] font-semibold text-book-bg tabular-nums"
+							>
+								{visibleMessages.length}
+							</span>
+							<span
+								class="h-px flex-1 bg-gradient-to-r from-gold/30 to-transparent"
+								aria-hidden="true"
+							></span>
+						</div>
+						<p class="mt-1 mb-3 font-hand text-lg leading-snug text-lav/80">
+							Conversations waiting for a reply.
+						</p>
+
+						<div class="space-y-3.5">
+							{#each visibleMessages as thread (thread.threadId)}
+								<article
+									class="note-card relative rounded-[16px] border border-line bg-book-bg p-4 text-book-ink shadow-[0_10px_24px_rgba(0,0,0,.32)] min-[540px]:pl-5"
+								>
+									<span class="tape tape-gold" aria-hidden="true"></span>
+									<div class="flex items-start gap-3.5">
+										<div class="relative shrink-0">
+											<span
+												class="absolute -inset-1 rounded-full border border-dashed border-gold/60"
+												aria-hidden="true"
+											></span>
+											<Avatar
+												src={threadAvatar(thread)}
+												name={threadName(thread)}
+												className="size-11"
+												textClass="text-lg"
+												ring="ring-2 ring-gold/50"
+											/>
+										</div>
+
+										<div class="min-w-0 flex-1">
+											<div class="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+												<p
+													class="truncate font-hand text-[21px] leading-tight font-bold text-book-ink"
+												>
+													{threadName(thread)}
+												</p>
+												{#if thread.lastAt}
+													<time
+														class="shrink-0 font-ui text-[11px] text-book-ink/70 tabular-nums"
+														datetime={thread.lastAt}
+													>
+														{formatDate(thread.lastAt)}
+													</time>
+												{/if}
+											</div>
+											<p
+												class="mt-0.5 line-clamp-2 font-ui text-[12.5px] leading-snug text-book-ink/70"
+											>
+												{threadPreview(thread)}
+											</p>
+											<div class="mt-3 flex flex-wrap items-center gap-2.5">
+												<button
+													type="button"
+													class="inline-flex items-center gap-1.5 font-ui text-xs font-bold text-book-ink underline decoration-gold/70 underline-offset-4 transition-colors hover:decoration-gold"
+													onclick={() => openMessageThread(thread.threadId)}
+												>
+													Open conversation
+													<CommunityIcon name="arrow-right" size={13} />
+												</button>
+												<span
+													class="rounded-full bg-gold/20 px-2 py-0.5 font-ui text-[10px] font-bold text-book-ink tabular-nums"
+												>
+													{thread.unreadCount} unread
+												</span>
+											</div>
+										</div>
+									</div>
+								</article>
+							{/each}
+						</div>
+					</section>
+				{/if}
+
 				{#if filter !== 'all' && visibleCount === 0}
 					<div
 						class="relative overflow-hidden rounded-[20px] border border-dashed border-cover-edge bg-book-bg/[.02] px-6 py-12 text-center"
@@ -513,15 +674,24 @@
 						<span
 							class="mx-auto flex size-14 items-center justify-center rounded-full bg-book-bg/[.04] text-lav/80"
 						>
-							<CommunityIcon name={filter === 'requests' ? 'users' : 'pen'} size={24} />
+							<CommunityIcon
+								name={filter === 'requests' ? 'users' : filter === 'messages' ? 'mail' : 'pen'}
+								size={24}
+							/>
 						</span>
 						<p class="mt-4 font-display text-2xl font-bold text-book-bg">
-							{filter === 'requests' ? 'No invitations waiting.' : 'No notes in the margins yet.'}
+							{filter === 'requests'
+								? 'No invitations waiting.'
+								: filter === 'messages'
+									? 'No unread messages.'
+									: 'No notes in the margins yet.'}
 						</p>
 						<p class="mx-auto mt-1.5 max-w-[380px] font-hand text-lg leading-snug text-lav/80">
 							{filter === 'requests'
 								? 'When someone asks to read your shared pages, their invitation lands here.'
-								: 'When someone leaves a note on a page you shared, it will appear here.'}
+								: filter === 'messages'
+									? 'Unread conversations with friends will appear here.'
+									: 'When someone leaves a note on a page you shared, it will appear here.'}
 						</p>
 						<button
 							type="button"

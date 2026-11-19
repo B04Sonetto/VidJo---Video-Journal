@@ -1,4 +1,4 @@
-import { SvelteMap } from 'svelte/reactivity';
+import { SvelteMap, SvelteSet } from 'svelte/reactivity';
 import { track } from '#lib/analytics';
 import { isSupabaseConfigured, supabase, VIDEO_BUCKET } from '#lib/supabase';
 import { censor } from '#lib/censor';
@@ -18,6 +18,7 @@ import { auth } from '#lib/state/auth.svelte';
 import { cleanDisplayName, normalizeImageUrl } from '#lib/avatar';
 
 const FRIENDS_CACHE_KEY = 'vidjo-friends-cache';
+const SEEN_PAGES_KEY = 'vidjo-seen-pages:v1';
 const SIGNED_URL_TTL = 60 * 60 * 2;
 /** Re-sign a little before expiry so an open page never flips to a broken video. */
 const SIGNED_URL_REFRESH_BEFORE = 60 * 10;
@@ -34,6 +35,10 @@ function isUuid(value: string) {
 
 function postKey(ownerId: string, date: string) {
 	return `${ownerId}:${date}`;
+}
+
+function seenPagesKey(userId: string) {
+	return `${SEEN_PAGES_KEY}:${userId}`;
 }
 
 function formatPostDate(date: string) {
@@ -54,6 +59,8 @@ class FriendsState {
 	stories = $state<Friend[]>([]);
 	notifications = $state<NotificationItem[]>([]);
 	notificationsLastSeen = $state(0);
+	/** Shared page keys (`ownerId:date`) the user has already opened. */
+	seenPostKeys = $state(new SvelteSet<string>());
 	readerAuthorId = $state<string | null>(null);
 	readerDate = $state<string | null>(null);
 
@@ -84,6 +91,56 @@ class FriendsState {
 	closeJournal() {
 		this.readerAuthorId = null;
 		this.readerDate = null;
+	}
+
+	/** A shared page stays "new" until its own page has actually been opened. */
+	isPostSeen(post: FriendPost) {
+		return this.seenPostKeys.has(postKey(post.authorId, post.date));
+	}
+
+	markPageSeen(authorId: string, date: string) {
+		if (!authorId || !date) return;
+		const key = postKey(authorId, date);
+		if (this.seenPostKeys.has(key)) return;
+		this.seenPostKeys.add(key);
+		this.persistSeenPages();
+	}
+
+	private persistSeenPages() {
+		if (!this.currentUserId) return;
+		try {
+			localStorage.setItem(
+				seenPagesKey(this.currentUserId),
+				JSON.stringify([...this.seenPostKeys])
+			);
+		} catch {
+			// Read state is a convenience; storage may be blocked.
+		}
+	}
+
+	private loadSeenPosts() {
+		if (!this.currentUserId) return;
+
+		let keys: string[] | null = null;
+		try {
+			const raw = localStorage.getItem(seenPagesKey(this.currentUserId));
+			const parsed = raw ? JSON.parse(raw) : null;
+			if (Array.isArray(parsed)) {
+				keys = parsed.filter((key): key is string => typeof key === 'string');
+			}
+		} catch {
+			keys = null;
+		}
+
+		// First run after installing this: everything already on the shelf counts
+		// as read, so only pages shared from now on raise the "new" badge.
+		if (keys === null) {
+			keys = this.posts.map((post) => postKey(post.authorId, post.date));
+		}
+
+		this.seenPostKeys.clear();
+		for (const key of keys) this.seenPostKeys.add(key);
+		this.persistSeenPages();
 	}
 
 	get unreadCount() {
@@ -216,6 +273,7 @@ class FriendsState {
 			this.lastRefreshAt = Date.now();
 		}
 
+		this.loadSeenPosts();
 		this.loading = false;
 
 		this.subscribeToFriendRequests();
@@ -1493,6 +1551,7 @@ class FriendsState {
 		this.notifications = [];
 		this.notificationsLastSeen = 0;
 		this.pendingNotificationsSeen = 0;
+		this.seenPostKeys.clear();
 		this.readerAuthorId = null;
 		this.readerDate = null;
 		this.reactionMap = {};
