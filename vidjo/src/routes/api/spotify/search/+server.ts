@@ -28,7 +28,7 @@ export const GET: RequestHandler = async ({ url, cookies }) => {
 		const params = new URLSearchParams({
 			q,
 			type: 'track',
-			limit: '12',
+			limit: '10',
 			market: 'from_token'
 		});
 
