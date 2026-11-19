@@ -9,7 +9,7 @@ import { isPlaceholderUsername, validateUsername } from '#lib/username';
 import { todayKey } from '#lib/dates';
 
 // Whether `vidjo_streak_for` accepts the local-date argument. Checked once so a
-// database that has not run supabase/fix-timezone.sql only logs one 404.
+// database that has not run supabase/fixes/fix-timezone.sql only logs one 404.
 let streakAcceptsLocalDate: boolean | null = null;
 
 export function generateFriendCode(userId: string): string {

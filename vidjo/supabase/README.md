@@ -92,7 +92,7 @@ A profile is created **only after the email is confirmed**. Abandoning a signup
 before entering the code does not reserve the username, so you can retry with a
 different handle. If you retry the same address, the app asks Supabase to send a
 fresh confirmation code instead of silently doing nothing. If your project was
-set up with the older trigger, run [`fix-signup-verification.sql`](./fix-signup-verification.sql)
+set up with the older trigger, run [`fix-signup-verification.sql`](./fixes/fix-signup-verification.sql)
 in the SQL editor once; it switches the triggers and releases usernames held by
 unfinished signups.
 
@@ -146,7 +146,7 @@ Google is disabled by default in a new Supabase project. To enable it:
 4. New Google users are asked to choose a username and nickname on their first sign-in. No profile row is created until they press **Create account**.
 5. To stop a deleted account from silently signing up again, re-run `schema.sql`, then open **Authentication → Hooks → Before User Created**, choose **Postgres function**, and select `public.vidjo_block_deleted_signup`. The app records deleted emails in `public.vidjo_deleted_accounts`. Remove a row from that table if a moderator approves restoring the email.
 
-   **Troubleshooting:** if signup fails with `Error running hook URI: pg-functions://postgres/public/vidjo_block_deleted_signup`, run `supabase/fix-signup-hook.sql` in the SQL editor. The hook used a PL/pgSQL variable named `email`, which shadows the `email` column of `vidjo_deleted_accounts` and aborts with `column reference "email" is ambiguous`. To restore signups immediately while you investigate, disable the hook under **Authentication → Hooks** and re-enable it once the SQL succeeds.
+   **Troubleshooting:** if signup fails with `Error running hook URI: pg-functions://postgres/public/vidjo_block_deleted_signup`, run `supabase/fixes/fix-signup-hook.sql` in the SQL editor. The hook used a PL/pgSQL variable named `email`, which shadows the `email` column of `vidjo_deleted_accounts` and aborts with `column reference "email" is ambiguous`. To restore signups immediately while you investigate, disable the hook under **Authentication → Hooks** and re-enable it once the SQL succeeds.
 
 ## 7. Private video storage (`vidjo-videos`)
 
@@ -221,7 +221,7 @@ exception. Sample pages never count.
   header, badges, and calendar heatmap.
 
 Re-run `schema.sql` so `vidjo_streak_for` exists. If the live project already
-has the older one-argument version, run `supabase/fix-timezone.sql` to replace
+has the older one-argument version, run `supabase/fixes/fix-timezone.sql` to replace
 it and to widen the future-page trigger for members outside UTC.
 
 ## Troubleshooting
@@ -230,7 +230,7 @@ it and to widen the future-page trigger for members outside UTC.
 | ------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
 | Email code returns error for non-existent email                                             | Enable **Prevent email enumeration** in Supabase Auth settings.                                                                                  |
 | Username is already taken                                                                   | Usernames are globally unique. Pick a different handle.                                                                                          |
-| Account appears before the code is entered, or retrying says username taken / sends no code | Run `supabase/fix-signup-verification.sql` in the SQL editor.                                                                                    |
+| Account appears before the code is entered, or retrying says username taken / sends no code | Run `supabase/fixes/fix-signup-verification.sql` in the SQL editor.                                                                                    |
 | Friend code is not found                                                                    | Both accounts must exist in `vidjo_profiles`, and the code must include the `VJ-` prefix. Re-run `schema.sql` if codes are missing.              |
 | Communities or friends disappear after deploy                                               | Re-run `schema.sql` so the social tables, `community_slug`, and RPCs exist. Local membership is only a fallback.                                 |
 | Video does not play                                                                         | Check that the `vidjo-videos` bucket exists and re-run `schema.sql`.                                                                             |
@@ -238,5 +238,5 @@ it and to widen the future-page trigger for members outside UTC.
 | GIF button is missing                                                                       | Set `PUBLIC_GIPHY_API_KEY` and restart the dev server or redeploy.                                                                               |
 | GIFs do not send                                                                            | Re-run `schema.sql` so `gif_url` and the 5-argument `vidjo_dm_send` exist.                                                                       |
 | Shared browser has old journal entries                                                      | Sign out with "Clear cached pages on sign out" checked.                                                                                          |
-| Pages will not sync just after local midnight                                               | Run `supabase/fix-timezone.sql`. The future-page trigger compared against the UTC date, so members east of UTC were blocked until UTC caught up. |
-| Friend's streak looks one day behind                                                        | Run `supabase/fix-timezone.sql` and redeploy. `vidjo_streak_for` now accepts the viewer's local date as `p_today`.                               |
+| Pages will not sync just after local midnight                                               | Run `supabase/fixes/fix-timezone.sql`. The future-page trigger compared against the UTC date, so members east of UTC were blocked until UTC caught up. |
+| Friend's streak looks one day behind                                                        | Run `supabase/fixes/fix-timezone.sql` and redeploy. `vidjo_streak_for` now accepts the viewer's local date as `p_today`.                               |
