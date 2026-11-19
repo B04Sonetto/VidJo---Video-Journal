@@ -320,6 +320,11 @@ export interface DmMessage {
 	imagePath: string | null;
 	/** Giphy-hosted GIF URL, stored as a link rather than uploaded. */
 	gifUrl: string | null;
+	/** Storage path inside the private `vidjo-dm-files` bucket. */
+	filePath: string | null;
+	fileName: string | null;
+	fileMime: string | null;
+	fileSize: number | null;
 	/** Local object URL used only while a photo uploads. */
 	previewUrl?: string;
 	createdAt: string;
@@ -347,4 +352,26 @@ export interface DmThreadMember {
 	role: DmRole;
 	joinedAt: string;
 	isMe: boolean;
+	/** Nickname set for this conversation, empty when using the global name. */
+	nickname: string;
+}
+
+/** Per-conversation settings returned by `vidjo_dm_chat_settings`. */
+export interface ChatSettings {
+	threadId: string;
+	kind: DmThreadKind;
+	title: string | null;
+	photoPath: string | null;
+	theme: string;
+	createdAt: string;
+	memberCount: number;
+}
+
+/** Metadata returned by the server-side link preview endpoint. */
+export interface LinkPreview {
+	url: string;
+	title: string;
+	description: string;
+	image: string;
+	siteName: string;
 }

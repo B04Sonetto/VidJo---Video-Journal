@@ -17,15 +17,34 @@
 	const LOAD_FRESH_MS = 60_000;
 	const USERS_LIMIT = 1000;
 
+	type ReportSource = 'comment' | 'message';
+
 	type ReportRow = {
 		id: string;
-		comment_id: string;
+		source: ReportSource;
+		comment_id: string | null;
+		message_id?: string | null;
+		thread_id?: string | null;
+		file_name?: string | null;
 		reason: string;
 		created_at: string;
 		reporter_name: string | null;
 		reported_user: string | null;
 		comment_body: string | null;
 		reported_user_id: string | null;
+	};
+
+	type DmReportRow = {
+		id: string;
+		message_id: string;
+		thread_id: string;
+		reporter_name: string | null;
+		sender_id: string | null;
+		sender_name: string | null;
+		body: string | null;
+		file_name: string | null;
+		reason: string;
+		created_at: string;
 	};
 
 	type AdminUser = {
@@ -215,38 +234,85 @@
 	async function loadReports() {
 		reportsError = '';
 
+		// Comment and chat-message reports live in separate tables. A project
+		// without the chat upgrade simply returns no message reports here.
+		let commentRows: ReportRow[] = [];
+		let commentError: unknown = null;
 		try {
 			const { data, error: rpcError } = await supabase.rpc('vidjo_admin_list_reports', {
 				max_rows: 50
 			});
-			if (!rpcError) {
-				reports = (data ?? []) as ReportRow[];
-				return;
-			}
-
-			// Older projects may not have the admin RPC yet. The reports table has
-			// its own admin select policy, so a direct read still works.
-			const { data: rows, error: directError } = await supabase
-				.from('vidjo_comment_reports')
-				.select('id, comment_id, reason, created_at')
-				.order('created_at', { ascending: false })
-				.limit(50);
-
-			if (directError) throw rpcError;
-
-			reports = ((rows ?? []) as Partial<ReportRow>[]).map((row) => ({
+			if (rpcError) throw rpcError;
+			commentRows = ((data ?? []) as Partial<ReportRow>[]).map((row) => ({
 				id: String(row.id ?? ''),
-				comment_id: String(row.comment_id ?? ''),
+				source: 'comment',
+				comment_id: row.comment_id ? String(row.comment_id) : null,
 				reason: row.reason ?? 'other',
 				created_at: row.created_at ?? '',
-				reporter_name: null,
-				reported_user: null,
-				comment_body: null,
-				reported_user_id: null
+				reporter_name: row.reporter_name ?? null,
+				reported_user: row.reported_user ?? null,
+				comment_body: row.comment_body ?? null,
+				reported_user_id: row.reported_user_id ?? null
 			}));
 		} catch (err) {
-			reports = [];
-			reportsError = errorText(err, 'Could not load reports.');
+			commentError = err;
+			try {
+				// Older projects may not have the admin RPC yet. The reports table
+				// has its own admin select policy, so a direct read still works.
+				const { data: rows, error: directError } = await supabase
+					.from('vidjo_comment_reports')
+					.select('id, comment_id, reason, created_at')
+					.order('created_at', { ascending: false })
+					.limit(50);
+				if (directError) throw err;
+
+				commentRows = ((rows ?? []) as Partial<ReportRow>[]).map((row) => ({
+					id: String(row.id ?? ''),
+					source: 'comment',
+					comment_id: row.comment_id ? String(row.comment_id) : null,
+					reason: row.reason ?? 'other',
+					created_at: row.created_at ?? '',
+					reporter_name: null,
+					reported_user: null,
+					comment_body: null,
+					reported_user_id: null
+				}));
+				commentError = null;
+			} catch {
+				// Keep the original RPC error for the alert below.
+			}
+		}
+
+		let messageRows: ReportRow[] = [];
+		try {
+			const { data, error: rpcError } = await supabase.rpc('vidjo_admin_list_dm_reports', {
+				p_max_rows: 50
+			});
+			if (rpcError) throw rpcError;
+
+			messageRows = ((data ?? []) as DmReportRow[]).map((row) => ({
+				id: row.id,
+				source: 'message',
+				comment_id: null,
+				message_id: row.message_id,
+				thread_id: row.thread_id,
+				file_name: row.file_name,
+				reason: row.reason,
+				created_at: row.created_at,
+				reporter_name: row.reporter_name,
+				reported_user: row.sender_name,
+				reported_user_id: row.sender_id,
+				comment_body: row.body || (row.file_name ? `Shared file: ${row.file_name}` : null)
+			}));
+		} catch {
+			// The chat upgrade migration has not been applied on this project yet.
+		}
+
+		reports = [...commentRows, ...messageRows].sort((a, b) =>
+			b.created_at.localeCompare(a.created_at)
+		);
+		if (commentError && messageRows.length === 0) {
+			reportsError = errorText(commentError, 'Could not load reports.');
 		}
 	}
 
@@ -827,10 +893,10 @@
 						<div class="mb-4 flex flex-wrap items-end justify-between gap-3">
 							<div>
 								<h3 class="font-display text-2xl leading-tight font-bold text-book-bg">
-									Comment reports
+									Content reports
 								</h3>
 								<p class="mt-0.5 font-ui text-xs text-lav/80">
-									Flagged comments from friends and community pages.
+									Flagged comments and chat messages from your members.
 								</p>
 							</div>
 							<span class="font-ui text-xs text-lav/80 tabular-nums">
@@ -869,7 +935,7 @@
 								<CommunityIcon name="check" size={30} class="mx-auto text-book-accent/70" />
 								<p class="mt-3 font-display text-2xl font-bold text-book-bg">Nothing flagged</p>
 								<p class="mt-1 font-ui text-sm text-lav/80">
-									Reports will appear here when someone flags a comment.
+									Reports will appear here when someone flags a comment or chat message.
 								</p>
 							</div>
 						{:else}
@@ -892,6 +958,11 @@
 												{report.reported_user || 'Unknown member'}
 											</span>
 											<span
+												class="rounded-full border border-cover-edge px-2 py-0.5 font-ui text-[10px] font-semibold text-lav/90"
+											>
+												{report.source === 'message' ? 'Chat message' : 'Comment'}
+											</span>
+											<span
 												class="ml-auto rounded-full border border-book-accent/40 bg-book-accent/15 px-2.5 py-0.5 font-ui text-[10px] font-semibold text-book-bg/90 capitalize"
 											>
 												{report.reason || 'other'}
@@ -906,7 +977,13 @@
 											</blockquote>
 										{:else}
 											<p class="mt-3 font-ui text-xs text-lav/75">
-												The comment is no longer available.
+												The reported content is no longer available.
+											</p>
+										{/if}
+
+										{#if report.file_name}
+											<p class="mt-2 font-ui text-[11px] text-lav/80">
+												Attachment: <span class="font-semibold">{report.file_name}</span>
 											</p>
 										{/if}
 
@@ -919,16 +996,18 @@
 
 											{#if report.reported_user_id}
 												<div class="flex flex-wrap gap-2">
-													<Button
-														size="sm"
-														variant="danger"
-														icon="trash"
-														loading={busyDeleteComment === report.comment_id}
-														disabled={Boolean(busyWarn || busyUser || busyDeleteComment)}
-														onclick={() => (confirmDeleteReport = report)}
-													>
-														Delete comment
-													</Button>
+													{#if report.source === 'comment' && report.comment_id}
+														<Button
+															size="sm"
+															variant="danger"
+															icon="trash"
+															loading={busyDeleteComment === report.comment_id}
+															disabled={Boolean(busyWarn || busyUser || busyDeleteComment)}
+															onclick={() => (confirmDeleteReport = report)}
+														>
+															Delete comment
+														</Button>
+													{/if}
 													<Button
 														size="sm"
 														variant="outline"
@@ -959,9 +1038,7 @@
 													</Button>
 												</div>
 											{:else}
-												<span class="font-ui text-[10px] text-lav/70">
-													Comment author unavailable
-												</span>
+												<span class="font-ui text-[10px] text-lav/70"> Author unavailable </span>
 											{/if}
 										</div>
 									</article>

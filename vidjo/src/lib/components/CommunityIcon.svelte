@@ -150,6 +150,10 @@
 	{:else if name === 'upload'}
 		<path d="M12 16V4M7 9l5-5 5 5"></path>
 		<path d="M4 16v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3"></path>
+	{:else if name === 'paperclip'}
+		<path
+			d="M21.4 11.6 12.5 20.5a5 5 0 0 1-7.1-7.1l8.5-8.5a3.4 3.4 0 0 1 4.8 4.8l-8.5 8.5a1.8 1.8 0 0 1-2.5-2.5l7.8-7.8"
+		></path>
 	{:else if name === 'camera'}
 		<path d="M4 8h3l1.5-2h7L17 8h3a1 1 0 0 1 1 1v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V9a1 1 0 0 1 1-1Z"
 		></path>

@@ -4,8 +4,10 @@ import { auth } from '#lib/state/auth.svelte';
 import { profile } from '#lib/state/profile.svelte';
 import { cleanDisplayName, normalizeImageUrl } from '#lib/avatar';
 import { detectRasterImageMime } from '#lib/imageUpload';
+import { detectDocumentMime, documentExtension } from '#lib/fileUpload';
 import { isGiphyMediaUrl, type GiphyGif } from '#lib/giphy';
 import type {
+	ChatSettings,
 	DmForwarded,
 	DmMessage,
 	DmParticipant,
@@ -15,6 +17,7 @@ import type {
 	DmThreadMember,
 	DmThreadSummary,
 	Friend,
+	LinkPreview,
 	SharedJournalEntry
 } from '#lib/types';
 
@@ -38,6 +41,22 @@ const DM_IMAGE_TYPES: Record<string, string> = {
 	'image/webp': 'webp',
 	'image/gif': 'gif'
 };
+const DM_FILE_BUCKET = 'vidjo-dm-files';
+const DM_FILE_MAX_BYTES = 20 * 1024 * 1024;
+const DM_FILE_TYPES: Record<string, string> = {
+	'application/pdf': 'pdf',
+	'application/msword': 'doc',
+	'application/vnd.openxmlformats-officedocument.wordprocessingml.document': 'docx'
+};
+
+export const CHAT_THEMES = [
+	'classic',
+	'sunset',
+	'midnight',
+	'evergreen',
+	'rosewood',
+	'harbor'
+] as const;
 
 type InboxRow = {
 	thread_id: string;
@@ -81,6 +100,10 @@ type MessageRow = {
 	reactions: unknown;
 	pinned: boolean;
 	seen_by: unknown;
+	file_path: string | null;
+	file_name: string | null;
+	file_mime: string | null;
+	file_size: number | null;
 };
 
 type MemberRow = {
@@ -91,6 +114,7 @@ type MemberRow = {
 	role: 'owner' | 'member';
 	joined_at: string;
 	is_me: boolean;
+	nickname: string | null;
 };
 
 function errorMessage(error: unknown) {
@@ -216,6 +240,10 @@ type MessageExtras = Pick<
 	| 'reactions'
 	| 'pinned'
 	| 'seenBy'
+	| 'filePath'
+	| 'fileName'
+	| 'fileMime'
+	| 'fileSize'
 >;
 
 /** Fills in defaults so a row from an older database still renders safely. */
@@ -232,7 +260,11 @@ function messageDefaults(row: Record<string, unknown>): MessageExtras {
 		forwardedFrom: mapForwarded(row.forwarded_from),
 		reactions: mapReactions(row.reactions),
 		pinned: Boolean(row.pinned),
-		seenBy: mapSeenBy(row.seen_by)
+		seenBy: mapSeenBy(row.seen_by),
+		filePath: typeof row.file_path === 'string' ? row.file_path : null,
+		fileName: typeof row.file_name === 'string' ? row.file_name : null,
+		fileMime: typeof row.file_mime === 'string' ? row.file_mime : null,
+		fileSize: typeof row.file_size === 'number' ? row.file_size : null
 	};
 }
 
@@ -261,7 +293,8 @@ function mapMember(row: MemberRow): DmThreadMember {
 		avatar: normalizeImageUrl(row.avatar),
 		role: row.role === 'owner' ? 'owner' : 'member',
 		joinedAt: row.joined_at,
-		isMe: Boolean(row.is_me)
+		isMe: Boolean(row.is_me),
+		nickname: typeof row.nickname === 'string' ? row.nickname : ''
 	};
 }
 
@@ -306,6 +339,15 @@ class MessagesState {
 	imageUrls = $state<Record<string, string>>({});
 	/** Signed URLs for videos on shared journal cards, keyed by storage path. */
 	videoUrls = $state<Record<string, string>>({});
+	/** Signed URLs for shared documents, keyed by storage path. */
+	fileUrls = $state<Record<string, string>>({});
+	/** Settings for the open conversation, including its personal theme. */
+	chatSettings = $state<Record<string, ChatSettings>>({});
+	/** Pinned messages in the open conversation, loaded on demand. */
+	pinnedMessages = $state<DmMessage[]>([]);
+	loadingPinned = $state(false);
+	/** Fetched link previews, keyed by the exact URL found in a message. */
+	linkPreviews = $state<Record<string, LinkPreview | null>>({});
 
 	activeThreadId = $state<string | null>(null);
 	/** Message being replied to, shown in the composer. */
@@ -331,9 +373,11 @@ class MessagesState {
 	private lastInboxAt = 0;
 	private imageRequests = new Set<string>();
 	private videoRequests = new Set<string>();
+	private fileRequests = new Set<string>();
 	/** Signed URL expiry per storage path, used to refresh and evict the cache. */
 	private imageUrlExpiry: Record<string, number> = {};
 	private videoUrlExpiry: Record<string, number> = {};
+	private fileUrlExpiry: Record<string, number> = {};
 	/** Read receipts waiting to be written, coalesced per thread. */
 	private readTimers: Record<string, ReturnType<typeof setTimeout>> = {};
 	private readPending = new Set<string>();
@@ -364,6 +408,15 @@ class MessagesState {
 	get activeHasMore() {
 		if (!this.activeThreadId) return false;
 		return this.hasMoreByThread[this.activeThreadId] ?? false;
+	}
+
+	get activeChatSettings(): ChatSettings | null {
+		if (!this.activeThreadId) return null;
+		return this.chatSettings[this.activeThreadId] ?? null;
+	}
+
+	get activeTheme() {
+		return this.activeChatSettings?.theme ?? 'classic';
 	}
 
 	/** The current user's pinned messages in the open thread, oldest pin first. */
@@ -458,7 +511,7 @@ class MessagesState {
 			this.error = 'You can only message friends.';
 		}
 
-		const jobs: Promise<void>[] = [this.markRead(threadId)];
+		const jobs: Promise<void>[] = [this.markRead(threadId), this.loadChatSettings(threadId)];
 
 		if (!this.messagesByThread[threadId]) {
 			jobs.push(this.loadThread(threadId));
@@ -538,7 +591,7 @@ class MessagesState {
 		}
 	}
 
-	async loadThread(threadId: string, older = false) {
+	async loadThread(threadId: string, older = false, pinnedOnly = false) {
 		if (!this.ready || !threadId) return;
 
 		if (older) {
@@ -555,7 +608,8 @@ class MessagesState {
 			const { data, error } = await supabase.rpc('vidjo_dm_thread', {
 				p_thread: threadId,
 				p_before: before,
-				p_limit: PAGE_SIZE
+				p_limit: pinnedOnly ? 100 : PAGE_SIZE,
+				p_pinned_only: pinnedOnly
 			});
 			if (error) throw error;
 
@@ -564,6 +618,7 @@ class MessagesState {
 			// reactions are reflected when a thread is reloaded.
 			this.setMessages(threadId, mergeMessages(existing, rows));
 			void this.ensureImageUrls(rows.map((message) => message.imagePath));
+			void this.ensureFileUrls(rows.map((message) => message.filePath));
 			void this.ensureVideoUrls(rows.map((message) => message.sharedEntry?.videoPath));
 			this.hasMoreByThread = {
 				...this.hasMoreByThread,
@@ -597,6 +652,58 @@ class MessagesState {
 			};
 		} catch (error) {
 			console.warn('[VidJo] Could not load group members.', error);
+		}
+	}
+
+	async loadChatSettings(threadId: string) {
+		if (!this.ready || !threadId) return;
+		try {
+			const { data, error } = await supabase.rpc('vidjo_dm_chat_settings', {
+				p_thread: threadId
+			});
+			if (error) throw error;
+			const row = (Array.isArray(data) ? data[0] : data) as Record<string, unknown> | null;
+			if (!row) return;
+			this.chatSettings = {
+				...this.chatSettings,
+				[threadId]: {
+					threadId,
+					kind: row.kind === 'group' ? 'group' : 'direct',
+					title: typeof row.title === 'string' ? row.title : null,
+					photoPath: typeof row.photo_path === 'string' ? row.photo_path : null,
+					theme: typeof row.theme === 'string' ? row.theme : 'classic',
+					createdAt: typeof row.created_at === 'string' ? row.created_at : '',
+					memberCount: typeof row.member_count === 'number' ? row.member_count : 0
+				}
+			};
+			void this.ensureImageUrls([row.photo_path as string | null]);
+		} catch (error) {
+			console.warn('[VidJo] Could not load chat settings.', error);
+		}
+	}
+
+	/** Reloads every pinned message in the open thread, not just the loaded page. */
+	async loadPinnedMessages() {
+		const threadId = this.activeThreadId;
+		if (!this.ready || !threadId) return;
+
+		this.loadingPinned = true;
+		try {
+			const { data, error } = await supabase.rpc('vidjo_dm_thread', {
+				p_thread: threadId,
+				p_limit: 100,
+				p_pinned_only: true
+			});
+			if (error) throw error;
+			const rows = ((data ?? []) as MessageRow[]).map(mapMessage);
+			this.pinnedMessages = rows;
+			void this.ensureImageUrls(rows.map((message) => message.imagePath));
+			void this.ensureFileUrls(rows.map((message) => message.filePath));
+		} catch (error) {
+			this.error = errorMessage(error);
+			this.pinnedMessages = [];
+		} finally {
+			this.loadingPinned = false;
 		}
 	}
 
@@ -987,6 +1094,115 @@ class MessagesState {
 		}
 	}
 
+	/**
+	 * Sends a PDF or Word document. Executables and other file types are
+	 * rejected from the bytes, not just the filename or browser MIME type.
+	 */
+	async sendFile(file: File, caption = ''): Promise<boolean> {
+		const threadId = this.activeThreadId;
+		if (!threadId || !file) return false;
+
+		const thread = this.activeThread;
+		if (!thread?.canReply) {
+			this.error = 'You can only message friends.';
+			return false;
+		}
+
+		if (file.size > DM_FILE_MAX_BYTES) {
+			this.error = 'Files must be 20 MB or smaller.';
+			return false;
+		}
+
+		const detected = await detectDocumentMime(file);
+		if (!detected || !DM_FILE_TYPES[detected]) {
+			this.error = 'Only PDF and Word documents are allowed.';
+			return false;
+		}
+
+		const userId = this.currentUserId || auth.ownerId;
+		if (!userId) {
+			this.error = 'Messaging needs a signed-in account.';
+			return false;
+		}
+
+		const cleanCaption = caption.trim().slice(0, 2000);
+		const clientId = newClientId();
+		const reply = this.replyTo;
+		const fileMeta = {
+			path: `${threadId}/${userId}/${clientId}.${documentExtension(detected)}`,
+			name: file.name.slice(0, 180),
+			mime: detected,
+			size: file.size
+		};
+
+		const optimistic = this.optimisticMessage(
+			threadId,
+			clientId,
+			cleanCaption,
+			null,
+			null,
+			undefined,
+			fileMeta
+		);
+		this.applyReplyMeta(optimistic, reply);
+
+		this.error = '';
+		this.setMessages(threadId, mergeMessages(this.messagesByThread[threadId] ?? [], [optimistic]));
+		this.scrollRequest += 1;
+
+		let uploaded = false;
+		try {
+			const { error: uploadError } = await supabase.storage
+				.from(DM_FILE_BUCKET)
+				.upload(fileMeta.path, file, {
+					cacheControl: '3600',
+					contentType: detected,
+					upsert: false
+				});
+			if (uploadError) throw uploadError;
+			uploaded = true;
+
+			const ok = await this.transmit(
+				threadId,
+				clientId,
+				cleanCaption,
+				null,
+				null,
+				optimistic,
+				reply?.id ?? null,
+				fileMeta
+			);
+			if (ok && reply && this.replyTo?.clientId === reply.clientId) this.replyTo = null;
+			if (ok) void this.ensureFileUrls([fileMeta.path]);
+			if (!ok) {
+				await this.removeFile(fileMeta.path);
+				uploaded = false;
+			}
+			return ok;
+		} catch (error) {
+			if (uploaded) await this.removeFile(fileMeta.path);
+			this.setMessages(
+				threadId,
+				(this.messagesByThread[threadId] ?? []).filter((message) => message.clientId !== clientId)
+			);
+			this.error = errorMessage(error);
+			return false;
+		}
+	}
+
+	private async removeFile(path: string) {
+		const next = { ...this.fileUrls };
+		delete next[path];
+		this.fileUrls = next;
+		delete this.fileUrlExpiry[path];
+
+		try {
+			await supabase.storage.from(DM_FILE_BUCKET).remove([path]);
+		} catch {
+			// Best effort cleanup.
+		}
+	}
+
 	private async removeImage(path: string) {
 		const next = { ...this.imageUrls };
 		delete next[path];
@@ -1006,7 +1222,8 @@ class MessagesState {
 		body: string,
 		imagePath: string | null,
 		gifUrl: string | null = null,
-		previewUrl?: string
+		previewUrl?: string,
+		file?: { path: string; name: string; mime: string; size: number }
 	): DmMessage {
 		return {
 			id: `pending:${clientId}`,
@@ -1019,6 +1236,10 @@ class MessagesState {
 			body,
 			imagePath,
 			gifUrl,
+			filePath: file?.path ?? null,
+			fileName: file?.name ?? null,
+			fileMime: file?.mime ?? null,
+			fileSize: file?.size ?? null,
 			previewUrl,
 			createdAt: new Date().toISOString(),
 			pending: true,
@@ -1044,7 +1265,8 @@ class MessagesState {
 		imagePath: string | null,
 		gifUrl: string | null,
 		optimistic: DmMessage,
-		replyTo: string | null = null
+		replyTo: string | null = null,
+		file?: { path: string; name: string; mime: string; size: number }
 	): Promise<boolean> {
 		try {
 			// Older databases only know the 3-argument function. Text messages
@@ -1059,6 +1281,12 @@ class MessagesState {
 			if (imagePath) params.p_image_path = imagePath;
 			if (gifUrl) params.p_gif_url = gifUrl;
 			if (replyTo) params.p_reply_to = replyTo;
+			if (file) {
+				params.p_file_path = file.path;
+				params.p_file_name = file.name;
+				params.p_file_mime = file.mime;
+				params.p_file_size = String(file.size);
+			}
 
 			const { data, error } = await supabase.rpc('vidjo_dm_send', params);
 			if (error) throw error;
@@ -1176,6 +1404,61 @@ class MessagesState {
 			}
 		} finally {
 			missing.forEach((path) => this.imageRequests.delete(path));
+		}
+	}
+
+	private async ensureFileUrls(paths: (string | null | undefined)[]) {
+		const now = Date.now();
+		const wanted = [
+			...new Set(
+				paths.filter((path): path is string => typeof path === 'string' && path.length > 0)
+			)
+		];
+		const missing = wanted.filter((path) => {
+			if (this.fileRequests.has(path)) return false;
+			if (
+				this.fileUrls[path] &&
+				(this.fileUrlExpiry[path] ?? 0) - now > IMAGE_URL_REFRESH_BEFORE_MS
+			) {
+				return false;
+			}
+			return true;
+		});
+		if (missing.length === 0) return;
+
+		missing.forEach((path) => this.fileRequests.add(path));
+		try {
+			const { data, error } = await supabase.storage
+				.from(DM_FILE_BUCKET)
+				.createSignedUrls(missing, DM_IMAGE_TTL_SECONDS);
+			if (error) throw error;
+			for (const item of data ?? []) {
+				if (item?.path && item.signedUrl) {
+					this.fileUrls = { ...this.fileUrls, [item.path]: item.signedUrl };
+					this.fileUrlExpiry[item.path] = Date.now() + DM_IMAGE_TTL_SECONDS * 1000;
+				}
+			}
+		} catch (error) {
+			await Promise.all(
+				missing.map(async (path) => {
+					if (this.fileUrls[path]) return;
+					try {
+						const { data, error: singleError } = await supabase.storage
+							.from(DM_FILE_BUCKET)
+							.createSignedUrl(path, DM_IMAGE_TTL_SECONDS);
+						if (singleError) throw singleError;
+						if (data?.signedUrl) {
+							this.fileUrls = { ...this.fileUrls, [path]: data.signedUrl };
+							this.fileUrlExpiry[path] = Date.now() + DM_IMAGE_TTL_SECONDS * 1000;
+						}
+					} catch (inner) {
+						console.warn('[VidJo] Could not open a shared file.', inner);
+					}
+				})
+			);
+			if (!this.fileUrls[missing[0]]) console.warn('[VidJo] Could not open shared files.', error);
+		} finally {
+			missing.forEach((path) => this.fileRequests.delete(path));
 		}
 	}
 
@@ -1388,6 +1671,142 @@ class MessagesState {
 		}
 	}
 
+	async setChatTheme(threadId: string, theme: string) {
+		if (!this.ready || !threadId) return false;
+		this.error = '';
+		try {
+			const { error } = await supabase.rpc('vidjo_dm_set_chat_theme', {
+				p_thread: threadId,
+				p_theme: theme
+			});
+			if (error) throw error;
+			const current = this.chatSettings[threadId];
+			if (current) {
+				this.chatSettings = { ...this.chatSettings, [threadId]: { ...current, theme } };
+			}
+			return true;
+		} catch (error) {
+			this.error = errorMessage(error);
+			return false;
+		}
+	}
+
+	async setChatPhoto(threadId: string, file: File): Promise<boolean> {
+		if (!this.ready || !threadId) return false;
+
+		const userId = this.currentUserId || auth.ownerId;
+		if (!userId) {
+			this.error = 'Messaging needs a signed-in account.';
+			return false;
+		}
+		if (file.size > DM_IMAGE_MAX_BYTES) {
+			this.error = 'Photos must be 5 MB or smaller.';
+			return false;
+		}
+		const detected = await detectRasterImageMime(file);
+		if (!detected || !DM_IMAGE_TYPES[detected]) {
+			this.error = 'Choose a PNG, JPG, GIF, or WebP photo.';
+			return false;
+		}
+
+		const path = `${threadId}/${userId}/photo-${newClientId()}.${DM_IMAGE_TYPES[detected]}`;
+		let uploaded = false;
+		this.error = '';
+
+		try {
+			const { error: uploadError } = await supabase.storage
+				.from(DM_IMAGE_BUCKET)
+				.upload(path, file, { cacheControl: '3600', contentType: detected, upsert: false });
+			if (uploadError) throw uploadError;
+			uploaded = true;
+
+			const { error } = await supabase.rpc('vidjo_dm_set_chat_photo', {
+				p_thread: threadId,
+				p_path: path
+			});
+			if (error) throw error;
+
+			const current = this.chatSettings[threadId];
+			if (current) {
+				this.chatSettings = { ...this.chatSettings, [threadId]: { ...current, photoPath: path } };
+			}
+			void this.ensureImageUrls([path]);
+			return true;
+		} catch (error) {
+			if (uploaded) await this.removeImage(path);
+			this.error = errorMessage(error);
+			return false;
+		}
+	}
+
+	async setNickname(threadId: string, userId: string, nickname: string) {
+		if (!this.ready || !threadId) return false;
+		const clean = nickname.trim();
+		if (!clean) {
+			this.error = 'Enter a nickname.';
+			return false;
+		}
+
+		this.error = '';
+		try {
+			const { error } = await supabase.rpc('vidjo_dm_set_nickname', {
+				p_thread: threadId,
+				p_target: userId,
+				p_nickname: clean
+			});
+			if (error) throw error;
+			await this.loadMembers(threadId);
+			await this.reloadActiveThread();
+			return true;
+		} catch (error) {
+			this.error = errorMessage(error);
+			return false;
+		}
+	}
+
+	async reportMessage(message: DmMessage, reason: string) {
+		if (!this.ready || !message.id || message.pending) return false;
+		const clean = reason.trim();
+		if (clean.length < 3) {
+			this.error = 'Add a short reason (at least 3 characters).';
+			return false;
+		}
+
+		this.error = '';
+		try {
+			const { error } = await supabase.rpc('vidjo_dm_report_message', {
+				p_message: message.id,
+				p_reason: clean.slice(0, 240)
+			});
+			if (error) throw error;
+			this.notice = 'Thanks — your report was sent to the moderators.';
+			return true;
+		} catch (error) {
+			this.error = errorMessage(error);
+			return false;
+		}
+	}
+
+	/** Fetch Open Graph metadata once per URL, then reuse it for every bubble. */
+	async fetchLinkPreview(url: string) {
+		if (!url || Object.prototype.hasOwnProperty.call(this.linkPreviews, url)) return;
+		this.linkPreviews = { ...this.linkPreviews, [url]: null };
+		try {
+			const response = await fetch('/api/link-preview', {
+				method: 'POST',
+				headers: { 'content-type': 'application/json' },
+				body: JSON.stringify({ url })
+			});
+			const data = (await response.json()) as LinkPreview & { error?: string };
+			this.linkPreviews = {
+				...this.linkPreviews,
+				[url]: response.ok && data.title ? data : null
+			};
+		} catch {
+			this.linkPreviews = { ...this.linkPreviews, [url]: null };
+		}
+	}
+
 	async leaveGroup(threadId: string) {
 		if (!this.ready || !threadId) return false;
 
@@ -1420,6 +1839,11 @@ class MessagesState {
 		this.hasMoreByThread = {};
 		this.imageUrls = {};
 		this.videoUrls = {};
+		this.fileUrls = {};
+		this.chatSettings = {};
+		this.pinnedMessages = [];
+		this.loadingPinned = false;
+		this.linkPreviews = {};
 		this.activeThreadId = null;
 		this.replyTo = null;
 		this.currentUserId = '';
@@ -1438,6 +1862,8 @@ class MessagesState {
 		this.imageUrlExpiry = {};
 		this.videoRequests.clear();
 		this.videoUrlExpiry = {};
+		this.fileRequests.clear();
+		this.fileUrlExpiry = {};
 		this.readPending.clear();
 		for (const timer of Object.values(this.readTimers)) clearTimeout(timer);
 		this.readTimers = {};
@@ -1602,6 +2028,7 @@ class MessagesState {
 		};
 
 		if (message.imagePath) void this.ensureImageUrls([message.imagePath]);
+		if (message.filePath) void this.ensureFileUrls([message.filePath]);
 		if (message.sharedEntry?.videoPath) void this.ensureVideoUrls([message.sharedEntry.videoPath]);
 
 		const existing = this.threads.find((thread) => thread.threadId === threadId);

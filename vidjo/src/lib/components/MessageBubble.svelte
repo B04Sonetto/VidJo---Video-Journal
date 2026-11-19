@@ -2,6 +2,7 @@
 	import { onDestroy, tick } from 'svelte';
 	import Avatar from '#lib/components/Avatar.svelte';
 	import CommunityIcon from '#lib/components/CommunityIcon.svelte';
+	import MessageText from '#lib/components/MessageText.svelte';
 	import { censor } from '#lib/censor';
 	import type { DmMessage, SharedJournalEntry } from '#lib/types';
 
@@ -11,7 +12,7 @@
 		showHeader,
 		showSeen = false,
 		imageSrc,
-		entryVideoUrl = '',
+		fileUrl = '',
 		entryThumbUrl = '',
 		onOpenImage,
 		onReply,
@@ -22,14 +23,15 @@
 		onForward,
 		onReact,
 		onOpenProfile,
-		onOpenEntry
+		onOpenEntry,
+		onReport
 	}: {
 		message: DmMessage;
 		mine: boolean;
 		showHeader: boolean;
 		showSeen?: boolean;
 		imageSrc: string;
-		entryVideoUrl?: string;
+		fileUrl?: string;
 		entryThumbUrl?: string;
 		onOpenImage: (src: string) => void;
 		onReply: (message: DmMessage) => void;
@@ -41,6 +43,7 @@
 		onReact: (message: DmMessage, emoji: string) => void;
 		onOpenProfile: (userId: string) => void;
 		onOpenEntry: (entry: SharedJournalEntry, senderId: string, senderName: string) => void;
+		onReport: (message: DmMessage) => void;
 	} = $props();
 
 	const QUICK_REACTIONS = ['❤️', '😂', '😮', '😢', '🔥', '🎉'];
@@ -69,7 +72,15 @@
 	let suppressClick = false;
 
 	const isGif = $derived(Boolean(message.gifUrl));
-	const hasMedia = $derived(Boolean(message.imagePath || message.gifUrl || message.previewUrl));
+	const hasImage = $derived(Boolean(message.imagePath || message.gifUrl || message.previewUrl));
+	const hasMedia = $derived(hasImage || Boolean(message.filePath));
+	const fileLabel = $derived.by(() => {
+		if (!message.filePath) return '';
+		const bytes = message.fileSize ?? 0;
+		return bytes >= 1024 * 1024
+			? `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+			: `${Math.max(1, Math.round(bytes / 1024))} KB`;
+	});
 	const isDeleted = $derived(Boolean(message.deletedAt));
 	const label = $derived(mine ? 'You' : message.senderName);
 
@@ -293,6 +304,15 @@
 						aria-label={message.pinned ? 'Unpin' : 'Pin'}
 						title={message.pinned ? 'Unpin' : 'Pin'}><CommunityIcon name="pin" size={14} /></button
 					>
+					{#if !mine}
+						<button
+							type="button"
+							class="flex size-7 items-center justify-center rounded-full text-book-ink/75 transition-colors hover:bg-danger/10 hover:text-danger"
+							onclick={() => run(onReport)}
+							aria-label="Report message"
+							title="Report message"><CommunityIcon name="alert" size={14} /></button
+						>
+					{/if}
 					{#if mine}
 						<button
 							type="button"
@@ -367,7 +387,7 @@
 						</div>
 					{/if}
 
-					{#if hasMedia}
+					{#if hasImage}
 						{#if imageSrc}
 							<button
 								type="button"
@@ -396,6 +416,40 @@
 						{/if}
 					{/if}
 
+					{#if message.filePath}
+						{#if fileUrl}
+							<a
+								href={fileUrl}
+								target="_blank"
+								rel="noopener noreferrer external"
+								download={message.fileName || true}
+								class="mt-1 flex max-w-[270px] items-center gap-2.5 rounded-xl border border-line bg-book-bg/90 p-2.5 text-left text-book-ink shadow-sm transition-colors hover:border-book-accent"
+								aria-label={`Open ${message.fileName || 'shared document'}`}
+							>
+								<span
+									class="flex size-9 shrink-0 items-center justify-center rounded-lg bg-danger/10 text-danger"
+								>
+									<CommunityIcon name="paperclip" size={18} />
+								</span>
+								<span class="min-w-0 flex-1">
+									<span class="block truncate font-ui text-[11px] font-bold">
+										{message.fileName || 'Shared document'}
+									</span>
+									<span class="block font-ui text-[9px] text-ink-soft uppercase">
+										{message.fileMime?.includes('pdf') ? 'PDF' : 'Word'} · {fileLabel}
+									</span>
+								</span>
+								<CommunityIcon name="external" size={13} class="shrink-0 text-ink-soft" />
+							</a>
+						{:else}
+							<div
+								class="mt-1 flex max-w-[270px] items-center gap-2.5 rounded-xl border border-line bg-book-bg/90 p-2.5 text-book-ink"
+							>
+								<span class="font-ui text-[11px] text-ink-soft">Loading document…</span>
+							</div>
+						{/if}
+					{/if}
+
 					{#if message.sharedEntry}
 						<button
 							type="button"
@@ -406,17 +460,39 @@
 								onOpenEntry(message.sharedEntry!, message.senderId, message.senderName)}
 							aria-label={`Open journal page from ${entryDate}`}
 						>
-							{#if message.sharedEntry.videoPath && entryVideoUrl}
-								<video
-									class="block max-h-40 w-full bg-black object-cover"
-									src={entryVideoUrl}
-									poster={entryThumbUrl || undefined}
-									muted
-									playsinline
-									preload="metadata"
-								>
-									<track kind="captions" />
-								</video>
+							{#if message.sharedEntry.videoPath}
+								<!-- A still frame keeps the card light; the full video opens in the page modal. -->
+								<span class="relative block h-24 overflow-hidden bg-cover/40">
+									{#if entryThumbUrl}
+										<img
+											src={entryThumbUrl}
+											alt=""
+											class="block h-full w-full object-cover"
+											loading="lazy"
+											decoding="async"
+										/>
+									{:else}
+										<span
+											class="block h-full w-full bg-[radial-gradient(ellipse_at_center,var(--color-cover)_0%,var(--color-desk)_85%)]"
+										></span>
+									{/if}
+									<span
+										class="absolute inset-0 flex items-center justify-center bg-gradient-to-t from-desk/50 to-transparent"
+									>
+										<span
+											class="flex size-9 items-center justify-center rounded-full bg-book-bg/95 text-book-ink shadow-lg"
+										>
+											<CommunityIcon name="play" size={17} />
+										</span>
+									</span>
+									{#if message.sharedEntry.videoName}
+										<span
+											class="absolute right-1.5 bottom-1.5 left-1.5 truncate font-ui text-[9px] font-semibold text-book-bg drop-shadow"
+										>
+											{message.sharedEntry.videoName}
+										</span>
+									{/if}
+								</span>
 							{/if}
 							<span class="block bg-gradient-to-r from-book-accent/25 to-cover/25 px-3 py-2">
 								<span class="flex items-center gap-1.5">
@@ -485,9 +561,13 @@
 							</div>
 						</div>
 					{:else if message.body}
-						<p class="whitespace-pre-wrap {hasMedia || message.sharedEntry ? 'mt-1.5' : ''}">
-							{censor(message.body)}
-						</p>
+						<span
+							class="block font-ui text-sm leading-relaxed {hasMedia || message.sharedEntry
+								? 'mt-1.5'
+								: ''}"
+						>
+							<MessageText text={message.body} compact={hasMedia || Boolean(message.sharedEntry)} />
+						</span>
 					{/if}
 				{/if}
 			</div>

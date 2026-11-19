@@ -13,6 +13,8 @@
 	import ProfileModal from '#lib/components/ProfileModal.svelte';
 	import SharedEntryModal from '#lib/components/SharedEntryModal.svelte';
 	import ImageLightbox from '#lib/components/ImageLightbox.svelte';
+	import PinnedMessagesModal from '#lib/components/PinnedMessagesModal.svelte';
+	import PromptModal from '#lib/components/PromptModal.svelte';
 	import { journal } from '#lib/state/journal.svelte';
 	import { giphyEnabled, type GiphyGif } from '#lib/giphy';
 	import type { DmMessage, DmThreadSummary, Friend, SharedJournalEntry } from '#lib/types';
@@ -23,11 +25,14 @@
 	let pickerOpen = $state(false);
 	let newGroupOpen = $state(false);
 	let infoOpen = $state(false);
+	let pinnedOpen = $state(false);
 	let gifOpen = $state(false);
 	let fileInputEl = $state<HTMLInputElement | null>(null);
+	let docInputEl = $state<HTMLInputElement | null>(null);
 	let profileOpen = $state(false);
 	let profileUserId = $state<string | null>(null);
 	let forwardSource = $state<DmMessage | null>(null);
+	let reportTarget = $state<DmMessage | null>(null);
 	let pagePickerOpen = $state(false);
 	let sharedEntryView = $state<{
 		entry: SharedJournalEntry;
@@ -41,6 +46,11 @@
 	const activeThread = $derived(messages.activeThread);
 	const messageList = $derived(messages.activeMessages);
 	const canReply = $derived(activeThread?.canReply ?? false);
+	const activeGroupPhoto = $derived.by(() => {
+		if (activeThread?.kind !== 'group') return '';
+		const path = messages.activeChatSettings?.photoPath;
+		return path ? (messages.imageUrls[path] ?? '') : '';
+	});
 	const lastMineIndex = $derived.by(() => {
 		const me = messages.currentUserId || auth.ownerId;
 		for (let i = messageList.length - 1; i >= 0; i -= 1) {
@@ -53,6 +63,14 @@
 		// While the panel is hidden, incoming messages must count as unread.
 		messages.setPanelVisible(true);
 		return () => messages.setPanelVisible(false);
+	});
+
+	$effect(() => {
+		// Dialogs belong to one conversation; never carry them into another.
+		void messages.activeThreadId;
+		pinnedOpen = false;
+		infoOpen = false;
+		reportTarget = null;
 	});
 
 	$effect(() => {
@@ -175,8 +193,26 @@
 		}
 	}
 
+	async function pickDocument(event: Event) {
+		const input = event.currentTarget as HTMLInputElement;
+		const file = input.files?.[0] ?? null;
+		input.value = '';
+		if (!file) return;
+
+		const caption = draft;
+		const ok = await messages.sendFile(file, caption);
+		if (ok && caption.trim()) {
+			draft = '';
+			void tick().then(resize);
+		}
+	}
+
 	function openImagePicker() {
 		fileInputEl?.click();
+	}
+
+	function openDocumentPicker() {
+		docInputEl?.click();
 	}
 
 	async function pickGif(gif: GiphyGif) {
@@ -229,6 +265,16 @@
 	function openProfile(userId: string) {
 		profileUserId = userId;
 		profileOpen = true;
+	}
+
+	function openReport(message: DmMessage) {
+		reportTarget = message;
+	}
+
+	async function submitReport(reason: string) {
+		const target = reportTarget;
+		reportTarget = null;
+		if (target) await messages.reportMessage(target, reason);
 	}
 
 	function openEntry(entry: SharedJournalEntry, senderId: string, senderName: string) {
@@ -390,12 +436,23 @@
 									aria-current={messages.activeThreadId === thread.threadId ? 'true' : undefined}
 								>
 									{#if thread.kind === 'group'}
-										<span
-											class="flex size-11 shrink-0 items-center justify-center rounded-full bg-cover/45 text-book-accent"
-											aria-hidden="true"
-										>
-											<CommunityIcon name="users" size={19} />
-										</span>
+										{@const photoPath = messages.chatSettings[thread.threadId]?.photoPath}
+										{#if photoPath && messages.imageUrls[photoPath]}
+											<Avatar
+												src={messages.imageUrls[photoPath]}
+												name={thread.title || 'Group chat'}
+												className="size-11"
+												textClass="text-lg"
+												ring="ring-2 ring-gold/40"
+											/>
+										{:else}
+											<span
+												class="flex size-11 shrink-0 items-center justify-center rounded-full bg-cover/45 text-book-accent"
+												aria-hidden="true"
+											>
+												<CommunityIcon name="users" size={19} />
+											</span>
+										{/if}
 									{:else}
 										<Avatar
 											src={peer?.avatar ?? null}
@@ -443,7 +500,8 @@
 
 		<!-- Open conversation -->
 		<section
-			class="min-h-0 flex-col overflow-hidden border border-cover-edge note-scrap text-book-ink shadow-[0_14px_30px_rgba(0,0,0,.35)] {messages.activeThreadId
+			data-chat-theme={messages.activeTheme}
+			class="chat-panel min-h-0 flex-col overflow-hidden border border-cover-edge note-scrap text-book-ink shadow-[0_14px_30px_rgba(0,0,0,.35)] {messages.activeThreadId
 				? 'fixed inset-x-0 top-0 bottom-[calc(env(safe-area-inset-bottom)+58px)] z-30 flex rounded-b-[22px] pt-[env(safe-area-inset-top)] min-[900px]:bottom-0'
 				: 'hidden'} min-[980px]:static min-[980px]:z-auto min-[980px]:flex min-[980px]:h-[640px] min-[980px]:rounded-[22px] min-[980px]:pt-0"
 		>
@@ -459,12 +517,22 @@
 					</button>
 
 					{#if activeThread.kind === 'group'}
-						<span
-							class="flex size-10 shrink-0 items-center justify-center rounded-full bg-cover/45 text-book-accent"
-							aria-hidden="true"
-						>
-							<CommunityIcon name="users" size={18} />
-						</span>
+						{#if activeGroupPhoto}
+							<Avatar
+								src={activeGroupPhoto}
+								name={activeThread.title || 'Group chat'}
+								className="size-10"
+								textClass="text-base"
+								ring="ring-2 ring-gold/40"
+							/>
+						{:else}
+							<span
+								class="flex size-10 shrink-0 items-center justify-center rounded-full bg-cover/45 text-book-accent"
+								aria-hidden="true"
+							>
+								<CommunityIcon name="users" size={18} />
+							</span>
+						{/if}
 					{:else}
 						<Avatar
 							src={messages.peerFor(activeThread)?.avatar ?? null}
@@ -484,17 +552,24 @@
 						</p>
 					</div>
 
-					{#if activeThread.kind === 'group'}
-						<button
-							type="button"
-							class="flex size-9 shrink-0 items-center justify-center rounded-full border border-line bg-book-bg text-book-ink/80 transition-colors hover:bg-paper-deep hover:text-book-ink"
-							onclick={() => (infoOpen = true)}
-							aria-label="Group info"
-							title="Group info"
-						>
-							<CommunityIcon name="settings" size={16} />
-						</button>
-					{/if}
+					<button
+						type="button"
+						class="flex size-9 shrink-0 items-center justify-center rounded-full border border-line bg-book-bg text-book-ink/80 transition-colors hover:bg-paper-deep hover:text-book-ink"
+						onclick={() => (pinnedOpen = true)}
+						aria-label="View pinned messages"
+						title="Pinned messages"
+					>
+						<CommunityIcon name="pin" size={16} />
+					</button>
+					<button
+						type="button"
+						class="flex size-9 shrink-0 items-center justify-center rounded-full border border-line bg-book-bg text-book-ink/80 transition-colors hover:bg-paper-deep hover:text-book-ink"
+						onclick={() => (infoOpen = true)}
+						aria-label="Customize chat"
+						title="Customize chat"
+					>
+						<CommunityIcon name="settings" size={16} />
+					</button>
 				</header>
 
 				<div
@@ -567,9 +642,6 @@
 									mine={message.senderId === (messages.currentUserId || auth.ownerId)}
 									showHeader={showSender(index)}
 									showSeen={lastMineIndex === index}
-									entryVideoUrl={message.sharedEntry?.videoPath
-										? (messages.videoUrls[message.sharedEntry.videoPath] ?? '')
-										: ''}
 									entryThumbUrl={message.sharedEntry?.videoThumbPath
 										? (messages.videoUrls[message.sharedEntry.videoThumbPath] ?? '')
 										: ''}
@@ -577,6 +649,7 @@
 										messages.imageUrls[message.imagePath ?? ''] ||
 										message.gifUrl ||
 										''}
+									fileUrl={message.filePath ? (messages.fileUrls[message.filePath] ?? '') : ''}
 									onOpenImage={(src) => (previewSrc = src)}
 									onReply={(item) => messages.setReply(item)}
 									onCopy={(item) => void copyMessage(item)}
@@ -587,6 +660,7 @@
 									onReact={(item, emoji) => void messages.toggleReaction(item, emoji)}
 									onOpenProfile={openProfile}
 									onOpenEntry={openEntry}
+									onReport={openReport}
 								/>
 							{/each}
 						{/if}
@@ -618,6 +692,15 @@
 							class="sr-only"
 							tabindex="-1"
 							onchange={pickImage}
+							aria-hidden="true"
+						/>
+						<input
+							bind:this={docInputEl}
+							type="file"
+							accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+							class="sr-only"
+							tabindex="-1"
+							onchange={pickDocument}
 							aria-hidden="true"
 						/>
 						{#if messages.replyTo}
@@ -653,6 +736,15 @@
 								title="Attach a photo"
 							>
 								<CommunityIcon name="camera" size={17} />
+							</button>
+							<button
+								type="button"
+								class="flex size-10 shrink-0 items-center justify-center rounded-full border border-line bg-book-bg text-book-ink/80 transition-colors hover:bg-paper-deep hover:text-book-ink"
+								onclick={openDocumentPicker}
+								aria-label="Attach a document"
+								title="Attach a PDF or Word document"
+							>
+								<CommunityIcon name="paperclip" size={17} />
 							</button>
 							<button
 								type="button"
@@ -698,7 +790,7 @@
 						</div>
 						<div class="mt-1.5 flex items-center justify-between gap-2 px-1">
 							<p class="font-ui text-[10px] text-book-ink/70">
-								Enter sends · Shift + Enter adds a line · Photos up to 5 MB{giphyEnabled
+								Enter sends · Shift + Enter adds a line · Photos 5 MB · PDF/Word 20 MB{giphyEnabled
 									? ' · GIFs via GIPHY'
 									: ''}
 							</p>
@@ -958,7 +1050,13 @@
 	{/if}
 
 	<NewGroupModal open={newGroupOpen} onClose={() => (newGroupOpen = false)} />
-	<GroupInfoModal open={infoOpen} thread={activeThread} onClose={() => (infoOpen = false)} />
+	<PinnedMessagesModal open={pinnedOpen} onClose={() => (pinnedOpen = false)} />
+	<GroupInfoModal
+		open={infoOpen}
+		thread={activeThread}
+		onClose={() => (infoOpen = false)}
+		onOpenPinned={() => (pinnedOpen = true)}
+	/>
 	<GifPicker open={gifOpen} onClose={() => (gifOpen = false)} onPick={pickGif} />
 	<ProfileModal
 		open={profileOpen}
@@ -978,4 +1076,155 @@
 		onClose={() => (sharedEntryView = null)}
 	/>
 	<ImageLightbox open={Boolean(previewSrc)} src={previewSrc} onClose={() => (previewSrc = '')} />
+	<PromptModal
+		open={reportTarget !== null}
+		title="Report message"
+		message="Tell the moderators what is wrong with this message."
+		hint="Your name is not shown to the person you report."
+		placeholder="Harassment, spam, unsafe content…"
+		maxLength={240}
+		confirmLabel="Send report"
+		tone="danger"
+		icon="alert"
+		onConfirm={(value) => void submitReport(value)}
+		onCancel={() => (reportTarget = null)}
+	/>
 {/if}
+
+<style>
+	/* Per-chat themes scope the existing palette tokens to this panel only. */
+	.chat-panel[data-chat-theme='sunset'] {
+		--color-desk: #241218;
+		--color-desk-2: #3a1e22;
+		--color-cover: #6e3526;
+		--color-cover-edge: #4a2018;
+		--color-paper: #fdf1df;
+		--color-paper-deep: #f4e0c2;
+		--color-paper-edge: #ecd5b6;
+		--color-line: #dfc3a0;
+		--color-ink: #3d2418;
+		--color-ink-soft: #6b4432;
+		--color-ink-muted: #8a6248;
+		--color-lav: #e9b795;
+		--color-accent: #a84a34;
+		--color-accent-strong: #8a3826;
+		--color-light: #fbe9dc;
+		--color-book-bg: #fdf1df;
+		--color-book-ink: #3d2418;
+		--color-book-accent: #d4a24c;
+		--color-book-shadow: #ecd5b6;
+		--color-book-edge: #dfc3a0;
+		--color-cta: #a84a34;
+		--color-cta-hover: #b85c43;
+		--color-cta-text: #fff7f2;
+		--color-cta-shadow: rgb(168 74 52 / 0.32);
+	}
+
+	.chat-panel[data-chat-theme='midnight'] {
+		--color-desk: #0c1322;
+		--color-desk-2: #152138;
+		--color-cover: #1e3358;
+		--color-cover-edge: #132241;
+		--color-paper: #f4f6fb;
+		--color-paper-deep: #e3e9f4;
+		--color-paper-edge: #d8e0ef;
+		--color-line: #bcc9df;
+		--color-ink: #14213a;
+		--color-ink-soft: #3d4f6e;
+		--color-ink-muted: #6a7c99;
+		--color-lav: #a8c0e8;
+		--color-accent: #3f6ac4;
+		--color-accent-strong: #33569f;
+		--color-light: #e8eef9;
+		--color-book-bg: #f4f6fb;
+		--color-book-ink: #0c1322;
+		--color-book-accent: #7d58c2;
+		--color-book-shadow: #d8e0ef;
+		--color-book-edge: #bcc9df;
+		--color-cta: #3f6ac4;
+		--color-cta-hover: #4672c9;
+		--color-cta-text: #f7faff;
+		--color-cta-shadow: rgb(63 106 196 / 0.34);
+	}
+
+	.chat-panel[data-chat-theme='evergreen'] {
+		--color-desk: #101a15;
+		--color-desk-2: #1b2a22;
+		--color-cover: #2f4a3a;
+		--color-cover-edge: #1c2e25;
+		--color-paper: #f4f0df;
+		--color-paper-deep: #e7e0c8;
+		--color-paper-edge: #ded6bc;
+		--color-line: #c9c0a2;
+		--color-ink: #22302a;
+		--color-ink-soft: #47584c;
+		--color-ink-muted: #6d7f70;
+		--color-lav: #b6cbb4;
+		--color-accent: #3e6b52;
+		--color-accent-strong: #325743;
+		--color-light: #eaf1e6;
+		--color-book-bg: #f6f2e2;
+		--color-book-ink: #22302a;
+		--color-book-accent: #b8863b;
+		--color-book-shadow: #dcd4b8;
+		--color-book-edge: #cfc6a8;
+		--color-cta: #3e6b52;
+		--color-cta-hover: #4a7c60;
+		--color-cta-text: #f7fbf6;
+		--color-cta-shadow: rgb(62 107 82 / 0.34);
+	}
+
+	.chat-panel[data-chat-theme='rosewood'] {
+		--color-desk: #1f1116;
+		--color-desk-2: #2e1a20;
+		--color-cover: #7a3348;
+		--color-cover-edge: #4e1f2c;
+		--color-paper: #fbf0ec;
+		--color-paper-deep: #f0dcd4;
+		--color-paper-edge: #e7d0c7;
+		--color-line: #d9bdb2;
+		--color-ink: #3a1f26;
+		--color-ink-soft: #6b4149;
+		--color-ink-muted: #8c6069;
+		--color-lav: #e7b3bd;
+		--color-accent: #a8435c;
+		--color-accent-strong: #8a3449;
+		--color-light: #fbe6ea;
+		--color-book-bg: #fcf1ec;
+		--color-book-ink: #3a1f26;
+		--color-book-accent: #b25a6e;
+		--color-book-shadow: #e5d2c9;
+		--color-book-edge: #d8c0b6;
+		--color-cta: #a8435c;
+		--color-cta-hover: #b8526a;
+		--color-cta-text: #fff6f7;
+		--color-cta-shadow: rgb(168 67 92 / 0.32);
+	}
+
+	.chat-panel[data-chat-theme='harbor'] {
+		--color-desk: #0b171c;
+		--color-desk-2: #142530;
+		--color-cover: #2c4e5e;
+		--color-cover-edge: #16303a;
+		--color-paper: #eef4f3;
+		--color-paper-deep: #dce7e5;
+		--color-paper-edge: #d2dfdd;
+		--color-line: #b7c9c7;
+		--color-ink: #12262c;
+		--color-ink-soft: #3b5257;
+		--color-ink-muted: #627b80;
+		--color-lav: #a9c9cc;
+		--color-accent: #2f7c74;
+		--color-accent-strong: #26655f;
+		--color-light: #e4f1f0;
+		--color-book-bg: #f0f5f4;
+		--color-book-ink: #12262c;
+		--color-book-accent: #3e8e86;
+		--color-book-shadow: #d3e0de;
+		--color-book-edge: #c3d3d1;
+		--color-cta: #2f7c74;
+		--color-cta-hover: #368c83;
+		--color-cta-text: #f4fcfb;
+		--color-cta-shadow: rgb(47 124 116 / 0.32);
+	}
+</style>
