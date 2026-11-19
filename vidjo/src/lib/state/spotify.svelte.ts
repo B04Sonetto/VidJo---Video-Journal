@@ -362,20 +362,29 @@ class SpotifyState {
 			const data = await res.json().catch(() => ({}));
 			if (res.status === 401) {
 				this.connected = false;
-				this.error = 'Reconnect Spotify to search and play tracks.';
+				const msg = typeof data?.message === 'string' ? data.message : '';
+				this.error = msg || 'Reconnect Spotify to search and play tracks.';
 				this.results = [];
 				return;
 			}
 			if (!res.ok) {
-				this.error =
-					data?.error === 'rate_limited'
-						? 'Spotify is rate limiting requests. Try again shortly.'
-						: 'Could not search Spotify right now.';
+				const msg = typeof data?.message === 'string' ? data.message : '';
+				if (data?.error === 'rate_limited') {
+					this.error = msg || 'Spotify is rate limiting requests. Try again shortly.';
+				} else if (data?.error === 'spotify_error') {
+					this.error = msg
+						? `Spotify search failed: ${msg}`
+						: `Could not search Spotify right now (${data?.status || res.status}).`;
+				} else if (data?.error === 'search_failed') {
+					this.error = msg || 'Could not search Spotify right now.';
+				} else {
+					this.error = msg || 'Could not search Spotify right now.';
+				}
 				return;
 			}
 			this.results = Array.isArray(data?.tracks) ? data.tracks : [];
 		} catch {
-			this.error = 'Could not search Spotify right now.';
+			this.error = 'Could not search Spotify right now. Check your connection and try again.';
 		} finally {
 			this.searching = false;
 		}
