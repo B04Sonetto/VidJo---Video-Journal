@@ -201,7 +201,13 @@ Rules enforced by the schema:
 - `vidjo_dm_threads`, `vidjo_dm_participants`, and `vidjo_dm_messages` are in the
   Realtime publication, so inboxes and open threads update live.
 
-Re-run `schema.sql` after deploying the messaging UI.
+Re-run `schema.sql` after deploying the messaging UI, then re-run
+[`fixes/fix-messaging-features.sql`](./fixes/fix-messaging-features.sql) and
+[`fixes/fix-chat-upgrades.sql`](./fixes/fix-chat-upgrades.sql) **in that order**.
+Do not run `schema.sql` last on a project that already has file attachments: it
+recreates an older `vidjo_dm_send` overload. If you have already done that, run
+[`fixes/fix-dm-send-ambiguity.sql`](./fixes/fix-dm-send-ambiguity.sql) once to
+remove the stale overloads.
 
 ## 10. Journal streaks
 
@@ -236,7 +242,8 @@ it and to widen the future-page trigger for members outside UTC.
 | Video does not play                                                                         | Check that the `vidjo-videos` bucket exists and re-run `schema.sql`.                                                                                   |
 | Photos do not send                                                                          | Check that the private `vidjo-dm-images` bucket and its storage policies exist; re-run `schema.sql`.                                                   |
 | GIF button is missing                                                                       | Set `PUBLIC_GIPHY_API_KEY` and restart the dev server or redeploy.                                                                                     |
-| GIFs do not send                                                                            | Re-run `schema.sql` so `gif_url` and the 5-argument `vidjo_dm_send` exist.                                                                             |
+| GIFs do not send                                                                            | Re-run `schema.sql`, then `fixes/fix-messaging-features.sql` and `fixes/fix-chat-upgrades.sql` in that order.                                          |
+| Message send says "Could not choose the best candidate function"                            | Run `fixes/fix-dm-send-ambiguity.sql` once. It removes the 5- and 6-argument `vidjo_dm_send` overloads left behind by re-running older migrations.     |
 | Shared browser has old journal entries                                                      | Sign out with "Clear cached pages on sign out" checked.                                                                                                |
 | Pages will not sync just after local midnight                                               | Run `supabase/fixes/fix-timezone.sql`. The future-page trigger compared against the UTC date, so members east of UTC were blocked until UTC caught up. |
 | Friend's streak looks one day behind                                                        | Run `supabase/fixes/fix-timezone.sql` and redeploy. `vidjo_streak_for` now accepts the viewer's local date as `p_today`.                               |

@@ -49,6 +49,18 @@ const DM_FILE_TYPES: Record<string, string> = {
 	'application/vnd.openxmlformats-officedocument.wordprocessingml.document': 'docx'
 };
 
+/**
+ * PostgREST reports a missing RPC with PGRST202 (schema cache) or 42883
+ * (undefined function). Those are the only cases where it is safe to retry
+ * with an older `vidjo_dm_send` signature.
+ */
+function isMissingRpc(error: { message?: string | null; code?: string | null } | null | undefined) {
+	if (!error) return false;
+	if (error.code === 'PGRST202' || error.code === '42883') return true;
+	const message = (error.message || '').toLowerCase();
+	return message.includes('could not find the function') || message.includes('does not exist');
+}
+
 export const CHAT_THEMES = [
 	'classic',
 	'sunset',
@@ -1291,26 +1303,54 @@ class MessagesState {
 		file?: { path: string; name: string; mime: string; size: number }
 	): Promise<boolean> {
 		try {
-			// Older databases only know the 3-argument function. Text messages
-			// therefore omit attachment arguments so they keep working until the
-			// photo/GIF schema is applied. Photos need the 4-argument version and
-			// GIFs need the 5-argument version.
-			const params: Record<string, string | null> = {
+			// Always name every argument. Older projects can end up with several
+			// `vidjo_dm_send` overloads (5, 6 and 10 parameters) because migrations
+			// were re-run in a different order. Omitting optional keys makes all of
+			// them valid candidates, and PostgreSQL fails with "could not choose
+			// the best candidate function". Naming all ten selects the current,
+			// attachment-aware function unambiguously.
+			let rpc = await supabase.rpc('vidjo_dm_send', {
 				p_thread: threadId,
 				p_body: body,
-				p_client_id: clientId
-			};
-			if (imagePath) params.p_image_path = imagePath;
-			if (gifUrl) params.p_gif_url = gifUrl;
-			if (replyTo) params.p_reply_to = replyTo;
-			if (file) {
-				params.p_file_path = file.path;
-				params.p_file_name = file.name;
-				params.p_file_mime = file.mime;
-				params.p_file_size = String(file.size);
+				p_client_id: clientId,
+				p_image_path: imagePath ?? null,
+				p_gif_url: gifUrl ?? null,
+				p_reply_to: replyTo ?? null,
+				p_file_path: file?.path ?? null,
+				p_file_name: file?.name ?? null,
+				p_file_mime: file?.mime ?? null,
+				p_file_size: file ? String(file.size) : null
+			});
+
+			// Databases that never received fix-chat-upgrades.sql only know the
+			// older reply-aware or photo/GIF signatures. Retry those shapes only
+			// when the current function is genuinely missing.
+			if (rpc.error && isMissingRpc(rpc.error)) {
+				if (file) {
+					throw new Error(
+						'File attachments need the latest database update. Ask the admin to run fix-chat-upgrades.sql.'
+					);
+				}
+				rpc = await supabase.rpc('vidjo_dm_send', {
+					p_thread: threadId,
+					p_body: body,
+					p_client_id: clientId,
+					p_image_path: imagePath ?? null,
+					p_gif_url: gifUrl ?? null,
+					p_reply_to: replyTo ?? null
+				});
+			}
+			if (rpc.error && isMissingRpc(rpc.error)) {
+				rpc = await supabase.rpc('vidjo_dm_send', {
+					p_thread: threadId,
+					p_body: body,
+					p_client_id: clientId,
+					p_image_path: imagePath ?? null,
+					p_gif_url: gifUrl ?? null
+				});
 			}
 
-			const { data, error } = await supabase.rpc('vidjo_dm_send', params);
+			const { data, error } = rpc;
 			if (error) throw error;
 
 			const row = Array.isArray(data) ? data[0] : data;
