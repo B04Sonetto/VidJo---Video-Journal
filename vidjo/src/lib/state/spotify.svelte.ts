@@ -1,6 +1,7 @@
 ﻿import { nav } from '#lib/state/navigation.svelte';
 
 const browser = typeof window !== 'undefined';
+const RETURN_KEY = 'vidjo_spotify_return';
 
 export type SpotifyTrack = {
 	uri: string;
@@ -305,6 +306,13 @@ class SpotifyState {
 		if (nav.view === 'friends') returnUrl.searchParams.set('vj_friends_tab', nav.friendsTab);
 		if (nav.view === 'profile') returnUrl.searchParams.set('vj_profile_tab', nav.profileTab);
 		const returnTo = `${returnUrl.pathname}${returnUrl.search}${returnUrl.hash}`;
+		// Keep a tab-local copy as a fallback for flows where the callback lands
+		// on a different origin and neither the cookie nor signed state survives.
+		try {
+			sessionStorage.setItem(RETURN_KEY, returnTo);
+		} catch {
+			// Private browsing can block storage; the signed state is the primary path.
+		}
 		// The service worker bypasses /auth/* so the OAuth redirect is not intercepted.
 		window.location.assign(`/auth/spotify/login?returnTo=${encodeURIComponent(returnTo)}`);
 	}
@@ -743,6 +751,64 @@ class SpotifyState {
 		const m = Math.floor(total / 60);
 		const s = total % 60;
 		return `${m}:${String(s).padStart(2, '0')}`;
+	}
+
+	/** Restore the view the user was on before a full-page Spotify OAuth redirect. */
+	restoreReturnState(url: URL) {
+		if (!browser) return;
+
+		let stored = '';
+		try {
+			stored = sessionStorage.getItem(RETURN_KEY) || '';
+			sessionStorage.removeItem(RETURN_KEY);
+		} catch {
+			// ignore blocked storage
+		}
+
+		const source = stored ? new URL(stored, window.location.origin) : new URL(window.location.href);
+		const params = url.searchParams;
+		const value = (key: string) => params.get(key) || source.searchParams.get(key);
+
+		const view = value('vj_view');
+		if (
+			view === 'journal' ||
+			view === 'friends' ||
+			view === 'community' ||
+			view === 'profile' ||
+			view === 'notifications'
+		) {
+			nav.setView(view);
+		}
+		const friendsTab = value('vj_friends_tab');
+		if (friendsTab === 'shelf' || friendsTab === 'messages') {
+			nav.setFriendsTab(friendsTab);
+		}
+		const profileTab = value('vj_profile_tab');
+		if (
+			profileTab === 'overview' ||
+			profileTab === 'portfolio' ||
+			profileTab === 'achievements' ||
+			profileTab === 'settings' ||
+			profileTab === 'edit'
+		) {
+			nav.profileTab = profileTab;
+		}
+
+		const current = new URL(window.location.href);
+		let changed = false;
+		for (const key of ['vj_view', 'vj_friends_tab', 'vj_profile_tab']) {
+			if (current.searchParams.has(key)) {
+				current.searchParams.delete(key);
+				changed = true;
+			}
+		}
+		if (changed) {
+			history.replaceState(
+				history.state,
+				'',
+				`${current.pathname}${current.search}${current.hash}`
+			);
+		}
 	}
 
 	handleCallbackParams(url: URL) {

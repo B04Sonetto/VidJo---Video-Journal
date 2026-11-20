@@ -18,6 +18,7 @@
 	import { journal } from '#lib/state/journal.svelte';
 	import { moderation } from '#lib/state/moderation.svelte';
 	import { profile } from '#lib/state/profile.svelte';
+	import { spotify } from '#lib/state/spotify.svelte';
 	import { friends } from '#lib/state/friends.svelte';
 	import { messages } from '#lib/state/messages.svelte';
 	import { community } from '#lib/state/community.svelte';
@@ -45,45 +46,7 @@
 
 		// Spotify OAuth returns to this route after a full page load. Restore
 		// the tab the user was on when they pressed Connect, then tidy the URL.
-		const params = new URL(window.location.href).searchParams;
-		let restored = false;
-		const view = params.get('vj_view');
-		if (
-			view === 'journal' ||
-			view === 'friends' ||
-			view === 'community' ||
-			view === 'profile' ||
-			view === 'notifications'
-		) {
-			nav.setView(view);
-			restored = true;
-		}
-		const friendsTab = params.get('vj_friends_tab');
-		if (friendsTab === 'shelf' || friendsTab === 'messages') {
-			nav.setFriendsTab(friendsTab);
-			restored = true;
-		}
-		const profileTab = params.get('vj_profile_tab');
-		if (
-			profileTab === 'overview' ||
-			profileTab === 'portfolio' ||
-			profileTab === 'achievements' ||
-			profileTab === 'settings' ||
-			profileTab === 'edit'
-		) {
-			nav.profileTab = profileTab;
-			restored = true;
-		}
-		if (restored) {
-			const current = new URL(window.location.href);
-			for (const key of ['vj_view', 'vj_friends_tab', 'vj_profile_tab'])
-				current.searchParams.delete(key);
-			history.replaceState(
-				history.state,
-				'',
-				`${current.pathname}${current.search}${current.hash}`
-			);
-		}
+		spotify.restoreReturnState(new URL(window.location.href));
 
 		return () => {
 			cleanupViewport();

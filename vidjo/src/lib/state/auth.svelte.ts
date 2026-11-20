@@ -71,6 +71,7 @@ class Auth {
 	needsProfileCompletion = $state(false);
 
 	private started = false;
+	private restoringSession = true;
 	private unsubscribe: (() => void) | null = null;
 
 	get signedIn() {
@@ -126,6 +127,7 @@ class Auth {
 	async init() {
 		if (this.started) return;
 		this.started = true;
+		this.restoringSession = true;
 
 		if (!isSupabaseConfigured) {
 			this.ready = true;
@@ -137,6 +139,10 @@ class Auth {
 		const recoveryRedirect = isRecoveryRedirect();
 
 		const { data } = supabase.auth.onAuthStateChange((event, session) => {
+			// The listener can fire with an empty session before storage is read.
+			// Ignore that until getSession() has had a chance to restore it, so a
+			// full-page OAuth return does not flash the sign-in screen.
+			if (this.restoringSession && !session) return;
 			const allowed = this.acceptUser(session?.user ?? null);
 			this.ready = true;
 			if (!allowed) {
@@ -158,6 +164,7 @@ class Auth {
 		} catch (error) {
 			console.warn('[VidJo] Could not restore the Supabase session.', error);
 		} finally {
+			this.restoringSession = false;
 			this.ready = true;
 			if (recoveryRedirect) this.passwordRecovery = true;
 			if (rejected) void supabase.auth.signOut();
