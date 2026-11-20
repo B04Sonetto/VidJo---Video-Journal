@@ -1257,3 +1257,18 @@
 		</div>
 	</div>
 </section>
+
+<style>
+	section[aria-label='Sign in to VidJo'] input {
+		color-scheme: light;
+	}
+
+	section[aria-label='Sign in to VidJo'] input:autofill,
+	section[aria-label='Sign in to VidJo'] input:-webkit-autofill,
+	section[aria-label='Sign in to VidJo'] input:-webkit-autofill:hover,
+	section[aria-label='Sign in to VidJo'] input:-webkit-autofill:focus {
+		-webkit-text-fill-color: var(--color-ink);
+		caret-color: var(--color-ink);
+		box-shadow: 0 0 0 1000px var(--color-paper) inset;
+	}
+</style>
