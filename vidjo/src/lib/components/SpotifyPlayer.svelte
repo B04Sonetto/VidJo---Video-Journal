@@ -73,7 +73,11 @@
 
 	const showBar = $derived(spotify.connected || spotify.track || spotify.panelOpen);
 	const showConnectButton = $derived(
-		auth.active && spotify.configured && spotify.status !== 'unsupported' && !showBar
+		auth.active &&
+			spotify.connectionKnown &&
+			spotify.configured &&
+			spotify.status !== 'unsupported' &&
+			!showBar
 	);
 
 	async function attachCurrentToToday() {

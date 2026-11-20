@@ -32,6 +32,8 @@ function isLikelyPremium(product: string) {
 class SpotifyState {
 	status = $state<SpotifyStatus>('idle');
 	connected = $state(false);
+	/** True after the first server-side connection check, so UI doesn't prompt to sign in before we know. */
+	connectionKnown = $state(false);
 	configured = $state(true);
 	accountName = $state('');
 	accountProduct = $state('');
@@ -122,6 +124,8 @@ class SpotifyState {
 		} catch {
 			this.error = preserveError ? this.error : 'Could not check Spotify connection.';
 			this.status = 'error';
+		} finally {
+			this.connectionKnown = true;
 		}
 	}
 
@@ -291,6 +295,14 @@ class SpotifyState {
 
 	async connect() {
 		if (!browser) return;
+		if (!this.connectionKnown) {
+			await this.refreshConnection(false);
+		}
+		if (this.connected) {
+			this.panelOpen = true;
+			void this.ensurePlayer();
+			return;
+		}
 		if (!this.configured) {
 			this.error =
 				'Spotify is not configured on the server. Add SPOTIFY_CLIENT_ID and SPOTIFY_CLIENT_SECRET, then redeploy.';
@@ -497,6 +509,9 @@ class SpotifyState {
 	async playTrack(track: SpotifyTrack) {
 		this.error = '';
 		this.notice = '';
+		if (!this.connectionKnown) {
+			await this.refreshConnection(false);
+		}
 		if (!this.connected) {
 			await this.connect();
 			return;
