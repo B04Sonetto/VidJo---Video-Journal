@@ -246,7 +246,7 @@ class Auth {
 		return this.verifying;
 	}
 
-	async sendCode(email: string) {
+	async sendCode(email: string, captchaToken?: string) {
 		if (!isSupabaseConfigured) return 'Sign-in is not configured for this build.';
 
 		const { error } = await supabase.auth.signInWithOtp({
@@ -255,7 +255,8 @@ class Auth {
 				// Codes are for existing accounts only. New users must complete
 				// the username/email/password signup form first.
 				shouldCreateUser: false,
-				emailRedirectTo: callbackUrl()
+				emailRedirectTo: callbackUrl(),
+				captchaToken
 			}
 		});
 
@@ -374,12 +375,13 @@ class Auth {
 	}
 
 	// Jazz add this==========================================================================================
-	async signInWithEmail(email: string, password: string) {
+	async signInWithEmail(email: string, password: string, captchaToken?: string) {
 		if (!isSupabaseConfigured) return 'Sign-in is not configured for this build.';
 
 		const { data, error } = await supabase.auth.signInWithPassword({
 			email,
-			password
+			password,
+			options: { captchaToken }
 		});
 
 		if (error) {
@@ -398,7 +400,7 @@ class Auth {
 		return '';
 	}
 
-	async signInWithUsername(username: string, password: string) {
+	async signInWithUsername(username: string, password: string, captchaToken?: string) {
 		if (!isSupabaseConfigured) return 'Sign-in is not configured for this build.';
 
 		try {
@@ -407,12 +409,15 @@ class Auth {
 				headers: {
 					'Content-Type': 'application/json'
 				},
-				body: JSON.stringify({ username, password })
+				body: JSON.stringify({ username, password, captchaToken })
 			});
 
 			const result = await response.json();
 
 			if (!response.ok) {
+				if (result?.error === 'captcha') {
+					return 'The CAPTCHA check did not pass. Wait a moment for it to finish, then try again.';
+				}
 				return response.status === 429
 					? 'Too many attempts. Wait a minute, then try again.'
 					: 'Invalid username or password.';
@@ -536,11 +541,12 @@ class Auth {
 		};
 	}
 
-	async resetPassword(email: string) {
+	async resetPassword(email: string, captchaToken?: string) {
 		if (!isSupabaseConfigured) return 'Sign-in is not configured for this build.';
 
 		const { error } = await supabase.auth.resetPasswordForEmail(email, {
-			redirectTo: callbackUrl('/auth/reset')
+			redirectTo: callbackUrl('/auth/reset'),
+			captchaToken
 		});
 
 		if (!error) return '';

@@ -12,6 +12,7 @@
 			container: HTMLElement,
 			options: {
 				sitekey: string;
+				appearance?: 'always' | 'execute' | 'interaction-only';
 				callback: (token: string) => void;
 				'expired-callback'?: () => void;
 				'error-callback'?: () => void;
@@ -52,7 +53,8 @@
 
 	async function renderTurnstile() {
 		if (!turnstileSiteKey) {
-			error = 'CAPTCHA is not configured. Please contact support.';
+			// Only account creation insists on a CAPTCHA widget being present.
+			if (view === 'signup-2') error = 'CAPTCHA is not configured. Please contact support.';
 			return;
 		}
 
@@ -66,10 +68,15 @@
 
 			turnstileWidgetId = api.render(turnstileContainer, {
 				sitekey: turnstileSiteKey,
+				// Sign-in only shows the widget when Cloudflare needs a click; sign-up
+				// keeps it visible.
+				appearance: view === 'signup-2' ? 'always' : 'interaction-only',
 
 				callback: (token: string) => {
 					captchaToken = token;
-					error = '';
+					// A fresh token arrives after every attempt, so only clear the CAPTCHA
+					// messages, never a real error such as a wrong password.
+					if (/still verifying|captcha/i.test(error)) error = '';
 				},
 
 				'expired-callback': () => {
@@ -99,6 +106,16 @@
 
 		turnstileWidgetId = null;
 		captchaToken = '';
+	}
+
+	/**
+	 * Supabase rejects sign-in, code, reset and resend requests that carry no
+	 * CAPTCHA token once protection is on, so wait for the widget to finish.
+	 */
+	function captchaReady() {
+		if (!turnstileSiteKey || captchaToken) return true;
+		error = 'Still verifying that you are human. Give it a second, then try again.';
+		return false;
 	}
 
 	/** Turnstile tokens are single-use, so a new attempt needs a fresh challenge. */
@@ -228,6 +245,20 @@
 		auth.clearRedirectError();
 	});
 
+	// Every screen except sign-up step 1 sends a request Supabase protects with
+	// CAPTCHA, so (re)create the widget whenever the screen changes.
+	$effect(() => {
+		const current = view;
+		if (current === 'signup') {
+			removeTurnstile();
+			return;
+		}
+		void tick().then(() => {
+			removeTurnstile();
+			void renderTurnstile();
+		});
+	});
+
 	function startCooldown(seconds = 60) {
 		cooldown = seconds;
 		if (cooldownTimer) clearInterval(cooldownTimer);
@@ -256,9 +287,6 @@
 
 	function switchView(next: View) {
 		view = next;
-		if (next !== 'signup-2') {
-			removeTurnstile();
-		}
 		error = '';
 		notice = '';
 		forgotPassword = false;
@@ -297,15 +325,11 @@
 			error = usernameError || 'That username is already taken. Try another.';
 			return;
 		}
-		// Going back to step 1 (or to the code screen) unmounts the widget's
-		// container without clearing its id, and renderTurnstile() skips rendering
-		// while an id is set. Start clean so step 2 always shows the CAPTCHA.
-		removeTurnstile();
+		// The view effect above creates a fresh CAPTCHA widget for step 2.
 		view = 'signup-2';
 
-		void tick().then(async () => {
+		void tick().then(() => {
 			(document.getElementById('vidjo-password') as HTMLInputElement | null)?.focus();
-			await renderTurnstile();
 		});
 	}
 
@@ -321,10 +345,12 @@
 
 		// Don't fire another OTP request while a cooldown is in effect.
 		if (cooldown > 0) return;
+		if (!captchaReady()) return;
 
 		busy = true;
 		try {
-			const message = await auth.sendCode(email.trim());
+			const message = await auth.sendCode(email.trim(), captchaToken);
+			resetTurnstile();
 			if (message) {
 				error = message;
 				if (/too many|rate limit/i.test(message)) startCooldown(60);
@@ -346,14 +372,16 @@
 
 	async function resend() {
 		if (cooldown > 0 || busy) return;
+		if (!captchaReady()) return;
 
 		error = '';
 		busy = true;
 		try {
 			const message =
 				codePurpose === 'signup'
-					? await auth.resendSignup(email.trim())
-					: await auth.sendCode(email.trim());
+					? await auth.resendSignup(email.trim(), captchaToken)
+					: await auth.sendCode(email.trim(), captchaToken);
+			resetTurnstile();
 
 			if (message) {
 				error = message;
@@ -500,12 +528,16 @@
 			return;
 		}
 
+		if (!captchaReady()) return;
+
 		busy = true;
 
 		try {
 			const message = validEmail(identifier)
-				? await auth.signInWithEmail(identifier, password)
-				: await auth.signInWithUsername(identifier, password);
+				? await auth.signInWithEmail(identifier, password, captchaToken)
+				: await auth.signInWithUsername(identifier, password, captchaToken);
+			// The token is single-use, so request a new one for the next attempt.
+			resetTurnstile();
 
 			if (message) {
 				error = message;
@@ -623,9 +655,12 @@
 			return;
 		}
 
+		if (!captchaReady()) return;
+
 		busy = true;
 		try {
-			const message = await auth.resetPassword(email.trim());
+			const message = await auth.resetPassword(email.trim(), captchaToken);
+			resetTurnstile();
 			if (message) {
 				error = message;
 				return;
@@ -866,6 +901,11 @@
 						{busy ? busyLabel : primaryLabel}
 					</Button>
 
+					<!-- "Resend code" is CAPTCHA-protected too. -->
+					<div class="mt-3 flex justify-center">
+						<div bind:this={turnstileContainer}></div>
+					</div>
+
 					<div class="mt-4 flex flex-wrap items-center justify-between gap-2 font-ui text-[12px]">
 						<span class="text-ink-soft">Didn't get it?</span>
 						<button
@@ -1096,6 +1136,10 @@
 							We'll send a reset link to {email.trim() || 'your email'}.
 						</div>
 					{/if}
+
+					<div class="mt-4 flex justify-center">
+						<div bind:this={turnstileContainer}></div>
+					</div>
 
 					{#if forgotPassword && view === 'signin'}
 						<Button

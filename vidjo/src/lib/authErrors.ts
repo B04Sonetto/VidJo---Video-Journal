@@ -83,5 +83,9 @@ export function friendlyAuthError(message: string) {
 		return 'Sign-ups are temporarily unavailable. Please try again in a few minutes.';
 	}
 
+	if (lower.includes('captcha')) {
+		return 'The CAPTCHA check did not pass. Wait a moment for it to finish, or reload the page, then try again.';
+	}
+
 	return message;
 }

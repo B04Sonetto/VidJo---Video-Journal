@@ -5,7 +5,7 @@ import { SUPABASE_SECRET_KEY } from '$app/env/private';
 
 export async function POST({ request }: RequestEvent) {
 	try {
-		const { username, password } = await request.json();
+		const { username, password, captchaToken } = await request.json();
 
 		if (
 			typeof username !== 'string' ||
@@ -62,10 +62,22 @@ export async function POST({ request }: RequestEvent) {
 			}
 		});
 
+		// Supabase CAPTCHA protection also covers this server-side sign-in, so the
+		// token from the browser has to be forwarded.
 		const { data, error } = await loginClient.auth.signInWithPassword({
 			email,
-			password
+			password,
+			options: {
+				captchaToken:
+					typeof captchaToken === 'string' && captchaToken && captchaToken.length < 4096
+						? captchaToken
+						: undefined
+			}
 		});
+
+		if (error && /captcha/i.test(error.message)) {
+			return json({ error: 'captcha' }, { status: 400 });
+		}
 
 		if (error || !data.session) {
 			return json({ error: 'Invalid username or password.' }, { status: 401 });
