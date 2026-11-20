@@ -188,13 +188,26 @@ export async function readState(state: string) {
 		) {
 			return null;
 		}
+		let origin = '';
+		if (typeof parsed.o === 'string' && parsed.o) {
+			const parsedOrigin = new URL(parsed.o);
+			if (
+				(parsedOrigin.protocol !== 'http:' && parsedOrigin.protocol !== 'https:') ||
+				parsedOrigin.origin !== parsed.o
+			) {
+				return null;
+			}
+			// The origin was allowlisted when this signed state was created.
+			// Rechecking against this deployment's env would reject Vercel previews.
+			origin = parsedOrigin.origin;
+		}
 		const age = Math.abs(Date.now() / 1000 - parsed.t);
 		if (!Number.isFinite(age) || age > STATE_TTL_SECONDS) return null;
 		return {
 			verifier: parsed.v,
 			redirectUri: parsed.r,
 			returnTo: typeof parsed.b === 'string' ? safeReturnTo(parsed.b) : '/',
-			origin: typeof parsed.o === 'string' && trustedAppOrigin(parsed.o) ? parsed.o : ''
+			origin
 		};
 	} catch {
 		return null;
