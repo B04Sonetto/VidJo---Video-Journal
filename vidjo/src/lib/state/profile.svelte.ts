@@ -355,7 +355,8 @@ class ProfileState {
 				const { data: existing, error: queryError } = await supabase
 					.from('vidjo_profiles')
 					.select('username')
-					.ilike('username', clean)
+					// `_` and `%` are ILIKE wildcards; escape them so `a_b` cannot match `axb`.
+					.ilike('username', clean.replace(/[\\%_]/g, (char) => `\\${char}`))
 					.maybeSingle();
 
 				if (queryError) {

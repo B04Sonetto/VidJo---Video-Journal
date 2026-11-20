@@ -1,5 +1,5 @@
 import { friendlyAuthError } from '#lib/authErrors';
-import { isRegisteredUser, UNREGISTERED_ACCOUNT_MESSAGE } from '#lib/authUser';
+import { checkRegisteredUser, UNREGISTERED_ACCOUNT_MESSAGE } from '#lib/authUser';
 import { isSupabaseConfigured, supabase } from '#lib/supabase';
 
 export type AuthCallbackResult = {
@@ -62,7 +62,17 @@ export async function completeAuthCallback(): Promise<AuthCallbackResult> {
 	const { data, error } = await supabase.auth.getSession();
 	if (error) return { ok: false, error: friendlyAuthError(error.message) };
 	if (data.session) {
-		if (!isRegisteredUser(data.session.user)) {
+		const check = await checkRegisteredUser(supabase, data.session.user);
+
+		if (!check.user) {
+			// Keep the session when Supabase simply could not be reached.
+			if (check.unreachable) {
+				return {
+					ok: false,
+					error: 'Could not reach Supabase. Check your connection and try again.'
+				};
+			}
+
 			await supabase.auth.signOut();
 			return { ok: false, error: UNREGISTERED_ACCOUNT_MESSAGE };
 		}

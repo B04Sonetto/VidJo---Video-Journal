@@ -1,6 +1,10 @@
 import type { User } from '@supabase/supabase-js';
 import { friendlyAuthError } from '#lib/authErrors';
-import { isRegisteredUser, UNREGISTERED_ACCOUNT_MESSAGE } from '#lib/authUser';
+import {
+	checkRegisteredUser,
+	isRegisteredUser,
+	UNREGISTERED_ACCOUNT_MESSAGE
+} from '#lib/authUser';
 import { readDeviceId } from '#lib/identity';
 import { isSupabaseConfigured, supabase, supabaseKey, supabaseUrl } from '#lib/supabase';
 import { profile } from '#lib/state/profile.svelte';
@@ -72,6 +76,7 @@ class Auth {
 
 	private started = false;
 	private unsubscribe: (() => void) | null = null;
+	private verifying: Promise<void> | null = null;
 
 	get signedIn() {
 		return Boolean(this.user);
@@ -137,30 +142,36 @@ class Auth {
 		const recoveryRedirect = isRecoveryRedirect();
 
 		const { data } = supabase.auth.onAuthStateChange((event, session) => {
-			const allowed = this.acceptUser(session?.user ?? null);
-			this.ready = true;
-			if (!allowed) {
-				// Defer so we never call another auth method inside this callback.
-				setTimeout(() => void supabase.auth.signOut(), 0);
+			const incoming = session?.user ?? null;
+			if (incoming && !isRegisteredUser(incoming)) {
+				// The cached user can predate the registration stamp. Verify it against
+				// Supabase before rejecting it, and defer so we never call another auth
+				// method inside this callback.
+				setTimeout(() => void this.verifyCachedUser(incoming), 0);
+			} else {
+				this.acceptUser(incoming);
+				this.ready = true;
 			}
 			if (event === 'PASSWORD_RECOVERY') this.passwordRecovery = true;
 		});
 		this.unsubscribe = () => data.subscription.unsubscribe();
-
-		let rejected = false;
 
 		try {
 			const { data: sessionData, error } = await supabase.auth.getSession();
 			if (error && !this.redirectError) {
 				this.redirectError = friendlyAuthError(error.message);
 			}
-			rejected = !this.acceptUser(sessionData.session?.user ?? this.user);
+			const restored = sessionData.session?.user ?? this.user;
+			if (restored && !isRegisteredUser(restored)) {
+				await this.verifyCachedUser(restored);
+			} else {
+				this.acceptUser(restored);
+			}
 		} catch (error) {
 			console.warn('[VidJo] Could not restore the Supabase session.', error);
 		} finally {
 			this.ready = true;
 			if (recoveryRedirect) this.passwordRecovery = true;
-			if (rejected) void supabase.auth.signOut();
 		}
 
 		void this.checkProviders();
@@ -190,6 +201,41 @@ class Auth {
 
 		this.user = user;
 		return true;
+	}
+
+	/**
+	 * A session user that looks unregistered is re-read from Supabase first. Google
+	 * accounts whose cached user lacks the stamp used to be signed out on every
+	 * full reload (including the return trip from Spotify), which landed people
+	 * back on the sign-in screen.
+	 */
+	private verifyCachedUser(user: User) {
+		if (this.verifying) return this.verifying;
+
+		this.verifying = (async () => {
+			try {
+				const { user: verified, unreachable } = await checkRegisteredUser(supabase, user);
+
+				if (verified) {
+					this.user = verified;
+					this.redirectError = '';
+					return;
+				}
+
+				this.user = null;
+				// Offline is not a verdict: keep the stored session so it works again
+				// once the connection is back.
+				if (unreachable) return;
+
+				this.redirectError = UNREGISTERED_ACCOUNT_MESSAGE;
+				await supabase.auth.signOut();
+			} finally {
+				this.ready = true;
+				this.verifying = null;
+			}
+		})();
+
+		return this.verifying;
 	}
 
 	async sendCode(email: string) {

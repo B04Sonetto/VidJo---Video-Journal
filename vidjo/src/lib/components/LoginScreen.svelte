@@ -90,11 +90,29 @@
 		const api = getTurnstile();
 
 		if (api && turnstileWidgetId) {
-			api.remove(turnstileWidgetId);
+			try {
+				api.remove(turnstileWidgetId);
+			} catch {
+				// The widget's container may already be gone from the page.
+			}
 		}
 
 		turnstileWidgetId = null;
 		captchaToken = '';
+	}
+
+	/** Turnstile tokens are single-use, so a new attempt needs a fresh challenge. */
+	function resetTurnstile() {
+		const api = getTurnstile();
+		captchaToken = '';
+
+		if (api && turnstileWidgetId) {
+			try {
+				api.reset(turnstileWidgetId);
+			} catch {
+				// The widget's container may already be gone from the page.
+			}
+		}
 	}
 
 	type View = 'signin' | 'signup' | 'signup-2' | 'code';
@@ -279,6 +297,10 @@
 			error = usernameError || 'That username is already taken. Try another.';
 			return;
 		}
+		// Going back to step 1 (or to the code screen) unmounts the widget's
+		// container without clearing its id, and renderTurnstile() skips rendering
+		// while an id is set. Start clean so step 2 always shows the CAPTCHA.
+		removeTurnstile();
 		view = 'signup-2';
 
 		void tick().then(async () => {
@@ -554,6 +576,10 @@
 				nickname.trim() || username.trim(),
 				captchaToken
 			);
+
+			// The token was just spent, even if signup failed (taken username, weak
+			// password, rate limit). Get a new one so the retry is not rejected.
+			resetTurnstile();
 
 			if (result.error) {
 				error = result.error;

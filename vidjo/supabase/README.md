@@ -52,6 +52,9 @@ columns/tables without deleting entries, and backfills only missing friend codes
      - `http://localhost:5173`
      - `http://localhost:5173/auth/callback`
      - `http://localhost:5173/auth/reset`
+     - `http://127.0.0.1:5173`, `http://127.0.0.1:5173/auth/callback`, and `http://127.0.0.1:5173/auth/reset`
+       (Spotify no longer accepts `localhost` redirects, so open the dev server at `http://127.0.0.1:5173`.
+       Google sign-in must use the same origin as Spotify or the session will not carry over.)
      - `https://your-app.vercel.app`
      - `https://your-app.vercel.app/auth/callback`
      - `https://your-app.vercel.app/auth/reset`

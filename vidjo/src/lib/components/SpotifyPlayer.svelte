@@ -70,7 +70,11 @@
 		Boolean(todaySong && spotify.track?.uri && todaySong.uri === spotify.track.uri)
 	);
 
-	const showBar = $derived(spotify.connected || spotify.track || spotify.panelOpen);
+	// Spotify is part of the journal. Showing "Connect Spotify" on the sign-in
+	// screen sent people through Spotify and straight back to the login form.
+	const showBar = $derived(
+		auth.ready && auth.active && (spotify.connected || spotify.track || spotify.panelOpen)
+	);
 
 	async function attachCurrentToToday() {
 		const song = spotify.currentSong();

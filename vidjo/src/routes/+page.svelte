@@ -62,6 +62,9 @@
 		if (!auth.active) {
 			activeOwner = '';
 			profileReady = false;
+			// Otherwise the next person to sign in would inherit a half-finished
+			// "Finish setting up" form from the previous Google account.
+			profileCompletion = false;
 			initSeq += 1;
 			moderation.reset();
 			friends.reset();

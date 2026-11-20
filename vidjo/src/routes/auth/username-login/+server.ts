@@ -48,7 +48,7 @@ export async function POST({ request }: RequestEvent) {
 			profile.user_id
 		);
 
-		const email = account.user?.email;
+		const email = account?.user?.email;
 
 		if (accountError || !email) {
 			return json({ error: 'Invalid username or password.' }, { status: 401 });

@@ -34,6 +34,14 @@ export function spotifyConfigured() {
 	return Boolean(env.SPOTIFY_CLIENT_ID && env.SPOTIFY_CLIENT_SECRET);
 }
 
+function originOf(value: string) {
+	try {
+		return new URL(value).origin;
+	} catch {
+		return '';
+	}
+}
+
 export function getRedirectUri(origin: string) {
 	const configured = (env.SPOTIFY_REDIRECT_URI || '').trim();
 	const isLocal = /^https?:\/\/(127\.0\.0\.1|localhost)(:\d+)?$/i.test(origin);
@@ -41,7 +49,11 @@ export function getRedirectUri(origin: string) {
 	// Local development must use the registered local callback even if a
 	// production redirect URI is configured in env.
 	if (isLocal) return `${origin}/auth/spotify/callback`;
-	if (configured) return configured;
+	// The OAuth state cookie and the Supabase session both live on the origin the
+	// person started from, so the callback has to land on that same origin. A
+	// configured URI for a different host would drop them on a site where they are
+	// signed out, which looked like being bounced back to the sign-in screen.
+	if (configured && originOf(configured) === origin) return configured;
 	if (origin === 'https://vidjo.vercel.app')
 		return 'https://vidjo.vercel.app/auth/spotify/callback';
 	return `${origin}/auth/spotify/callback`;
