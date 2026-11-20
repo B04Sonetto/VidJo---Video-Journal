@@ -57,7 +57,7 @@ export function friendlyAuthError(message: string) {
 		return 'Google sign-in only works after you create an email account. Re-run the latest schema.sql to allow new Google sign-ups.';
 	}
 	if (lower.includes('database error saving new user')) {
-		return 'Could not create that account. Use the email/password signup form, then try Google again.';
+		return 'Supabase could not save this account because a signup database trigger failed. Ask the site administrator to apply the latest VidJo signup fix and check the Supabase database logs.';
 	}
 	if (lower.includes('signups not allowed') || lower.includes('signup is disabled')) {
 		return 'New accounts are paused in Supabase. Try an existing email, or enable signups.';

@@ -425,9 +425,15 @@
 	set search_path = public
 	as $$
 	begin
-		if new.email_confirmed_at is not null then
-			perform public.vidjo_create_profile_for_user(new.id, new.raw_user_meta_data);
-		end if;
+		begin
+			if new.email_confirmed_at is not null then
+				perform public.vidjo_create_profile_for_user(new.id, new.raw_user_meta_data);
+			end if;
+		exception
+			when others then
+				-- Profile setup can be completed in the app; never make it block auth signup.
+				raise warning 'vidjo_handle_new_user profile setup failed for %: %', new.id, sqlerrm;
+		end;
 		return new;
 	end;
 	$$;
@@ -439,11 +445,17 @@
 	set search_path = public
 	as $$
 	begin
-		if new.email_confirmed_at is not null
-			and old.email_confirmed_at is distinct from new.email_confirmed_at
-		then
-			perform public.vidjo_create_profile_for_user(new.id, new.raw_user_meta_data);
-		end if;
+		begin
+			if new.email_confirmed_at is not null
+				and old.email_confirmed_at is distinct from new.email_confirmed_at
+			then
+				perform public.vidjo_create_profile_for_user(new.id, new.raw_user_meta_data);
+			end if;
+		exception
+			when others then
+				-- Profile setup can be completed in the app; never make auth confirmation fail.
+				raise warning 'vidjo_handle_confirmed_user profile setup failed for %: %', new.id, sqlerrm;
+		end;
 		return new;
 	end;
 	$$;

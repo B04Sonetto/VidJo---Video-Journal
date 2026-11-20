@@ -139,6 +139,12 @@ If the social tables have not been created yet, the app falls back to local
 community membership and logs a console warning. Run the updated `schema.sql` to
 make membership, requests, reactions, and comments persist across deployments.
 
+If account creation fails with **"Database error saving new user"**, run
+[`fixes/fix-signup-profile-trigger.sql`](fixes/fix-signup-profile-trigger.sql) in
+the Supabase SQL editor. It prevents optional profile creation from aborting
+authentication; users can finish profile setup in VidJo after signing in. Check
+the Supabase Postgres logs for the underlying profile error.
+
 ## 6. Google sign-in (optional)
 
 Google is disabled by default in a new Supabase project. To enable it:
