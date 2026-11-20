@@ -1150,6 +1150,15 @@
 							<Button variant="outline" onclick={() => void spotify.disconnect()}>
 								Disconnect
 							</Button>
+						{:else if !spotify.connectionKnown}
+							<button
+								type="button"
+								class="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-[#1DB954]/70 px-4 font-ui text-sm font-bold text-[#062012] shadow-[0_10px_24px_rgba(29,185,84,.16)] disabled:cursor-not-allowed disabled:opacity-70"
+								disabled
+							>
+								<CommunityIcon name="refresh" size={16} class="animate-spin" />
+								Checking Spotify…
+							</button>
 						{:else}
 							<button
 								type="button"

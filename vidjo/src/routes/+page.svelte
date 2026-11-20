@@ -18,6 +18,7 @@
 	import { journal } from '#lib/state/journal.svelte';
 	import { moderation } from '#lib/state/moderation.svelte';
 	import { profile } from '#lib/state/profile.svelte';
+	import { spotify } from '#lib/state/spotify.svelte';
 	import { friends } from '#lib/state/friends.svelte';
 	import { messages } from '#lib/state/messages.svelte';
 	import { community } from '#lib/state/community.svelte';
@@ -42,6 +43,10 @@
 	onMount(() => {
 		const cleanupViewport = viewport.init();
 		void auth.init();
+
+		// Spotify OAuth returns to this route after a full page load. Restore
+		// the tab the user was on when they pressed Connect, then tidy the URL.
+		spotify.restoreReturnState(new URL(window.location.href));
 
 		return () => {
 			cleanupViewport();

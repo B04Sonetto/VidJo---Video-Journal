@@ -1,4 +1,7 @@
-﻿const browser = typeof window !== 'undefined';
+﻿import { nav } from '#lib/state/navigation.svelte';
+
+const browser = typeof window !== 'undefined';
+const RETURN_KEY = 'vidjo_spotify_return';
 
 export type SpotifyTrack = {
 	uri: string;
@@ -29,6 +32,8 @@ function isLikelyPremium(product: string) {
 class SpotifyState {
 	status = $state<SpotifyStatus>('idle');
 	connected = $state(false);
+	/** True after the first server-side connection check, so UI doesn't prompt to sign in before we know. */
+	connectionKnown = $state(false);
 	configured = $state(true);
 	accountName = $state('');
 	accountProduct = $state('');
@@ -57,6 +62,7 @@ class SpotifyState {
 	private refreshTimer: ReturnType<typeof setTimeout> | null = null;
 	private progressTimer: ReturnType<typeof setInterval> | null = null;
 	private initPromise: Promise<void> | null = null;
+	private connectionCheck: Promise<void> | null = null;
 
 	get canControl() {
 		return this.connected && this.ready && !!this.deviceId;
@@ -97,6 +103,23 @@ class SpotifyState {
 
 	async refreshConnection(openPanelOnConnect = false) {
 		if (!browser) return;
+		if (openPanelOnConnect) this.panelOpen = true;
+		if (this.connectionCheck) return this.connectionCheck;
+
+		const check = this.doRefreshConnection();
+		this.connectionCheck = check;
+		try {
+			await check;
+		} finally {
+			if (this.connectionCheck === check) this.connectionCheck = null;
+		}
+	}
+
+	private async doRefreshConnection() {
+		// A callback error is shown by handleCallbackParams(). The status check
+		// that runs on mount resolves afterwards and used to wipe that message,
+		// so keep an existing error unless this is an explicit reconnect.
+		const preserveError = Boolean(this.error);
 		try {
 			const res = await fetch('/auth/spotify/token', { cache: 'no-store' });
 			const data = await res.json().catch(() => ({}));
@@ -105,15 +128,17 @@ class SpotifyState {
 			if (this.connected) {
 				this.setToken(data.access_token, data.expires_in || 3600);
 				await this.loadProfile();
-				if (openPanelOnConnect) this.panelOpen = true;
+				if (preserveError && this.connected) this.error = '';
 				this.status = this.status === 'idle' ? 'loading' : this.status;
 			} else {
-				this.clearSession(false);
+				this.clearSession(false, !preserveError);
 				this.status = this.configured ? 'idle' : 'unsupported';
 			}
 		} catch {
-			this.error = 'Could not check Spotify connection.';
+			this.error = preserveError ? this.error : 'Could not check Spotify connection.';
 			this.status = 'error';
+		} finally {
+			this.connectionKnown = true;
 		}
 	}
 
@@ -283,6 +308,14 @@ class SpotifyState {
 
 	async connect() {
 		if (!browser) return;
+		if (!this.connectionKnown) {
+			await this.refreshConnection(false);
+		}
+		if (this.connected) {
+			this.panelOpen = true;
+			void this.ensurePlayer();
+			return;
+		}
 		if (!this.configured) {
 			this.error =
 				'Spotify is not configured on the server. Add SPOTIFY_CLIENT_ID and SPOTIFY_CLIENT_SECRET, then redeploy.';
@@ -291,9 +324,22 @@ class SpotifyState {
 		}
 		this.error = '';
 		this.notice = '';
-		// Full top-level navigation to the server auth route. The service worker
-		// must bypass /auth/* so the OAuth redirect to Spotify is not intercepted.
-		window.location.assign('/auth/spotify/login');
+		// Full top-level navigation to the server auth route. Carry the current
+		// route and tab so the user lands back where they pressed Connect.
+		const returnUrl = new URL(window.location.href);
+		returnUrl.searchParams.set('vj_view', nav.view);
+		if (nav.view === 'friends') returnUrl.searchParams.set('vj_friends_tab', nav.friendsTab);
+		if (nav.view === 'profile') returnUrl.searchParams.set('vj_profile_tab', nav.profileTab);
+		const returnTo = `${returnUrl.pathname}${returnUrl.search}${returnUrl.hash}`;
+		// Keep a tab-local copy as a fallback for flows where the callback lands
+		// on a different origin and neither the cookie nor signed state survives.
+		try {
+			sessionStorage.setItem(RETURN_KEY, returnTo);
+		} catch {
+			// Private browsing can block storage; the signed state is the primary path.
+		}
+		// The service worker bypasses /auth/* so the OAuth redirect is not intercepted.
+		window.location.assign(`/auth/spotify/login?returnTo=${encodeURIComponent(returnTo)}`);
 	}
 
 	async disconnect() {
@@ -306,7 +352,7 @@ class SpotifyState {
 		}
 	}
 
-	private clearSession(clearNotice = false) {
+	private clearSession(clearNotice = false, clearError = true) {
 		this.connected = false;
 		this.accountName = '';
 		this.accountProduct = '';
@@ -321,7 +367,7 @@ class SpotifyState {
 		this.token = null;
 		this.tokenExpiresAt = 0;
 		if (!clearNotice) this.notice = '';
-		this.error = '';
+		if (clearError) this.error = '';
 		if (this.refreshTimer) clearTimeout(this.refreshTimer);
 		this.stopProgressLoop();
 		if (this.player) {
@@ -476,6 +522,9 @@ class SpotifyState {
 	async playTrack(track: SpotifyTrack) {
 		this.error = '';
 		this.notice = '';
+		if (!this.connectionKnown) {
+			await this.refreshConnection(false);
+		}
 		if (!this.connected) {
 			await this.connect();
 			return;
@@ -732,6 +781,64 @@ class SpotifyState {
 		return `${m}:${String(s).padStart(2, '0')}`;
 	}
 
+	/** Restore the view the user was on before a full-page Spotify OAuth redirect. */
+	restoreReturnState(url: URL) {
+		if (!browser) return;
+
+		let stored = '';
+		try {
+			stored = sessionStorage.getItem(RETURN_KEY) || '';
+			sessionStorage.removeItem(RETURN_KEY);
+		} catch {
+			// ignore blocked storage
+		}
+
+		const source = stored ? new URL(stored, window.location.origin) : new URL(window.location.href);
+		const params = url.searchParams;
+		const value = (key: string) => params.get(key) || source.searchParams.get(key);
+
+		const view = value('vj_view');
+		if (
+			view === 'journal' ||
+			view === 'friends' ||
+			view === 'community' ||
+			view === 'profile' ||
+			view === 'notifications'
+		) {
+			nav.setView(view);
+		}
+		const friendsTab = value('vj_friends_tab');
+		if (friendsTab === 'shelf' || friendsTab === 'messages') {
+			nav.setFriendsTab(friendsTab);
+		}
+		const profileTab = value('vj_profile_tab');
+		if (
+			profileTab === 'overview' ||
+			profileTab === 'portfolio' ||
+			profileTab === 'achievements' ||
+			profileTab === 'settings' ||
+			profileTab === 'edit'
+		) {
+			nav.profileTab = profileTab;
+		}
+
+		const current = new URL(window.location.href);
+		let changed = false;
+		for (const key of ['vj_view', 'vj_friends_tab', 'vj_profile_tab']) {
+			if (current.searchParams.has(key)) {
+				current.searchParams.delete(key);
+				changed = true;
+			}
+		}
+		if (changed) {
+			history.replaceState(
+				history.state,
+				'',
+				`${current.pathname}${current.search}${current.hash}`
+			);
+		}
+	}
+
 	handleCallbackParams(url: URL) {
 		if (!browser) return;
 		const connected = url.searchParams.get('spotify');
@@ -746,9 +853,10 @@ class SpotifyState {
 			const map: Record<string, string> = {
 				access_denied: 'Spotify connection was cancelled.',
 				not_configured: 'Spotify is not configured on the server yet.',
-				invalid_state: 'Spotify sign-in could not be verified. Try connecting again.'
+				invalid_state: 'Spotify sign-in could not be verified. Try connecting again.',
+				state_mismatch: 'Spotify sign-in could not be verified. Try connecting again.'
 			};
-			this.error = map[err] || decodeURIComponent(err);
+			this.error = map[err] || err;
 			this.panelOpen = true;
 		}
 

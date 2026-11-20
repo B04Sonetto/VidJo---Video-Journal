@@ -75,6 +75,7 @@ class Auth {
 	needsProfileCompletion = $state(false);
 
 	private started = false;
+	private restoringSession = true;
 	private unsubscribe: (() => void) | null = null;
 	private verifying: Promise<void> | null = null;
 
@@ -131,6 +132,7 @@ class Auth {
 	async init() {
 		if (this.started) return;
 		this.started = true;
+		this.restoringSession = true;
 
 		if (!isSupabaseConfigured) {
 			this.ready = true;
@@ -142,6 +144,11 @@ class Auth {
 		const recoveryRedirect = isRecoveryRedirect();
 
 		const { data } = supabase.auth.onAuthStateChange((event, session) => {
+			// The listener can fire with an empty session before storage is read.
+			// Ignore that until getSession() has had a chance to restore it, so a
+			// full-page OAuth return does not flash the sign-in screen.
+			if (this.restoringSession && !session) return;
+
 			const incoming = session?.user ?? null;
 			if (incoming && !isRegisteredUser(incoming)) {
 				// The cached user can predate the registration stamp. Verify it against
@@ -170,6 +177,7 @@ class Auth {
 		} catch (error) {
 			console.warn('[VidJo] Could not restore the Supabase session.', error);
 		} finally {
+			this.restoringSession = false;
 			this.ready = true;
 			if (recoveryRedirect) this.passwordRecovery = true;
 		}

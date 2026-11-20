@@ -13,7 +13,6 @@
 	let query = $state('');
 	let searchTimer: ReturnType<typeof setTimeout> | null = null;
 	let handledCallback = $state(false);
-	let lastAuthOwner = $state('');
 
 	onMount(() => {
 		// Check connection status so the header/player UI reflects current state.
@@ -26,16 +25,8 @@
 	$effect(() => {
 		if (!browser || handledCallback) return;
 		handledCallback = true;
+		spotify.restoreReturnState(new URL(window.location.href));
 		spotify.handleCallbackParams(new URL(window.location.href));
-	});
-
-	// If the signed-in VidJo user changes, refresh Spotify UI state.
-	$effect(() => {
-		if (!auth.ready) return;
-		const owner = auth.ownerId || 'anon';
-		if (owner === lastAuthOwner) return;
-		lastAuthOwner = owner;
-		void spotify.refreshConnection(false);
 	});
 
 	function onSearchInput(value: string) {
@@ -74,6 +65,13 @@
 	// screen sent people through Spotify and straight back to the login form.
 	const showBar = $derived(
 		auth.ready && auth.active && (spotify.connected || spotify.track || spotify.panelOpen)
+	);
+	const showConnectButton = $derived(
+		auth.active &&
+			spotify.connectionKnown &&
+			spotify.configured &&
+			spotify.status !== 'unsupported' &&
+			!showBar
 	);
 
 	async function attachCurrentToToday() {
@@ -568,6 +566,18 @@
 	{:else if !spotify.panelOpen && !spotify.connected}
 		<!-- no floating chrome when disconnected and closed -->
 	{/if}
+{/if}
+
+{#if showConnectButton}
+	<button
+		type="button"
+		class="fixed right-3 bottom-[calc(env(safe-area-inset-bottom)+82px)] z-[73] mx-auto flex max-w-[520px] items-center gap-2 rounded-full border border-[#1ED760]/40 bg-desk-2/96 px-4 py-2.5 font-ui text-xs font-bold text-book-bg shadow-[0_18px_50px_rgba(0,0,0,.5)] backdrop-blur-xl transition-transform hover:scale-[1.02] min-[900px]:right-5 min-[900px]:bottom-[calc(env(safe-area-inset-bottom)+20px)] min-[900px]:mx-0"
+		onclick={() => void spotify.connect()}
+		aria-label="Connect Spotify"
+	>
+		<CommunityIcon name="spotify" size={16} class="text-[#1ED760]" />
+		Connect Spotify
+	</button>
 {/if}
 
 <style>

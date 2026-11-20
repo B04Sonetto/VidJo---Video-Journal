@@ -82,6 +82,23 @@ PUBLIC_SUPABASE_PUBLISHABLE_KEY=sb_publishable_xxxxxxxxxxxxxxxxx
 
 `PUBLIC_SUPABASE_ANON_KEY` is also accepted for older projects.
 
+### Spotify (optional)
+
+Spotify playback uses server-only variables:
+
+```sh
+SPOTIFY_CLIENT_ID=your-client-id
+SPOTIFY_CLIENT_SECRET=your-client-secret
+SPOTIFY_REDIRECT_URI=https://vidjo.vercel.app/auth/spotify/callback
+```
+
+If Spotify's registered callback is on a different origin than the one you browse
+from (for example a Vercel preview or custom domain), add that origin to
+`SPOTIFY_APP_ORIGINS` (comma-separated). The player then reconnects on the tab
+you started from instead of dropping you on the sign-in screen. Vercel's
+`VERCEL_URL` and `VERCEL_PROJECT_PRODUCTION_URL` origins are trusted when the
+flow starts; add any other custom domain as an origin, without a path.
+
 Then run `supabase/schema.sql` in the Supabase SQL editor. It creates:
 
 - `public.vidjo_entries` with `auth.uid()` row-level security.
