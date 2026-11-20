@@ -9,6 +9,7 @@ import {
 	getRedirectUri,
 	safeReturnTo,
 	spotifyConfigured,
+	trustedAppOrigin,
 	withQuery
 } from '#lib/server/spotify';
 
@@ -22,7 +23,11 @@ export const GET: RequestHandler = async ({ url, cookies }) => {
 		}
 
 		const redirectUri = getRedirectUri(url.origin);
-		const { verifier, challenge, state } = await createPkce(redirectUri);
+		// Carry the destination in the signed state as well as a cookie. The
+		// callback can land on the configured production origin even when the
+		// user started on a preview/custom domain, where that cookie is absent.
+		const appOrigin = trustedAppOrigin(url.origin) ? url.origin : '';
+		const { verifier, challenge, state } = await createPkce(redirectUri, returnTo, appOrigin);
 		const opts = cookieOpts(60 * 10, secure);
 		cookies.set(COOKIE_STATE, state, opts);
 		cookies.set(COOKIE_VERIFIER, verifier, opts);

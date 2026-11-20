@@ -70,6 +70,41 @@ export function safeReturnTo(value: string | null | undefined) {
 	}
 }
 
+/**
+ * Only hand a refresh token back to origins we know are ours. Host headers can
+ * be spoofed, so `url.origin` alone is not enough to trust a cross-origin
+ * handoff. Add extra preview/custom domains to SPOTIFY_APP_ORIGINS.
+ */
+export function trustedAppOrigin(origin: string) {
+	try {
+		const parsed = new URL(origin);
+		if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return false;
+		const value = parsed.origin;
+
+		if (/^https?:\/\/(127\.0\.0\.1|localhost)(:\d+)?$/i.test(value)) return true;
+
+		const configured = (env.SPOTIFY_REDIRECT_URI || '').trim();
+		if (configured) {
+			try {
+				if (new URL(configured).origin === value) return true;
+			} catch {
+				// ignore a bad configured URI
+			}
+		}
+
+		const vercelUrl = (env.VERCEL_URL || '').trim();
+		if (vercelUrl && value === `https://${vercelUrl}`) return true;
+
+		return (env.SPOTIFY_APP_ORIGINS || '')
+			.split(',')
+			.map((item) => item.trim().replace(/\/$/, ''))
+			.filter(Boolean)
+			.includes(value);
+	} catch {
+		return false;
+	}
+}
+
 /** Append/overwrite one query parameter on a validated local path. */
 export function withQuery(target: string, key: string, value: string) {
 	const parsed = new URL(safeReturnTo(target), 'http://vidjo.local');
@@ -97,7 +132,7 @@ async function hmac(value: string) {
  * cookie slot. Spotify echoes `state` back verbatim, so this is enough to bind
  * the callback to the original request without any browser storage.
  */
-export async function createPkce(redirectUri: string) {
+export async function createPkce(redirectUri: string, returnTo = '/', origin = '') {
 	const verifier = base64url(randomBytes(32));
 	const data = new TextEncoder().encode(verifier);
 	const hash = await crypto.subtle.digest('SHA-256', data);
@@ -108,6 +143,8 @@ export async function createPkce(redirectUri: string) {
 			JSON.stringify({
 				v: verifier,
 				r: redirectUri,
+				b: safeReturnTo(returnTo),
+				o: origin,
 				t: Math.floor(Date.now() / 1000),
 				n: nonce
 			})
@@ -137,6 +174,8 @@ export async function readState(state: string) {
 		const parsed = JSON.parse(new TextDecoder().decode(fromBase64url(payload))) as {
 			v?: unknown;
 			r?: unknown;
+			b?: unknown;
+			o?: unknown;
 			t?: unknown;
 		};
 		if (
@@ -148,9 +187,53 @@ export async function readState(state: string) {
 		}
 		const age = Math.abs(Date.now() / 1000 - parsed.t);
 		if (!Number.isFinite(age) || age > STATE_TTL_SECONDS) return null;
-		return { verifier: parsed.v, redirectUri: parsed.r };
+		return {
+			verifier: parsed.v,
+			redirectUri: parsed.r,
+			returnTo: typeof parsed.b === 'string' ? safeReturnTo(parsed.b) : '/',
+			origin: typeof parsed.o === 'string' && trustedAppOrigin(parsed.o) ? parsed.o : ''
+		};
 	} catch {
 		return null;
+	}
+}
+
+async function tokenKey() {
+	const secret = env.SPOTIFY_CLIENT_SECRET || env.SPOTIFY_CLIENT_ID || 'vidjo-spotify-state';
+	const raw = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(secret));
+	return crypto.subtle.importKey('raw', raw, { name: 'AES-GCM' }, false, ['encrypt', 'decrypt']);
+}
+
+/**
+ * Encrypt the refresh token for a one-hop handoff back to the origin the user
+ * started from. Signing would not be enough: the token itself must not appear
+ * in a URL in readable form.
+ */
+export async function sealToken(value: string) {
+	const iv = randomBytes(12);
+	const key = await tokenKey();
+	const encrypted = new Uint8Array(
+		await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, key, new TextEncoder().encode(value))
+	);
+	const packed = new Uint8Array(iv.length + encrypted.length);
+	packed.set(iv, 0);
+	packed.set(encrypted, iv.length);
+	return base64url(packed);
+}
+
+export async function unsealToken(value: string) {
+	try {
+		const packed = fromBase64url(value);
+		if (packed.length <= 12) return '';
+		const key = await tokenKey();
+		const decrypted = await crypto.subtle.decrypt(
+			{ name: 'AES-GCM', iv: packed.slice(0, 12) },
+			key,
+			packed.slice(12)
+		);
+		return new TextDecoder().decode(decrypted);
+	} catch {
+		return '';
 	}
 }
 
