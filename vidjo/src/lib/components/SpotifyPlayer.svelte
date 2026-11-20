@@ -13,7 +13,6 @@
 	let query = $state('');
 	let searchTimer: ReturnType<typeof setTimeout> | null = null;
 	let handledCallback = $state(false);
-	let lastAuthOwner = $state('');
 
 	onMount(() => {
 		// Check connection status so the header/player UI reflects current state.
@@ -28,15 +27,6 @@
 		handledCallback = true;
 		spotify.restoreReturnState(new URL(window.location.href));
 		spotify.handleCallbackParams(new URL(window.location.href));
-	});
-
-	// If the signed-in VidJo user changes, refresh Spotify UI state.
-	$effect(() => {
-		if (!auth.ready) return;
-		const owner = auth.ownerId || 'anon';
-		if (owner === lastAuthOwner) return;
-		lastAuthOwner = owner;
-		void spotify.refreshConnection(false);
 	});
 
 	function onSearchInput(value: string) {

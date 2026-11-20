@@ -62,6 +62,7 @@ class SpotifyState {
 	private refreshTimer: ReturnType<typeof setTimeout> | null = null;
 	private progressTimer: ReturnType<typeof setInterval> | null = null;
 	private initPromise: Promise<void> | null = null;
+	private connectionCheck: Promise<void> | null = null;
 
 	get canControl() {
 		return this.connected && this.ready && !!this.deviceId;
@@ -102,6 +103,19 @@ class SpotifyState {
 
 	async refreshConnection(openPanelOnConnect = false) {
 		if (!browser) return;
+		if (openPanelOnConnect) this.panelOpen = true;
+		if (this.connectionCheck) return this.connectionCheck;
+
+		const check = this.doRefreshConnection();
+		this.connectionCheck = check;
+		try {
+			await check;
+		} finally {
+			if (this.connectionCheck === check) this.connectionCheck = null;
+		}
+	}
+
+	private async doRefreshConnection() {
 		// A callback error is shown by handleCallbackParams(). The status check
 		// that runs on mount resolves afterwards and used to wipe that message,
 		// so keep an existing error unless this is an explicit reconnect.
@@ -115,7 +129,6 @@ class SpotifyState {
 				this.setToken(data.access_token, data.expires_in || 3600);
 				await this.loadProfile();
 				if (preserveError && this.connected) this.error = '';
-				if (openPanelOnConnect) this.panelOpen = true;
 				this.status = this.status === 'idle' ? 'loading' : this.status;
 			} else {
 				this.clearSession(false, !preserveError);
