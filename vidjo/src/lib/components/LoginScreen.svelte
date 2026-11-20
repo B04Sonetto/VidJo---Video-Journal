@@ -15,7 +15,7 @@
 				appearance?: 'always' | 'execute' | 'interaction-only';
 				callback: (token: string) => void;
 				'expired-callback'?: () => void;
-				'error-callback'?: () => void;
+				'error-callback'?: (code?: string) => void;
 			}
 		) => string;
 		remove: (widgetId: string) => void;
@@ -74,6 +74,7 @@
 
 				callback: (token: string) => {
 					captchaToken = token;
+					captchaFailed = false;
 					// A fresh token arrives after every attempt, so only clear the CAPTCHA
 					// messages, never a real error such as a wrong password.
 					if (/still verifying|captcha/i.test(error)) error = '';
@@ -83,9 +84,13 @@
 					captchaToken = '';
 				},
 
-				'error-callback': () => {
+				'error-callback': (code?: string) => {
 					captchaToken = '';
-					error = 'CAPTCHA verification failed. Please try again.';
+					captchaFailed = true;
+					// Cloudflare's code says why (for example 110200 = this hostname is not
+					// allowed for the site key), which a bare message hides.
+					console.warn('[VidJo] Turnstile error', code, 'on', window.location.hostname);
+					error = `CAPTCHA verification failed${code ? ` (code ${code})` : ''}. Please try again.`;
 				}
 			});
 		} catch {
@@ -113,7 +118,7 @@
 	 * CAPTCHA token once protection is on, so wait for the widget to finish.
 	 */
 	function captchaReady() {
-		if (!turnstileSiteKey || captchaToken) return true;
+		if (!turnstileSiteKey || captchaToken || captchaFailed) return true;
 		error = 'Still verifying that you are human. Give it a second, then try again.';
 		return false;
 	}
@@ -153,6 +158,10 @@
 	let codePurpose = $state<'otp' | 'signup'>('otp');
 	let autoTried = false;
 	let captchaToken = $state('');
+	// True when the widget itself could not load (bad site key, blocked hostname).
+	// Requests are then sent without a token and Supabase decides, instead of the
+	// form refusing to submit at all.
+	let captchaFailed = $state(false);
 	let turnstileContainer = $state<HTMLDivElement | null>(null);
 	let turnstileWidgetId: string | null = null;
 
@@ -594,7 +603,7 @@
 			return;
 		}
 
-		if (!captchaToken) {
+		if (!captchaToken && !captchaFailed) {
 			error = 'Please complete the CAPTCHA verification.';
 			return;
 		}
