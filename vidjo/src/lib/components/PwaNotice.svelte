@@ -2,8 +2,10 @@
 	import { fly } from 'svelte/transition';
 	import { backOut } from 'svelte/easing';
 	import CommunityIcon from '#lib/components/CommunityIcon.svelte';
+	import { auth } from '#lib/state/auth.svelte';
 	import { journal } from '#lib/state/journal.svelte';
 	import { pwa } from '#lib/state/pwa.svelte';
+	import { spotify } from '#lib/state/spotify.svelte';
 
 	let wasOffline = $state(false);
 	let installVisible = $state(false);
@@ -37,8 +39,27 @@
 		}
 	});
 
-	const cardClass =
-		'fixed right-3 left-3 z-[65] mx-auto max-w-[430px] rounded-2xl border border-cover-edge bg-desk-2/98 p-4 shadow-[0_18px_50px_rgba(0,0,0,.55)] backdrop-blur-md bottom-[calc(env(safe-area-inset-bottom)+82px)] min-[900px]:right-6 min-[900px]:bottom-[max(24px,env(safe-area-inset-bottom))] min-[900px]:left-auto min-[900px]:mx-0 min-[900px]:w-[370px]';
+	// Spotify's mini player and "Connect Spotify" button are fixed to the same
+	// bottom corner and sit above this card, hiding it. Lift the card above them.
+	// (The expanded player has its own backdrop, so it needs no special case.)
+	const spotifyDocked = $derived(
+		auth.active &&
+			!spotify.panelOpen &&
+			(spotify.connected ||
+				Boolean(spotify.track) ||
+				(spotify.connectionKnown && spotify.configured && spotify.status !== 'unsupported'))
+	);
+
+	const cardBase =
+		'fixed right-3 left-3 z-[65] mx-auto max-w-[430px] rounded-2xl border border-cover-edge bg-desk-2/98 p-4 shadow-[0_18px_50px_rgba(0,0,0,.55)] backdrop-blur-md min-[900px]:right-6 min-[900px]:left-auto min-[900px]:mx-0 min-[900px]:w-[370px]';
+
+	const cardBottom = $derived(
+		spotifyDocked
+			? 'bottom-[calc(env(safe-area-inset-bottom)+170px)] min-[900px]:bottom-[calc(max(24px,env(safe-area-inset-bottom))+84px)]'
+			: 'bottom-[calc(env(safe-area-inset-bottom)+82px)] min-[900px]:bottom-[max(24px,env(safe-area-inset-bottom))]'
+	);
+
+	const cardClass = $derived(`${cardBase} ${cardBottom}`);
 </script>
 
 {#if pwa.offline}
