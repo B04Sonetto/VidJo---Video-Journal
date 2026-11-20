@@ -6,6 +6,7 @@
 	import CommunityIcon from '#lib/components/CommunityIcon.svelte';
 	import Button from '#lib/components/ui/Button.svelte';
 	import { USERNAME_MAX, validateUsername } from '#lib/username';
+	import { isValidEmail, validateSignupPassword } from '#lib/authValidation';
 
 	type TurnstileApi = {
 		render: (
@@ -281,13 +282,7 @@
 	}
 
 	function validEmail(value: string) {
-		const clean = value.trim();
-		if (!/^[^\s@]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/.test(clean)) return false;
-		const [local, domain] = clean.split('@');
-		if (!local || !domain) return false;
-		if (local.startsWith('.') || local.endsWith('.') || local.includes('..')) return false;
-		if (domain.startsWith('.') || domain.endsWith('.') || domain.includes('..')) return false;
-		return true;
+		return isValidEmail(value);
 	}
 
 	function validUsername(value: string) {
@@ -593,13 +588,9 @@
 			return;
 		}
 
-		if (password.length < 6) {
-			error = 'Use a password with at least 6 characters.';
-			return;
-		}
-
-		if (password !== confirmPassword) {
-			error = 'The two passwords do not match.';
+		const passwordError = validateSignupPassword(password, confirmPassword);
+		if (passwordError) {
+			error = passwordError;
 			return;
 		}
 
@@ -843,7 +834,7 @@
 
 			{#if notice}
 				<p
-					class="mt-4 rounded-xl border-[1.5px] border-[#9CC4A8] bg-[#EDF6EF] px-3 py-2 font-ui text-sm text-[#2F6B45]"
+					class="mt-4 rounded-xl border-[1.5px] border-success/40 bg-success/10 px-3 py-2 font-ui text-sm text-success"
 					role="status"
 				>
 					{notice}
@@ -852,7 +843,7 @@
 
 			{#if error}
 				<p
-					class="mt-4 rounded-xl border-[1.5px] border-[#D19A9A] bg-[#FBEAEA] px-3 py-2 font-ui text-sm text-[#8A2F2F]"
+					class="mt-4 rounded-xl border-[1.5px] border-danger/40 bg-danger/10 px-3 py-2 font-ui text-sm text-danger"
 					role="alert"
 				>
 					{error}

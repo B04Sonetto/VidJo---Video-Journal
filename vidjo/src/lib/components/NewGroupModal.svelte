@@ -167,7 +167,7 @@
 
 				{#if localError}
 					<p
-						class="mt-4 rounded-xl border border-[#E3B9B9] bg-[#FBEAEA] px-3 py-2 font-ui text-xs font-semibold text-[#8A2F2F]"
+						class="mt-4 rounded-xl border border-danger/40 bg-danger/10 px-3 py-2 font-ui text-xs font-semibold text-danger"
 					>
 						{localError}
 					</p>

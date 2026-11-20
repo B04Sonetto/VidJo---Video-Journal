@@ -17,6 +17,7 @@ import { journal } from '#lib/state/journal.svelte';
 import { moderation } from '#lib/state/moderation.svelte';
 import { auth } from '#lib/state/auth.svelte';
 import { cleanDisplayName, normalizeImageUrl } from '#lib/avatar';
+import { isVisibleToFriend } from '#lib/friendVisibility';
 
 const FRIENDS_CACHE_KEY = 'vidjo-friends-cache';
 const SEEN_PAGES_KEY = 'vidjo-seen-pages:v1';
@@ -579,13 +580,11 @@ class FriendsState {
 
 		if (error) throw error;
 
-		const rows = ((data as EntryRow[] | null) ?? []).filter((row) => {
-			const excluded = Array.isArray(row.excluded_friend_ids) ? row.excluded_friend_ids : [];
-			if (excluded.includes(viewerId)) return false;
-			// Community posts only cross into the friends feed when share_with_friends is set.
-			if (row.privacy === 'community' && !(row.share_with_friends ?? false)) return false;
-			return row.title || row.mind || row.refl || row.video_path || row.mood;
-		});
+		const rows = ((data as EntryRow[] | null) ?? []).filter(
+			(row) =>
+				isVisibleToFriend(row, viewerId) &&
+				(row.title || row.mind || row.refl || row.video_path || row.mood)
+		);
 		const friendMap = new SvelteMap(this.friends.map((friend) => [friend.id, friend]));
 
 		// Fetch profiles for any post authors not already in the friends list,

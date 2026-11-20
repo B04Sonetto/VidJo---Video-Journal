@@ -785,14 +785,14 @@
 
 				{#if addSuccess}
 					<p
-						class="mt-3 rounded-xl border border-[#BFDCC7] bg-[#EDF6EF] px-3 py-2 font-ui text-xs font-semibold text-[#2F6B45]"
+						class="mt-3 rounded-xl border border-success/35 bg-success/10 px-3 py-2 font-ui text-xs font-semibold text-success"
 					>
 						{addSuccess}
 					</p>
 				{/if}
 				{#if addError}
 					<p
-						class="mt-3 rounded-xl border border-[#E3B9B9] bg-[#FBEAEA] px-3 py-2 font-ui text-xs font-semibold text-[#8A2F2F]"
+						class="mt-3 rounded-xl border border-danger/40 bg-danger/10 px-3 py-2 font-ui text-xs font-semibold text-danger"
 					>
 						{addError}
 					</p>

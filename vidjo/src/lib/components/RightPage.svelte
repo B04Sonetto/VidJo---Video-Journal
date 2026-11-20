@@ -4,6 +4,7 @@
 	import { PROMPTS } from '#lib/data/prompts';
 	import { journal, TITLE_MAX } from '#lib/state/journal.svelte';
 	import { friends } from '#lib/state/friends.svelte';
+	import { isFriendExcluded, toggleExcludedFriend } from '#lib/friendVisibility';
 	import { community } from '#lib/state/community.svelte';
 	import { viewport } from '#lib/state/viewport.svelte';
 	import CommunityIcon from '#lib/components/CommunityIcon.svelte';
@@ -91,19 +92,17 @@
 	}
 
 	function isExcluded(friendId: string) {
-		return entry.excludedFriendIds.includes(friendId);
+		return isFriendExcluded(entry.excludedFriendIds, friendId);
 	}
 
 	async function toggleFriend(friendId: string) {
 		if (preview) return;
-		const excluded = [...entry.excludedFriendIds];
-		const at = excluded.indexOf(friendId);
-		if (at >= 0) excluded.splice(at, 1);
-		else excluded.push(friendId);
-
 		// Private pages are owner-only in RLS, so included/excluded lists only
 		// control the friends/community audience shown here.
-		journal.updateCurrent({ excludedFriendIds: excluded, includedFriendIds: [] });
+		journal.updateCurrent({
+			excludedFriendIds: toggleExcludedFriend(entry.excludedFriendIds, friendId),
+			includedFriendIds: []
+		});
 		await journal.flush();
 	}
 
@@ -304,9 +303,13 @@
 							class="shrink-0 rounded-full border px-2.5 py-0.5 font-ui text-xs font-semibold transition-all {isExcluded(
 								friend.id
 							)
-								? 'border-red-500 bg-red-500/10 text-red-700'
+								? 'border-danger/60 bg-danger/10 text-danger'
 								: 'border-line bg-paper/70 text-ink-soft hover:bg-light'}"
 							onclick={() => toggleFriend(friend.id)}
+							aria-pressed={isExcluded(friend.id)}
+							aria-label="{friend.displayName}: {isExcluded(friend.id)
+								? 'hidden from this page'
+								: 'visible on this page'}"
 							title={isExcluded(friend.id) ? 'Hidden from this friend' : 'This friend can see it'}
 						>
 							{friend.displayName.split(' ')[0]}

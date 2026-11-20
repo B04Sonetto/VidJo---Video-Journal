@@ -507,7 +507,7 @@
 
 				{#if localError}
 					<p
-						class="rounded-xl border border-[#E3B9B9] bg-[#FBEAEA] px-3 py-2 font-ui text-xs font-semibold text-[#8A2F2F]"
+						class="rounded-xl border border-danger/40 bg-danger/10 px-3 py-2 font-ui text-xs font-semibold text-danger"
 					>
 						{localError}
 					</p>
@@ -518,7 +518,7 @@
 				{#if isGroup}
 					<button
 						type="button"
-						class="min-h-10 rounded-xl border border-[#D19A9A]/60 px-3 font-ui text-xs font-bold text-[#8A2F2F] transition-colors hover:bg-[#D19A9A]/15"
+						class="min-h-10 rounded-xl border border-danger/40 px-3 font-ui text-xs font-bold text-danger transition-colors hover:bg-danger/10"
 						onclick={() => void leave()}
 					>
 						Leave group

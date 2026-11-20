@@ -707,7 +707,7 @@
 
 				{#if messages.error}
 					<div class="shrink-0 border-t border-[#E3B9B9] bg-[#FBEAEA] px-3 py-2">
-						<p class="font-ui text-xs font-semibold text-[#8A2F2F]">{messages.error}</p>
+						<p class="font-ui text-xs font-semibold text-danger">{messages.error}</p>
 					</div>
 				{/if}
 
