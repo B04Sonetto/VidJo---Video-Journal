@@ -95,6 +95,9 @@ export function trustedAppOrigin(origin: string) {
 		const vercelUrl = (env.VERCEL_URL || '').trim();
 		if (vercelUrl && value === `https://${vercelUrl}`) return true;
 
+		const productionUrl = (env.VERCEL_PROJECT_PRODUCTION_URL || '').trim();
+		if (productionUrl && value === `https://${productionUrl}`) return true;
+
 		return (env.SPOTIFY_APP_ORIGINS || '')
 			.split(',')
 			.map((item) => item.trim().replace(/\/$/, ''))
