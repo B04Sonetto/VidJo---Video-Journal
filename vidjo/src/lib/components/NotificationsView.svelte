@@ -5,6 +5,7 @@
 	import { nav } from '#lib/state/navigation.svelte';
 	import { todayKey } from '#lib/dates';
 	import Avatar from '#lib/components/Avatar.svelte';
+	import GroupAvatar from '#lib/components/GroupAvatar.svelte';
 	import CommunityIcon from '#lib/components/CommunityIcon.svelte';
 	import PageHeader from '#lib/components/ui/PageHeader.svelte';
 	import Button from '#lib/components/ui/Button.svelte';
@@ -614,13 +615,22 @@
 												class="absolute -inset-1 rounded-full border border-dashed border-gold/60"
 												aria-hidden="true"
 											></span>
-											<Avatar
-												src={threadAvatar(thread)}
-												name={threadName(thread)}
-												className="size-11"
-												textClass="text-lg"
-												ring="ring-2 ring-gold/50"
-											/>
+											{#if thread.kind === 'group'}
+												<GroupAvatar
+													members={thread.members}
+													title={threadName(thread)}
+													size="md"
+													ring="ring-2 ring-book-bg"
+												/>
+											{:else}
+												<Avatar
+													src={threadAvatar(thread)}
+													name={threadName(thread)}
+													className="size-11"
+													textClass="text-lg"
+													ring="ring-2 ring-gold/50"
+												/>
+											{/if}
 										</div>
 
 										<div class="min-w-0 flex-1">

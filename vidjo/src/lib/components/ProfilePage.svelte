@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { onDestroy } from 'svelte';
 	import { auth } from '#lib/state/auth.svelte';
 	import { censor } from '#lib/censor';
 	import { DEFAULT_PREFERENCES, profile, type NotebookStyle } from '#lib/state/profile.svelte';
@@ -18,6 +19,7 @@
 	import Button from '#lib/components/ui/Button.svelte';
 	import ConfirmModal from '#lib/components/ConfirmModal.svelte';
 	import PromptModal from '#lib/components/PromptModal.svelte';
+	import ImageCropModal from '#lib/components/ImageCropModal.svelte';
 	import { spotify } from '#lib/state/spotify.svelte';
 	import { THEMES, type ThemeName } from '#lib/themes';
 	import { USERNAME_MAX, validateUsername } from '#lib/username';
@@ -74,6 +76,10 @@
 	let editBanner = $state('');
 	let avatarFile = $state<File | null>(null);
 	let bannerFile = $state<File | null>(null);
+	let avatarPreview = $state('');
+	let bannerPreview = $state('');
+	let cropKind = $state<'avatar' | 'banner' | null>(null);
+	let cropSource = $state<File | null>(null);
 	let editError = $state('');
 	let editSaving = $state(false);
 	let editSeed = '';
@@ -360,12 +366,53 @@
 		if (confirmRemove === 'avatar') {
 			editAvatar = '';
 			avatarFile = null;
+			clearPreview('avatar');
 		} else if (confirmRemove === 'banner') {
 			editBanner = '';
 			bannerFile = null;
+			clearPreview('banner');
 		}
 		confirmRemove = null;
 	}
+
+	function clearPreview(kind: 'avatar' | 'banner') {
+		if (kind === 'avatar') {
+			if (avatarPreview) URL.revokeObjectURL(avatarPreview);
+			avatarPreview = '';
+		} else {
+			if (bannerPreview) URL.revokeObjectURL(bannerPreview);
+			bannerPreview = '';
+		}
+	}
+
+	function startCrop(kind: 'avatar' | 'banner', file: File) {
+		cropSource = file;
+		cropKind = kind;
+	}
+
+	function acceptCrop(result: File, previewUrl: string) {
+		if (cropKind === 'avatar') {
+			clearPreview('avatar');
+			avatarFile = result;
+			avatarPreview = previewUrl;
+		} else if (cropKind === 'banner') {
+			clearPreview('banner');
+			bannerFile = result;
+			bannerPreview = previewUrl;
+		}
+		cropKind = null;
+		cropSource = null;
+	}
+
+	function cancelCrop() {
+		cropKind = null;
+		cropSource = null;
+	}
+
+	onDestroy(() => {
+		clearPreview('avatar');
+		clearPreview('banner');
+	});
 
 	async function saveEdits(event: SubmitEvent) {
 		event.preventDefault();
@@ -393,6 +440,7 @@
 			avatarUrl = upload.url;
 			editAvatar = upload.url;
 			avatarFile = null;
+			clearPreview('avatar');
 		}
 
 		if (bannerFile) {
@@ -405,6 +453,7 @@
 			bannerUrl = upload.url;
 			editBanner = upload.url;
 			bannerFile = null;
+			clearPreview('banner');
 		}
 
 		const result = await profile.saveProfile({
@@ -1829,13 +1878,24 @@
 								onchange={(event) => {
 									const input = event.currentTarget as HTMLInputElement;
 									const file = input.files?.[0];
-									if (file) avatarFile = file;
+									if (file) startCrop('avatar', file);
 									input.value = '';
 								}}
 							/>
 						</label>
 						{#if avatarFile}
-							<span class="font-ui text-[11px] text-book-bg/70">Selected: {avatarFile.name}</span>
+							<div class="flex items-center gap-2.5">
+								{#if avatarPreview}
+									<img
+										src={avatarPreview}
+										alt="Your selected crop preview"
+										class="size-12 shrink-0 rounded-full object-cover ring-2 ring-gold/50"
+									/>
+								{/if}
+								<span class="min-w-0 font-ui text-[11px] text-book-bg/70"
+									>Selected: {avatarFile.name}</span
+								>
+							</div>
 						{:else if editAvatar}
 							<button
 								type="button"
@@ -1863,13 +1923,24 @@
 								onchange={(event) => {
 									const input = event.currentTarget as HTMLInputElement;
 									const file = input.files?.[0];
-									if (file) bannerFile = file;
+									if (file) startCrop('banner', file);
 									input.value = '';
 								}}
 							/>
 						</label>
 						{#if bannerFile}
-							<span class="font-ui text-[11px] text-book-bg/70">Selected: {bannerFile.name}</span>
+							<div class="flex items-center gap-2.5">
+								{#if bannerPreview}
+									<img
+										src={bannerPreview}
+										alt="Adjusted banner"
+										class="h-10 w-28 shrink-0 rounded-lg object-cover ring-1 ring-gold/50"
+									/>
+								{/if}
+								<span class="min-w-0 font-ui text-[11px] text-book-bg/70"
+									>Selected: {bannerFile.name}</span
+								>
+							</div>
 						{:else if editBanner}
 							<button
 								type="button"
@@ -1892,6 +1963,15 @@
 				</div>
 			</form>
 		</div>
+	{/if}
+
+	{#if cropSource && cropKind}
+		<ImageCropModal
+			file={cropSource}
+			kind={cropKind}
+			onCancel={cancelCrop}
+			onConfirm={acceptCrop}
+		/>
 	{/if}
 
 	<ConfirmModal

@@ -2,6 +2,7 @@
 	import { messages } from '#lib/state/messages.svelte';
 	import { friends } from '#lib/state/friends.svelte';
 	import Avatar from '#lib/components/Avatar.svelte';
+	import GroupAvatar from '#lib/components/GroupAvatar.svelte';
 	import CommunityIcon from '#lib/components/CommunityIcon.svelte';
 	import { isThemeName, THEMES } from '#lib/themes';
 	import type { DmThreadMember, DmThreadSummary } from '#lib/types';
@@ -192,22 +193,13 @@
 		>
 			<div class="flex items-center gap-3 border-b border-line px-5 py-4">
 				{#if isGroup}
-					{#if photoUrl}
-						<Avatar
-							src={photoUrl}
-							name={thread.title || 'Group chat'}
-							className="size-12 shrink-0"
-							textClass="text-base"
-							ring="ring-2 ring-gold/50"
-						/>
-					{:else}
-						<span
-							class="flex size-12 shrink-0 items-center justify-center rounded-full bg-cover/45 text-book-accent"
-							aria-hidden="true"
-						>
-							<CommunityIcon name="users" size={20} />
-						</span>
-					{/if}
+					<GroupAvatar
+						{members}
+						{photoUrl}
+						title={thread.title || 'Group chat'}
+						size="lg"
+						ring="ring-2 ring-book-bg"
+					/>
 				{:else}
 					<Avatar
 						src={peer?.avatar ?? null}
@@ -266,30 +258,68 @@
 					</button>
 				</section>
 
-				{#if isGroup && isOwner}
+				{#if isGroup}
 					<section>
 						<h3 class="font-ui text-xs font-bold tracking-wide text-book-ink/70 uppercase">
 							Group details
 						</h3>
+						{#if isOwner}
+							<div class="mt-2 flex flex-wrap gap-2">
+								<button
+									type="button"
+									class="min-h-9 rounded-lg border border-line bg-book-bg px-3 font-ui text-xs font-bold text-book-ink/80 transition-colors hover:bg-paper-deep"
+									onclick={() => {
+										renameOpen = !renameOpen;
+										renameValue = thread.title ?? '';
+										localError = '';
+									}}
+								>
+									Rename group
+								</button>
+								<button
+									type="button"
+									class="min-h-9 rounded-lg border border-line bg-book-bg px-3 font-ui text-xs font-bold text-book-ink/80 transition-colors hover:bg-paper-deep"
+									onclick={() => photoInputEl?.click()}
+								>
+									Change photo
+								</button>
+							</div>
+							<input
+								bind:this={photoInputEl}
+								type="file"
+								accept="image/png,image/jpeg,image/webp,image/gif"
+								class="sr-only"
+								tabindex="-1"
+								onchange={(event) => void changePhoto(event)}
+								aria-hidden="true"
+							/>
+
+							{#if renameOpen}
+								<form
+									class="mt-3 flex gap-2"
+									onsubmit={(event) => {
+										event.preventDefault();
+										void rename();
+									}}
+								>
+									<label class="sr-only" for="group-rename">Group name</label>
+									<input
+										id="group-rename"
+										bind:value={renameValue}
+										maxlength="60"
+										class="h-10 min-w-0 flex-1 rounded-xl border border-line bg-book-bg px-3 font-ui text-sm text-book-ink focus:border-book-accent focus:outline-none"
+									/>
+									<button
+										type="submit"
+										class="min-h-10 rounded-xl bg-cta px-3 font-ui text-xs font-bold text-cta-text transition-colors hover:bg-cta-hover"
+									>
+										Save
+									</button>
+								</form>
+							{/if}
+						{/if}
+
 						<div class="mt-2 flex flex-wrap gap-2">
-							<button
-								type="button"
-								class="min-h-9 rounded-lg border border-line bg-book-bg px-3 font-ui text-xs font-bold text-book-ink/80 transition-colors hover:bg-paper-deep"
-								onclick={() => {
-									renameOpen = !renameOpen;
-									renameValue = thread.title ?? '';
-									localError = '';
-								}}
-							>
-								Rename group
-							</button>
-							<button
-								type="button"
-								class="min-h-9 rounded-lg border border-line bg-book-bg px-3 font-ui text-xs font-bold text-book-ink/80 transition-colors hover:bg-paper-deep"
-								onclick={() => photoInputEl?.click()}
-							>
-								Change photo
-							</button>
 							<button
 								type="button"
 								class="min-h-9 rounded-lg bg-cta px-3 font-ui text-xs font-bold text-cta-text transition-colors hover:bg-cta-hover"
@@ -302,39 +332,6 @@
 								Add people
 							</button>
 						</div>
-						<input
-							bind:this={photoInputEl}
-							type="file"
-							accept="image/png,image/jpeg,image/webp,image/gif"
-							class="sr-only"
-							tabindex="-1"
-							onchange={(event) => void changePhoto(event)}
-							aria-hidden="true"
-						/>
-
-						{#if renameOpen}
-							<form
-								class="mt-3 flex gap-2"
-								onsubmit={(event) => {
-									event.preventDefault();
-									void rename();
-								}}
-							>
-								<label class="sr-only" for="group-rename">Group name</label>
-								<input
-									id="group-rename"
-									bind:value={renameValue}
-									maxlength="60"
-									class="h-10 min-w-0 flex-1 rounded-xl border border-line bg-book-bg px-3 font-ui text-sm text-book-ink focus:border-book-accent focus:outline-none"
-								/>
-								<button
-									type="submit"
-									class="min-h-10 rounded-xl bg-cta px-3 font-ui text-xs font-bold text-cta-text transition-colors hover:bg-cta-hover"
-								>
-									Save
-								</button>
-							</form>
-						{/if}
 
 						{#if addOpen}
 							<div class="mt-3 rounded-xl border border-line bg-book-bg p-2">

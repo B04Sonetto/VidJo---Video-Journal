@@ -209,8 +209,11 @@ Rules enforced by the schema:
 
 - Direct threads only exist between accepted friends. Sending re-checks the
   friendship, so unfriending makes an existing direct thread read-only.
-- Groups are created by an owner who can only invite their own friends. Groups
-  can hold up to 12 people. Only the owner can add, remove, or rename members.
+- Groups are created by an owner. Any member can invite their own friends; groups
+  can hold up to 12 people. Only the owner can remove members, rename the group,
+  or change its photo. Existing databases should run
+  [`fixes/fix-group-invites.sql`](./fixes/fix-group-invites.sql) after updating the
+  app so member invites work.
 - Every write goes through a `SECURITY DEFINER` RPC:
   `vidjo_dm_send` (text and/or an uploaded photo path or Giphy URL),
   `vidjo_dm_send_direct`, `vidjo_dm_create_group`, `vidjo_dm_add_members`,

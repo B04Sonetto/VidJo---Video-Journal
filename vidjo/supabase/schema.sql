@@ -1940,9 +1940,9 @@
 	-- ---------------------------------------------------------------------------
 	-- Messaging is friends-first. Direct threads only exist between accepted
 	-- friends and become read-only if the pair unfriends. Groups are created by an
-	-- owner who can only invite their own friends. Every write goes through the
-	-- SECURITY DEFINER RPCs below; clients only receive SELECT grants on the three
-	-- tables.
+	-- owner, and any member can invite their own friends. Every write goes through
+	-- the SECURITY DEFINER RPCs below; clients only receive SELECT grants on the
+	-- three tables.
 
 	create table if not exists public.vidjo_dm_threads (
 		id uuid primary key default gen_random_uuid(),
@@ -2617,7 +2617,6 @@
 	as $$
 	declare
 		v_user uuid := auth.uid();
-		v_role text;
 		v_kind text;
 		v_ids uuid[];
 		v_id uuid;
@@ -2638,13 +2637,8 @@
 			raise exception 'Only group chats can add members.';
 		end if;
 
-		select role into v_role
-		from public.vidjo_dm_participants
-		where thread_id = p_thread and user_id = v_user;
-
-		if v_role <> 'owner' then
-			raise exception 'Only the group owner can add people.';
-		end if;
+		-- Any current member may invite their own friends. The participant check
+		-- above already proves the caller belongs to this group.
 
 		select array_agg(distinct t.member_id) into v_ids
 		from unnest(p_member_ids) as t(member_id)

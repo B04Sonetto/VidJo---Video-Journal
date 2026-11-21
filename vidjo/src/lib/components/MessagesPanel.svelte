@@ -5,6 +5,7 @@
 	import { auth } from '#lib/state/auth.svelte';
 	import { censor } from '#lib/censor';
 	import Avatar from '#lib/components/Avatar.svelte';
+	import GroupAvatar from '#lib/components/GroupAvatar.svelte';
 	import MessageBubble from '#lib/components/MessageBubble.svelte';
 	import CommunityIcon from '#lib/components/CommunityIcon.svelte';
 	import NewGroupModal from '#lib/components/NewGroupModal.svelte';
@@ -456,22 +457,12 @@
 								>
 									{#if thread.kind === 'group'}
 										{@const photoPath = messages.chatSettings[thread.threadId]?.photoPath}
-										{#if photoPath && messages.imageUrls[photoPath]}
-											<Avatar
-												src={messages.imageUrls[photoPath]}
-												name={thread.title || 'Group chat'}
-												className="size-11"
-												textClass="text-lg"
-												ring="ring-2 ring-gold/40"
-											/>
-										{:else}
-											<span
-												class="flex size-11 shrink-0 items-center justify-center rounded-full bg-cover/45 text-book-accent"
-												aria-hidden="true"
-											>
-												<CommunityIcon name="users" size={19} />
-											</span>
-										{/if}
+										<GroupAvatar
+											members={thread.members}
+											photoUrl={photoPath ? (messages.imageUrls[photoPath] ?? null) : null}
+											title={thread.title || 'Group chat'}
+											size="md"
+										/>
 									{:else}
 										<Avatar
 											src={peer?.avatar ?? null}
@@ -536,22 +527,12 @@
 					</button>
 
 					{#if activeThread.kind === 'group'}
-						{#if activeGroupPhoto}
-							<Avatar
-								src={activeGroupPhoto}
-								name={activeThread.title || 'Group chat'}
-								className="size-10"
-								textClass="text-base"
-								ring="ring-2 ring-gold/40"
-							/>
-						{:else}
-							<span
-								class="flex size-10 shrink-0 items-center justify-center rounded-full bg-cover/45 text-book-accent"
-								aria-hidden="true"
-							>
-								<CommunityIcon name="users" size={18} />
-							</span>
-						{/if}
+						<GroupAvatar
+							members={messages.membersByThread[activeThread.threadId] ?? activeThread.members}
+							photoUrl={activeGroupPhoto || null}
+							title={activeThread.title || 'Group chat'}
+							size="sm"
+						/>
 					{:else}
 						<Avatar
 							src={messages.peerFor(activeThread)?.avatar ?? null}
@@ -972,11 +953,11 @@
 										onclick={() => void forwardTo(thread.threadId)}
 									>
 										{#if thread.kind === 'group'}
-											<span
-												class="flex size-10 shrink-0 items-center justify-center rounded-full bg-cover/45 text-book-accent"
-											>
-												<CommunityIcon name="users" size={17} />
-											</span>
+											<GroupAvatar
+												members={thread.members}
+												title={thread.title || 'Group chat'}
+												size="sm"
+											/>
 										{:else}
 											<Avatar
 												src={peer?.avatar ?? null}
