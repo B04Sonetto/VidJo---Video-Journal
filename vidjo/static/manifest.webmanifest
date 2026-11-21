@@ -12,6 +12,7 @@
 	"lang": "en",
 	"dir": "ltr",
 	"categories": ["lifestyle", "education", "productivity"],
+	"permissions": ["notifications"],
 	"icons": [
 		{
 			"src": "/icons/icon-192.png",

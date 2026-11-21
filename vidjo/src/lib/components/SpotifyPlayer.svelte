@@ -115,8 +115,8 @@
 			onclick={() => (spotify.panelOpen = false)}
 			aria-hidden="true"
 		></div>
-		<aside
-			class="fixed right-3 bottom-[calc(env(safe-area-inset-bottom)+82px)] left-3 z-[75] mx-auto max-h-[min(76dvh,680px)] max-w-[520px] overflow-hidden rounded-[28px] border border-cover-edge bg-desk-2/98 text-book-bg shadow-[0_30px_90px_rgba(0,0,0,.62)] backdrop-blur-xl min-[900px]:right-5 min-[900px]:bottom-[calc(env(safe-area-inset-bottom)+20px)] min-[900px]:left-auto min-[900px]:w-[420px]"
+		<div
+			class="fixed right-3 bottom-[calc(env(safe-area-inset-bottom)+82px)] left-3 z-[75] mx-auto max-h-[min(62dvh,560px)] max-w-[420px] overflow-hidden rounded-[20px] border border-cover-edge bg-desk-2/98 text-book-bg shadow-[0_30px_90px_rgba(0,0,0,.62)] backdrop-blur-xl min-[900px]:right-5 min-[900px]:bottom-[calc(env(safe-area-inset-bottom)+20px)] min-[900px]:left-auto min-[900px]:max-h-[min(76dvh,680px)] min-[900px]:w-[420px] min-[900px]:rounded-[28px]"
 			transition:fly={{ y: 24, duration: 260, easing: backOut }}
 			role="dialog"
 			aria-label="Spotify player"
@@ -125,9 +125,11 @@
 				class="spotify-theme-glow pointer-events-none absolute inset-0 opacity-80"
 				aria-hidden="true"
 			></div>
-			<div class="relative flex max-h-[min(76dvh,680px)] flex-col">
+			<div
+				class="relative flex max-h-[min(62dvh,560px)] flex-col min-[900px]:max-h-[min(76dvh,680px)]"
+			>
 				<header
-					class="flex items-start justify-between gap-3 border-b border-cover-edge/70 px-4 py-4"
+					class="flex items-start justify-between gap-3 border-b border-cover-edge/70 px-3 py-2.5 min-[720px]:px-4 min-[720px]:py-4"
 				>
 					<div class="min-w-0">
 						<div class="flex items-center gap-2">
@@ -480,7 +482,7 @@
 					{/if}
 				</div>
 			</div>
-		</aside>
+		</div>
 	{/if}
 
 	{#if !spotify.panelOpen && (spotify.connected || spotify.track)}
@@ -495,15 +497,17 @@
 					class="spotify-theme-glow pointer-events-none absolute inset-0 opacity-60"
 					aria-hidden="true"
 				></div>
-				<div class="relative flex items-center gap-2.5 p-2.5 pr-2">
+				<div
+					class="relative flex items-center gap-2 p-2 pr-1.5 min-[480px]:gap-2.5 min-[480px]:p-2.5 min-[480px]:pr-2"
+				>
 					<button
 						type="button"
-						class="flex min-w-0 flex-1 items-center gap-2.5 rounded-xl p-1 text-left hover:bg-cover/20"
+						class="flex min-w-0 flex-1 items-center gap-2 rounded-xl p-0.5 text-left hover:bg-cover/20 min-[480px]:gap-2.5 min-[480px]:p-1"
 						onclick={() => spotify.openPanel()}
 						aria-label="Open Spotify player"
 					>
 						<div
-							class="relative size-11 shrink-0 overflow-hidden rounded-xl border border-cover-edge/70 bg-cover/40"
+							class="relative size-9 shrink-0 overflow-hidden rounded-lg border border-cover-edge/70 bg-cover/40 min-[480px]:size-11 min-[480px]:rounded-xl"
 						>
 							{#if spotify.track?.image}
 								<img src={spotify.track.image} alt="" class="h-full w-full object-cover" />
@@ -527,7 +531,7 @@
 						{#if spotify.connected}
 							<button
 								type="button"
-								class="flex size-9 items-center justify-center rounded-full bg-cta text-cta-text shadow-[0_6px_16px_var(--color-cta-shadow)] hover:bg-cta-hover disabled:opacity-40"
+								class="flex size-8 items-center justify-center rounded-full bg-cta text-cta-text shadow-[0_6px_16px_var(--color-cta-shadow)] hover:bg-cta-hover disabled:opacity-40 min-[480px]:size-9"
 								onclick={() => void spotify.togglePlay()}
 								disabled={!spotify.canControl && !spotify.track}
 								aria-label={spotify.playing ? 'Pause' : 'Play'}
@@ -545,7 +549,7 @@
 						{/if}
 						<button
 							type="button"
-							class="flex size-9 items-center justify-center rounded-full border border-cover-edge bg-cover/25 text-book-bg/75 hover:bg-cover/45 hover:text-book-bg"
+							class="flex size-8 items-center justify-center rounded-full border border-cover-edge bg-cover/25 text-book-bg/75 hover:bg-cover/45 hover:text-book-bg min-[480px]:size-9"
 							onclick={() => spotify.openPanel()}
 							aria-label="Expand player"
 						>
@@ -571,7 +575,7 @@
 {#if showConnectButton}
 	<button
 		type="button"
-		class="fixed right-3 bottom-[calc(env(safe-area-inset-bottom)+82px)] z-[73] mx-auto flex max-w-[520px] items-center gap-2 rounded-full border border-[#1ED760]/40 bg-desk-2/96 px-4 py-2.5 font-ui text-xs font-bold text-book-bg shadow-[0_18px_50px_rgba(0,0,0,.5)] backdrop-blur-xl transition-transform hover:scale-[1.02] min-[900px]:right-5 min-[900px]:bottom-[calc(env(safe-area-inset-bottom)+20px)] min-[900px]:mx-0"
+		class="fixed right-3 bottom-[calc(env(safe-area-inset-bottom)+82px)] z-[73] mx-auto flex max-w-[520px] items-center gap-2 rounded-full border border-[#1ED760]/40 bg-desk-2/96 px-3 py-2 font-ui text-xs font-bold text-book-bg shadow-[0_18px_50px_rgba(0,0,0,.5)] backdrop-blur-xl transition-transform hover:scale-[1.02] min-[480px]:px-4 min-[480px]:py-2.5 min-[900px]:right-5 min-[900px]:bottom-[calc(env(safe-area-inset-bottom)+20px)] min-[900px]:mx-0"
 		onclick={() => void spotify.connect()}
 		aria-label="Connect Spotify"
 	>

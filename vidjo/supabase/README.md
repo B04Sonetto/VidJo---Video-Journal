@@ -99,6 +99,20 @@ set up with the older trigger, run [`fix-signup-verification.sql`](./fixes/fix-s
 in the SQL editor once; it switches the triggers and releases usernames held by
 unfinished signups.
 
+If signups show `Database error saving new user`, run
+[`fix-signup-all.sql`](./fixes/fix-signup-all.sql) in the Supabase SQL editor.
+It repairs the profile trigger, removes Supabase's orphaned starter `profiles`
+trigger if present, and fixes the optional Before User Created hook together.
+It is safe to re-run. Keep the auth hook disabled until the repair completes if
+the existing hook is currently preventing all account creation.
+
+If the Postgres log says `relation "public.profiles" does not exist`, the starter
+`on_auth_user_created → handle_new_user()` trigger is still installed after
+`public.profiles` was deleted. VidJo does not use `public.profiles` — profiles
+live in `public.vidjo_profiles` — so do **not** recreate the old table. Running
+`fix-signup-all.sql` drops the orphaned trigger and function. Do not delete
+`public.vidjo_profiles`; if you did, re-run `schema.sql` to recreate it.
+
 ## 4. Friend codes, friends, and requests
 
 Every profile has a unique `VJ-XXXXXX` friend code.
@@ -218,7 +232,28 @@ recreates an older `vidjo_dm_send` overload. If you have already done that, run
 [`fixes/fix-dm-send-ambiguity.sql`](./fixes/fix-dm-send-ambiguity.sql) once to
 remove the stale overloads.
 
-## 10. Journal streaks
+## 10. Message push notifications (optional)
+
+Message alerts have two modes:
+
+- **While VidJo is open** — no server setup. In Profile → Settings → Privacy, tap **Turn on** for Message notifications and accept the browser permission prompt. A notification appears for incoming messages that are not in the conversation you are reading.
+- **In the background** — needs VAPID keys and the `dm-push` Edge Function. Without them the toggle still gives foreground alerts, so the feature is useful even before the server side is deployed.
+
+Background setup:
+
+1. Generate a VAPID key pair (for example `npx web-push generate-vapid-keys`).
+2. Add `PUBLIC_VAPID_PUBLIC_KEY=<public key>` to `vidjo/.env` and redeploy the app. The public key is safe to expose to browsers.
+3. Store the other half as Supabase secrets (Dashboard → Edge Functions → Secrets): `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, and `VAPID_SUBJECT` (for example `mailto:you@example.com`). They must match the public key from step 2.
+4. Run [`fixes/fix-push-notifications.sql`](./fixes/fix-push-notifications.sql) in the SQL editor. It creates `vidjo_push_subscriptions` with owner-only RLS; the Edge Function reads all rows with the service role.
+5. Deploy the sender: `supabase functions deploy dm-push`.
+6. Dashboard → Database → Webhooks → Create a webhook for `public.vidjo_dm_messages`, event `INSERT`, type `HTTP Request`, URL `https://<project-ref>.supabase.co/functions/v1/dm-push`, with an authorization header of `Bearer <service_role_key>`.
+7. Turn notifications on from each device. The browser subscription is saved to `vidjo_push_subscriptions`, and the function fans each new message out to every thread member except the sender.
+
+Tapping a notification focuses the open app, or opens it if it was closed. Subscriptions rejected with 404/410 by the push service are deleted automatically.
+
+When `PUBLIC_VAPID_PUBLIC_KEY` is empty, the app deliberately never calls `pushManager.subscribe()` — foreground notifications still work and no subscription rows are created.
+
+## 11. Journal streaks
 
 Streaks are calculated from the same pages the calendar counts: a saved page or
 any page with a mood, title, thought, reflection, sticker, video, or friend
@@ -241,18 +276,19 @@ it and to widen the future-page trigger for members outside UTC.
 
 ## Troubleshooting
 
-| Symptom                                                                                     | Fix                                                                                                                                                    |
-| ------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Email code returns error for non-existent email                                             | Enable **Prevent email enumeration** in Supabase Auth settings.                                                                                        |
-| Username is already taken                                                                   | Usernames are globally unique. Pick a different handle.                                                                                                |
-| Account appears before the code is entered, or retrying says username taken / sends no code | Run `supabase/fixes/fix-signup-verification.sql` in the SQL editor.                                                                                    |
-| Friend code is not found                                                                    | Both accounts must exist in `vidjo_profiles`, and the code must include the `VJ-` prefix. Re-run `schema.sql` if codes are missing.                    |
-| Communities or friends disappear after deploy                                               | Re-run `schema.sql` so the social tables, `community_slug`, and RPCs exist. Local membership is only a fallback.                                       |
-| Video does not play                                                                         | Check that the `vidjo-videos` bucket exists and re-run `schema.sql`.                                                                                   |
-| Photos do not send                                                                          | Check that the private `vidjo-dm-images` bucket and its storage policies exist; re-run `schema.sql`.                                                   |
-| GIF button is missing                                                                       | Set `PUBLIC_GIPHY_API_KEY` and restart the dev server or redeploy.                                                                                     |
-| GIFs do not send                                                                            | Re-run `schema.sql`, then `fixes/fix-messaging-features.sql` and `fixes/fix-chat-upgrades.sql` in that order.                                          |
-| Message send says "Could not choose the best candidate function"                            | Run `fixes/fix-dm-send-ambiguity.sql` once. It removes the 5- and 6-argument `vidjo_dm_send` overloads left behind by re-running older migrations.     |
-| Shared browser has old journal entries                                                      | Sign out with "Clear cached pages on sign out" checked.                                                                                                |
-| Pages will not sync just after local midnight                                               | Run `supabase/fixes/fix-timezone.sql`. The future-page trigger compared against the UTC date, so members east of UTC were blocked until UTC caught up. |
-| Friend's streak looks one day behind                                                        | Run `supabase/fixes/fix-timezone.sql` and redeploy. `vidjo_streak_for` now accepts the viewer's local date as `p_today`.                               |
+| Symptom                                                                                     | Fix                                                                                                                                                                                     |
+| ------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Email code returns error for non-existent email                                             | Enable **Prevent email enumeration** in Supabase Auth settings.                                                                                                                         |
+| `relation "public.profiles" does not exist` on signup                                       | Run `supabase/fixes/fix-signup-all.sql`. It drops the orphaned Supabase starter `on_auth_user_created` trigger. Do not recreate `public.profiles` — VidJo uses `public.vidjo_profiles`. |
+| Username is already taken                                                                   | Usernames are globally unique. Pick a different handle.                                                                                                                                 |
+| Account appears before the code is entered, or retrying says username taken / sends no code | Run `supabase/fixes/fix-signup-verification.sql` in the SQL editor.                                                                                                                     |
+| Friend code is not found                                                                    | Both accounts must exist in `vidjo_profiles`, and the code must include the `VJ-` prefix. Re-run `schema.sql` if codes are missing.                                                     |
+| Communities or friends disappear after deploy                                               | Re-run `schema.sql` so the social tables, `community_slug`, and RPCs exist. Local membership is only a fallback.                                                                        |
+| Video does not play                                                                         | Check that the `vidjo-videos` bucket exists and re-run `schema.sql`.                                                                                                                    |
+| Photos do not send                                                                          | Check that the private `vidjo-dm-images` bucket and its storage policies exist; re-run `schema.sql`.                                                                                    |
+| GIF button is missing                                                                       | Set `PUBLIC_GIPHY_API_KEY` and restart the dev server or redeploy.                                                                                                                      |
+| GIFs do not send                                                                            | Re-run `schema.sql`, then `fixes/fix-messaging-features.sql` and `fixes/fix-chat-upgrades.sql` in that order.                                                                           |
+| Message send says "Could not choose the best candidate function"                            | Run `fixes/fix-dm-send-ambiguity.sql` once. It removes the 5- and 6-argument `vidjo_dm_send` overloads left behind by re-running older migrations.                                      |
+| Shared browser has old journal entries                                                      | Sign out with "Clear cached pages on sign out" checked.                                                                                                                                 |
+| Pages will not sync just after local midnight                                               | Run `supabase/fixes/fix-timezone.sql`. The future-page trigger compared against the UTC date, so members east of UTC were blocked until UTC caught up.                                  |
+| Friend's streak looks one day behind                                                        | Run `supabase/fixes/fix-timezone.sql` and redeploy. `vidjo_streak_for` now accepts the viewer's local date as `p_today`.                                                                |

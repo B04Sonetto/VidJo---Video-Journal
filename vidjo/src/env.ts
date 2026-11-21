@@ -38,6 +38,12 @@ export const variables = defineEnvVars({
 			'Giphy API key used by the message GIF picker. Leave empty to hide GIF search. This key is public by design.',
 		schema: (value) => (value ?? '').trim()
 	},
+	PUBLIC_VAPID_PUBLIC_KEY: {
+		public: true,
+		description:
+			'VAPID public key for browser push notifications. Leave empty for notifications only while VidJo is open.',
+		schema: (value) => (value ?? '').trim()
+	},
 	//jazz add this for captcha hehhehee wo ai ni kafei
 	PUBLIC_TURNSTILE_SITE_KEY: {
 		public: true,

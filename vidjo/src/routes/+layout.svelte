@@ -5,6 +5,7 @@
 	import PwaNotice from '#lib/components/PwaNotice.svelte';
 	import SpotifyPlayer from '#lib/components/SpotifyPlayer.svelte';
 	import { initFocusTrap } from '#lib/focusTrap';
+	import { notifications } from '#lib/state/notifications.svelte';
 	import { profile } from '#lib/state/profile.svelte';
 	import { pwa } from '#lib/state/pwa.svelte';
 	import { themeMeta } from '#lib/themes';
@@ -15,6 +16,7 @@
 	onMount(() => {
 		const cleanupFocusTrap = initFocusTrap();
 		const cleanupPwa = pwa.init();
+		notifications.init();
 
 		return () => {
 			cleanupFocusTrap();

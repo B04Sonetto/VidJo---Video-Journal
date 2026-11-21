@@ -258,8 +258,8 @@
 
 <div
 	class="mx-auto w-full max-w-[1240px] {nav.friendsTab === 'messages'
-		? 'px-3 py-4 min-[900px]:px-6 min-[900px]:py-6'
-		: 'px-4 py-6 min-[900px]:px-6'}"
+		? 'px-3 py-3 min-[900px]:px-6 min-[900px]:py-6'
+		: 'px-3 py-4 min-[720px]:px-5 min-[900px]:px-6'}"
 >
 	{#if nav.friendsTab === 'shelf'}
 		<PageHeader
@@ -332,7 +332,7 @@
 	<div
 		class="flex flex-wrap items-center justify-between gap-3 {nav.friendsTab === 'messages'
 			? 'mb-3'
-			: 'mt-6'}"
+			: 'mt-4 min-[720px]:mt-6'}"
 	>
 		{@render sectionTabs()}
 	</div>
@@ -340,10 +340,12 @@
 	{#if nav.friendsTab === 'messages'}
 		<MessagesPanel />
 	{:else}
-		<div class="grid gap-6 min-[1040px]:grid-cols-[minmax(0,1fr)_340px] min-[1040px]:items-start">
+		<div
+			class="grid gap-4 min-[720px]:gap-6 min-[1040px]:grid-cols-[minmax(0,1fr)_340px] min-[1040px]:items-start"
+		>
 			<!-- Shelf -->
 			<section
-				class="rounded-[22px] border border-cover-edge bg-desk-2 p-5 shadow-[0_14px_30px_rgba(0,0,0,.35)] min-[720px]:p-7"
+				class="rounded-[18px] border border-cover-edge bg-desk-2 p-3 shadow-[0_14px_30px_rgba(0,0,0,.35)] min-[480px]:p-4 min-[720px]:rounded-[22px] min-[720px]:p-7"
 			>
 				<div class="flex flex-wrap items-center justify-between gap-3">
 					<div class="flex items-baseline gap-3">
@@ -371,40 +373,49 @@
 					</div>
 				</div>
 
-				<div class="mt-6">
+				<div class="mt-4 min-[720px]:mt-6">
 					{#if friends.loading && shelves.length === 0}
-						<div class="grid grid-cols-2 gap-x-6 gap-y-6 min-[720px]:grid-cols-3">
+						<div
+							class="grid grid-cols-3 gap-x-3 gap-y-4 min-[480px]:gap-x-4 min-[720px]:gap-x-6 min-[720px]:gap-y-6"
+						>
 							{#each [0, 1, 2] as slot (slot)}
 								<div>
-									<Skeleton class="aspect-[3/4] w-full rounded-[6px_12px_12px_6px]" />
+									<Skeleton
+										class="aspect-[4/5] w-full rounded-[6px_12px_12px_6px] min-[720px]:aspect-[3/4]"
+									/>
 									<Skeleton class="mx-auto mt-3 h-3.5 w-2/3" />
 								</div>
 							{/each}
 						</div>
 					{:else}
 						{#each shelfRows as row, rowIndex (rowIndex)}
-							<div class={rowIndex === 0 ? '' : 'mt-9'}>
-								<div class="grid grid-cols-2 gap-x-6 gap-y-6 min-[720px]:grid-cols-3">
+							<div class={rowIndex === 0 ? '' : 'mt-6 min-[720px]:mt-9'}>
+								<div
+									class="grid grid-cols-3 gap-x-3 gap-y-4 min-[480px]:gap-x-4 min-[720px]:gap-x-6 min-[720px]:gap-y-6"
+								>
 									{#each row as item, itemIndex (item.kind === 'shelf' ? item.shelf.friend.id : `add-${itemIndex}`)}
 										{#if item.kind === 'add'}
 											<button
 												type="button"
-												class="flex aspect-[3/4] w-full flex-col items-center justify-center gap-2.5 rounded-lg border border-cover p-3 text-center text-book-bg/70 transition-colors hover:border-book-accent hover:bg-cover/30 hover:text-book-bg"
+												class="flex aspect-[4/5] w-full flex-col items-center justify-center gap-1.5 rounded-lg border border-cover p-2 text-center text-book-bg/70 transition-colors hover:border-book-accent hover:bg-cover/30 hover:text-book-bg min-[720px]:aspect-[3/4] min-[720px]:gap-2.5 min-[720px]:p-3"
 												onclick={openAddFriend}
 												aria-label="Add a friend with a friend code"
 											>
 												<span
-													class="flex size-9 items-center justify-center rounded-full border border-cover text-book-accent"
+													class="flex size-8 items-center justify-center rounded-full border border-cover text-book-accent min-[720px]:size-9"
 													aria-hidden="true"
 												>
 													<CommunityIcon name="plus" size={16} />
 												</span>
-												<span class="font-hand text-xl leading-tight font-bold">Add a friend</span>
+												<span
+													class="font-hand text-base leading-tight font-bold min-[480px]:text-xl"
+													>Add a friend</span
+												>
 												<span class="font-ui text-[10px] leading-tight text-book-bg/60">
 													with a friend code
 												</span>
 											</button>
-											<div class="mt-3 h-6" aria-hidden="true"></div>
+											<div class="mt-2 h-5" aria-hidden="true"></div>
 										{:else}
 											{@const shelf = item.shelf}
 											{@const cover = coverFor(shelf.friend.id + shelf.friend.displayName)}
@@ -432,7 +443,7 @@
 													{/if}
 
 													<span
-														class="relative block aspect-[3/4] overflow-hidden rounded-[6px_12px_12px_6px] shadow-[0_12px_20px_rgba(0,0,0,.5),inset_-3px_0_0_rgba(255,255,255,.08)] transition-transform duration-200 group-hover:-translate-y-1"
+														class="relative block aspect-[4/5] overflow-hidden rounded-[6px_12px_12px_6px] shadow-[0_12px_20px_rgba(0,0,0,.5),inset_-3px_0_0_rgba(255,255,255,.08)] transition-transform duration-200 group-hover:-translate-y-1 min-[720px]:aspect-[3/4]"
 														style="background: linear-gradient(135deg, {cover[0]}, {cover[1]})"
 													>
 														<span
@@ -453,7 +464,7 @@
 														{/if}
 
 														<span
-															class="absolute top-1/2 right-[12%] left-[26%] -translate-y-1/2 -rotate-2 rounded bg-paper px-1.5 py-1 text-center font-hand text-[22px] leading-none font-bold text-ink shadow-[0_2px_4px_rgba(0,0,0,.3)]"
+															class="absolute top-1/2 right-[12%] left-[26%] -translate-y-1/2 -rotate-2 rounded bg-paper px-1 py-0.5 text-center font-hand text-[14px] leading-none font-bold text-ink shadow-[0_2px_4px_rgba(0,0,0,.3)] min-[480px]:text-[19px] min-[720px]:px-1.5 min-[720px]:py-1 min-[720px]:text-[22px]"
 														>
 															<span class="block truncate">
 																{firstName(shelf.friend.displayName)}
@@ -473,7 +484,7 @@
 												</button>
 
 												<div
-													class="mt-3 flex items-center justify-center gap-2 text-[13px] leading-tight text-book-bg/70"
+													class="mt-2 flex items-center justify-center gap-1.5 text-[11px] leading-tight text-book-bg/70 min-[480px]:text-[13px] min-[720px]:mt-3 min-[720px]:gap-2"
 												>
 													{#if moodPost?.mood && MOOD_BY_KEY[moodPost.mood]}
 														<span class="size-5 shrink-0 [&>svg]:size-full" aria-hidden="true">

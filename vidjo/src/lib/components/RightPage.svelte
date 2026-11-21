@@ -119,9 +119,9 @@
 </script>
 
 <section
-	class="page right z-[1] flex h-[700px] flex-col gap-2.5 overflow-hidden font-hand {viewport.single
-		? 'relative w-full rounded-[14px] px-4 pt-6 pb-6 min-[480px]:px-6 min-[640px]:px-8'
-		: 'absolute w-[560px] overscroll-contain rounded-l-[3px] rounded-r-[14px] px-10 pt-[34px] pb-4'}"
+	class="page right z-[1] flex flex-col gap-2.5 overflow-hidden font-hand {viewport.single
+		? 'relative min-h-[600px] w-full rounded-[14px] px-3 pt-4 pb-4 min-[480px]:px-5 min-[480px]:pt-6 min-[480px]:pb-6 min-[640px]:px-8'
+		: 'absolute h-[700px] w-[560px] overscroll-contain rounded-l-[3px] rounded-r-[14px] px-10 pt-[34px] pb-4'}"
 	style:background-color="var(--color-book-bg)"
 	style:color="var(--color-book-ink)"
 	class:left-[580px]={!viewport.single && !preview}

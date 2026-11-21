@@ -319,7 +319,7 @@
 {#snippet titleBlock(p: FriendPost, dark: boolean)}
 	{#if p.title}
 		<h3
-			class="mt-3 line-clamp-2 font-hand text-[32px] leading-[1.1] font-bold [overflow-wrap:anywhere] {dark
+			class="mt-2 line-clamp-2 font-hand text-[24px] leading-[1.1] font-bold [overflow-wrap:anywhere] min-[720px]:mt-3 min-[720px]:text-[32px] {dark
 				? 'text-book-bg'
 				: 'text-book-ink'}"
 		>
@@ -337,7 +337,7 @@
 			controls
 			playsinline
 			preload="metadata"
-			class="reader-video max-h-[380px] w-full bg-black object-contain"
+			class="reader-video max-h-[260px] w-full bg-black object-contain min-[720px]:max-h-[380px]"
 		></video>
 	{:else if p.videoPath}
 		<!-- The signed URL for this page is still being created. -->
@@ -688,11 +688,11 @@
 		></button>
 
 		<div
-			class="relative z-10 flex max-h-[94vh] w-full max-w-[1080px] flex-col overflow-hidden rounded-[32px] border border-cover-edge bg-desk-2 text-book-bg shadow-[0_30px_80px_rgba(0,0,0,.65)]"
+			class="relative z-10 flex max-h-[92dvh] w-full max-w-[1080px] flex-col overflow-hidden rounded-[22px] border border-cover-edge bg-desk-2 text-book-bg shadow-[0_30px_80px_rgba(0,0,0,.65)] min-[720px]:rounded-[32px]"
 		>
 			<!-- Notebook cover / header -->
 			<div
-				class="relative shrink-0 overflow-hidden border-b border-cover-edge bg-[radial-gradient(ellipse_at_top,var(--color-cover)_0%,var(--color-cover-edge)_65%,var(--color-desk)_100%)] px-5 py-5 min-[720px]:px-8 min-[720px]:py-6"
+				class="relative shrink-0 overflow-hidden border-b border-cover-edge bg-[radial-gradient(ellipse_at_top,var(--color-cover)_0%,var(--color-cover-edge)_65%,var(--color-desk)_100%)] px-3 py-3 min-[480px]:px-4 min-[720px]:px-8 min-[720px]:py-6"
 			>
 				<div
 					class="pointer-events-none absolute inset-0 [background-image:radial-gradient(circle_at_15%_25%,rgba(212,162,76,.4)_0%,transparent_40%),radial-gradient(circle_at_85%_15%,rgba(201,184,232,.3)_0%,transparent_35%)] opacity-40"
@@ -710,15 +710,15 @@
 							<Avatar
 								src={friend.avatarUrl}
 								name={friend.displayName}
-								className="size-16 min-[720px]:size-20"
-								textClass="text-3xl"
+								className="size-12 min-[720px]:size-20"
+								textClass="text-2xl min-[720px]:text-3xl"
 								ring="border-4 border-book-accent/60 shadow-[0_14px_28px_rgba(0,0,0,.45)]"
 							/>
 						</button>
 						<div class="min-w-0">
 							<p class="font-ui text-[11px] font-semibold text-book-bg/65">Shared notebook</p>
 							<h2
-								class="line-clamp-2 font-display text-2xl leading-tight font-bold [overflow-wrap:anywhere] text-book-bg min-[720px]:text-3xl"
+								class="line-clamp-2 font-display text-xl leading-tight font-bold [overflow-wrap:anywhere] text-book-bg min-[720px]:text-3xl"
 							>
 								{friend.displayName}'s notebook
 							</h2>
@@ -879,13 +879,13 @@
 
 				<!-- Page body (style chosen in Profile → Settings) -->
 				<div
-					class="reader-scroll min-h-0 min-w-0 overflow-x-hidden overflow-y-auto px-4 py-5 min-[720px]:px-7 min-[720px]:py-6"
+					class="reader-scroll min-h-0 min-w-0 overflow-x-hidden overflow-y-auto px-3 py-3 min-[720px]:px-7 min-[720px]:py-6"
 				>
 					{#if page}
 						{#if notebookStyle === 'dark'}
 							<!-- Dark journal: purple page with a gold edge -->
 							<article
-								class="relative mx-auto max-w-[720px] min-w-0 overflow-hidden rounded-[26px] border border-book-accent/35 bg-[linear-gradient(160deg,var(--color-cover)_0%,var(--color-desk)_90%)] p-4 text-book-bg shadow-[0_18px_44px_rgba(0,0,0,.5)] min-[720px]:p-6"
+								class="relative mx-auto max-w-[720px] min-w-0 overflow-hidden rounded-[18px] border border-book-accent/35 bg-[linear-gradient(160deg,var(--color-cover)_0%,var(--color-desk)_90%)] p-3 text-book-bg shadow-[0_18px_44px_rgba(0,0,0,.5)] min-[720px]:rounded-[26px] min-[720px]:p-6"
 							>
 								<span
 									class="pointer-events-none absolute inset-x-8 top-0 h-px bg-gradient-to-r from-transparent via-book-accent to-transparent"

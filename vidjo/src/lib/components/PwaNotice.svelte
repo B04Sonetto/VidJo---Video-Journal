@@ -55,7 +55,7 @@
 
 	const cardBottom = $derived(
 		spotifyDocked
-			? 'bottom-[calc(env(safe-area-inset-bottom)+170px)] min-[900px]:bottom-[calc(max(24px,env(safe-area-inset-bottom))+84px)]'
+			? 'bottom-[calc(env(safe-area-inset-bottom)+150px)] min-[900px]:bottom-[calc(max(24px,env(safe-area-inset-bottom))+84px)]'
 			: 'bottom-[calc(env(safe-area-inset-bottom)+82px)] min-[900px]:bottom-[max(24px,env(safe-area-inset-bottom))]'
 	);
 

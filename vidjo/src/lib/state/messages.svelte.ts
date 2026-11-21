@@ -1,6 +1,7 @@
 import { tick } from 'svelte';
 import { isSupabaseConfigured, supabase, VIDEO_BUCKET } from '#lib/supabase';
 import { auth } from '#lib/state/auth.svelte';
+import { notifications } from '#lib/state/notifications.svelte';
 import { profile } from '#lib/state/profile.svelte';
 import { cleanDisplayName, normalizeImageUrl } from '#lib/avatar';
 import { detectRasterImageMime } from '#lib/imageUpload';
@@ -2127,6 +2128,23 @@ class MessagesState {
 		if (active && !mine) {
 			this.scrollRequest += 1;
 			this.queueRead(threadId);
+		}
+
+		if (!mine && !active) {
+			notifications.showMessage({
+				messageId: id,
+				threadId,
+				sender: sender.name,
+				body:
+					message.body ||
+					(message.imagePath
+						? 'Sent a photo'
+						: message.gifUrl
+							? 'Sent a GIF'
+							: message.filePath
+								? 'Sent a file'
+								: 'Sent a shared page')
+			});
 		}
 	}
 

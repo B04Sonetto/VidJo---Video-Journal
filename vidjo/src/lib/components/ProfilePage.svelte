@@ -6,6 +6,7 @@
 	import { friends } from '#lib/state/friends.svelte';
 	import { community } from '#lib/state/community.svelte';
 	import { nav, type ProfileTab } from '#lib/state/navigation.svelte';
+	import { notifications } from '#lib/state/notifications.svelte';
 	import { pwa } from '#lib/state/pwa.svelte';
 	import { isSupabaseConfigured, supabase, VIDEO_BUCKET } from '#lib/supabase';
 	import { normalizeImageUrl, optimizedBannerUrl } from '#lib/avatar';
@@ -1686,6 +1687,44 @@
 						>
 							{settingsDraft.clearCacheOnSignOut ? 'Enabled' : 'Disabled'}
 						</button>
+					</div>
+					<div class="flex flex-wrap items-center justify-between gap-3 rounded-xl bg-cover/20 p-4">
+						<div class="min-w-0">
+							<p class="font-ui text-sm font-semibold">Message notifications</p>
+							<p class="font-ui text-xs text-book-bg/65">
+								{#if !notifications.supported}
+									This browser does not support notifications.
+								{:else if notifications.permission === 'denied'}
+									Blocked in your browser settings. Allow notifications for this site there first.
+								{:else if !notifications.granted}
+									Get a notification when a friend sends you a message.
+								{:else if notifications.pushEnabled}
+									On — including when VidJo is closed.
+								{:else}
+									On while VidJo is open. Background alerts need push configured by the admin.
+								{/if}
+							</p>
+							{#if notifications.error}
+								<p class="mt-1 font-ui text-[11px] font-semibold text-[#FF9B9B]">
+									{notifications.error}
+								</p>
+							{/if}
+						</div>
+						{#if notifications.supported && notifications.permission !== 'denied'}
+							{#if notifications.granted}
+								<Button
+									variant="outline"
+									loading={notifications.busy}
+									onclick={() => void notifications.disable()}
+								>
+									Turn off
+								</Button>
+							{:else}
+								<Button loading={notifications.busy} onclick={() => void notifications.enable()}>
+									Turn on
+								</Button>
+							{/if}
+						{/if}
 					</div>
 				</div>
 

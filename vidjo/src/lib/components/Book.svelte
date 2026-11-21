@@ -287,7 +287,7 @@
 	>
 		<div
 			class="book relative [perspective:2600px] {viewport.single
-				? 'w-full p-2.5 min-[480px]:p-3.5 min-[640px]:p-4'
+				? 'w-full p-2 min-[480px]:p-3 min-[640px]:p-4'
 				: 'h-[740px] w-[1160px]'}"
 		>
 			<div

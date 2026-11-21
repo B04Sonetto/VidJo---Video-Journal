@@ -247,7 +247,7 @@
 						Everything that needs you, in one quiet place.
 					</h2>
 					<p class="mt-1 font-hand text-lg leading-snug text-lav">
-						Opening this page marks the tray as read. No pings, no email, no noise.
+						Opening this page marks the tray as read. Message alerts can be turned on in Settings.
 					</p>
 				</div>
 
@@ -756,7 +756,7 @@
 					<p
 						class="relative mt-4 border-t border-dashed border-line pt-3 font-ui text-[11px] leading-relaxed text-book-ink/70"
 					>
-						Opening this page marks the tray as read. There are no emails, badges, or streaks.
+						Opening this page marks the tray as read. There are no emails or streaks.
 					</p>
 				</section>
 

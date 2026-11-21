@@ -148,3 +148,53 @@ self.addEventListener('message', (event: ExtendableMessageEvent) => {
 		void self.skipWaiting();
 	}
 });
+
+type PushPayload = {
+	title?: string;
+	body?: string;
+	icon?: string;
+	tag?: string;
+	url?: string;
+};
+
+/** Background push sent by the dm-push Edge Function. */
+self.addEventListener('push', (event: PushEvent) => {
+	let payload: PushPayload = {};
+	try {
+		payload = (event.data?.json() as PushPayload) ?? {};
+	} catch {
+		// An empty push still gets a generic notification.
+	}
+
+	const title = payload.title || 'New message on VidJo';
+	event.waitUntil(
+		self.registration.showNotification(title, {
+			body: payload.body || 'A friend sent you a message',
+			icon: payload.icon || '/icons/icon-192.png',
+			badge: '/icons/icon-192.png',
+			tag: payload.tag || 'vidjo-dm',
+			renotify: true,
+			data: { url: payload.url || '/' }
+		})
+	);
+});
+
+/** Tap a notification: focus the open app, or open it if it was closed. */
+self.addEventListener('notificationclick', (event: NotificationEvent) => {
+	event.notification.close();
+	const data = event.notification.data as { url?: string } | null;
+	const url = data?.url || '/';
+
+	event.waitUntil(
+		self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(async (clients) => {
+			for (const client of clients) {
+				if ('focus' in client) {
+					await client.focus();
+					if ('navigate' in client) await client.navigate(url);
+					return;
+				}
+			}
+			return self.clients.openWindow(url);
+		})
+	);
+});
