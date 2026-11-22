@@ -273,7 +273,7 @@
 	bind:this={wrapper}
 	role="group"
 	aria-label="Video player"
-	class="themed-video group relative isolate flex min-h-0 w-full flex-col overflow-hidden rounded-[inherit] border border-book-edge/55 bg-desk text-book-bg shadow-[0_10px_30px_rgba(20,10,30,.35)] {className}"
+	class="themed-video group relative isolate flex min-h-0 w-full flex-col self-stretch overflow-hidden rounded-[inherit] border border-book-edge/55 bg-desk text-book-bg shadow-[0_10px_30px_rgba(20,10,30,.35)] {className}"
 	class:controls-hidden={!controlsVisible}
 	onpointermove={showControls}
 	onpointerleave={scheduleHide}
