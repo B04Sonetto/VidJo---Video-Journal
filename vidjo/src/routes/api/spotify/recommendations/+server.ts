@@ -127,7 +127,74 @@ async function searchTracks(
 	);
 }
 
+async function getPersonalizedTracks(
+	token: string,
+	excludedTrackId: string,
+	excludedTrackUri: string,
+	limit: number
+) {
+	const topTracksRes = await spotifyApi(
+		'/me/top/tracks?time_range=medium_term&limit=50',
+		token
+	);
+	const topTracksData = await parseBody(topTracksRes);
+	if (!topTracksRes.ok) {
+		const missingScope = topTracksRes.status === 403;
+		return {
+			tracks: [],
+			error: missingScope ? 'top_tracks_scope_required' : 'spotify_error',
+			status: topTracksRes.status,
+			message: missingScope
+				? 'Disconnect VidJo and reconnect Spotify to let it use your top tracks for personalized recommendations.'
+				: extractSpotifyMessage(topTracksData) || 'Could not load your Spotify listening history.'
+		};
+	}
+
+	const topTracksRoot = asRecord(topTracksData);
+	const topItems = Array.isArray(topTracksRoot?.items) ? (topTracksRoot.items as unknown[]) : [];
+	const topTracks = dedupeTracks(topItems, excludedTrackId, excludedTrackUri, 50);
+	const seedCandidates = topTracks.filter((track) => track.id);
+
+	if (!seedCandidates.length) return { tracks: [] };
+
+	const seedCount = Math.min(5, seedCandidates.length);
+	const seeds = Array.from({ length: seedCount }, (_, index) => {
+		const candidateIndex = Math.floor((index * seedCandidates.length) / seedCount);
+		return seedCandidates[candidateIndex];
+	});
+	const seedIds = new Set(seeds.map((track) => track.id));
+
+	try {
+		const params = new URLSearchParams({
+			limit: String(Math.max(20, limit)),
+			seed_tracks: seeds.map((track) => track.id).join(','),
+			market: 'from_token'
+		});
+		const recommendationsRes = await spotifyApi(
+			`/recommendations?${params.toString()}`,
+			token
+		);
+		if (recommendationsRes.ok) {
+			const recommendationsData = asRecord(await parseBody(recommendationsRes));
+			const items = Array.isArray(recommendationsData?.tracks)
+				? (recommendationsData.tracks as unknown[])
+				: [];
+			const recommended = dedupeTracks(items, excludedTrackId, excludedTrackUri, 50)
+				.filter((track) => !track.id || !seedIds.has(track.id))
+				.slice(0, limit);
+			if (recommended.length) return { tracks: recommended };
+		}
+	} catch {
+		// Fall back to the listener's own top tracks if Spotify recommendations fail.
+	}
+
+	return { tracks: topTracks.slice(0, limit) };
+}
+
 export const GET: RequestHandler = async ({ url, cookies }) => {
+	const personalized = url.searchParams.get('personalized') === 'true';
+	const excludedTrackId = (url.searchParams.get('exclude_track') || '').trim();
+	const excludedTrackUri = (url.searchParams.get('exclude_uri') || '').trim();
 	const seedTrack = (
 		url.searchParams.get('seed_track') ||
 		url.searchParams.get('seed_tracks') ||
@@ -145,13 +212,22 @@ export const GET: RequestHandler = async ({ url, cookies }) => {
 
 	const rawLimit = Number.parseInt(url.searchParams.get('limit') || '5', 10);
 	const limit = Math.max(1, Math.min(Number.isFinite(rawLimit) ? rawLimit : 5, 10));
-	if (!seedId && !seedName && !seedArtist) {
+	if (!personalized && !seedId && !seedName && !seedArtist) {
 		return json({ tracks: [], error: 'missing_seed' }, { status: 400 });
 	}
 
 	try {
 		const token = await getAccessToken(cookies);
 		if (!token) return json({ tracks: [], error: 'not_connected' }, { status: 401 });
+		if (personalized) {
+			const result = await getPersonalizedTracks(
+				token.access_token,
+				excludedTrackId,
+				excludedTrackUri,
+				limit
+			);
+			return json(result, 'status' in result ? { status: result.status } : undefined);
+		}
 
 		// Resolve seed metadata early (helps all fallbacks).
 		if (seedId) {

@@ -192,7 +192,8 @@
 							<h3 class="mt-3 font-display text-xl font-bold">Play music in VidJo</h3>
 							<p class="mt-1.5 font-ui text-sm leading-relaxed text-book-bg/70">
 								Connect your Spotify Premium account to search tracks and listen right inside your
-								journal. Music keeps playing while you browse.
+								journal. Next-song recommendations are based on your Spotify top tracks, not just
+								the song you are playing.
 							</p>
 							<button
 								type="button"
@@ -204,7 +205,7 @@
 								Connect Spotify
 							</button>
 							<p class="mt-2 font-ui text-[11px] text-book-bg/55">
-								Requires your own Spotify Premium account.
+								Requires Spotify Premium and read-only access to your top tracks.
 							</p>
 							{#if !spotify.configured}
 								<p class="mt-2 font-ui text-[11px] font-semibold text-[#FFCF8A]">

@@ -411,23 +411,18 @@ class SpotifyState {
 		return '';
 	}
 
-	private async fetchRecommendedTracks(
-		seed: SpotifyTrack,
+	private async fetchPersonalizedTracks(
+		excludeTrack: SpotifyTrack | null | undefined,
 		count = 5,
 		opts: { surfaceErrors?: boolean } = {}
 	): Promise<SpotifyTrack[]> {
-		const seedId = this.getTrackId(seed);
-		const seedUri = seed.uri || '';
-		const primaryArtist = (seed.artists || '').split(',')[0]?.trim() || '';
-		if (!seedId && !seedUri && !seed.name && !primaryArtist) return [];
 		const limit = Math.max(1, Math.min(Math.trunc(count) || 5, 10));
 		try {
-			const parts = [`limit=${encodeURIComponent(String(limit))}`];
-			if (seedId) parts.push(`seed_track=${encodeURIComponent(seedId)}`);
-			if (seedUri) parts.push(`seed_uri=${encodeURIComponent(seedUri)}`);
-			if (seed.name) parts.push(`seed_name=${encodeURIComponent(seed.name)}`);
-			if (primaryArtist) parts.push(`seed_artist=${encodeURIComponent(primaryArtist)}`);
-			const res = await fetch(`/api/spotify/recommendations?${parts.join('&')}`, {
+			const params = ['personalized=true', `limit=${limit}`];
+			const excludeTrackId = this.getTrackId(excludeTrack);
+			if (excludeTrackId) params.push(`exclude_track=${encodeURIComponent(excludeTrackId)}`);
+			if (excludeTrack?.uri) params.push(`exclude_uri=${encodeURIComponent(excludeTrack.uri)}`);
+			const res = await fetch(`/api/spotify/recommendations?${params.join('&')}`, {
 				cache: 'no-store'
 			});
 			const data = await res.json().catch(() => ({}));
@@ -436,6 +431,15 @@ class SpotifyState {
 				if (opts.surfaceErrors) {
 					const msg = typeof data?.message === 'string' ? data.message : '';
 					this.error = msg || 'Spotify session expired. Reconnect to keep listening.';
+				}
+				return [];
+			}
+			if (res.status === 403) {
+				if (opts.surfaceErrors) {
+					const msg = typeof data?.message === 'string' ? data.message.trim() : '';
+					this.error =
+						msg ||
+						'Disconnect VidJo and reconnect Spotify to let it use your top tracks for personalized recommendations.';
 				}
 				return [];
 			}
@@ -452,24 +456,17 @@ class SpotifyState {
 			if (!res.ok) {
 				if (opts.surfaceErrors) {
 					const msg = typeof data?.message === 'string' ? data.message.trim() : '';
-					// "Invalid limit" can bubble up from upstream Spotify params in edge cases;
-					// don't surface it as a blocking error so fallback strategies can continue.
-					if (res.status === 404) {
-						this.error =
-							'Could not load a recommended track (recommendations service unavailable).';
-					} else if (msg && !/invalid limit/i.test(msg)) {
-						this.error = msg;
-					}
+					this.error = msg || 'Could not load your Spotify recommendations right now.';
 				}
 				return [];
 			}
 			if (!Array.isArray(data?.tracks)) return [];
 			return (data.tracks as SpotifyTrack[]).filter(
-				(t) => t?.uri && t.uri !== seed.uri && t.uri !== seedUri
+				(t) => t?.uri && t.uri !== excludeTrack?.uri
 			);
 		} catch {
 			if (opts.surfaceErrors && !this.error) {
-				this.error = 'Could not load a recommended track right now.';
+				this.error = 'Could not load personalized Spotify recommendations right now.';
 			}
 			return [];
 		}
@@ -540,11 +537,12 @@ class SpotifyState {
 		}
 
 		try {
-			// Start with a queue (seed + recommendations) so skipping/continuing
-			// playback can keep going instead of going quiet after one song.
+			// Queue Spotify recommendations based on the listener's own top tracks.
 			let uris = [track.uri];
 			try {
-				const recs = await this.fetchRecommendedTracks(track, 8);
+				const recs = await this.fetchPersonalizedTracks(track, 8, {
+					surfaceErrors: true
+				});
 				const extra = recs
 					.map((t) => t.uri)
 					.filter((u): u is string => Boolean(u) && u !== track.uri);
@@ -603,99 +601,18 @@ class SpotifyState {
 	}
 
 	private async playRecommendedFrom(seed: SpotifyTrack | null | undefined): Promise<boolean> {
-		if (!seed?.uri && !seed?.id && !seed?.name && !seed?.artists) return false;
 		try {
-			const primary = seed as SpotifyTrack;
-			const attempts: SpotifyTrack[] = [primary];
-			const primaryArtist = (primary.artists || '').split(',')[0]?.trim() || '';
-			if (primaryArtist || primary.name) {
-				attempts.push({
-					uri: primary.uri || '',
-					id: primary.id || '',
-					name: '',
-					artists: primaryArtist
-				});
-			}
-			if (primary.name) {
-				attempts.push({
-					uri: primary.uri || '',
-					id: primary.id || '',
-					name: primary.name,
-					artists: ''
-				});
-			}
-			// Final generic fallbacks so "next" can keep playing even if similarity lookup fails.
-			attempts.push({ uri: '', id: '', name: "today's top hits", artists: '' });
-			attempts.push({ uri: '', id: '', name: 'popular', artists: '' });
-			attempts.push({ uri: '', id: '', name: 'top hits', artists: '' });
-
-			for (const attempt of attempts) {
-				const recs = await this.fetchRecommendedTracks(attempt, 8, {
-					surfaceErrors: true
-				});
-				const nextTrack = recs.find((t) => t.uri && t.uri !== primary.uri);
-				if (nextTrack) {
-					await this.playTrack(nextTrack);
-					return true;
-				}
-				// "Invalid limit" can come from transient upstream quirks; don't let it block fallbacks.
-				if (this.error && /invalid limit/i.test(this.error)) this.error = '';
-				// If auth/rate-limit was surfaced, don't loop into noisy fallbacks.
-				if (this.error) break;
-			}
-
-			// If an upstream "invalid limit" slipped through, clear it and try direct search fallbacks.
-			if (this.error && /invalid limit/i.test(this.error)) this.error = '';
-
-			// Last-resort: use search endpoint directly to pick any different playable track.
-			if (!this.error && this.connected) {
-				const queries = Array.from(
-					new Set(
-						["today's top hits", 'viral hits', 'top hits', 'popular', primaryArtist].filter(Boolean)
-					)
-				);
-				for (const q of queries) {
-					try {
-						const res = await fetch(`/api/spotify/search?q=${encodeURIComponent(q)}`, {
-							cache: 'no-store'
-						});
-						const data = await res.json().catch(() => ({}));
-						if (res.status === 401) {
-							this.connected = false;
-							const msg = typeof data?.message === 'string' ? data.message.trim() : '';
-							this.error = msg || 'Spotify session expired. Reconnect to keep listening.';
-							return false;
-						}
-						if (res.status === 429) {
-							const msg = typeof data?.message === 'string' ? data.message.trim() : '';
-							this.error =
-								msg && !/invalid limit/i.test(msg)
-									? msg
-									: 'Spotify is rate limiting requests. Try again shortly.';
-							return false;
-						}
-						if (!res.ok) {
-							const msg = typeof data?.message === 'string' ? data.message : '';
-							if (msg && /invalid limit/i.test(msg)) continue;
-							continue;
-						}
-						if (!Array.isArray(data?.tracks)) continue;
-						const nextTrack = (data.tracks as SpotifyTrack[]).find(
-							(t) => t?.uri && t.uri !== primary.uri
-						);
-						if (nextTrack) {
-							await this.playTrack(nextTrack);
-							return true;
-						}
-					} catch {
-						// try next query
-					}
-				}
-			}
+			const recs = await this.fetchPersonalizedTracks(seed, 8, {
+				surfaceErrors: true
+			});
+			const nextTrack = recs.find((track) => track.uri && track.uri !== seed?.uri);
+			if (!nextTrack) return false;
+			await this.playTrack(nextTrack);
+			return true;
 		} catch {
-			// ignore
+			this.error = 'Could not load personalized Spotify recommendations right now.';
+			return false;
 		}
-		return false;
 	}
 
 	async next() {

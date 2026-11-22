@@ -84,7 +84,11 @@ PUBLIC_SUPABASE_PUBLISHABLE_KEY=sb_publishable_xxxxxxxxxxxxxxxxx
 
 ### Spotify (optional)
 
-Spotify playback uses server-only variables:
+Spotify playback uses server-only variables. Next-song recommendations use your
+Spotify top tracks (read-only `user-top-read` permission) as recommendation seeds,
+instead of basing every queue on the song currently playing. If you already
+connected Spotify before this permission was added, disconnect and reconnect
+Spotify in VidJo to grant it.
 
 ```sh
 SPOTIFY_CLIENT_ID=your-client-id

@@ -8,7 +8,8 @@ export const SPOTIFY_SCOPES = [
 	'user-read-email',
 	'user-read-private',
 	'user-read-playback-state',
-	'user-modify-playback-state'
+	'user-modify-playback-state',
+	'user-top-read'
 ].join(' ');
 
 export const COOKIE_STATE = 'vidjo_spotify_state';
