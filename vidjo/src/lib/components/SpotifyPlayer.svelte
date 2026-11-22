@@ -386,6 +386,7 @@
 									type="range"
 									min="0"
 									max="100"
+									step="1"
 									value={volumePct}
 									class="spotify-range h-2 w-full cursor-pointer appearance-none rounded-full"
 									style="background: linear-gradient(to right, #1ED760 {volumePct}%, rgba(255,255,255,.38) {volumePct}%)"
@@ -394,7 +395,11 @@
 											Number((e.currentTarget as HTMLInputElement).value) / 100
 										)}
 									aria-label="Volume"
+									aria-valuetext="{volumePct}%"
 								/>
+								<span class="min-w-8 text-right font-ui text-[10px] text-book-bg/75 tabular-nums"
+									>{volumePct}%</span
+								>
 							</div>
 							{#if spotify.needsPremium}
 								<p class="mt-2 font-ui text-[11px] text-[#FFD6A8]">
@@ -607,6 +612,24 @@
 		background: var(--color-cta);
 		border: 2px solid var(--color-book-bg);
 		box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+	}
+
+	.spotify-range:focus-visible {
+		outline: 2px solid white;
+		outline-offset: 3px;
+	}
+
+	.spotify-range::-webkit-slider-thumb,
+	.spotify-range::-moz-range-thumb {
+		border-color: white;
+		transition: transform 120ms ease;
+	}
+
+	.spotify-range:hover::-webkit-slider-thumb,
+	.spotify-range:focus-visible::-webkit-slider-thumb,
+	.spotify-range:hover::-moz-range-thumb,
+	.spotify-range:focus-visible::-moz-range-thumb {
+		transform: scale(1.12);
 	}
 	.spotify-range::-moz-range-thumb,
 	.spotify-seek::-moz-range-thumb {

@@ -2,6 +2,7 @@
 
 const browser = typeof window !== 'undefined';
 const RETURN_KEY = 'vidjo_spotify_return';
+const DEFAULT_VOLUME = 0.35;
 
 export type SpotifyTrack = {
 	uri: string;
@@ -45,7 +46,7 @@ class SpotifyState {
 	playing = $state(false);
 	position = $state(0);
 	duration = $state(0);
-	volume = $state(0.7);
+	volume = $state(DEFAULT_VOLUME);
 	track = $state<SpotifyTrack | null>(null);
 	error = $state('');
 	notice = $state('');
