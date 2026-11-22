@@ -37,6 +37,9 @@
 	let scrubbing = $state(false);
 	let hoverTime = $state<number | null>(null);
 	let hideTimer: ReturnType<typeof setTimeout> | undefined;
+	let durationProbeTimer: ReturnType<typeof setTimeout> | undefined;
+	let durationProbeStarted = false;
+	let cancelDurationProbe: (() => void) | undefined;
 
 	const progress = $derived(duration > 0 ? Math.min(100, (currentTime / duration) * 100) : 0);
 	const bufferedPercent = $derived(Math.max(progress, buffered));
@@ -116,6 +119,54 @@
 			end = Math.max(end, el.buffered.end(i));
 		}
 		buffered = Math.min(100, (end / el.duration) * 100);
+	}
+
+	function resolveDuration() {
+		const el = video;
+		if (!el) return false;
+		if (Number.isFinite(el.duration) && el.duration > 0) {
+			duration = el.duration;
+			return true;
+		}
+
+		if (el.seekable.length > 0) {
+			const seekableEnd = el.seekable.end(el.seekable.length - 1);
+			if (Number.isFinite(seekableEnd) && seekableEnd > 0) {
+				duration = seekableEnd;
+				return true;
+			}
+		}
+
+		// Some browser-recorded WebM files omit the duration in their metadata.
+		// Seeking to the end makes browsers discover it; then restore playback.
+		if (durationProbeStarted || el.readyState < HTMLMediaElement.HAVE_METADATA) return false;
+		durationProbeStarted = true;
+		const originalTime = el.currentTime;
+		const wasPlaying = !el.paused;
+		const cancelProbe = () => {
+			el.removeEventListener('seeked', restorePlayback);
+			if (durationProbeTimer) clearTimeout(durationProbeTimer);
+			durationProbeTimer = undefined;
+			cancelDurationProbe = undefined;
+		};
+		const restorePlayback = () => {
+			cancelProbe();
+			const hasDuration = Number.isFinite(el.duration) && el.duration > 0;
+			if (hasDuration) duration = el.duration;
+			const restoreTime = hasDuration ? Math.min(originalTime, el.duration) : originalTime;
+			if (Math.abs(el.currentTime - restoreTime) > 0.05) el.currentTime = restoreTime;
+			if (wasPlaying && el.paused) void el.play().catch(() => {});
+		};
+
+		el.addEventListener('seeked', restorePlayback, { once: true });
+		cancelDurationProbe = cancelProbe;
+		durationProbeTimer = setTimeout(restorePlayback, 3000);
+		try {
+			el.currentTime = Number.MAX_SAFE_INTEGER;
+		} catch {
+			restorePlayback();
+		}
+		return false;
 	}
 
 	function toggleMute() {
@@ -232,7 +283,9 @@
 
 	$effect(() => {
 		// A new source is a new video: clear the previous playback state.
-		src;
+		void src;
+		cancelDurationProbe?.();
+		durationProbeStarted = false;
 		currentTime = 0;
 		duration = 0;
 		buffered = 0;
@@ -258,6 +311,7 @@
 
 	onDestroy(() => {
 		if (hideTimer) clearTimeout(hideTimer);
+		cancelDurationProbe?.();
 	});
 </script>
 
@@ -306,14 +360,15 @@
 		onplaying={() => (waiting = false)}
 		oncanplay={() => (waiting = false)}
 		onloadedmetadata={() => {
-			duration = Number.isFinite(video?.duration) ? video!.duration : 0;
+			void resolveDuration();
 			updateBuffered();
 		}}
 		ondurationchange={() => {
-			duration = Number.isFinite(video?.duration) ? video!.duration : 0;
+			void resolveDuration();
 		}}
 		ontimeupdate={() => {
 			currentTime = video?.currentTime || 0;
+			if (duration <= 0) void resolveDuration();
 			updateBuffered();
 		}}
 		onprogress={updateBuffered}
