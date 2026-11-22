@@ -173,6 +173,14 @@
 		<path d="M16 3h3a2 2 0 0 1 2 2v3"></path>
 		<path d="M21 16v3a2 2 0 0 1-2 2h-3"></path>
 		<path d="M8 21H5a2 2 0 0 1-2-2v-3"></path>
+	{:else if name === 'minimize'}
+		<path d="M3 8h3a2 2 0 0 0 2-2V3"></path>
+		<path d="M21 8h-3a2 2 0 0 1-2-2V3"></path>
+		<path d="M21 16h-3a2 2 0 0 0-2 2v3"></path>
+		<path d="M3 16h3a2 2 0 0 1 2 2v3"></path>
+	{:else if name === 'picture-in-picture'}
+		<rect x="2" y="4" width="20" height="16" rx="2"></rect>
+		<rect x="12" y="11" width="8" height="6" rx="1"></rect>
 	{:else if name === 'logout'}
 		<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"></path>
 	{:else if name === 'reply'}

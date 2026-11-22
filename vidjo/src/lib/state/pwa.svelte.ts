@@ -1,6 +1,8 @@
-import { browser } from '$app/env';
+import { browser, version } from '$app/env';
 
 const IOS_HINT_KEY = 'vidjo-ios-install-hint-dismissed';
+const INSTALL_DISMISSED_KEY = 'vidjo-install-prompt-dismissed';
+const UPDATE_DISMISSED_PREFIX = 'vidjo-update-dismissed:';
 const UPDATE_INTERVAL = 60 * 60 * 1000;
 
 interface BeforeInstallPromptEvent extends Event {
@@ -38,11 +40,13 @@ class Pwa {
 	updateAvailable = $state(false);
 	offline = $state(false);
 	iosHintDismissed = $state(false);
+	installDismissed = $state(false);
 
 	private deferredPrompt: BeforeInstallPromptEvent | null = null;
 	private registration: ServiceWorkerRegistration | null = null;
 	private updateTimer: ReturnType<typeof setInterval> | null = null;
 	private cleanupListeners: (() => void) | null = null;
+	private pendingUpdateVersion = '';
 	private reloadOnControllerChange = false;
 	private reloading = false;
 
@@ -56,8 +60,9 @@ class Pwa {
 
 	get showInstallCard() {
 		// Installing needs a connection, and the banner should not compete with
-		// the offline notice.
-		return !this.offline && (this.canInstall || this.showIosHint);
+		// the offline notice. Dismissal is persistent; install remains available
+		// from Settings if the person changes their mind.
+		return !this.offline && !this.installDismissed && (this.canInstall || this.showIosHint);
 	}
 
 	get showUpdateCard() {
@@ -72,6 +77,7 @@ class Pwa {
 
 		try {
 			this.iosHintDismissed = localStorage.getItem(IOS_HINT_KEY) === '1';
+			this.installDismissed = localStorage.getItem(INSTALL_DISMISSED_KEY) === '1';
 		} catch {
 			// Storage can be blocked in private windows; the hint just reappears.
 		}
@@ -145,8 +151,41 @@ class Pwa {
 
 	private syncWaiting(registration: ServiceWorkerRegistration) {
 		if (registration.waiting && navigator.serviceWorker.controller) {
-			this.updateAvailable = true;
+			void this.showUpdateFor(registration.waiting);
 		}
+	}
+
+	private async workerVersion(worker: ServiceWorker) {
+		return new Promise<string>((resolve) => {
+			const channel = new MessageChannel();
+			const timeout = setTimeout(() => {
+				channel.port1.close();
+				resolve(`${worker.scriptURL}:${version}`);
+			}, 1500);
+			channel.port1.onmessage = (event: MessageEvent<{ version?: unknown }>) => {
+				clearTimeout(timeout);
+				channel.port1.close();
+				resolve(
+					typeof event.data?.version === 'string'
+						? event.data.version
+						: `${worker.scriptURL}:${version}`
+				);
+			};
+			worker.postMessage({ type: 'GET_VERSION' }, [channel.port2]);
+		});
+	}
+
+	private async showUpdateFor(worker: ServiceWorker) {
+		const updateVersion = await this.workerVersion(worker);
+		if (this.registration?.waiting !== worker && this.registration?.installing !== worker) return;
+		this.pendingUpdateVersion = updateVersion;
+		let dismissed = false;
+		try {
+			dismissed = localStorage.getItem(`${UPDATE_DISMISSED_PREFIX}${updateVersion}`) === '1';
+		} catch {
+			// Without storage, dismiss for this page session only.
+		}
+		this.updateAvailable = !dismissed;
 	}
 
 	private onBeforeInstallPrompt = (event: Event) => {
@@ -186,7 +225,7 @@ class Pwa {
 
 		installing.addEventListener('statechange', () => {
 			if (installing.state === 'installed' && navigator.serviceWorker.controller) {
-				this.updateAvailable = true;
+				void this.showUpdateFor(installing);
 			}
 		});
 	};
@@ -216,8 +255,12 @@ class Pwa {
 	}
 
 	dismissInstall() {
-		this.installAvailable = false;
-		this.deferredPrompt = null;
+		this.installDismissed = true;
+		try {
+			localStorage.setItem(INSTALL_DISMISSED_KEY, '1');
+		} catch {
+			// The prompt stays dismissed for this page session.
+		}
 	}
 
 	dismissIosHint() {
@@ -231,6 +274,15 @@ class Pwa {
 
 	dismissUpdate() {
 		this.updateAvailable = false;
+		if (!this.pendingUpdateVersion) return;
+		try {
+			localStorage.setItem(
+				`${UPDATE_DISMISSED_PREFIX}${this.pendingUpdateVersion}`,
+				'1'
+			);
+		} catch {
+			// The update stays dismissed for this page session.
+		}
 	}
 
 	applyUpdate() {

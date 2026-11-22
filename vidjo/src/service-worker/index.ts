@@ -144,7 +144,12 @@ self.addEventListener('fetch', (event) => {
 });
 
 self.addEventListener('message', (event: ExtendableMessageEvent) => {
-	if ((event.data as { type?: string } | null)?.type === 'SKIP_WAITING') {
+	const message = event.data as { type?: string } | null;
+	if (message?.type === 'GET_VERSION') {
+		event.ports[0]?.postMessage({ version });
+		return;
+	}
+	if (message?.type === 'SKIP_WAITING') {
 		void self.skipWaiting();
 	}
 });
