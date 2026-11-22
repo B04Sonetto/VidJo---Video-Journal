@@ -12,6 +12,10 @@ auth/persistence and an offline `localStorage` fallback.
 - **Camera recording** — records directly in the browser with `MediaRecorder`,
   including a live preview, retake, front/back camera flip, and a 3-minute cap.
   You can still upload an existing video instead.
+- **Video editor** — trim clips, choose a cover frame, crop and rotate, mute audio,
+  and apply warm, soft, monochrome, or vivid looks before saving.
+- **Themed video player** — custom controls use the journal's active colors across
+  journal pages, friend journals, community posts, and shared entries.
 - **Email accounts** — sign up with a username and password, sign in with a
   password, or request a 6-digit email code / magic link. Sessions persist across
   reloads until sign-out.
@@ -179,7 +183,9 @@ video still uploads and the UI falls back to a styled placeholder.
 
 New recordings prefer MP4/H.264 at about 1.8 Mbps. Browsers that can only record
 WebM show a note that the result may not play in Safari; uploading an MP4 avoids
-that limitation. See `docs/video-transcoding-plan.md` for the phased plan.
+that limitation. Edited videos are exported by the browser and may also use WebM,
+depending on browser support. The editor offers **Use original** to keep an
+uploaded clip unchanged. See `docs/video-transcoding-plan.md` for the phased plan.
 
 Journal pages are cached locally per account so the book opens offline.
 On shared browsers, users can check "Clear cached pages on sign out" or click

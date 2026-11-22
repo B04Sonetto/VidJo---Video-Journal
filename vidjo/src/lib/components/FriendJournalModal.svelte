@@ -10,6 +10,7 @@
 	import { STICKER_BY_KEY } from '#lib/data/stickers';
 	import Avatar from '#lib/components/Avatar.svelte';
 	import CommunityIcon from '#lib/components/CommunityIcon.svelte';
+	import ThemedVideoPlayer from '#lib/components/ThemedVideoPlayer.svelte';
 	import ProfileModal from '#lib/components/ProfileModal.svelte';
 	import Button from '#lib/components/ui/Button.svelte';
 	import Spinner from '#lib/components/ui/Spinner.svelte';
@@ -330,15 +331,12 @@
 
 {#snippet mediaBlock(p: FriendPost)}
 	{#if p.videoUrl}
-		<!-- svelte-ignore a11y_media_has_caption -->
-		<video
+		<ThemedVideoPlayer
 			src={p.videoUrl}
-			poster={p.videoThumbUrl || undefined}
-			controls
-			playsinline
+			poster={p.videoThumbUrl || ''}
 			preload="metadata"
-			class="reader-video max-h-[260px] w-full bg-black object-contain min-[720px]:max-h-[380px]"
-		></video>
+			class="aspect-video max-h-[260px] w-full reader-video min-[720px]:max-h-[380px]"
+		/>
 	{:else if p.videoPath}
 		<!-- The signed URL for this page is still being created. -->
 		<div

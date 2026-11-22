@@ -5,6 +5,8 @@
 	import MoodPicker from '#lib/components/MoodPicker.svelte';
 	import CommunityIcon from '#lib/components/CommunityIcon.svelte';
 	import RecordVideoModal from '#lib/components/RecordVideoModal.svelte';
+	import ThemedVideoPlayer from '#lib/components/ThemedVideoPlayer.svelte';
+	import VideoEditorModal from '#lib/components/VideoEditorModal.svelte';
 	import StickerLayer from '#lib/components/StickerLayer.svelte';
 	import Button from '#lib/components/ui/Button.svelte';
 	import Spinner from '#lib/components/ui/Spinner.svelte';
@@ -30,6 +32,9 @@
 	const id = $props.id();
 	let uploadInput = $state<HTMLInputElement | null>(null);
 	let recordOpen = $state(false);
+	let editorOpen = $state(false);
+	let editorFile = $state<File | null>(null);
+	let editorUrl = $state('');
 	let removeAsk = $state(false);
 	let removeBusy = $state(false);
 	let removeDialog = $state<HTMLDivElement | null>(null);
@@ -61,7 +66,24 @@
 		const input = event.currentTarget as HTMLInputElement;
 		const file = input.files?.[0];
 		input.value = '';
-		if (file) void journal.setVideo(file);
+		if (file) {
+			editorFile = file;
+			editorUrl = '';
+			editorOpen = true;
+		}
+	}
+
+	function editCurrentVideo() {
+		if (!videoUrl) return;
+		editorFile = null;
+		editorUrl = videoUrl;
+		editorOpen = true;
+	}
+
+	function closeEditor() {
+		editorOpen = false;
+		editorFile = null;
+		editorUrl = '';
 	}
 
 	function askRemove() {
@@ -153,20 +175,17 @@
 		>
 			{#if videoUrl}
 				{#key videoUrl}
-					<video
+					<ThemedVideoPlayer
 						src={videoUrl}
-						poster={posterUrl || undefined}
-						controls={!preview}
-						muted={preview}
-						playsinline
-						onerror={() => {
+						poster={posterUrl}
+						class="min-h-0 flex-1"
+						onError={() => {
 							if (journal.entries[date]?.videoPath) {
 								journal.refreshVideo(date);
 							}
 						}}
-						onloadeddata={() => journal.videoPlayed(date)}
-						class="block h-full w-full bg-desk object-contain"
-					></video>
+						onLoadedData={() => journal.videoPlayed(date)}
+					/>
 				{/key}
 			{:else if journal.videoProblem(date)}
 				<div
@@ -234,15 +253,26 @@
 		>
 			<span class="min-w-0 truncate pr-1">{caption}</span>
 			{#if videoUrl && !preview}
-				<button
-					type="button"
-					class="video-remove flex size-9 flex-none items-center justify-center rounded-lg border border-line bg-light text-accent hover:border-danger/50 hover:bg-danger/10 hover:text-danger"
-					aria-label="Remove video"
-					title="Remove video"
-					onclick={askRemove}
-				>
-					<CommunityIcon name="trash" size={15} />
-				</button>
+				<div class="flex shrink-0 items-center gap-1">
+					<button
+						type="button"
+						class="flex size-9 items-center justify-center rounded-lg border border-line bg-light text-ink-muted transition-colors hover:border-book-accent/50 hover:text-book-accent"
+						aria-label="Edit video"
+						title="Edit video"
+						onclick={editCurrentVideo}
+					>
+						<CommunityIcon name="pen" size={15} />
+					</button>
+					<button
+						type="button"
+						class="video-remove flex size-9 flex-none items-center justify-center rounded-lg border border-line bg-light text-accent hover:border-danger/50 hover:bg-danger/10 hover:text-danger"
+						aria-label="Remove video"
+						title="Remove video"
+						onclick={askRemove}
+					>
+						<CommunityIcon name="trash" size={15} />
+					</button>
+				</div>
 			{/if}
 		</div>
 	</div>
@@ -324,10 +354,23 @@
 		open={recordOpen}
 		{date}
 		onClose={() => (recordOpen = false)}
+		onEdit={(file) => {
+			recordOpen = false;
+			editorFile = file;
+			editorUrl = '';
+			editorOpen = true;
+		}}
 		onUpload={() => {
 			recordOpen = false;
 			uploadInput?.click();
 		}}
+	/>
+	<VideoEditorModal
+		open={editorOpen}
+		{date}
+		sourceFile={editorFile}
+		sourceUrl={editorUrl}
+		onClose={closeEditor}
 	/>
 {/if}
 

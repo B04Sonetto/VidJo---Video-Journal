@@ -913,7 +913,7 @@ class Journal {
 		return `${this.ownerId}:${date}`;
 	}
 
-	async setVideo(file: File) {
+	async setVideo(file: File, thumbnail?: Blob | null) {
 		if (!file) return;
 
 		const entry = this.entries[this.current];
@@ -940,7 +940,7 @@ class Journal {
 
 			// Capture the poster while the video uploads. Capture is best-effort and
 			// resolves to null on failure, so it never blocks the upload.
-			const thumbPromise = captureVideoThumbnail(file);
+			const thumbPromise = thumbnail ? Promise.resolve(thumbnail) : captureVideoThumbnail(file);
 
 			if (this.remote) {
 				const result = await this.uploadVideoBlob(file, date, file.name);

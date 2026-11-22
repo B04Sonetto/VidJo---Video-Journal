@@ -7,12 +7,14 @@
 		open,
 		date,
 		onClose,
-		onUpload
+		onUpload,
+		onEdit
 	}: {
 		open: boolean;
 		date: string;
 		onClose: () => void;
 		onUpload?: () => void;
+		onEdit?: (file: File) => void;
 	} = $props();
 
 	type Stage = 'idle' | 'requesting' | 'ready' | 'recording' | 'processing' | 'review' | 'error';
@@ -322,6 +324,18 @@
 		} finally {
 			saving = false;
 		}
+
+	}
+
+	function editVideo() {
+		if (!blob || !onEdit || saving) return;
+		const extension = blob.type.includes('mp4') ? 'mp4' : 'webm';
+		onEdit(
+			new File([blob], `vidjo-${date}.${extension}`, {
+				type: blob.type || 'video/webm'
+			})
+		);
+		onClose();
 	}
 
 	async function flipCamera() {
@@ -587,6 +601,16 @@
 						>
 							Retake
 						</button>
+						{#if onEdit}
+							<button
+								type="button"
+								class="min-h-11 rounded-xl border-[1.5px] border-gold/60 bg-gold/15 px-4 font-ui text-sm font-semibold text-white hover:bg-gold/25 disabled:opacity-50"
+								disabled={saving}
+								onclick={editVideo}
+							>
+								Edit clip
+							</button>
+						{/if}
 						<button
 							type="button"
 							class="min-h-11 rounded-xl bg-accent px-5 font-ui text-sm font-bold text-white hover:bg-accent-strong disabled:cursor-wait disabled:opacity-60"

@@ -6,6 +6,7 @@
 	import AttachedSongCard from '#lib/components/AttachedSongCard.svelte';
 	import Avatar from '#lib/components/Avatar.svelte';
 	import CommunityIcon from '#lib/components/CommunityIcon.svelte';
+	import ThemedVideoPlayer from '#lib/components/ThemedVideoPlayer.svelte';
 	import type { SharedJournalEntry } from '#lib/types';
 
 	let {
@@ -119,17 +120,13 @@
 			</header>
 
 			{#if entry?.videoPath && videoUrl}
-				<div class="border-b border-line bg-black">
-					<video
-						class="mx-auto max-h-[50vh] w-full object-contain"
+				<div class="border-b border-line bg-book-bg p-2">
+					<ThemedVideoPlayer
 						src={videoUrl}
-						poster={thumbUrl || undefined}
-						controls
-						playsinline
+						poster={thumbUrl}
 						preload="metadata"
-					>
-						<track kind="captions" />
-					</video>
+						class="mx-auto aspect-video max-h-[50vh] w-full"
+					/>
 				</div>
 			{/if}
 

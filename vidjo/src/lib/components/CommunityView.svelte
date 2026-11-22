@@ -9,6 +9,7 @@
 	import { MOOD_BY_KEY } from '#lib/data/moods';
 	import { STICKER_BY_KEY } from '#lib/data/stickers';
 	import CommunityIcon from '#lib/components/CommunityIcon.svelte';
+	import ThemedVideoPlayer from '#lib/components/ThemedVideoPlayer.svelte';
 	import ProfileModal from '#lib/components/ProfileModal.svelte';
 	import CommunityPostDetail from '#lib/components/CommunityPostDetail.svelte';
 	import CommunityMoodFilters from '#lib/components/CommunityMoodFilters.svelte';
@@ -871,15 +872,12 @@
 						<!-- Media / cover -->
 						{#if post.videoUrl}
 							<div class="relative overflow-hidden rounded-[2px] border border-line bg-desk">
-								<!-- svelte-ignore a11y_media_has_caption -->
-								<video
+								<ThemedVideoPlayer
 									src={post.videoUrl}
-									poster={post.videoThumbUrl || undefined}
-									controls
-									playsinline
+									poster={post.videoThumbUrl || ''}
 									preload="metadata"
-									class="max-h-[290px] w-full modal-video bg-black object-contain"
-								></video>
+									class="aspect-video max-h-[290px] w-full modal-video"
+								/>
 								<span
 									class="pointer-events-none absolute top-2 left-2 rounded-full bg-desk/90 px-2 py-0.5 font-ui text-[9px] font-bold text-book-bg"
 								>

@@ -8,6 +8,7 @@
 	import AttachedSongCard from '#lib/components/AttachedSongCard.svelte';
 	import Avatar from '#lib/components/Avatar.svelte';
 	import CommunityIcon from '#lib/components/CommunityIcon.svelte';
+	import ThemedVideoPlayer from '#lib/components/ThemedVideoPlayer.svelte';
 	import PromptModal from '#lib/components/PromptModal.svelte';
 	import type { CommunityPost, FriendPostReaction } from '#lib/types';
 
@@ -232,15 +233,12 @@
 			<!-- Media -->
 			{#if post.videoUrl}
 				<div class="overflow-hidden rounded-[3px] border border-line bg-black">
-					<!-- svelte-ignore a11y_media_has_caption -->
-					<video
+					<ThemedVideoPlayer
 						src={post.videoUrl}
-						poster={post.videoThumbUrl || undefined}
-						controls
-						playsinline
+						poster={post.videoThumbUrl || ''}
 						preload="metadata"
-						class="max-h-[420px] w-full modal-video bg-black object-contain"
-					></video>
+						class="aspect-video max-h-[420px] w-full modal-video"
+					/>
 				</div>
 			{:else if post.videoPath || post.videoName}
 				<div
