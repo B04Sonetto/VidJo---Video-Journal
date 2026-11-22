@@ -561,12 +561,12 @@
 	}
 
 	.top-scrim {
-		background: linear-gradient(to bottom, rgb(6 4 12 / 55%), transparent);
+		background: linear-gradient(to bottom, rgb(6 4 12 / 72%), transparent);
 		transition: opacity 250ms ease;
 	}
 
 	.bottom-scrim {
-		background: linear-gradient(to top, rgb(6 4 12 / 88%) 0%, rgb(6 4 12 / 45%) 45%, transparent);
+		background: linear-gradient(to top, rgb(6 4 12 / 94%) 0%, rgb(6 4 12 / 62%) 45%, transparent);
 		transition: opacity 250ms ease;
 	}
 
@@ -591,16 +591,16 @@
 	}
 
 	.center-play {
-		background: color-mix(in srgb, var(--color-book-accent) 18%, rgb(10 6 20 / 72%));
-		border: 1px solid color-mix(in srgb, var(--color-book-accent) 55%, white 12%);
+		background: color-mix(in srgb, var(--color-book-accent) 28%, rgb(10 6 20 / 94%));
+		border: 1px solid color-mix(in srgb, var(--color-book-accent) 62%, white 20%);
 		box-shadow:
 			0 10px 30px rgb(0 0 0 / 45%),
 			inset 0 1px 0 rgb(255 255 255 / 18%);
-		backdrop-filter: blur(10px);
+		backdrop-filter: blur(6px);
 	}
 
 	.center-play:hover {
-		background: color-mix(in srgb, var(--color-book-accent) 32%, rgb(10 6 20 / 72%));
+		background: color-mix(in srgb, var(--color-book-accent) 42%, rgb(10 6 20 / 94%));
 	}
 
 	.video-spinner {
@@ -625,8 +625,9 @@
 	}
 
 	.dock-surface {
-		background: rgb(12 8 22 / 72%);
-		backdrop-filter: blur(18px) saturate(140%);
+		background: rgb(12 8 22 / 94%);
+		border-color: rgb(255 255 255 / 24%);
+		backdrop-filter: blur(8px) saturate(120%);
 	}
 
 	.seek-area {
@@ -647,14 +648,14 @@
 	.seek-rail {
 		right: 0;
 		height: 4px;
-		background: rgb(255 255 255 / 22%);
+		background: rgb(255 255 255 / 38%);
 		overflow: visible;
 	}
 
 	.seek-buffered {
 		top: 0;
 		bottom: 0;
-		background: rgb(255 255 255 / 32%);
+		background: rgb(255 255 255 / 48%);
 	}
 
 	.seek-played {
@@ -752,8 +753,8 @@
 		align-items: center;
 		justify-content: center;
 		border-radius: 9px;
-		background: rgb(255 255 255 / 9%);
-		color: rgb(255 255 255 / 82%);
+		background: rgb(255 255 255 / 16%);
+		color: white;
 		transition:
 			background 160ms ease,
 			color 160ms ease,
@@ -761,7 +762,7 @@
 	}
 
 	.control-btn:hover {
-		background: rgb(255 255 255 / 18%);
+		background: rgb(255 255 255 / 26%);
 		color: white;
 		transform: translateY(-1px);
 	}
@@ -796,7 +797,7 @@
 
 	.time-divider,
 	.time-total {
-		color: rgb(255 255 255 / 52%);
+		color: rgb(255 255 255 / 76%);
 	}
 
 	.speed-btn {
