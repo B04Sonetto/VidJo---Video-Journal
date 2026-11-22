@@ -55,6 +55,7 @@
 	const progressPct = $derived(
 		progressMax > 0 ? Math.min(100, (displayPosition / progressMax) * 100) : 0
 	);
+	const volumePct = $derived(Math.round(spotify.volume * 100));
 	const today = $derived(todayKey());
 	const todaySong = $derived(journal.entries[today]?.song ?? null);
 	const isTodaySongAttached = $derived(
@@ -385,8 +386,9 @@
 									type="range"
 									min="0"
 									max="100"
-									value={Math.round(spotify.volume * 100)}
-									class="spotify-range h-1.5 w-full cursor-pointer appearance-none rounded-full bg-cover-edge/70"
+									value={volumePct}
+									class="spotify-range h-2 w-full cursor-pointer appearance-none rounded-full"
+									style="background: linear-gradient(to right, #1ED760 {volumePct}%, rgba(255,255,255,.38) {volumePct}%)"
 									oninput={(e) =>
 										void spotify.setVolume(
 											Number((e.currentTarget as HTMLInputElement).value) / 100
