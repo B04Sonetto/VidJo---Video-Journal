@@ -171,7 +171,21 @@ class SpotifyState {
 
 	async ensurePlayer() {
 		if (!browser || !this.connected) return;
-		if (this.player) return;
+		if (this.player) {
+			if (this.ready && this.deviceId) return;
+			try {
+				const ready = this.waitForPlayerDevice();
+				const connected = await this.player.connect();
+				if (!connected || !(await ready)) {
+					this.status = 'error';
+					this.error = 'Spotify player device is unavailable. Reopen the player and try again.';
+				}
+			} catch {
+				this.status = 'error';
+				this.error = 'Could not reconnect the VidJo Spotify player. Try again.';
+			}
+			return;
+		}
 		try {
 			await this.loadSdk();
 		} catch {
@@ -201,8 +215,10 @@ class SpotifyState {
 			this.error = '';
 		});
 
-		this.player.addListener('not_ready', () => {
+		this.player.addListener('not_ready', ({ device_id }: { device_id?: string }) => {
+			if (!device_id || device_id === this.deviceId) this.deviceId = '';
 			this.ready = false;
+			this.status = 'loading';
 		});
 
 		// eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -262,7 +278,37 @@ class SpotifyState {
 		if (!connected) {
 			this.status = 'error';
 			this.error = 'Could not activate the VidJo Spotify player. Try reloading or reconnecting.';
+			return;
 		}
+		if (!(await this.waitForPlayerDevice())) {
+			this.status = 'error';
+			this.error = 'Spotify player device is unavailable. Reopen the player and try again.';
+		}
+	}
+
+	private waitForPlayerDevice(timeout = 8000): Promise<boolean> {
+		if (this.ready && this.deviceId) return Promise.resolve(true);
+		const player = this.player;
+		if (!player) return Promise.resolve(false);
+
+		return new Promise((resolve) => {
+			const finish = (ready: boolean) => {
+				clearTimeout(timer);
+				player.removeListener?.('ready', onReady);
+				resolve(ready);
+			};
+			const onReady = ({ device_id }: { device_id?: string }) => {
+				if (!device_id) return;
+				this.deviceId = device_id;
+				this.ready = true;
+				this.status = 'ready';
+				this.error = '';
+				finish(true);
+			};
+
+			const timer = setTimeout(() => finish(false), timeout);
+			player.addListener('ready', onReady);
+		});
 	}
 
 	private async loadSdk() {
@@ -462,9 +508,7 @@ class SpotifyState {
 				return [];
 			}
 			if (!Array.isArray(data?.tracks)) return [];
-			return (data.tracks as SpotifyTrack[]).filter(
-				(t) => t?.uri && t.uri !== excludeTrack?.uri
-			);
+			return (data.tracks as SpotifyTrack[]).filter((t) => t?.uri && t.uri !== excludeTrack?.uri);
 		} catch {
 			if (opts.surfaceErrors && !this.error) {
 				this.error = 'Could not load personalized Spotify recommendations right now.';
@@ -531,7 +575,7 @@ class SpotifyState {
 			return;
 		}
 		await this.ensurePlayer();
-		if (!this.deviceId) {
+		if (!this.ready || !this.deviceId) {
 			this.error = 'Player is still starting up. Give it a moment, then try again.';
 			return;
 		}
@@ -573,10 +617,16 @@ class SpotifyState {
 			}
 			if (!res.ok) {
 				const msg = typeof data?.message === 'string' ? data.message : '';
-				this.error =
-					data?.error === 'device_not_found'
-						? msg || 'VidJo player device not ready yet. Try again in a moment.'
-						: msg || 'Could not start playback.';
+				if (data?.error === 'device_not_found') {
+					this.ready = false;
+					this.deviceId = '';
+					this.status = 'loading';
+					this.error =
+						'Spotify lost the VidJo player device. Reconnecting now—please try your song again in a moment.';
+					void this.ensurePlayer();
+					return;
+				}
+				this.error = msg || 'Could not start playback.';
 				return;
 			}
 			this.track = track;

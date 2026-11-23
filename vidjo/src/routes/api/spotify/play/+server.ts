@@ -30,6 +30,51 @@ export const PUT: RequestHandler = async ({ request, cookies }) => {
 		if (!deviceId) return json({ error: 'missing_device' }, { status: 400 });
 		if (!uris.length && !contextUri) return json({ error: 'missing_track' }, { status: 400 });
 
+		const transfer = await spotifyApi('/me/player', token.access_token, {
+			method: 'PUT',
+			body: JSON.stringify({ device_ids: [deviceId], play: false })
+		});
+		if (!transfer.ok && transfer.status !== 204) {
+			const rawTransfer = await transfer.text();
+			let transferData: unknown = null;
+			try {
+				transferData = rawTransfer ? (JSON.parse(rawTransfer) as unknown) : null;
+			} catch {
+				transferData = null;
+			}
+			if (transfer.status === 401) {
+				return json({ error: 'not_connected' }, { status: 401 });
+			}
+			if (transfer.status === 403) {
+				return json(
+					{
+						error: 'premium_required',
+						message: extractSpotifyMessage(transferData) || 'Premium required'
+					},
+					{ status: 403 }
+				);
+			}
+			if (transfer.status === 404) {
+				return json(
+					{
+						error: 'device_not_found',
+						message: 'Spotify could not find the VidJo player. Keep this tab open and try again.'
+					},
+					{ status: 404 }
+				);
+			}
+			return json(
+				{
+					error: 'play_failed',
+					status: transfer.status,
+					message:
+						extractSpotifyMessage(transferData) ||
+						`Could not activate the VidJo player (${transfer.status})`
+				},
+				{ status: transfer.status }
+			);
+		}
+
 		const qs = new URLSearchParams({ device_id: deviceId });
 		const payload: Record<string, unknown> = {};
 		if (uris.length) payload.uris = uris;
