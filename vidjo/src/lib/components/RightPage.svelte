@@ -2,6 +2,7 @@
 	import PrivacyPicker from '#lib/components/PrivacyPicker.svelte';
 	import StickerLayer from '#lib/components/StickerLayer.svelte';
 	import { PROMPTS } from '#lib/data/prompts';
+	import { dateKey, todayKey } from '#lib/dates';
 	import { journal, TITLE_MAX } from '#lib/state/journal.svelte';
 	import { friends } from '#lib/state/friends.svelte';
 	import { isFriendExcluded, toggleExcludedFriend } from '#lib/friendVisibility';
@@ -38,6 +39,14 @@
 	const sharingWithCommunity = $derived(entry.privacy === 'community');
 	const selectedCommunity = $derived(
 		community.joinedCommunities.find((item) => item.slug === entry.communitySlug) ?? null
+	);
+	const todayPages = $derived(
+		Math.max(
+			journal.dailyPageCount,
+			Object.values(journal.entries).filter(
+				(page) => dateKey(new Date(page.createdAt)) === todayKey()
+			).length
+		)
 	);
 
 	$effect(() => {
@@ -343,6 +352,19 @@
 		>
 			{pageNumber}
 		</span>
+
+		{#if !preview}
+			<Button
+				size="sm"
+				variant="paper"
+				icon="plus"
+				class="mr-auto shrink-0"
+				disabled={todayPages >= 3}
+				onclick={() => journal.createEntry()}
+			>
+				Add Page · {todayPages}/3
+			</Button>
+		{/if}
 
 		<Button
 			size="sm"

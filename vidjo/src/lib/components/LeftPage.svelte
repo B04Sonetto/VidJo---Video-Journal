@@ -10,7 +10,7 @@
 	import StickerLayer from '#lib/components/StickerLayer.svelte';
 	import Button from '#lib/components/ui/Button.svelte';
 	import Spinner from '#lib/components/ui/Spinner.svelte';
-	import { dateKey, parseDate, todayKey } from '#lib/dates';
+	import { parseDate, todayKey } from '#lib/dates';
 	import { journal } from '#lib/state/journal.svelte';
 	import { viewport } from '#lib/state/viewport.svelte';
 	import type { Entry } from '#lib/types';
@@ -53,14 +53,6 @@
 		})
 	);
 	const caption = $derived(entry.title || (pageDate === todayKey() ? "Today's VidJo" : 'My VidJo'));
-	const todayPages = $derived(
-		Math.max(
-			journal.dailyPageCount,
-			Object.values(journal.entries).filter(
-				(page) => dateKey(new Date(page.createdAt)) === todayKey()
-			).length
-		)
-	);
 
 	$effect(() => {
 		if (removeAsk && !wasRemoveAsk) {
@@ -325,19 +317,6 @@
 	>
 		{pageNumber}
 	</div>
-
-	{#if !preview}
-		<Button
-			size="sm"
-			variant="paper"
-			icon="plus"
-			class="absolute bottom-2 left-3 min-[480px]:left-5 min-[640px]:left-8"
-			disabled={todayPages >= 3}
-			onclick={() => journal.createEntry()}
-		>
-			Add Page · {todayPages}/3
-		</Button>
-	{/if}
 
 	<StickerLayer {entry} side="L" {preview} />
 </section>
