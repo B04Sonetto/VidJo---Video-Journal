@@ -2,7 +2,12 @@
 	import { onDestroy } from 'svelte';
 	import { auth } from '#lib/state/auth.svelte';
 	import { censor } from '#lib/censor';
-	import { DEFAULT_PREFERENCES, profile, type NotebookStyle } from '#lib/state/profile.svelte';
+	import {
+		DEFAULT_PREFERENCES,
+		NOTEBOOK_STYLES,
+		profile,
+		type NotebookStyle
+	} from '#lib/state/profile.svelte';
 	import { journal } from '#lib/state/journal.svelte';
 	import { friends } from '#lib/state/friends.svelte';
 	import { community } from '#lib/state/community.svelte';
@@ -34,13 +39,6 @@
 
 	const accentChoices = ['#51397A', '#7D58C2', '#D4A24C', '#3F7A4F', '#E85D5D', '#4F9DEB'];
 
-	const notebookStyles: { id: NotebookStyle; label: string; hint: string }[] = [
-		{ id: 'scrapbook', label: 'Scrapbook', hint: 'A cream note card' },
-		{ id: 'dark', label: 'Dark journal', hint: 'Dark page, gold edge' },
-		{ id: 'spread', label: 'Book spread', hint: 'Two pages, like a book' },
-		{ id: 'polaroid', label: 'Polaroid', hint: 'Taped photo and a note' }
-	];
-
 	const paperStyles = [
 		{ id: 'lined', label: 'Lined' },
 		{ id: 'dotted', label: 'Dotted' },
@@ -48,14 +46,15 @@
 		{ id: 'plain', label: 'Plain' }
 	] as const;
 
-	type AppearanceSection = 'accent' | 'theme' | 'paper' | 'text' | 'notebook';
+	type AppearanceSection = 'accent' | 'theme' | 'paper' | 'text' | 'notebook' | 'lyrics';
 
 	let openSections = $state<Record<AppearanceSection, boolean>>({
 		accent: true,
 		theme: false,
 		paper: false,
 		text: false,
-		notebook: false
+		notebook: false,
+		lyrics: false
 	});
 
 	function toggleSection(id: AppearanceSection) {
@@ -99,6 +98,7 @@
 		paperStyle: (typeof paperStyles)[number]['id'];
 		fontSize: 'sm' | 'base' | 'lg';
 		notebookStyle: NotebookStyle;
+		fallingLyrics: boolean;
 	};
 
 	function currentSettings(): SettingsDraft {
@@ -110,7 +110,8 @@
 			clearCacheOnSignOut: profile.clearCacheOnSignOut,
 			paperStyle: profile.paperStyle,
 			fontSize: profile.fontSize,
-			notebookStyle: profile.notebookStyle
+			notebookStyle: profile.notebookStyle,
+			fallingLyrics: profile.fallingLyrics
 		};
 	}
 
@@ -129,7 +130,9 @@
 			profile.allowFriendRequests,
 			profile.clearCacheOnSignOut,
 			profile.paperStyle,
-			profile.fontSize
+			profile.fontSize,
+			profile.notebookStyle,
+			profile.fallingLyrics
 		].join('|');
 
 		if (nav.profileTab !== 'settings' || key === settingsSeed) return;
@@ -147,7 +150,8 @@
 			settingsDraft.clearCacheOnSignOut !== profile.clearCacheOnSignOut ||
 			settingsDraft.paperStyle !== profile.paperStyle ||
 			settingsDraft.fontSize !== profile.fontSize ||
-			settingsDraft.notebookStyle !== profile.notebookStyle
+			settingsDraft.notebookStyle !== profile.notebookStyle ||
+			settingsDraft.fallingLyrics !== profile.fallingLyrics
 	);
 
 	// Compact labels shown on collapsed Appearance sections.
@@ -165,8 +169,10 @@
 				: 'Default'
 	);
 	let notebookLabel = $derived(
-		notebookStyles.find((option) => option.id === settingsDraft.notebookStyle)?.label ?? 'Scrapbook'
+		NOTEBOOK_STYLES.find((option) => option.id === settingsDraft.notebookStyle)?.label ??
+			'Scrapbook'
 	);
+	let lyricsLabel = $derived(settingsDraft.fallingLyrics ? 'On' : 'Off');
 
 	let totalPages = $derived(
 		Object.values(journal.entries).filter(
@@ -484,6 +490,7 @@
 		profile.paperStyle = draft.paperStyle;
 		profile.fontSize = draft.fontSize;
 		profile.notebookStyle = draft.notebookStyle;
+		profile.fallingLyrics = draft.fallingLyrics;
 		journal.setPaper(draft.paperStyle);
 	}
 
@@ -523,7 +530,8 @@
 			clearCacheOnSignOut: DEFAULT_PREFERENCES.clearCacheOnSignOut,
 			paperStyle: DEFAULT_PREFERENCES.paperStyle,
 			fontSize: DEFAULT_PREFERENCES.fontSize,
-			notebookStyle: DEFAULT_PREFERENCES.notebookStyle
+			notebookStyle: DEFAULT_PREFERENCES.notebookStyle,
+			fallingLyrics: DEFAULT_PREFERENCES.fallingLyrics
 		};
 		settingsError = '';
 		journal.toast('Defaults restored — save to apply');
@@ -1591,7 +1599,7 @@
 					{#if openSections.notebook}
 						<div class="border-t border-cover-edge/60 px-4 py-4">
 							<div class="grid grid-cols-2 gap-2">
-								{#each notebookStyles as option (option.id)}
+								{#each NOTEBOOK_STYLES as option (option.id)}
 									<button
 										type="button"
 										class="flex flex-col gap-2 rounded-xl p-2.5 text-left transition-colors {settingsDraft.notebookStyle ===
@@ -1646,7 +1654,7 @@
 														></span>
 													</span>
 												</span>
-											{:else}
+											{:else if option.id === 'polaroid'}
 												<span
 													class="absolute top-2 left-4 h-[58px] w-[44px] rotate-[-5deg] rounded-[2px] note-scrap shadow-md"
 												>
@@ -1663,6 +1671,80 @@
 													<span class="absolute top-4 left-2 h-1 w-[50%] rounded-full bg-line"
 													></span>
 												</span>
+											{:else if option.id === 'postcard'}
+												<span
+													class="absolute inset-x-3 inset-y-2 rotate-[-1deg] overflow-hidden rounded-sm border border-line note-scrap shadow-md"
+												>
+													<span
+														class="absolute inset-x-0 top-0 h-1.5"
+														style="background-image: repeating-linear-gradient(115deg, var(--color-book-accent) 0 5px, var(--color-book-bg) 5px 10px)"
+													></span>
+													<span
+														class="absolute inset-x-0 bottom-0 h-1.5"
+														style="background-image: repeating-linear-gradient(115deg, var(--color-book-accent) 0 5px, var(--color-book-bg) 5px 10px)"
+													></span>
+													<span class="absolute top-3 left-2 h-1 w-10 rounded-full bg-book-accent/70"
+													></span>
+													<span class="absolute top-3 right-2 size-5 rotate-[8deg] border border-book-accent/70 bg-book-bg"
+													></span>
+													<span class="absolute top-5 left-2 h-1 w-[55%] rounded-full bg-line"></span>
+													<span class="absolute top-7 left-2 h-1 w-[68%] rounded-full bg-line"></span>
+												</span>
+											{:else if option.id === 'newsprint'}
+												<span
+													class="absolute inset-x-3 inset-y-1.5 overflow-hidden rounded-sm border border-line bg-book-bg px-2 py-1.5 shadow-md"
+												>
+													<span
+														class="block h-1.5 w-[70%] rounded-full bg-book-ink/70"
+													></span>
+													<span class="mt-1 flex gap-1.5">
+														<span class="min-w-0 flex-1 space-y-1">
+															<span class="block h-0.5 w-full bg-book-ink/40"></span>
+															<span class="block h-0.5 w-[85%] bg-book-ink/40"></span>
+															<span class="block h-0.5 w-full bg-book-ink/40"></span>
+														</span>
+														<span class="h-10 w-px bg-book-ink/25"></span>
+														<span class="min-w-0 flex-1 space-y-1">
+															<span class="block h-0.5 w-full bg-book-ink/40"></span>
+															<span class="block h-0.5 w-[75%] bg-book-ink/40"></span>
+															<span class="block h-7 w-full bg-cover/40"></span>
+														</span>
+													</span>
+												</span>
+											{:else if option.id === 'letter'}
+												<span
+													class="absolute inset-x-4 inset-y-2 rounded-sm bg-book-bg px-2 py-2 shadow-md [clip-path:polygon(0_0,100%_0,100%_100%,0_100%)]"
+												>
+													<span class="block h-1.5 w-10 rounded-full bg-book-accent/70"></span>
+													<span class="mt-2 block h-0.5 w-[80%] rounded-full bg-line"></span>
+													<span class="mt-1 block h-0.5 w-[65%] rounded-full bg-line"></span>
+													<span class="mt-1 block h-0.5 w-[72%] rounded-full bg-line"></span>
+													<span
+														class="absolute right-2 bottom-2 size-4 rounded-full border border-[#9A5B5B] bg-[#9A5B5B]/70"
+													></span>
+												</span>
+												<span
+													class="absolute top-2 right-4 size-4 border-t border-l border-line bg-book-edge/70 [clip-path:polygon(0_0,100%_0,0_100%)]"
+												></span>
+											{:else}
+												<span
+													class="absolute inset-x-3 inset-y-2 overflow-hidden rounded-sm border border-line bg-book-bg shadow-md"
+												>
+													<span class="absolute inset-x-0 top-0 h-3 border-b border-line bg-paper-deep/70"
+													></span>
+													<span class="absolute top-1.5 left-2 h-1 w-8 rounded-full bg-book-accent/70"
+													></span>
+													<span class="absolute inset-y-3 left-9 w-px bg-book-ink/25"></span>
+													<span class="absolute top-5 left-2 h-0.5 w-5 rounded-full bg-line"></span>
+													<span class="absolute top-5 left-11 h-0.5 w-[60%] rounded-full bg-line"
+													></span>
+													<span class="absolute top-8 left-2 h-0.5 w-5 rounded-full bg-line"></span>
+													<span class="absolute top-8 left-11 h-0.5 w-[70%] rounded-full bg-line"
+													></span>
+													<span class="absolute top-11 left-2 h-0.5 w-5 rounded-full bg-line"></span>
+													<span class="absolute top-11 left-11 h-0.5 w-[50%] rounded-full bg-line"
+													></span>
+												</span>
 											{/if}
 										</span>
 										<span class="flex items-center justify-between gap-2">
@@ -1677,6 +1759,54 @@
 							</div>
 							<p class="mt-2 font-ui text-[11px] text-book-bg/65">
 								Changes how a friend's pages look when you open their notebook.
+							</p>
+						</div>
+					{/if}
+				</div>
+
+				<div class="border-t border-cover-edge/60">
+					<button
+						type="button"
+						class="flex w-full items-center justify-between gap-3 bg-cover/15 px-4 py-3 text-left transition-colors hover:bg-cover/25"
+						aria-expanded={openSections.lyrics}
+						onclick={() => toggleSection('lyrics')}
+					>
+						<span class="flex min-w-0 items-center gap-2.5">
+							<CommunityIcon name="sparkles" size={15} class="shrink-0 text-book-accent" />
+							<span class="font-ui text-sm font-bold">Falling lyrics</span>
+							<span class="truncate font-ui text-[11px] text-book-bg/65">{lyricsLabel}</span>
+						</span>
+						<CommunityIcon
+							name="chevron-down"
+							size={15}
+							class="shrink-0 transition-transform {openSections.lyrics ? 'rotate-180' : ''}"
+						/>
+					</button>
+					{#if openSections.lyrics}
+						<div class="border-t border-cover-edge/60 px-4 py-4">
+							<div
+								class="flex flex-wrap items-center justify-between gap-3 rounded-xl bg-cover/20 p-4"
+							>
+								<div>
+									<p class="font-ui text-sm font-semibold">Lyrics on journal pages</p>
+									<p class="font-ui text-xs text-book-bg/65">
+										Words from the song playing in VidJo drift gently down the page
+									</p>
+								</div>
+								<button
+									type="button"
+									class="rounded-full px-4 py-1.5 font-ui text-xs font-semibold transition-colors {settingsDraft.fallingLyrics
+										? 'bg-[#3F7A4F] text-book-bg'
+										: 'bg-cover/50 text-book-bg/80'}"
+									aria-pressed={settingsDraft.fallingLyrics}
+									onclick={() => (settingsDraft.fallingLyrics = !settingsDraft.fallingLyrics)}
+								>
+									{settingsDraft.fallingLyrics ? 'Enabled' : 'Disabled'}
+								</button>
+							</div>
+							<p class="mt-2 font-ui text-[11px] text-book-bg/60">
+								Synced lyrics are looked up for the track currently playing. If none are
+								available, your pages stay clean.
 							</p>
 						</div>
 					{/if}

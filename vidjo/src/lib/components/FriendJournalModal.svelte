@@ -10,6 +10,7 @@
 	import { STICKER_BY_KEY } from '#lib/data/stickers';
 	import Avatar from '#lib/components/Avatar.svelte';
 	import CommunityIcon from '#lib/components/CommunityIcon.svelte';
+	import FallingLyrics from '#lib/components/FallingLyrics.svelte';
 	import ThemedVideoPlayer from '#lib/components/ThemedVideoPlayer.svelte';
 	import ProfileModal from '#lib/components/ProfileModal.svelte';
 	import Button from '#lib/components/ui/Button.svelte';
@@ -820,8 +821,10 @@
 			{/if}
 
 			<div
-				class="grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)] min-[860px]:grid-cols-[250px_minmax(0,1fr)]"
+				class="relative grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)] min-[860px]:grid-cols-[250px_minmax(0,1fr)]"
 			>
+				<FallingLyrics class="inset-0" />
+
 				<!-- Page index -->
 				<aside
 					class="reader-scroll hidden min-h-0 flex-col overflow-y-auto border-r border-cover-edge bg-desk/60 p-4 min-[860px]:flex"
@@ -1002,6 +1005,222 @@
 									</div>
 								</div>
 								<div class="mt-6 rounded-2xl shadow-[0_10px_24px_rgba(0,0,0,.35)]">
+									{@render socialBlock(page)}
+								</div>
+							</div>
+						{:else if notebookStyle === 'postcard'}
+							<!-- Postcard: airmail border, stamp, and a short note -->
+							<div class="mx-auto max-w-[820px] min-w-0">
+								<article
+									class="relative overflow-hidden rounded-[6px] border border-line note-scrap p-4 text-book-ink shadow-[0_14px_30px_rgba(0,0,0,.45)] min-[720px]:p-6"
+								>
+									<span
+										class="pointer-events-none absolute inset-x-0 top-0 h-2"
+										style="background-image: repeating-linear-gradient(115deg, var(--color-book-accent) 0 7px, var(--color-book-bg) 7px 14px)"
+										aria-hidden="true"
+									></span>
+									<span
+										class="pointer-events-none absolute inset-x-0 bottom-0 h-2"
+										style="background-image: repeating-linear-gradient(115deg, var(--color-book-accent) 0 7px, var(--color-book-bg) 7px 14px)"
+										aria-hidden="true"
+									></span>
+									<div class="grid gap-4 min-[720px]:grid-cols-[minmax(0,1fr)_minmax(0,1.05fr)] min-[720px]:gap-5">
+										<div>
+											<div class="overflow-hidden rounded-[3px] border border-line bg-desk">
+												{#if hasMedia(page)}
+													{@render mediaBlock(page)}
+												{:else}
+													{@render moodArt(page)}
+												{/if}
+											</div>
+											{@render stickerRow(page, false)}
+										</div>
+										<div class="relative min-w-0 pt-6">
+											<span
+												class="absolute top-0 right-0 grid size-12 rotate-[6deg] place-items-center border border-book-accent/70 bg-book-bg text-center shadow-sm"
+												aria-hidden="true"
+											>
+												<span class="font-ui text-[8px] leading-tight font-bold tracking-wide text-note-accent"
+													>VIA<br />VIDJO</span
+												>
+											</span>
+											{@render dateRow(page, false)}
+											{@render titleBlock(page, false)}
+											<div class="mt-3 h-px w-16 bg-book-accent/70"></div>
+											{@render mindBlock(page, false)}
+											{@render reflBlock(page, false)}
+											{#if page.song}
+												<div class="mt-4">
+													<AttachedSongCard song={page.song} compact label="Song on this page" />
+												</div>
+											{/if}
+										</div>
+									</div>
+								</article>
+								<div class="mt-5 rounded-2xl shadow-[0_10px_24px_rgba(0,0,0,.35)]">
+									{@render socialBlock(page)}
+								</div>
+							</div>
+						{:else if notebookStyle === 'newsprint'}
+							<!-- Newsprint: masthead and a two-column story -->
+							<article
+								class="newsprint-copy mx-auto max-w-[760px] min-w-0 rounded-[3px] border border-book-edge bg-book-bg px-4 py-4 text-book-ink shadow-[0_14px_30px_rgba(0,0,0,.45)] min-[720px]:px-6 min-[720px]:py-6"
+							>
+								<div class="border-y-2 border-book-ink/70 py-2">
+									<p
+										class="text-center font-display text-lg leading-none font-bold tracking-[.18em] uppercase min-[720px]:text-2xl"
+									>
+										The Friend Journal
+									</p>
+									<p class="mt-1.5 flex flex-wrap items-center justify-center gap-x-3 gap-y-1">
+										<span class="font-ui text-[10px] font-semibold tracking-wide uppercase">
+											{page.dateFormatted}
+										</span>
+										<span class="font-ui text-[10px] font-semibold tracking-wide uppercase">
+											Vol. {sorted.length - index} · No. {index + 1}
+										</span>
+									</p>
+								</div>
+								{#if page.title}
+									<h3
+										class="mt-4 text-center font-display text-2xl leading-tight font-bold [overflow-wrap:anywhere] uppercase min-[720px]:text-4xl"
+									>
+										{censor(page.title)}
+									</h3>
+								{/if}
+								<div class="mt-4 grid gap-4 min-[700px]:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)] min-[700px]:gap-5">
+									<div>
+										<div class="overflow-hidden rounded-[2px] border border-book-ink/25 bg-desk">
+											{#if hasMedia(page)}
+												{@render mediaBlock(page)}
+											{:else}
+												{@render moodArt(page)}
+											{/if}
+										</div>
+										{#if moodOf(page)}
+											<p class="mt-2 font-ui text-[10px] text-center font-semibold tracking-wide uppercase">
+												Mood: {moodOf(page)?.l}
+											</p>
+										{/if}
+									</div>
+									<div class="min-w-0 border-t border-book-ink/30 pt-3 min-[700px]:border-t-0 min-[700px]:border-l min-[700px]:pl-5">
+										{#if page.mind || page.refl}
+											{@render mindBlock(page, false)}
+											{@render reflBlock(page, false)}
+										{:else}
+											<p class="mt-2 font-display text-lg italic text-book-ink/60">
+												No words filed with this page.
+											</p>
+										{/if}
+										{#if page.song}
+											<div class="mt-4">
+												<AttachedSongCard song={page.song} compact label="Song on this page" />
+											</div>
+										{/if}
+									</div>
+								</div>
+								{@render stickerRow(page, false)}
+							</article>
+							<div class="mx-auto mt-5 max-w-[760px] rounded-2xl shadow-[0_10px_24px_rgba(0,0,0,.35)]">
+								{@render socialBlock(page)}
+							</div>
+						{:else if notebookStyle === 'letter'}
+							<!-- Letter: folded stationery with a wax seal -->
+							<div class="mx-auto max-w-[720px] min-w-0">
+								<article
+									class="relative overflow-hidden rounded-[5px] border border-line note-scrap p-5 text-book-ink shadow-[0_14px_30px_rgba(0,0,0,.45)] min-[720px]:p-7"
+								>
+									<span
+										class="pointer-events-none absolute top-0 right-0 h-12 w-12 border-b border-l border-line bg-book-edge/60 [clip-path:polygon(100%_0,0_0,100%_100%)]"
+										aria-hidden="true"
+									></span>
+									<p class="font-ui text-[10px] font-bold tracking-[.2em] text-note-accent uppercase">
+										A letter from {firstName}
+									</p>
+									{@render dateRow(page, false)}
+									{@render titleBlock(page, false)}
+									<p class="mt-4 font-hand text-xl text-book-ink/80">Dear you,</p>
+									{#if hasMedia(page)}
+										<div class="mt-3 overflow-hidden rounded-[3px] border border-line bg-desk">
+											{@render mediaBlock(page)}
+										</div>
+									{/if}
+									{@render mindBlock(page, false)}
+									{@render reflBlock(page, false)}
+									{#if page.song}
+										<div class="mt-4">
+											<AttachedSongCard song={page.song} compact label="Song on this page" />
+										</div>
+									{/if}
+									{@render stickerRow(page, false)}
+									<div class="mt-6 flex items-end justify-between gap-3 border-t border-line/70 pt-4">
+										<p class="font-hand text-xl leading-none text-book-ink/80">
+											With love,<br />{firstName}
+										</p>
+										<span
+											class="grid size-11 shrink-0 place-items-center rounded-full border-4 border-[#9A5B5B]/25 bg-[#9A5B5B]/85 text-white shadow-sm"
+											aria-hidden="true"
+										>
+											<CommunityIcon name="heart" size={16} />
+										</span>
+									</div>
+								</article>
+								<div class="mt-5 rounded-2xl shadow-[0_10px_24px_rgba(0,0,0,.35)]">
+									{@render socialBlock(page)}
+								</div>
+							</div>
+						{:else if notebookStyle === 'ledger'}
+							<!-- Ledger: a dated entry with ruled columns like a diary -->
+							<div class="mx-auto max-w-[760px] min-w-0">
+								<article
+									class="overflow-hidden rounded-[5px] border border-line note-scrap text-book-ink shadow-[0_14px_30px_rgba(0,0,0,.45)]"
+								>
+									<div
+										class="flex flex-wrap items-center justify-between gap-2 border-b-2 border-book-ink/60 bg-paper-deep/60 px-4 py-2"
+									>
+										<p class="font-display text-sm font-bold tracking-[.16em] uppercase">
+											Daily ledger
+										</p>
+										<p class="font-mono text-[11px] font-bold text-book-ink/70">
+											Entry {String(index + 1).padStart(2, '0')} / {String(sorted.length).padStart(2, '0')}
+										</p>
+									</div>
+									<div class="grid grid-cols-[62px_minmax(0,1fr)] min-[720px]:grid-cols-[92px_minmax(0,1fr)]">
+										<div
+											class="border-r border-line/80 px-2 py-4 text-center font-mono text-[10px] leading-relaxed font-bold text-book-ink/60 min-[720px]:px-3 min-[720px]:text-[11px]"
+										>
+											{page.dateFormatted.split(' ').slice(0, 2).join(' ')}
+										</div>
+										<div class="paper-lined min-w-0 px-3 py-4 min-[720px]:px-5">
+											{@render titleBlock(page, false)}
+											{#if hasMedia(page)}
+												<div class="mt-3 overflow-hidden rounded-[3px] border border-line bg-desk">
+													{@render mediaBlock(page)}
+												</div>
+											{/if}
+											{@render mindBlock(page, false)}
+											{@render reflBlock(page, false)}
+											{#if page.song}
+												<div class="mt-4">
+													<AttachedSongCard song={page.song} compact label="Song on this page" />
+												</div>
+											{/if}
+											{@render stickerRow(page, false)}
+										</div>
+									</div>
+									<div
+										class="flex items-center justify-between gap-3 border-t border-line/80 bg-paper-deep/40 px-4 py-2"
+									>
+										<span class="font-ui text-[10px] font-semibold tracking-wide uppercase text-book-ink/60">
+											Filed by {firstName}
+										</span>
+										<span class="flex items-center gap-1.5 font-ui text-[10px] font-semibold text-book-ink/60">
+											<span class="size-3 rounded-[2px] border border-book-ink/40"></span>
+											Shared
+										</span>
+									</div>
+								</article>
+								<div class="mt-5 rounded-2xl shadow-[0_10px_24px_rgba(0,0,0,.35)]">
 									{@render socialBlock(page)}
 								</div>
 							</div>
@@ -1226,6 +1445,13 @@
 
 	.reader-video {
 		transform: translateZ(0);
+	}
+
+	/* Newsprint keeps the shared text snippets but reads like a printed column. */
+	.newsprint-copy :global(.font-hand) {
+		font-family: Georgia, 'Times New Roman', serif;
+		font-size: 15px;
+		line-height: 1.6;
 	}
 
 	/* Gold-tinted ruled lines for the dark journal page. */

@@ -34,10 +34,22 @@ const PREFERENCES_STORAGE_KEY = 'vidjo-profile-preferences';
 
 export type ThemeName = 'classic' | 'sunset' | 'midnight' | 'evergreen' | 'rosewood' | 'harbor';
 
-export type NotebookStyle = 'scrapbook' | 'dark' | 'spread' | 'polaroid';
+/** Options shown in Profile → Settings and rendered by the friend journal reader. */
+export const NOTEBOOK_STYLES = [
+	{ id: 'scrapbook', label: 'Scrapbook', hint: 'A cream note card' },
+	{ id: 'dark', label: 'Dark journal', hint: 'Dark page, gold edge' },
+	{ id: 'spread', label: 'Book spread', hint: 'Two pages, like a book' },
+	{ id: 'polaroid', label: 'Polaroid', hint: 'Taped photo and a note' },
+	{ id: 'postcard', label: 'Postcard', hint: 'Airmail stripes and a stamp' },
+	{ id: 'newsprint', label: 'Newsprint', hint: 'An old newspaper column' },
+	{ id: 'letter', label: 'Letter', hint: 'Folded stationery and a seal' },
+	{ id: 'ledger', label: 'Ledger', hint: 'Ruled rows like a diary' }
+] as const satisfies readonly { id: string; label: string; hint: string }[];
+
+export type NotebookStyle = (typeof NOTEBOOK_STYLES)[number]['id'];
 
 export function isNotebookStyle(value: unknown): value is NotebookStyle {
-	return value === 'scrapbook' || value === 'dark' || value === 'spread' || value === 'polaroid';
+	return NOTEBOOK_STYLES.some((option) => option.id === value);
 }
 
 export interface Preferences {
@@ -49,6 +61,7 @@ export interface Preferences {
 	paperStyle: 'lined' | 'dotted' | 'grid' | 'plain';
 	fontSize: 'sm' | 'base' | 'lg';
 	notebookStyle: NotebookStyle;
+	fallingLyrics: boolean;
 }
 
 export const DEFAULT_PREFERENCES: Preferences = {
@@ -59,7 +72,8 @@ export const DEFAULT_PREFERENCES: Preferences = {
 	clearCacheOnSignOut: false,
 	paperStyle: 'lined',
 	fontSize: 'base',
-	notebookStyle: 'scrapbook'
+	notebookStyle: 'scrapbook',
+	fallingLyrics: true
 };
 
 class ProfileState {
@@ -93,6 +107,7 @@ class ProfileState {
 	paperStyle = $state<Preferences['paperStyle']>(DEFAULT_PREFERENCES.paperStyle);
 	fontSize = $state<Preferences['fontSize']>(DEFAULT_PREFERENCES.fontSize);
 	notebookStyle = $state<NotebookStyle>(DEFAULT_PREFERENCES.notebookStyle);
+	fallingLyrics = $state(DEFAULT_PREFERENCES.fallingLyrics);
 
 	get username() {
 		return this.profile?.username || auth.username || 'friend';
@@ -308,6 +323,9 @@ class ProfileState {
 			if (isNotebookStyle(parsed.notebookStyle)) {
 				this.notebookStyle = parsed.notebookStyle;
 			}
+			if (typeof parsed.fallingLyrics === 'boolean') {
+				this.fallingLyrics = parsed.fallingLyrics;
+			}
 		} catch {
 			// Ignore storage errors
 		}
@@ -326,7 +344,8 @@ class ProfileState {
 				clearCacheOnSignOut: this.clearCacheOnSignOut,
 				paperStyle: this.paperStyle,
 				fontSize: this.fontSize,
-				notebookStyle: this.notebookStyle
+				notebookStyle: this.notebookStyle,
+				fallingLyrics: this.fallingLyrics
 			};
 			localStorage.setItem(`${PREFERENCES_STORAGE_KEY}:${userId}`, JSON.stringify(preferences));
 		} catch {
@@ -538,8 +557,8 @@ class ProfileState {
 		}
 
 		// Always keep the full preference set on this device. Paper style, text
-		// size, and the sign-out cache choice are device-level settings, so they
-		// must survive even when the profile row cannot be updated.
+		// size, falling lyrics, and the sign-out cache choice are device-level
+		// settings, so they must survive even when the profile row cannot update.
 		if (userId) this.persistLocal(userId);
 
 		if (isSupabaseConfigured && userId) {
@@ -681,6 +700,7 @@ class ProfileState {
 		this.paperStyle = DEFAULT_PREFERENCES.paperStyle;
 		this.fontSize = DEFAULT_PREFERENCES.fontSize;
 		this.notebookStyle = DEFAULT_PREFERENCES.notebookStyle;
+		this.fallingLyrics = DEFAULT_PREFERENCES.fallingLyrics;
 	}
 }
 

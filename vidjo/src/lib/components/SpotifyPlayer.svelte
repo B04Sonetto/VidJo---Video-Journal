@@ -7,6 +7,7 @@
 	import CommunityIcon from '#lib/components/CommunityIcon.svelte';
 	import { spotify, type SpotifyTrack } from '#lib/state/spotify.svelte';
 	import { auth } from '#lib/state/auth.svelte';
+	import { profile } from '#lib/state/profile.svelte';
 	import { journal } from '#lib/state/journal.svelte';
 	import { todayKey } from '#lib/dates';
 
@@ -407,6 +408,33 @@
 									In-app playback needs a Spotify Premium account.
 								</p>
 							{/if}
+
+							<div
+								class="mt-3 flex items-center justify-between gap-3 rounded-xl border border-cover-edge/70 bg-cover/15 px-3 py-2"
+							>
+								<div class="flex min-w-0 items-center gap-2">
+									<CommunityIcon name="sparkles" size={14} class="shrink-0 text-book-accent" />
+									<div class="min-w-0">
+										<p class="font-ui text-[11px] font-bold text-book-bg">Falling lyrics</p>
+										<p class="font-ui text-[10px] text-book-bg/55">
+											Words drift over your journal pages
+										</p>
+									</div>
+								</div>
+								<button
+									type="button"
+									class="shrink-0 rounded-full px-3 py-1.5 font-ui text-[11px] font-bold transition-colors {profile.fallingLyrics
+										? 'bg-[#1DB954]/25 text-[#BFF3D1]'
+										: 'bg-cover/50 text-book-bg/70'}"
+									aria-pressed={profile.fallingLyrics}
+									onclick={() => {
+										profile.fallingLyrics = !profile.fallingLyrics;
+										void profile.savePreferences();
+									}}
+								>
+									{profile.fallingLyrics ? 'On' : 'Off'}
+								</button>
+							</div>
 						</div>
 
 						<div class="mt-4">

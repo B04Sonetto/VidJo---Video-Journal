@@ -3,6 +3,7 @@
 	import LeftPage from '#lib/components/LeftPage.svelte';
 	import RightPage from '#lib/components/RightPage.svelte';
 	import CommunityIcon from '#lib/components/CommunityIcon.svelte';
+	import FallingLyrics from '#lib/components/FallingLyrics.svelte';
 	import Button from '#lib/components/ui/Button.svelte';
 	import { journal } from '#lib/state/journal.svelte';
 	import { nav } from '#lib/state/navigation.svelte';
@@ -321,6 +322,12 @@
 					<RightPage entry={currentEntry} pageNumber={rightPageNumber} />
 				{/if}
 			{/if}
+
+			<FallingLyrics
+				class={viewport.single
+					? 'inset-3 min-[480px]:inset-4 min-[640px]:inset-5'
+					: 'inset-5'}
+			/>
 
 			{#if !viewport.single}
 				<div

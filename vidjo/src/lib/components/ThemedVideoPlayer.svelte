@@ -36,6 +36,9 @@
 	let controlsVisible = $state(true);
 	let scrubbing = $state(false);
 	let hoverTime = $state<number | null>(null);
+	/** Short players use a slimmer dock so the picture stays readable. */
+	let compactPlayer = $state(false);
+	let resizeObserver: ResizeObserver | undefined;
 	let hideTimer: ReturnType<typeof setTimeout> | undefined;
 	let durationProbeTimer: ReturnType<typeof setTimeout> | undefined;
 	let durationProbeStarted = false;
@@ -63,14 +66,14 @@
 		controlsVisible = true;
 		if (hideTimer) clearTimeout(hideTimer);
 		if (playing && !scrubbing) {
-			hideTimer = setTimeout(() => (controlsVisible = false), 2200);
+			hideTimer = setTimeout(() => (controlsVisible = false), 1800);
 		}
 	}
 
 	function scheduleHide() {
 		if (hideTimer) clearTimeout(hideTimer);
 		if (playing && !scrubbing) {
-			hideTimer = setTimeout(() => (controlsVisible = false), 1200);
+			hideTimer = setTimeout(() => (controlsVisible = false), 900);
 		}
 	}
 
@@ -303,7 +306,16 @@
 		const onLeavePip = () => (pipActive = false);
 		el?.addEventListener('enterpictureinpicture', onEnterPip);
 		el?.addEventListener('leavepictureinpicture', onLeavePip);
+
+		if (wrapper && typeof ResizeObserver !== 'undefined') {
+			resizeObserver = new ResizeObserver(([entry]) => {
+				if (entry) compactPlayer = entry.contentRect.height < 320;
+			});
+			resizeObserver.observe(wrapper);
+		}
+
 		return () => {
+			resizeObserver?.disconnect();
 			el?.removeEventListener('enterpictureinpicture', onEnterPip);
 			el?.removeEventListener('leavepictureinpicture', onLeavePip);
 		};
@@ -329,6 +341,7 @@
 	aria-label="Video player"
 	class="themed-video group relative isolate flex min-h-0 w-full flex-col self-stretch overflow-hidden rounded-[inherit] border border-book-edge/55 bg-desk text-book-bg shadow-[0_10px_30px_rgba(20,10,30,.35)] {className}"
 	class:controls-hidden={!controlsVisible}
+	class:compact-player={compactPlayer}
 	onpointermove={showControls}
 	onpointerleave={scheduleHide}
 	onfocusin={showControls}
@@ -389,17 +402,17 @@
 		}}
 	></video>
 
-	<div class="top-scrim pointer-events-none absolute inset-x-0 top-0 z-10 h-24"></div>
+	<div class="top-scrim pointer-events-none absolute inset-x-0 top-0 z-10 h-12"></div>
 
 	{#if !playing && !waiting}
 		<button
 			type="button"
-			class="center-play absolute top-1/2 left-1/2 z-20 grid size-14 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full text-book-bg transition-all duration-200 hover:scale-110 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-book-accent min-[520px]:size-16"
+			class="center-play absolute top-1/2 left-1/2 z-20 grid size-12 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full text-book-bg transition-all duration-200 hover:scale-110 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-book-accent min-[520px]:size-14"
 			onclick={() => void togglePlayback()}
 			aria-label="Play video"
 			title="Play (space)"
 		>
-			<svg viewBox="0 0 24 24" fill="currentColor" class="ml-0.5 size-7" aria-hidden="true">
+			<svg viewBox="0 0 24 24" fill="currentColor" class="ml-0.5 size-6" aria-hidden="true">
 				<path
 					d="M8 5.3v13.4a.8.8 0 0 0 1.22.68l10.2-6.7a.8.8 0 0 0 0-1.36L9.22 4.62A.8.8 0 0 0 8 5.3Z"
 				></path>
@@ -413,13 +426,13 @@
 		</div>
 	{/if}
 
-	<div class="bottom-scrim pointer-events-none absolute inset-x-0 bottom-0 z-20 h-40"></div>
+	<div class="bottom-scrim pointer-events-none absolute inset-x-0 bottom-0 z-20 h-20"></div>
 
 	<div
-		class="control-dock absolute inset-x-0 bottom-0 z-30 px-2 pt-8 pb-2 min-[520px]:px-3 min-[520px]:pb-3"
+		class="control-dock absolute inset-x-0 bottom-0 z-30 px-2 pt-3 pb-2 min-[520px]:px-3"
 	>
 		<div
-			class="dock-surface mx-auto flex w-full max-w-[760px] flex-col gap-1.5 rounded-2xl border border-white/12 px-2.5 py-2 text-white shadow-[0_12px_32px_rgba(0,0,0,.5)] min-[520px]:px-3"
+			class="dock-surface mx-auto flex w-full max-w-[760px] flex-col gap-1 rounded-xl border border-white/12 px-2.5 py-1.5 text-white shadow-[0_10px_28px_rgba(0,0,0,.45)] min-[520px]:px-3"
 		>
 			<div
 				class="seek-area"
@@ -561,12 +574,12 @@
 	}
 
 	.top-scrim {
-		background: linear-gradient(to bottom, rgb(6 4 12 / 72%), transparent);
+		background: linear-gradient(to bottom, rgb(6 4 12 / 42%), transparent);
 		transition: opacity 250ms ease;
 	}
 
 	.bottom-scrim {
-		background: linear-gradient(to top, rgb(6 4 12 / 94%) 0%, rgb(6 4 12 / 62%) 45%, transparent);
+		background: linear-gradient(to top, rgb(6 4 12 / 72%) 0%, rgb(6 4 12 / 28%) 55%, transparent);
 		transition: opacity 250ms ease;
 	}
 
@@ -591,16 +604,16 @@
 	}
 
 	.center-play {
-		background: color-mix(in srgb, var(--color-book-accent) 28%, rgb(10 6 20 / 94%));
-		border: 1px solid color-mix(in srgb, var(--color-book-accent) 62%, white 20%);
+		background: color-mix(in srgb, var(--color-book-accent) 20%, rgb(10 6 20 / 72%));
+		border: 1px solid color-mix(in srgb, var(--color-book-accent) 55%, white 12%);
 		box-shadow:
-			0 10px 30px rgb(0 0 0 / 45%),
-			inset 0 1px 0 rgb(255 255 255 / 18%);
-		backdrop-filter: blur(6px);
+			0 8px 22px rgb(0 0 0 / 38%),
+			inset 0 1px 0 rgb(255 255 255 / 22%);
+		backdrop-filter: blur(4px);
 	}
 
 	.center-play:hover {
-		background: color-mix(in srgb, var(--color-book-accent) 42%, rgb(10 6 20 / 94%));
+		background: color-mix(in srgb, var(--color-book-accent) 34%, rgb(10 6 20 / 78%));
 	}
 
 	.video-spinner {
@@ -625,9 +638,51 @@
 	}
 
 	.dock-surface {
-		background: rgb(12 8 22 / 94%);
-		border-color: rgb(255 255 255 / 24%);
-		backdrop-filter: blur(8px) saturate(120%);
+		background: color-mix(in srgb, var(--color-desk) 82%, transparent);
+		border-color: rgb(255 255 255 / 20%);
+		backdrop-filter: blur(10px) saturate(120%);
+	}
+
+	/* Small players (journal cards, friend pages, community grid) get an even
+	   slimmer dock so the controls never swallow half the picture. */
+	.compact-player .top-scrim {
+		height: 2.25rem;
+	}
+
+	.compact-player .bottom-scrim {
+		height: 3.25rem;
+	}
+
+	.compact-player .control-dock {
+		padding-top: 0.25rem;
+		padding-bottom: 0.25rem;
+	}
+
+	.compact-player .dock-surface {
+		gap: 0.125rem;
+		padding: 0.25rem 0.5rem;
+		border-radius: 0.625rem;
+	}
+
+	.compact-player .control-btn,
+	.compact-player .primary-btn {
+		width: 26px;
+		height: 26px;
+	}
+
+	.compact-player .time-readout {
+		font-size: 10px;
+	}
+
+	.compact-player .volume-input,
+	.compact-player .time-divider,
+	.compact-player .time-total {
+		display: none;
+	}
+
+	.compact-player .center-play {
+		width: 2.75rem;
+		height: 2.75rem;
 	}
 
 	.seek-area {
