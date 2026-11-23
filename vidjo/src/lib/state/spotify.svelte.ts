@@ -27,7 +27,7 @@ declare global {
 }
 
 function isLikelyPremium(product: string) {
-	return (product || '').toLowerCase() === 'premium';
+	return (product || '').trim().toLowerCase().includes('premium');
 }
 
 class SpotifyState {
@@ -498,6 +498,9 @@ class SpotifyState {
 				const msg = typeof data?.message === 'string' ? data.message : '';
 				if (data?.error === 'rate_limited') {
 					this.error = msg || 'Spotify is rate limiting requests. Try again shortly.';
+				} else if (data?.error === 'spotify_error' && res.status === 403) {
+					const detail = msg ? ` Spotify said: ${msg}` : '';
+					this.error = `Spotify denied this search (403). If this app is in Development Mode, check that your Spotify account is on its Users Management allowlist.${detail}`;
 				} else if (data?.error === 'spotify_error') {
 					this.error = msg
 						? `Spotify search failed: ${msg}`
