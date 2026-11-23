@@ -1,12 +1,13 @@
 <script lang="ts">
-	import { SvelteURLSearchParams } from 'svelte/reactivity';
 	import { fade } from 'svelte/transition';
+	import { lyrics } from '#lib/state/lyrics.svelte';
 	import { profile } from '#lib/state/profile.svelte';
 	import { spotify } from '#lib/state/spotify.svelte';
 
-	type LyricLine = { time: number; text: string };
-	type VisualLine = LyricLine & {
+	type VisualLine = {
 		index: number;
+		time: number;
+		text: string;
 		y: number;
 		opacity: number;
 		left: number;
@@ -24,36 +25,40 @@
 	const browser = typeof window !== 'undefined';
 	const LEAD_MS = 24000;
 
-	let lines = $state<LyricLine[]>([]);
-	let loadedKey = '';
 	let basePosition = $state(0);
 	let tick = $state(0);
 	let baseAt = 0;
 
-	function isLyricLine(value: unknown): value is LyricLine {
-		const line = value as LyricLine;
-		return (
-			Boolean(line) &&
-			typeof line.time === 'number' &&
-			Number.isFinite(line.time) &&
-			typeof line.text === 'string' &&
-			Boolean(line.text.trim())
-		);
-	}
+	$effect(() => {
+		void lyrics.load(spotify.track, profile.fallingLyrics, spotify.duration);
+	});
 
-	// Spotify's SDK only advances position once per second. Rebase on each
-	// report, then interpolate locally so the words fall smoothly between ticks.
+	const shouldAnimate = $derived(
+		browser &&
+			profile.fallingLyrics &&
+			!spotify.panelOpen &&
+			spotify.playing &&
+			Boolean(spotify.track) &&
+			lyrics.lines.length > 0
+	);
+
+	// Rebase on Spotify's once-per-second position reports, and also when the
+	// player panel opens/closes so the page effect never resumes from a stale clock.
 	$effect(() => {
 		const position = spotify.position;
 		const playing = spotify.playing;
+		const panelOpen = spotify.panelOpen;
+		const duration = spotify.duration;
 		void playing;
+		void panelOpen;
+		void duration;
 		basePosition = position;
 		baseAt = browser ? performance.now() : 0;
 		tick = baseAt;
 	});
 
 	$effect(() => {
-		if (!browser) return;
+		if (!browser || !shouldAnimate) return;
 		let frame = 0;
 		const loop = (now: number) => {
 			tick = now;
@@ -68,58 +73,19 @@
 		Math.max(0, Math.min(spotify.duration || Number.MAX_SAFE_INTEGER, basePosition + elapsed))
 	);
 
-	$effect(() => {
-		const track = spotify.track;
-		const enabled = profile.fallingLyrics;
-		if (!browser || !enabled || !track?.name || !track.artists) {
-			lines = [];
-			return;
-		}
-
-		const duration = track.duration_ms || spotify.duration || 0;
-		const key = [
-			track.uri || '',
-			track.name,
-			track.artists,
-			track.album || '',
-			Math.round(duration / 1000)
-		].join('|');
-		if (key === loadedKey) return;
-		loadedKey = key;
-		lines = [];
-
-		const params = new SvelteURLSearchParams({ track: track.name, artist: track.artists });
-		if (track.album) params.set('album', track.album);
-		if (duration > 0) params.set('duration', String(Math.round(duration)));
-
-		const controller = new AbortController();
-		void fetch(`/api/lyrics?${params}`, { signal: controller.signal })
-			.then(async (response) => {
-				if (!response.ok) return;
-				const data = (await response.json()) as { lines?: unknown };
-				if (!Array.isArray(data.lines)) return;
-				lines = data.lines.filter(isLyricLine).slice(0, 400);
-			})
-			.catch(() => {
-				// No lyrics, offline, or aborted: the pages simply stay clean.
-			});
-
-		return () => controller.abort();
-	});
-
 	const visuals = $derived.by<VisualLine[]>(() => {
-		if (!profile.fallingLyrics || !lines.length) return [];
+		if (!profile.fallingLyrics || spotify.panelOpen || !lyrics.lines.length) return [];
 		const time = currentTime;
 		const result: VisualLine[] = [];
 
-		for (let index = 0; index < lines.length; index++) {
-			const line = lines[index];
+		for (let index = 0; index < lyrics.lines.length; index++) {
+			const line = lyrics.lines[index];
 			// Future words wait above the current line and drift down as the song
 			// advances; already-sung words continue below and fade away.
 			const y = 0.44 - (line.time - time) / LEAD_MS;
 			if (y < -0.14 || y > 1.14) continue;
 
-			const next = lines[index + 1];
+			const next = lyrics.lines[index + 1];
 			const active = line.time <= time && (!next || next.time > time);
 			const distance = Math.abs(line.time - time) / LEAD_MS;
 			const tilt = -4 + ((index * 7) % 9);
@@ -149,7 +115,7 @@
 	class="pointer-events-none absolute z-[25] overflow-hidden [mask-image:linear-gradient(to_bottom,transparent,black_10%,black_86%,transparent)] {className}"
 	aria-hidden="true"
 >
-	{#if profile.fallingLyrics && spotify.track && visuals.length}
+	{#if profile.fallingLyrics && !spotify.panelOpen && spotify.track && visuals.length}
 		{#each visuals as line (line.index)}
 			<span
 				class="lyric-line absolute max-w-[78%] font-hand text-[clamp(1rem,2.2vw,1.5rem)] leading-tight {line.active

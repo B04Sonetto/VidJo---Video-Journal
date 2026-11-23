@@ -8,6 +8,7 @@
 	import { spotify, type SpotifyTrack } from '#lib/state/spotify.svelte';
 	import { auth } from '#lib/state/auth.svelte';
 	import { profile } from '#lib/state/profile.svelte';
+	import { lyrics } from '#lib/state/lyrics.svelte';
 	import { journal } from '#lib/state/journal.svelte';
 	import { todayKey } from '#lib/dates';
 
@@ -64,6 +65,15 @@
 		Boolean(todaySong && spotify.track?.uri && todaySong.uri === spotify.track.uri)
 	);
 
+	// Load once for the player panel too, so lyrics are ready even when the
+	// journal book is not mounted. The state dedupes concurrent calls.
+	$effect(() => {
+		void lyrics.load(spotify.track, profile.fallingLyrics, spotify.duration);
+	});
+	const lyricIndex = $derived(lyrics.activeIndexAt(displayPosition));
+	const currentLyric = $derived(lyricIndex >= 0 ? (lyrics.lines[lyricIndex]?.text ?? '') : '');
+	const nextLyric = $derived(lyrics.lines[lyricIndex + 1]?.text ?? '');
+
 	// Spotify is part of the journal. Showing "Connect Spotify" on the sign-in
 	// screen sent people through Spotify and straight back to the login form.
 	const showBar = $derived(
@@ -113,13 +123,13 @@
 {#if showBar}
 	{#if spotify.panelOpen}
 		<div
-			class="fixed inset-0 z-[74] bg-desk/45 backdrop-blur-[2px]"
+			class="fixed inset-0 z-[74] bg-desk/55"
 			transition:fade={{ duration: 140 }}
 			onclick={() => (spotify.panelOpen = false)}
 			aria-hidden="true"
 		></div>
 		<div
-			class="fixed right-3 bottom-[calc(env(safe-area-inset-bottom)+82px)] left-3 z-[75] mx-auto max-h-[min(62dvh,560px)] max-w-[420px] overflow-hidden rounded-[20px] border border-cover-edge bg-desk-2/98 text-book-bg shadow-[0_30px_90px_rgba(0,0,0,.62)] backdrop-blur-xl min-[900px]:right-5 min-[900px]:bottom-[calc(env(safe-area-inset-bottom)+20px)] min-[900px]:left-auto min-[900px]:max-h-[min(76dvh,680px)] min-[900px]:w-[420px] min-[900px]:rounded-[28px]"
+			class="fixed right-3 bottom-[calc(env(safe-area-inset-bottom)+82px)] left-3 z-[75] mx-auto max-h-[min(62dvh,560px)] max-w-[420px] overflow-hidden rounded-[20px] border border-cover-edge bg-desk-2/98 text-book-bg shadow-[0_30px_90px_rgba(0,0,0,.62)] min-[900px]:right-5 min-[900px]:bottom-[calc(env(safe-area-inset-bottom)+20px)] min-[900px]:left-auto min-[900px]:max-h-[min(76dvh,680px)] min-[900px]:w-[420px] min-[900px]:rounded-[28px]"
 			transition:fly={{ y: 24, duration: 260, easing: backOut }}
 			role="dialog"
 			aria-label="Spotify player"
@@ -287,6 +297,36 @@
 									{/if}
 								</div>
 							</div>
+
+							{#if profile.fallingLyrics && spotify.track}
+								<div
+									class="mt-3 rounded-xl border border-book-accent/25 bg-book-accent/10 px-3 py-2.5 text-center"
+								>
+									<p
+										class="font-ui text-[9px] font-bold tracking-[.18em] text-book-accent/80 uppercase"
+									>
+										Now singing
+									</p>
+									{#if lyrics.loading && !lyrics.lines.length}
+										<p class="mt-1 font-hand text-sm text-book-bg/55">Finding lyrics…</p>
+									{:else if currentLyric}
+										<p class="mt-1 font-hand text-base leading-snug text-book-bg">
+											{currentLyric}
+										</p>
+										{#if nextLyric}
+											<p class="mt-0.5 truncate font-hand text-xs text-book-bg/45">
+												{nextLyric}
+											</p>
+										{/if}
+									{:else if lyrics.lines.length}
+										<p class="mt-1 font-hand text-sm text-book-bg/55">Intro…</p>
+									{:else}
+										<p class="mt-1 font-hand text-sm text-book-bg/55">
+											No lyrics found for this track
+										</p>
+									{/if}
+								</div>
+							{/if}
 
 							<div class="mt-3">
 								<input
@@ -528,7 +568,7 @@
 			transition:fly={{ y: 18, duration: 220, easing: backOut }}
 		>
 			<div
-				class="overflow-hidden rounded-2xl border border-cover-edge bg-desk-2/96 text-book-bg shadow-[0_18px_50px_rgba(0,0,0,.5)] backdrop-blur-xl"
+				class="overflow-hidden rounded-2xl border border-cover-edge bg-desk-2/96 text-book-bg shadow-[0_18px_50px_rgba(0,0,0,.5)]"
 			>
 				<div
 					class="spotify-theme-glow pointer-events-none absolute inset-0 opacity-60"
@@ -612,7 +652,7 @@
 {#if showConnectButton}
 	<button
 		type="button"
-		class="fixed right-3 bottom-[calc(env(safe-area-inset-bottom)+82px)] z-[73] mx-auto flex max-w-[520px] items-center gap-2 rounded-full border border-[#1ED760]/40 bg-desk-2/96 px-3 py-2 font-ui text-xs font-bold text-book-bg shadow-[0_18px_50px_rgba(0,0,0,.5)] backdrop-blur-xl transition-transform hover:scale-[1.02] min-[480px]:px-4 min-[480px]:py-2.5 min-[900px]:right-5 min-[900px]:bottom-[calc(env(safe-area-inset-bottom)+20px)] min-[900px]:mx-0"
+		class="fixed right-3 bottom-[calc(env(safe-area-inset-bottom)+82px)] z-[73] mx-auto flex max-w-[520px] items-center gap-2 rounded-full border border-[#1ED760]/40 bg-desk-2/96 px-3 py-2 font-ui text-xs font-bold text-book-bg shadow-[0_18px_50px_rgba(0,0,0,.5)] transition-transform hover:scale-[1.02] min-[480px]:px-4 min-[480px]:py-2.5 min-[900px]:right-5 min-[900px]:bottom-[calc(env(safe-area-inset-bottom)+20px)] min-[900px]:mx-0"
 		onclick={() => void spotify.connect()}
 		aria-label="Connect Spotify"
 	>
