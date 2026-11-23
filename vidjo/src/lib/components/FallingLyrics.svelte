@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { untrack } from 'svelte';
 	import { fade } from 'svelte/transition';
 	import { lyrics } from '#lib/state/lyrics.svelte';
 	import { profile } from '#lib/state/profile.svelte';
@@ -25,14 +26,20 @@
 
 	const browser = typeof window !== 'undefined';
 	const LEAD_MS = 24000;
-	const FRAME_MS = 32;
 	const MAX_VISIBLE = 14;
+	// Spotify reports playback position about once a second. Ease small
+	// corrections into the animation instead of snapping the whole line.
+	const DRIFT_TAU_MS = 650;
+	const DRIFT_CAP_MS = 400;
+	const SEEK_SNAP_MS = 1400;
 
 	let host = $state<HTMLDivElement | null>(null);
 	let hostHeight = $state(0);
-	let basePosition = $state(0);
+	let syncPosition = $state(0);
 	let tick = $state(0);
-	let baseAt = 0;
+	let syncAt = 0;
+	let drift = 0;
+	let lastTrackUri = '';
 
 	$effect(() => {
 		void lyrics.load(spotify.track, profile.fallingLyrics, spotify.duration);
@@ -59,39 +66,62 @@
 			lyrics.lines.length > 0
 	);
 
+	function predictedTime(now: number) {
+		if (!spotify.playing || !syncAt) return syncPosition;
+		return syncPosition + Math.max(0, now - syncAt) + drift;
+	}
+
 	// Rebase on Spotify's once-per-second position reports, and also when the
-	// player panel opens/closes so the page effect never resumes from a stale clock.
+	// player panel opens/closes so the page effect never resumes from a stale
+	// clock. Small differences are eased in; seeks and track changes snap.
 	$effect(() => {
 		const position = spotify.position;
 		const playing = spotify.playing;
 		const panelOpen = spotify.panelOpen;
-		const duration = spotify.duration;
+		const trackUri = spotify.track?.uri ?? '';
 		void playing;
 		void panelOpen;
-		void duration;
-		basePosition = position;
-		baseAt = browser ? performance.now() : 0;
-		tick = baseAt;
+
+		const now = browser ? performance.now() : 0;
+		const delta = position - untrack(() => predictedTime(now));
+		const snap = !playing || !syncAt || trackUri !== lastTrackUri || Math.abs(delta) > SEEK_SNAP_MS;
+
+		syncPosition = position;
+		syncAt = now;
+		drift = snap ? 0 : -Math.max(-DRIFT_CAP_MS, Math.min(DRIFT_CAP_MS, delta));
+		lastTrackUri = trackUri;
+		tick = now;
 	});
 
 	$effect(() => {
 		if (!browser || !shouldAnimate) return;
 		let frame = 0;
-		let lastFrame = 0;
+		let previous = 0;
 		const loop = (now: number) => {
-			if (now - lastFrame >= FRAME_MS) {
-				lastFrame = now;
-				tick = now;
+			const dt = previous ? now - previous : 0;
+			previous = now;
+			if (drift !== 0) {
+				drift *= Math.exp(-dt / DRIFT_TAU_MS);
+				if (Math.abs(drift) < 0.25) drift = 0;
 			}
+			// Update on every display frame. The old 32 ms throttle landed on
+			// alternating frames at 60 Hz and every fourth frame at 120 Hz.
+			tick = now;
 			frame = requestAnimationFrame(loop);
 		};
 		frame = requestAnimationFrame(loop);
 		return () => cancelAnimationFrame(frame);
 	});
 
-	const elapsed = $derived(spotify.playing && baseAt ? Math.max(0, tick - baseAt) : 0);
+	const elapsed = $derived(spotify.playing && syncAt ? Math.max(0, tick - syncAt) : 0);
 	const currentTime = $derived(
-		Math.max(0, Math.min(spotify.duration || Number.MAX_SAFE_INTEGER, basePosition + elapsed))
+		Math.max(
+			0,
+			Math.min(
+				spotify.duration || Number.MAX_SAFE_INTEGER,
+				syncPosition + elapsed + (spotify.playing ? drift : 0)
+			)
+		)
 	);
 
 	const visuals = $derived.by<VisualLine[]>(() => {
