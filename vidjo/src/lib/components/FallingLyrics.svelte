@@ -8,7 +8,7 @@
 		index: number;
 		time: number;
 		text: string;
-		y: number;
+		yPx: number;
 		opacity: number;
 		left: number;
 		tilt: number;
@@ -24,13 +24,29 @@
 
 	const browser = typeof window !== 'undefined';
 	const LEAD_MS = 24000;
+	const FRAME_MS = 32;
+	const MAX_VISIBLE = 14;
 
+	let host = $state<HTMLDivElement | null>(null);
+	let hostHeight = $state(0);
 	let basePosition = $state(0);
 	let tick = $state(0);
 	let baseAt = 0;
 
 	$effect(() => {
 		void lyrics.load(spotify.track, profile.fallingLyrics, spotify.duration);
+	});
+
+	// Measure once so falling lines can move with transforms instead of changing
+	// `top` every frame, which is much cheaper inside the scaled book spread.
+	$effect(() => {
+		if (!host || !browser) return;
+		const observer = new ResizeObserver(([entry]) => {
+			hostHeight = entry.contentRect.height;
+		});
+		observer.observe(host);
+		hostHeight = host.clientHeight;
+		return () => observer.disconnect();
 	});
 
 	const shouldAnimate = $derived(
@@ -60,8 +76,12 @@
 	$effect(() => {
 		if (!browser || !shouldAnimate) return;
 		let frame = 0;
+		let lastFrame = 0;
 		const loop = (now: number) => {
-			tick = now;
+			if (now - lastFrame >= FRAME_MS) {
+				lastFrame = now;
+				tick = now;
+			}
 			frame = requestAnimationFrame(loop);
 		};
 		frame = requestAnimationFrame(loop);
@@ -74,7 +94,9 @@
 	);
 
 	const visuals = $derived.by<VisualLine[]>(() => {
-		if (!profile.fallingLyrics || spotify.panelOpen || !lyrics.lines.length) return [];
+		if (!profile.fallingLyrics || spotify.panelOpen || !lyrics.lines.length || !hostHeight) {
+			return [];
+		}
 		const time = currentTime;
 		const result: VisualLine[] = [];
 
@@ -94,7 +116,7 @@
 			result.push({
 				...line,
 				index,
-				y,
+				yPx: y * hostHeight,
 				active,
 				opacity: active ? 1 : Math.max(0.07, 0.54 - distance * 0.95),
 				left: 8 + (((index * 37) % 100) / 100) * 68,
@@ -107,38 +129,56 @@
 			});
 		}
 
-		return result.slice(-18);
+		return result.slice(-MAX_VISIBLE);
 	});
 </script>
 
 <div
-	class="pointer-events-none absolute z-[25] overflow-hidden [mask-image:linear-gradient(to_bottom,transparent,black_10%,black_86%,transparent)] {className}"
+	bind:this={host}
+	class="pointer-events-none absolute z-[25] overflow-hidden [mask-image:linear-gradient(to_bottom,transparent,black_10%,black_86%,transparent)] [contain:layout_paint] {className}"
 	aria-hidden="true"
 >
 	{#if profile.fallingLyrics && !spotify.panelOpen && spotify.track && visuals.length}
 		{#each visuals as line (line.index)}
-			<span
-				class="lyric-line absolute max-w-[78%] font-hand text-[clamp(1rem,2.2vw,1.5rem)] leading-tight {line.active
-					? 'rounded-full bg-paper/40 px-2.5 py-0.5 font-bold text-book-ink shadow-[0_2px_14px_rgba(255,255,255,.22)] backdrop-blur-[1px]'
-					: 'text-book-ink/70'}"
-				style="top: {line.y *
-					100}%; left: {line.left}%; opacity: {line.opacity}; --drift-a: {line.driftA}px; --drift-b: {line.driftB}px; --tilt: {line.tilt}deg; --tilt-alt: {line.tiltAlt}deg; --sway: {line.sway}s; --delay: {line.delay}s;"
-				in:fade={{ duration: 700 }}
-				out:fade={{ duration: 450 }}
+			<div
+				class="lyric-position absolute top-0 max-w-[78%]"
+				style="left: {line.left}%; transform: translate3d(0, {line.yPx}px, 0); opacity: {line.opacity};"
 			>
-				{line.text}
-			</span>
+				<span
+					class="lyric-line block font-hand text-[clamp(1rem,2.2vw,1.5rem)] leading-tight {line.active
+						? 'lyric-line-active rounded-full bg-paper/55 px-2.5 py-0.5 font-bold text-book-ink ring-1 ring-white/30'
+						: 'text-book-ink/80'}"
+					style="--drift-a: {line.driftA}px; --drift-b: {line.driftB}px; --tilt: {line.tilt}deg; --tilt-alt: {line.tiltAlt}deg; --sway: {line.sway}s; --delay: {line.delay}s;"
+					in:fade={{ duration: 700 }}
+					out:fade={{ duration: 450 }}
+				>
+					{line.text}
+				</span>
+			</div>
 		{/each}
 	{/if}
 </div>
 
 <style>
+	.lyric-position {
+		will-change: transform, opacity;
+	}
+
 	.lyric-line {
 		animation: lyric-sway var(--sway) ease-in-out var(--delay) infinite;
 		text-shadow:
-			0 1px 0 rgb(255 255 255 / 0.5),
-			0 8px 20px rgb(42 27 61 / 0.22);
+			0 0 6px rgb(255 255 255 / 0.9),
+			0 1px 0 rgb(255 255 255 / 0.75),
+			0 8px 18px rgb(42 27 61 / 0.2);
 		will-change: transform;
+	}
+
+	.lyric-line-active {
+		text-shadow:
+			0 0 8px rgb(255 253 238 / 1),
+			0 0 20px rgb(255 225 150 / 0.72),
+			0 1px 0 rgb(255 255 255 / 0.9),
+			0 8px 20px rgb(42 27 61 / 0.22);
 	}
 
 	@keyframes lyric-sway {

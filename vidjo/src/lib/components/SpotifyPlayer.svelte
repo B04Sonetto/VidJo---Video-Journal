@@ -564,11 +564,11 @@
 
 	{#if !spotify.panelOpen && (spotify.connected || spotify.track)}
 		<div
-			class="fixed right-3 bottom-[calc(env(safe-area-inset-bottom)+82px)] left-3 z-[73] mx-auto max-w-[520px] min-[900px]:right-5 min-[900px]:bottom-[calc(env(safe-area-inset-bottom)+20px)] min-[900px]:left-auto min-[900px]:w-[380px]"
+			class="spotify-mini-zone group fixed right-3 bottom-[calc(env(safe-area-inset-bottom)+82px)] left-3 z-[73] mx-auto max-w-[520px] p-2 min-[900px]:right-5 min-[900px]:bottom-[calc(env(safe-area-inset-bottom)+20px)] min-[900px]:left-auto min-[900px]:w-[396px]"
 			transition:fly={{ y: 18, duration: 220, easing: backOut }}
 		>
 			<div
-				class="overflow-hidden rounded-2xl border border-cover-edge bg-desk-2/96 text-book-bg shadow-[0_18px_50px_rgba(0,0,0,.5)]"
+				class="spotify-mini relative overflow-hidden rounded-2xl border border-cover-edge bg-desk-2/96 text-book-bg shadow-[0_18px_50px_rgba(0,0,0,.5)]"
 			>
 				<div
 					class="spotify-theme-glow pointer-events-none absolute inset-0 opacity-60"
@@ -662,6 +662,37 @@
 {/if}
 
 <style>
+	.spotify-mini {
+		opacity: 1;
+		filter: none;
+		transform: translateY(0) scale(1);
+		transition:
+			opacity 220ms ease,
+			filter 220ms ease,
+			transform 220ms ease;
+	}
+
+	@media (hover: hover) and (pointer: fine) {
+		.spotify-mini {
+			opacity: 0.22;
+			filter: blur(2px);
+			transform: translateY(6px) scale(0.985);
+		}
+
+		.spotify-mini-zone:hover .spotify-mini,
+		.spotify-mini-zone:focus-within .spotify-mini {
+			opacity: 1;
+			filter: blur(0);
+			transform: translateY(0) scale(1);
+		}
+	}
+
+	@media (prefers-reduced-motion: reduce) {
+		.spotify-mini {
+			transition-duration: 0.01ms;
+		}
+	}
+
 	.spotify-theme-glow {
 		background:
 			radial-gradient(
