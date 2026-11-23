@@ -339,7 +339,7 @@
 	bind:this={wrapper}
 	role="group"
 	aria-label="Video player"
-	class="themed-video group relative isolate flex min-h-0 w-full flex-col self-stretch overflow-hidden rounded-[inherit] border border-book-edge/55 bg-desk text-book-bg shadow-[0_10px_30px_rgba(20,10,30,.35)] {className}"
+	class="themed-video group relative isolate flex min-h-0 w-full [transform:translateZ(0)] flex-col self-stretch overflow-hidden rounded-[inherit] border border-book-edge/55 bg-desk text-book-bg shadow-[0_10px_30px_rgba(20,10,30,.35)] {className}"
 	class:controls-hidden={!controlsVisible}
 	class:compact-player={compactPlayer}
 	onpointermove={showControls}
@@ -428,9 +428,7 @@
 
 	<div class="bottom-scrim pointer-events-none absolute inset-x-0 bottom-0 z-20 h-20"></div>
 
-	<div
-		class="control-dock absolute inset-x-0 bottom-0 z-30 px-2 pt-3 pb-2 min-[520px]:px-3"
-	>
+	<div class="control-dock absolute inset-x-0 bottom-0 z-30 px-2 pt-3 pb-2 min-[520px]:px-3">
 		<div
 			class="dock-surface mx-auto flex w-full max-w-[760px] flex-col gap-1 rounded-xl border border-white/12 px-2.5 py-1.5 text-white shadow-[0_10px_28px_rgba(0,0,0,.45)] min-[520px]:px-3"
 		>
@@ -609,7 +607,6 @@
 		box-shadow:
 			0 8px 22px rgb(0 0 0 / 38%),
 			inset 0 1px 0 rgb(255 255 255 / 22%);
-		backdrop-filter: blur(4px);
 	}
 
 	.center-play:hover {
@@ -638,9 +635,8 @@
 	}
 
 	.dock-surface {
-		background: color-mix(in srgb, var(--color-desk) 82%, transparent);
+		background: color-mix(in srgb, var(--color-desk) 92%, transparent);
 		border-color: rgb(255 255 255 / 20%);
-		backdrop-filter: blur(10px) saturate(120%);
 	}
 
 	/* Small players (journal cards, friend pages, community grid) get an even

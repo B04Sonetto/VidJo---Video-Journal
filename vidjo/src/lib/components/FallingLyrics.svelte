@@ -20,7 +20,8 @@
 		active: boolean;
 	};
 
-	let { class: className = 'inset-0' }: { class?: string } = $props();
+	let { class: className = 'inset-0', style: styleText = '' }: { class?: string; style?: string } =
+		$props();
 
 	const browser = typeof window !== 'undefined';
 	const LEAD_MS = 24000;
@@ -136,6 +137,7 @@
 <div
 	bind:this={host}
 	class="pointer-events-none absolute z-[25] overflow-hidden [mask-image:linear-gradient(to_bottom,transparent,black_10%,black_86%,transparent)] [contain:layout_paint] {className}"
+	style={styleText}
 	aria-hidden="true"
 >
 	{#if profile.fallingLyrics && !spotify.panelOpen && spotify.track && visuals.length}
@@ -145,7 +147,7 @@
 				style="left: {line.left}%; transform: translate3d(0, {line.yPx}px, 0); opacity: {line.opacity};"
 			>
 				<span
-					class="lyric-line block font-hand text-[clamp(1rem,2.2vw,1.5rem)] leading-tight {line.active
+					class="lyric-line block font-hand leading-tight {line.active
 						? 'lyric-line-active rounded-full bg-paper/55 px-2.5 py-0.5 font-bold text-book-ink ring-1 ring-white/30'
 						: 'text-book-ink/80'}"
 					style="--drift-a: {line.driftA}px; --drift-b: {line.driftB}px; --tilt: {line.tilt}deg; --tilt-alt: {line.tiltAlt}deg; --sway: {line.sway}s; --delay: {line.delay}s;"
@@ -165,6 +167,7 @@
 	}
 
 	.lyric-line {
+		font-size: calc(clamp(1rem, 2.2vw, 1.5rem) * var(--lyric-scale, 1));
 		animation: lyric-sway var(--sway) ease-in-out var(--delay) infinite;
 		text-shadow:
 			0 0 6px rgb(255 255 255 / 0.9),

@@ -295,7 +295,7 @@
 		style:margin-left={viewport.single ? null : `${offset}px`}
 	>
 		<div
-			class="book relative [perspective:2600px] {viewport.single
+			class="book relative [transform:translateZ(0)] [perspective:2600px] {viewport.single
 				? 'w-full p-2 min-[480px]:p-3 min-[640px]:p-4'
 				: 'h-[740px] w-[1160px]'}"
 		>
@@ -322,12 +322,6 @@
 					<RightPage entry={currentEntry} pageNumber={rightPageNumber} />
 				{/if}
 			{/if}
-
-			<FallingLyrics
-				class={viewport.single
-					? 'inset-3 min-[480px]:inset-4 min-[640px]:inset-5'
-					: 'inset-5'}
-			/>
 
 			{#if !viewport.single}
 				<div
@@ -395,6 +389,16 @@
 			{/if}
 		</div>
 	</div>
+
+	<!-- Keep the lyric plane outside the book's perspective/scale stack. The
+	     pages stay on their own composited layer, so falling text no longer
+	     forces the whole spread to repaint each frame. -->
+	<FallingLyrics
+		class={viewport.single ? 'inset-3 min-[480px]:inset-4 min-[640px]:inset-5' : ''}
+		style={viewport.single
+			? '--lyric-scale: 1;'
+			: `left: ${offset + 20 * scale}px; top: ${20 * scale}px; width: ${(bookWidth - 40) * scale}px; height: ${(740 - 40) * scale}px; --lyric-scale: ${scale};`}
+	/>
 </div>
 
 <div
