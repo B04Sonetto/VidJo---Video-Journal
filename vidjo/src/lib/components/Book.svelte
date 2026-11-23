@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import LeftPage from '#lib/components/LeftPage.svelte';
+	import PagePreview from '#lib/components/PagePreview.svelte';
 	import RightPage from '#lib/components/RightPage.svelte';
 	import CommunityIcon from '#lib/components/CommunityIcon.svelte';
 	import FallingLyrics from '#lib/components/FallingLyrics.svelte';
@@ -80,9 +81,11 @@
 			return;
 		}
 
+		// Keep the live spread on the old entry until the leaf lands. Swapping
+		// `journal.current` here would remount both real pages at the exact
+		// moment the 3D flip starts, which makes the turn feel heavy.
 		journal.busy = true;
-		journal.current = target;
-		journal.side = 'L';
+		journal.selected = [];
 		flip = { dir, from, to, fromLeft, fromRight, toLeft, toRight, go: false };
 
 		requestAnimationFrame(() => {
@@ -91,6 +94,9 @@
 
 		if (flipTimer) clearTimeout(flipTimer);
 		flipTimer = setTimeout(() => {
+			journal.current = target;
+			journal.side = 'L';
+			journal.selected = [];
 			flip = null;
 			journal.busy = false;
 		}, 1050);
@@ -351,11 +357,11 @@
 					class:left-5={flip.dir > 0}
 					class:left-[580px]={flip.dir < 0}
 				>
-					{#if flip.dir > 0}
-						<LeftPage entry={flip.from} date={flip.from.id} pageNumber={flip.fromLeft} preview />
-					{:else}
-						<RightPage entry={flip.from} pageNumber={flip.fromRight} preview />
-					{/if}
+					<PagePreview
+						entry={flip.from}
+						side={flip.dir > 0 ? 'L' : 'R'}
+						pageNumber={flip.dir > 0 ? flip.fromLeft : flip.fromRight}
+					/>
 				</div>
 
 				<div
@@ -365,19 +371,19 @@
 					class:go={flip.go}
 				>
 					<div class="face front absolute inset-0">
-						{#if flip.dir > 0}
-							<RightPage entry={flip.from} pageNumber={flip.fromRight} preview />
-						{:else}
-							<LeftPage entry={flip.from} date={flip.from.id} pageNumber={flip.fromLeft} preview />
-						{/if}
+						<PagePreview
+							entry={flip.from}
+							side={flip.dir > 0 ? 'R' : 'L'}
+							pageNumber={flip.dir > 0 ? flip.fromRight : flip.fromLeft}
+						/>
 					</div>
 
 					<div class="face back absolute inset-0">
-						{#if flip.dir > 0}
-							<LeftPage entry={flip.to} date={flip.to.id} pageNumber={flip.toLeft} preview />
-						{:else}
-							<RightPage entry={flip.to} pageNumber={flip.toRight} preview />
-						{/if}
+						<PagePreview
+							entry={flip.to}
+							side={flip.dir > 0 ? 'L' : 'R'}
+							pageNumber={flip.dir > 0 ? flip.toLeft : flip.toRight}
+						/>
 						<div class="shade absolute inset-0 z-30 rounded-[inherit]"></div>
 					</div>
 				</div>
@@ -389,6 +395,7 @@
 	     pages stay on their own composited layer, so falling text no longer
 	     forces the whole spread to repaint each frame. -->
 	<FallingLyrics
+		paused={Boolean(flip)}
 		class={viewport.single ? 'inset-3 min-[480px]:inset-4 min-[640px]:inset-5' : ''}
 		style={viewport.single
 			? '--lyric-scale: 1;'
@@ -473,6 +480,7 @@
 	.leaf {
 		transform-style: preserve-3d;
 		transition: transform 950ms cubic-bezier(0.55, 0.04, 0.25, 1);
+		will-change: transform;
 		pointer-events: none;
 	}
 

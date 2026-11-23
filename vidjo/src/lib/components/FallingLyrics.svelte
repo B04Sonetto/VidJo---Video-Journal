@@ -21,8 +21,11 @@
 		active: boolean;
 	};
 
-	let { class: className = 'inset-0', style: styleText = '' }: { class?: string; style?: string } =
-		$props();
+	let {
+		class: className = 'inset-0',
+		style: styleText = '',
+		paused = false
+	}: { class?: string; style?: string; paused?: boolean } = $props();
 
 	const browser = typeof window !== 'undefined';
 	const LEAD_MS = 24000;
@@ -40,6 +43,8 @@
 	let syncAt = 0;
 	let drift = 0;
 	let lastTrackUri = '';
+	let pendingPosition = 0;
+	let wasPaused = false;
 
 	$effect(() => {
 		void lyrics.load(spotify.track, profile.fallingLyrics, spotify.duration);
@@ -82,11 +87,23 @@
 		void playing;
 		void panelOpen;
 
-		const now = browser ? performance.now() : 0;
-		const delta = position - untrack(() => predictedTime(now));
-		const snap = !playing || !syncAt || trackUri !== lastTrackUri || Math.abs(delta) > SEEK_SNAP_MS;
+		// During a page flip the lines freeze in place. Spotify keeps advancing,
+		// so remember its latest position and snap to it when motion resumes.
+		if (paused) {
+			pendingPosition = position;
+			wasPaused = true;
+			return;
+		}
 
-		syncPosition = position;
+		const resumed = wasPaused;
+		wasPaused = false;
+		const authoritative = resumed ? pendingPosition || position : position;
+		const now = browser ? performance.now() : 0;
+		const delta = authoritative - untrack(() => predictedTime(now));
+		const snap =
+			resumed || !playing || !syncAt || trackUri !== lastTrackUri || Math.abs(delta) > SEEK_SNAP_MS;
+
+		syncPosition = authoritative;
 		syncAt = now;
 		drift = snap ? 0 : -Math.max(-DRIFT_CAP_MS, Math.min(DRIFT_CAP_MS, delta));
 		lastTrackUri = trackUri;
@@ -94,7 +111,7 @@
 	});
 
 	$effect(() => {
-		if (!browser || !shouldAnimate) return;
+		if (!browser || !shouldAnimate || paused) return;
 		let frame = 0;
 		let previous = 0;
 		const loop = (now: number) => {
