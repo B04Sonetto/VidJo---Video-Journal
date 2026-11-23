@@ -89,12 +89,12 @@
 		if (ownerId && ownerId !== friends.currentUserId) {
 			// The comment lives on a friend's page, so open their journal reader
 			// instead of the signed-in user's own book.
-			friends.openJournal(ownerId, item.postDate);
+			friends.openJournal(ownerId, item.postEntryId || item.postDate);
 			nav.setView('friends');
 			return;
 		}
 
-		nav.jump(item.postDate);
+		nav.jump(item.postEntryId || item.postDate);
 	}
 
 	function formatDate(iso: string) {

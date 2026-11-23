@@ -113,7 +113,7 @@
 	];
 
 	function formatDate(date: string) {
-		if (date === journal.current) return 'Today';
+		if (date === journal.currentDate) return 'Today';
 		const parsed = new Date(`${date}T00:00:00`);
 		if (Number.isNaN(parsed.getTime())) return date;
 		return parsed.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
@@ -149,15 +149,16 @@
 					(entry.title || entry.mind || entry.refl || entry.videoPath || entry.mood) &&
 					(!entry.communitySlug || joined.has(entry.communitySlug))
 			)
-			.map(([date, entry]) => ({
-				id: `mine-${date}`,
+			.map(([, entry]) => ({
+				id: `mine-${entry.id}`,
+				entryId: entry.id,
 				authorId,
 				authorName: profile.nickname,
 				authorUsername: profile.username,
 				authorAvatar: profile.avatarUrl,
 				friendCode: profile.friendCode,
-				date,
-				dateFormatted: formatDate(date),
+				date: entry.date,
+				dateFormatted: formatDate(entry.date),
 				mood: entry.mood,
 				title: entry.title || 'Community entry',
 				mind: entry.mind,
@@ -165,8 +166,8 @@
 				stickers: entry.stickers,
 				videoPath: entry.videoPath,
 				videoName: entry.videoName,
-				videoUrl: journal.sessionVideos[date] || '',
-				videoThumbUrl: journal.sessionThumbs[date] || '',
+				videoUrl: journal.sessionVideos[entry.id] || '',
+				videoThumbUrl: journal.sessionThumbs[entry.id] || '',
 				reactions: { love: 0, spark: 0, warm: 0, proud: 0 },
 				userReactions: [],
 				comments: [],
@@ -179,9 +180,9 @@
 	function enrich(post: CommunityPost): CommunityPost {
 		return {
 			...post,
-			reactions: community.reactionsFor(post.authorId, post.date),
-			userReactions: community.mineFor(post.authorId, post.date),
-			comments: community.commentsFor(post.authorId, post.date)
+			reactions: community.reactionsFor(post.authorId, post.entryId || post.date),
+			userReactions: community.mineFor(post.authorId, post.entryId || post.date),
+			comments: community.commentsFor(post.authorId, post.entryId || post.date)
 		};
 	}
 

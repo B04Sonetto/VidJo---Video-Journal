@@ -1,7 +1,8 @@
+import { SvelteDate, SvelteMap } from 'svelte/reactivity';
 import { track } from '#lib/analytics';
 import { isObscene } from '#lib/censor';
 import { STICKER_BY_KEY } from '#lib/data/stickers';
-import { isFutureDate, todayKey, uid } from '#lib/dates';
+import { dateKey, isFutureDate, todayKey, uid } from '#lib/dates';
 import { peekDeviceId } from '#lib/identity';
 import { captureError } from '#lib/observability';
 import { isSupabaseConfigured, supabase, VIDEO_BUCKET } from '#lib/supabase';
@@ -29,6 +30,7 @@ const STORAGE_PREFIX = 'vidjo-journal-v3';
 const LEGACY_STORAGE_KEY = 'vidjo-journal-v2';
 const CLAIMED_KEY = 'vidjo-claimed-by';
 const PAPER_KEY = 'vidjo-paper';
+const UNCREATED_PAGE_AT = '1970-01-01T00:00:00.000Z';
 
 /** Shared title limit. Keep in sync with the input's `maxlength`. */
 export const TITLE_MAX = 80;
@@ -76,10 +78,13 @@ function videoContentType(blob: Blob, name: string): string {
 
 /** Fill in missing fields from older cached entries, including legacy video URLs. */
 function normalizeEntry(
-	raw: Partial<Entry> & { date: string; videoUrl?: string; song?: unknown }
+	raw: Partial<Entry> & { date: string; videoUrl?: string; song?: unknown },
+	id = ''
 ): Entry {
 	return {
+		id: raw.id || id || newPageId(),
 		date: raw.date,
+		createdAt: raw.createdAt || UNCREATED_PAGE_AT,
 		mood: raw.mood ?? '',
 		title: (raw.title ?? '').slice(0, TITLE_MAX),
 		mind: raw.mind ?? '',
@@ -97,6 +102,10 @@ function normalizeEntry(
 		shareWithFriends: Boolean(raw.shareWithFriends),
 		song: normalizeSong(raw.song)
 	};
+}
+
+function newPageId() {
+	return globalThis.crypto?.randomUUID?.() || uid();
 }
 
 function storageKey(ownerId: string) {
@@ -135,9 +144,16 @@ function normalizeSong(raw: unknown): EntrySong | null {
 	};
 }
 
-export function blankEntry(date: string, privacy: Privacy = 'private'): Entry {
+export function blankEntry(
+	date: string,
+	privacy: Privacy = 'private',
+	id = newPageId(),
+	createdAt = new SvelteDate().toISOString()
+): Entry {
 	return {
+		id,
 		date,
+		createdAt,
 		mood: '',
 		title: '',
 		mind: '',
@@ -159,7 +175,9 @@ export function blankEntry(date: string, privacy: Privacy = 'private'): Entry {
 
 function rowToEntry(row: EntryRow & { song?: unknown }): Entry {
 	return {
+		id: row.id,
 		date: row.entry_date,
+		createdAt: row.created_at || UNCREATED_PAGE_AT,
 		mood: row.mood ?? '',
 		title: row.title ?? '',
 		mind: row.mind ?? '',
@@ -181,8 +199,10 @@ function rowToEntry(row: EntryRow & { song?: unknown }): Entry {
 
 function entryToRow(ownerId: string, entry: Entry): EntryRow {
 	return {
+		id: entry.id,
 		owner_id: ownerId,
 		entry_date: entry.date,
+		created_at: entry.createdAt,
 		mood: entry.mood || null,
 		title: entry.title,
 		mind: entry.mind,
@@ -210,7 +230,7 @@ class Journal {
 	paper = $state<PaperStyle>('lined');
 	/** Privacy assigned to newly created pages (Profile → Settings). */
 	defaultPrivacy = $state<Privacy>('private');
-	current = $state(todayKey());
+	current = $state('');
 	side = $state<Side>('L');
 	selected = $state<string[]>([]);
 	lastPage = $state<Side>('R');
@@ -225,6 +245,8 @@ class Journal {
 	syncing = $state(false);
 	remote = $state(false);
 	uploading = $state(false);
+	dailyPageCount = $state(0);
+	dailyCommunityShareCount = $state(0);
 
 	toastMessage = $state('');
 	toastVisible = $state(false);
@@ -242,8 +264,24 @@ class Journal {
 	private videoRefreshAttempts = new Map<string, number>();
 	private remoteDeletes = new Map<string, Promise<void>>();
 
+	get currentDate() {
+		return this.entries[this.current]?.date ?? todayKey();
+	}
+
 	get sortedDates(): string[] {
-		return Object.keys(this.entries).sort();
+		return Object.values(this.entries)
+			.sort((a, b) => a.date.localeCompare(b.date) || a.createdAt.localeCompare(b.createdAt))
+			.map((entry) => entry.id);
+	}
+
+	entriesForDate(date: string) {
+		return Object.values(this.entries)
+			.filter((entry) => entry.date === date)
+			.sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+	}
+
+	latestEntryId(date: string) {
+		return this.entriesForDate(date).at(-1)?.id ?? '';
 	}
 
 	/** Current and best streak for this journal. Recomputed when entries change. */
@@ -275,30 +313,37 @@ class Journal {
 					.from('vidjo_entries')
 					.select('*')
 					.eq('owner_id', ownerId)
-					.order('entry_date', { ascending: true });
+					.order('entry_date', { ascending: true })
+					.order('created_at', { ascending: true });
 
 				if (seq !== this.initSeq) return;
 				if (error) throw error;
 
-				const remote = Object.fromEntries(
-					(data as EntryRow[]).map((row) => [row.entry_date, rowToEntry(row)])
-				);
-				const localDates = Object.keys(this.entries);
-				const remoteDates = Object.keys(remote);
+				const remoteEntries = (data as EntryRow[]).map(rowToEntry);
+				const remote = Object.fromEntries(remoteEntries.map((entry) => [entry.id, entry]));
+				const remoteDates = new Set(remoteEntries.map((entry) => entry.date));
+				const localEntries = Object.values(this.entries);
 
-				if (remoteDates.length === 0 && localDates.length === 0) {
+				if (remoteEntries.length === 0 && localEntries.length === 0) {
 					// First run for this account: start with an empty journal.
 					this.entries = {};
 				} else {
-					// Keep anything created while offline, then let remote rows win on
-					// the same date. Local-only pages are pushed back up.
-					const localOnly = localDates.filter((date) => !remote[date]);
-					this.entries = { ...this.entries, ...remote };
+					// Stable IDs allow multiple offline pages on a date. Only discard
+					// a pre-ID cache row when its original date-keyed page is remote.
+					const localOnly = localEntries.filter(
+						(entry) =>
+							!remote[entry.id] &&
+							!(entry.id.startsWith(`legacy-${entry.date}-`) && remoteDates.has(entry.date)) &&
+							!(entry.createdAt === UNCREATED_PAGE_AT && this.isBlank(entry))
+					);
+					this.entries = Object.fromEntries(
+						[...localOnly, ...remoteEntries].map((entry) => [entry.id, entry])
+					);
 
 					if (localOnly.length > 0) {
 						const { error: upsertError } = await supabase.from('vidjo_entries').upsert(
-							localOnly.map((date) => entryToRow(ownerId, this.entries[date])),
-							{ onConflict: 'owner_id,entry_date' }
+							localOnly.map((entry) => entryToRow(ownerId, entry)),
+							{ onConflict: 'id' }
 						);
 
 						if (seq !== this.initSeq) return;
@@ -324,16 +369,38 @@ class Journal {
 		this.persistLocal();
 
 		const today = todayKey();
-		if (!this.entries[today]) {
-			this.entries[today] = blankEntry(today, this.defaultPrivacy);
+		if (!this.entries[this.latestEntryId(today)]) {
+			const entry = blankEntry(today, this.defaultPrivacy, undefined, UNCREATED_PAGE_AT);
+			this.entries[entry.id] = entry;
 		}
 
-		this.current = today;
+		this.current = this.latestEntryId(today);
 		this.side = 'L';
 		this.selected = [];
 		this.ready = true;
 
+		void this.refreshDailyQuota();
 		void this.hydrateVideos(seq);
+	}
+
+	async refreshDailyQuota() {
+		if (!this.remote) return;
+		try {
+			const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
+			const { error: timezoneError } = await supabase.rpc('vidjo_set_local_timezone', {
+				p_timezone: timeZone
+			});
+			if (timezoneError) throw timezoneError;
+
+			const { data, error } = await supabase.rpc('vidjo_daily_limits');
+			if (error) throw error;
+			const counts = data as { pages?: number; community_shares?: number } | null;
+			this.dailyPageCount = Number(counts?.pages) || 0;
+			this.dailyCommunityShareCount = Number(counts?.community_shares) || 0;
+		} catch (error) {
+			console.warn('[VidJo] Could not load daily page limits.', error);
+			this.toast('Could not check today’s page limits. Try again when online.');
+		}
 	}
 
 	clearLocalCache(ownerId = this.ownerId) {
@@ -359,8 +426,10 @@ class Journal {
 		this.syncing = false;
 		this.remote = false;
 		this.uploading = false;
+		this.dailyPageCount = 0;
+		this.dailyCommunityShareCount = 0;
 		this.entries = {};
-		this.current = todayKey();
+		this.current = '';
 		this.side = 'L';
 		this.selected = [];
 		this.lastPage = 'R';
@@ -424,7 +493,8 @@ class Journal {
 					};
 					if (saved.entries) {
 						for (const [date, item] of Object.entries(saved.entries)) {
-							merged[date] = normalizeEntry(item);
+							const entry = normalizeEntry(item, `legacy-${date}-${newPageId()}`);
+							merged[entry.id] = entry;
 						}
 					}
 				}
@@ -448,9 +518,12 @@ class Journal {
 				};
 				if (saved.paper) this.paper = saved.paper;
 				if (saved.entries) {
-					return Object.fromEntries(
-						Object.entries(saved.entries).map(([date, entry]) => [date, normalizeEntry(entry)])
-					);
+					const entries: Record<string, Entry> = {};
+					for (const [key, rawEntry] of Object.entries(saved.entries)) {
+						const entry = normalizeEntry(rawEntry, `legacy-${key}-${newPageId()}`);
+						entries[entry.id] = entry;
+					}
+					return entries;
 				}
 			}
 		} catch {
@@ -477,6 +550,10 @@ class Journal {
 	queueSave(date = this.current) {
 		if (!this.ownerId) return;
 
+		const entry = this.entries[date];
+		if (entry?.createdAt === UNCREATED_PAGE_AT) {
+			entry.createdAt = new SvelteDate().toISOString();
+		}
 		this.pending.add(date);
 		this.persistLocal();
 
@@ -511,19 +588,27 @@ class Journal {
 
 				if (rows.length === 0) continue;
 
-				const { error } = await supabase
-					.from('vidjo_entries')
-					.upsert(rows, { onConflict: 'owner_id,entry_date' });
+				const { error } = await supabase.from('vidjo_entries').upsert(rows, { onConflict: 'id' });
 
 				if (error) {
 					console.warn('[VidJo] Could not sync to Supabase.', error);
-					this.toast('Could not sync — your page is saved on this device');
+					const message = error.message || '';
+					const quotaError = /daily page limit|daily community share limit/i.test(message);
+					if (quotaError) await this.refreshDailyQuota();
+					this.toast(
+						/daily page limit/i.test(message)
+							? 'Daily page limit reached. You can create up to 3 pages each day.'
+							: /daily community share limit/i.test(message)
+								? 'Daily Community share limit reached. You can share up to 3 pages each day.'
+								: 'Could not sync — your page is saved on this device'
+					);
 					// Put the failed dates back so the next save retries them,
 					// then stop this loop rather than spinning on the failure.
 					for (const date of dates) this.pending.add(date);
 					break;
 				}
 			}
+			if (this.pending.size === 0) void this.refreshDailyQuota();
 		} finally {
 			this.syncing = false;
 			this.flushing = false;
@@ -536,7 +621,7 @@ class Journal {
 			.from('vidjo_entries')
 			.delete()
 			.eq('owner_id', this.ownerId)
-			.eq('entry_date', date);
+			.eq('id', date);
 		if (error) console.warn('[VidJo] Could not delete the remote entry.', error);
 	}
 
@@ -566,7 +651,7 @@ class Journal {
 			!entry.refl &&
 			entry.stickers.length === 0 &&
 			!entry.videoPath &&
-			!this.videoFor(entry.date) &&
+			!this.videoFor(entry.id) &&
 			!entry.song
 		);
 	}
@@ -574,56 +659,62 @@ class Journal {
 	leaveCurrentIfBlank() {
 		const entry = this.entries[this.current];
 		if (!entry) return;
-		if (this.current !== todayKey() && this.isBlank(entry)) {
+		if (entry.date !== todayKey() && this.isBlank(entry)) {
 			delete this.entries[this.current];
 			this.persistLocal();
 			void this.trackRemoteDelete(this.current);
 		}
 	}
 
-	async deleteEntry(date: string) {
-		const entry = this.entries[date];
+	async deleteEntry(id: string) {
+		const entry = this.entries[id];
 		if (!entry) return;
 
 		// Clean up video and poster if present
 		if (entry.videoPath || entry.videoThumbPath) {
 			void this.deleteRemoteObjects([entry.videoPath, entry.videoThumbPath]);
 		}
-		void deleteStoredVideo(this.videoKey(date));
-		this.clearSessionVideo(date);
-		this.clearSessionThumb(date);
-		this.thumbUnavailable.delete(date);
+		void deleteStoredVideo(this.videoKey(id));
+		this.clearSessionVideo(id);
+		this.clearSessionThumb(id);
+		this.thumbUnavailable.delete(id);
 
 		// Pick the neighbouring page before mutating so the fallback is the page
 		// next to the one being deleted, not the oldest page in the journal.
 		const order = this.sortedDates;
-		const idx = order.indexOf(date);
+		const idx = order.indexOf(id);
 		const neighbour = order[idx < order.length - 1 ? idx + 1 : idx - 1];
 
 		// Remove from remote. Track the request so a page recreated for this date
 		// is upserted only after the delete has completed.
-		void this.trackRemoteDelete(date);
+		const remoteDelete = this.trackRemoteDelete(id);
 
 		// Remove from local state
-		delete this.entries[date];
+		delete this.entries[id];
 		this.persistLocal();
+		if (dateKey(new Date(entry.createdAt)) === todayKey()) {
+			this.dailyPageCount = Math.max(0, this.dailyPageCount - 1);
+		}
 
 		// Navigate to a nearby date. Deleting the last remaining page would
 		// otherwise leave `current` pointing at a date with no entry, which makes
 		// Book/LeftPage/RightPage dereference `undefined`.
 		let target = neighbour && this.entries[neighbour] ? neighbour : this.sortedDates[0];
 		if (!target) {
-			target = todayKey();
-			this.entries[target] = blankEntry(target, this.defaultPrivacy);
+			const entry = blankEntry(todayKey(), this.defaultPrivacy, undefined, UNCREATED_PAGE_AT);
+			this.entries[entry.id] = entry;
+			target = entry.id;
 			this.persistLocal();
 		}
 
-		if (this.current === date) {
+		if (this.current === id) {
 			this.current = target;
 			this.side = 'L';
 		}
 
 		this.toast('Page deleted');
+		await remoteDelete;
+		void this.refreshDailyQuota();
 	}
 
 	ensureEntry(date: string) {
@@ -633,8 +724,34 @@ class Journal {
 			this.toast('Future pages are locked. You can write today or an earlier day.');
 			return null;
 		}
-		if (!this.entries[date]) this.entries[date] = blankEntry(date, this.defaultPrivacy);
-		return this.entries[date];
+		const latestId = this.latestEntryId(date);
+		if (latestId) return this.entries[latestId];
+		const entry = blankEntry(date, this.defaultPrivacy);
+		this.entries[entry.id] = entry;
+		this.persistLocal();
+		return entry;
+	}
+
+	createEntry(date = todayKey()) {
+		if (isFutureDate(date)) {
+			this.toast('Future pages are locked. You can write today or an earlier day.');
+			return null;
+		}
+		const createdToday = Object.values(this.entries).filter(
+			(entry) => dateKey(new Date(entry.createdAt)) === todayKey()
+		).length;
+		if (Math.max(createdToday, this.dailyPageCount) >= 3) {
+			this.toast('Daily page limit reached. You can create up to 3 pages each day.');
+			return null;
+		}
+		const entry = blankEntry(date, this.defaultPrivacy);
+		this.entries[entry.id] = entry;
+		this.current = entry.id;
+		this.side = 'L';
+		this.persistLocal();
+		this.queueSave(entry.id);
+		this.dailyPageCount = Math.max(this.dailyPageCount + 1, createdToday + 1);
+		return entry;
 	}
 
 	/** Shared text is masked when other people read it. Explain that before they post. */
@@ -700,6 +817,10 @@ class Journal {
 	setCommunitySharing(enabled: boolean) {
 		const entry = this.entries[this.current];
 		if (!entry) return;
+		if (enabled && entry.privacy !== 'community' && this.dailyCommunityShareCount >= 3) {
+			this.toast('Daily Community share limit reached. You can share up to 3 pages each day.');
+			return;
+		}
 
 		const friendsOn =
 			entry.privacy === 'friends' || (entry.privacy === 'community' && entry.shareWithFriends);
@@ -720,6 +841,7 @@ class Journal {
 
 		entry.sample = false;
 		this.queueSave(this.current);
+		if (enabled) this.dailyCommunityShareCount += 1;
 		if (enabled) this.warnIfSharedTextHasProfanity(entry);
 	}
 
@@ -919,7 +1041,7 @@ class Journal {
 		const entry = this.entries[this.current];
 		if (!entry) return;
 
-		const date = this.current;
+		const date = entry.id;
 		const ownerId = this.ownerId;
 		const previousPath = entry.videoPath;
 		const previousThumbPath = entry.videoThumbPath;
@@ -1060,24 +1182,35 @@ class Journal {
 
 	private async hydrateVideos(seq: number) {
 		const entries = Object.values(this.entries);
+		const legacyVideoOwners = new SvelteMap<string, string>();
+		for (const entry of [...entries].sort((a, b) => a.createdAt.localeCompare(b.createdAt))) {
+			if (!legacyVideoOwners.has(entry.date)) legacyVideoOwners.set(entry.date, entry.id);
+		}
 
 		await Promise.all(
 			entries.map(async (entry) => {
-				const key = this.videoKey(entry.date);
-				const blob = await getStoredVideo(key);
+				const key = this.videoKey(entry.id);
+				const legacyKey = this.videoKey(entry.date);
+				const legacyBlob =
+					legacyVideoOwners.get(entry.date) === entry.id ? await getStoredVideo(legacyKey) : null;
+				const blob = (await getStoredVideo(key)) || legacyBlob;
 				if (seq !== this.initSeq) return;
 
 				if (blob) {
+					if (key !== legacyKey) {
+						await putStoredVideo(key, blob);
+						void deleteStoredVideo(legacyKey);
+					}
 					if (entry.videoPath) {
 						void deleteStoredVideo(key);
 					} else {
 						if (!entry.videoName) entry.videoName = 'vidjo-video.webm';
-						this.sessionVideos[entry.date] = URL.createObjectURL(blob);
+						this.sessionVideos[entry.id] = URL.createObjectURL(blob);
 						void captureVideoThumbnail(blob).then((thumb) => {
 							if (!thumb || seq !== this.initSeq) return;
-							if (this.entries[entry.date] !== entry || entry.videoPath) return;
-							if (this.sessionThumbs[entry.date]) return;
-							this.sessionThumbs[entry.date] = URL.createObjectURL(thumb);
+							if (this.entries[entry.id] !== entry || entry.videoPath) return;
+							if (this.sessionThumbs[entry.id]) return;
+							this.sessionThumbs[entry.id] = URL.createObjectURL(thumb);
 						});
 						if (this.remote) void this.uploadLocalVideo(entry, blob, key, seq);
 						return;
@@ -1085,10 +1218,10 @@ class Journal {
 				}
 
 				if (entry.videoPath) {
-					void this.resolveSignedUrl(entry.date, entry.videoPath);
+					void this.resolveSignedUrl(entry.id, entry.videoPath);
 				}
 				if (entry.videoThumbPath) {
-					void this.resolveThumbnail(entry.date, entry.videoThumbPath);
+					void this.resolveThumbnail(entry.id, entry.videoThumbPath);
 				}
 			})
 		);
@@ -1098,7 +1231,7 @@ class Journal {
 		const thumbPromise = captureVideoThumbnail(blob);
 		const { path, url } = await this.uploadVideoBlob(
 			blob,
-			entry.date,
+			entry.id,
 			entry.videoName || 'vidjo-video.webm'
 		);
 		if (!path || seq !== this.initSeq) return;
@@ -1108,20 +1241,20 @@ class Journal {
 
 		let thumbPath = '';
 		if (thumb) {
-			const thumbResult = await this.uploadThumbBlob(thumb, entry.date);
+			const thumbResult = await this.uploadThumbBlob(thumb, entry.id);
 			if (seq !== this.initSeq) return;
 			thumbPath = thumbResult.path;
 			if (thumbResult.url) {
-				this.clearSessionThumb(entry.date);
-				this.sessionThumbs[entry.date] = thumbResult.url;
+				this.clearSessionThumb(entry.id);
+				this.sessionThumbs[entry.id] = thumbResult.url;
 			}
 		}
 
 		entry.videoPath = path;
 		entry.videoThumbPath = thumbPath;
-		this.sessionVideos[entry.date] = url;
+		this.sessionVideos[entry.id] = url;
 		await deleteStoredVideo(key);
-		this.queueSave(entry.date);
+		this.queueSave(entry.id);
 		this.toast('Video synced to your account');
 	}
 

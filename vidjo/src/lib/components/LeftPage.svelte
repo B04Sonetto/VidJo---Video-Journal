@@ -43,11 +43,16 @@
 
 	const videoUrl = $derived(journal.videoFor(date));
 	const posterUrl = $derived(journal.thumbFor(date));
-	const dow = $derived(parseDate(date).toLocaleDateString('en-US', { weekday: 'long' }));
+	const pageDate = $derived(entry.date);
+	const dow = $derived(parseDate(pageDate).toLocaleDateString('en-US', { weekday: 'long' }));
 	const dateText = $derived(
-		parseDate(date).toLocaleDateString('en-US', { day: 'numeric', month: 'long', year: 'numeric' })
+		parseDate(pageDate).toLocaleDateString('en-US', {
+			day: 'numeric',
+			month: 'long',
+			year: 'numeric'
+		})
 	);
-	const caption = $derived(entry.title || (date === todayKey() ? "Today's VidJo" : 'My VidJo'));
+	const caption = $derived(entry.title || (pageDate === todayKey() ? "Today's VidJo" : 'My VidJo'));
 
 	$effect(() => {
 		if (removeAsk && !wasRemoveAsk) {

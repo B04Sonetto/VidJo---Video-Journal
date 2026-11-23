@@ -286,8 +286,9 @@
 					entry.privacy !== 'private' &&
 					(entry.title || entry.mind || entry.refl || entry.videoPath)
 			)
-			.map(([date, entry]) => ({
-				date,
+			.map(([, entry]) => ({
+				entryId: entry.id,
+				date: entry.date,
 				title: entry.title || 'Untitled page',
 				mood: entry.mood,
 				hasVideo: Boolean(entry.videoPath),
@@ -971,11 +972,11 @@
 					</div>
 				{:else}
 					<div class="mt-4 grid gap-3 min-[640px]:grid-cols-2">
-						{#each recentlyShared as post (post.date)}
+						{#each recentlyShared as post (post.entryId)}
 							<button
 								type="button"
 								class="group rounded-2xl border border-cover-edge bg-cover/35 p-4 text-left text-book-bg transition-all hover:-translate-y-0.5 hover:shadow-md"
-								onclick={() => nav.jump(post.date)}
+								onclick={() => nav.jump(post.entryId || post.date)}
 							>
 								<div class="flex items-center justify-between gap-2">
 									<span
@@ -1036,7 +1037,7 @@
 						<button
 							type="button"
 							class="group rounded-2xl border border-cover-edge bg-cover/35 p-4 text-left text-book-bg transition-all hover:-translate-y-0.5 hover:shadow-md"
-							onclick={() => nav.jump(post.date)}
+							onclick={() => nav.jump(post.entryId || post.date)}
 						>
 							<div class="flex items-center justify-between gap-2">
 								<span

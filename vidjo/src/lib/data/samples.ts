@@ -10,7 +10,9 @@ export function sampleEntries(): Entry[] {
 
 	return [
 		{
+			id: uid(),
 			date: dates.rain,
+			createdAt: new Date(`${dates.rain}T12:00:00`).toISOString(),
 			mood: 'calm',
 			title: 'Rain on the roof',
 			mind: 'Stayed in and listened to the rain all afternoon. I made tea and finally cleaned my desk. It is strange how quiet can feel so full.',
@@ -33,7 +35,9 @@ export function sampleEntries(): Entry[] {
 			]
 		},
 		{
+			id: uid(),
 			date: dates.demo,
+			createdAt: new Date(`${dates.demo}T12:00:00`).toISOString(),
 			mood: 'excited',
 			title: 'Demo day went well',
 			mind: 'We showed the whole project to the class and nothing crashed. Everyone laughed at the right parts. I could not stop smiling on the ride home.',
@@ -56,7 +60,9 @@ export function sampleEntries(): Entry[] {
 			]
 		},
 		{
+			id: uid(),
 			date: dates.late,
+			createdAt: new Date(`${dates.late}T12:00:00`).toISOString(),
 			mood: 'tired',
 			title: 'Late night',
 			mind: 'Stayed up too long fixing one tiny bug. It worked at 2 AM and I felt a little silly and a lot relieved.',

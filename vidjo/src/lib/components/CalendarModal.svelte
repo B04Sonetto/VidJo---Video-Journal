@@ -44,7 +44,7 @@
 			wasOpen = true;
 			lastFocus = document.activeElement as HTMLElement | null;
 
-			const date = parseDate(journal.current);
+			const date = parseDate(journal.currentDate);
 			year = date.getFullYear();
 			month = date.getMonth();
 
@@ -81,8 +81,9 @@
 
 		for (let day = 1; day <= days; day += 1) {
 			const key = `${year}-${pad(month + 1)}-${pad(day)}`;
-			const entry = journal.entries[key];
-			const has = Boolean(entry && !journal.isBlank(entry));
+			const entries = journal.entriesForDate(key);
+			const entry = entries.at(-1);
+			const has = entries.some((item) => !journal.isBlank(item));
 			result.push({
 				key,
 				day,
@@ -91,9 +92,9 @@
 				has,
 				mood: entry?.mood ? MOOD_BY_KEY[entry.mood] : undefined,
 				isToday: key === todayKey(),
-				isCurrent: key === journal.current,
+				isCurrent: entries.some((item) => item.id === journal.current),
 				isFuture: isFutureDate(key),
-				hasVideo: Boolean(journal.videoFor(key)),
+				hasVideo: Boolean(entry && journal.videoFor(entry.id)),
 				inStreak: streak.currentDays.has(key)
 			});
 		}
@@ -131,8 +132,9 @@
 			journal.toast('Future pages are locked. You can write today or an earlier day.');
 			return;
 		}
-		journal.ensureEntry(date);
-		nav.jump(date);
+		const entry = journal.ensureEntry(date);
+		if (!entry) return;
+		nav.jump(entry.id);
 		onClose();
 	}
 
@@ -384,7 +386,7 @@
 							No VidJos this month yet. Pick a day to start a page.
 						</li>
 					{:else}
-						{#each monthEntries as entry (entry.date)}
+						{#each monthEntries as entry (entry.id)}
 							{@const mood = entry.mood ? MOOD_BY_KEY[entry.mood] : null}
 							<li>
 								<button
@@ -401,9 +403,7 @@
 											{entry.title || 'Untitled'}
 										</b>
 										<small class="block truncate font-hand text-[13px] text-ink-soft">
-											{shortDate(entry.date)}{mood ? ` · ${mood.l}` : ''}{journal.videoFor(
-												entry.date
-											)
+											{shortDate(entry.date)}{mood ? ` · ${mood.l}` : ''}{journal.videoFor(entry.id)
 												? ' · video'
 												: ''}
 										</small>

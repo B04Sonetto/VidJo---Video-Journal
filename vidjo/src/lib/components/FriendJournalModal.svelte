@@ -28,7 +28,7 @@
 		open: boolean;
 		friend: Friend | null;
 		posts: FriendPost[];
-		/** Page date to show when the reader opens (used by notifications). */
+		/** Page ID or date to show when the reader opens. */
 		initialDate?: string | null;
 		onClose: () => void;
 	} = $props();
@@ -88,7 +88,11 @@
 		}
 	];
 
-	const sorted = $derived([...posts].sort((a, b) => b.date.localeCompare(a.date)));
+	const sorted = $derived(
+		[...posts].sort(
+			(a, b) => b.date.localeCompare(a.date) || (b.createdAt || '').localeCompare(a.createdAt || '')
+		)
+	);
 	const page = $derived(sorted[index] ?? null);
 	const notebookStyle = $derived(profile.notebookStyle);
 	const firstName = $derived(friend ? friend.displayName.trim().split(/\s+/)[0] || 'them' : 'them');
@@ -107,7 +111,9 @@
 		if (openedFor === key) return;
 
 		const at = initialDate
-			? untrack(() => sorted.findIndex((post) => post.date === initialDate))
+			? untrack(() =>
+					sorted.findIndex((post) => post.entryId === initialDate || post.date === initialDate)
+				)
 			: -1;
 		if (initialDate && at < 0 && posts.length === 0) return;
 
@@ -119,7 +125,7 @@
 			untrack(() =>
 				sorted
 					.filter((post) => !friends.isPostSeen(post))
-					.map((post) => `${post.authorId}:${post.date}`)
+					.map((post) => `${post.authorId}:${post.entryId || post.date}`)
 			)
 		);
 		noteInput = '';
@@ -132,7 +138,7 @@
 	// Opening a page (or flipping to it) is what clears its "new" notification.
 	$effect(() => {
 		if (!open || !page) return;
-		friends.markPageSeen(page.authorId, page.date);
+		friends.markPageSeen(page);
 	});
 
 	$effect(() => {
@@ -335,7 +341,7 @@
 			src={p.videoUrl}
 			poster={p.videoThumbUrl || ''}
 			preload="metadata"
-			class="aspect-video max-h-[260px] w-full reader-video min-[720px]:max-h-[380px]"
+			class="reader-video aspect-video max-h-[260px] w-full min-[720px]:max-h-[380px]"
 		/>
 	{:else if p.videoPath}
 		<!-- The signed URL for this page is still being created. -->
@@ -1050,7 +1056,7 @@
 					← Previous
 				</Button>
 				<span class="flex items-center gap-2">
-					{#if page && newAtOpen.has(`${page.authorId}:${page.date}`)}
+					{#if page && newAtOpen.has(`${page.authorId}:${page.entryId || page.date}`)}
 						<span class="rounded-full bg-gold px-2 py-0.5 font-ui text-[10px] font-bold text-desk">
 							New
 						</span>

@@ -35,25 +35,25 @@ function isUuid(value: string) {
 	return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value);
 }
 
-function postKey(ownerId: string, date: string) {
-	return `${ownerId}:${date}`;
+function postKey(ownerId: string, pageId: string) {
+	return `${ownerId}:${pageId}`;
 }
 
 function seenPagesKey(userId: string) {
 	return `${SEEN_PAGES_KEY}:${userId}`;
 }
 
-/** Splits the legacy `ownerId:date` cache key back into its two parts. */
-function parseSeenKey(key: string): { ownerId: string; date: string } | null {
+/** Splits a cached `ownerId:pageId` key. Older caches used dates as page IDs. */
+function parseSeenKey(key: string): { ownerId: string; pageId: string } | null {
 	const split = key.indexOf(':');
 	if (split <= 0) return null;
 	const ownerId = key.slice(0, split);
-	const date = key.slice(split + 1);
-	return ownerId && date ? { ownerId, date } : null;
+	const pageId = key.slice(split + 1);
+	return ownerId && pageId ? { ownerId, pageId } : null;
 }
 
 function formatPostDate(date: string) {
-	if (date === journal.current) return 'Today';
+	if (date === journal.currentDate) return 'Today';
 	const parsed = new Date(`${date}T00:00:00`);
 	if (Number.isNaN(parsed.getTime())) return date;
 	return parsed.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
@@ -90,7 +90,7 @@ class FriendsState {
 	stories = $state<Friend[]>([]);
 	notifications = $state<NotificationItem[]>([]);
 	notificationsLastSeen = $state(0);
-	/** Shared page keys (`ownerId:date`) the user has already opened. */
+	/** Shared page keys (`ownerId:entryId`) the user has already opened. */
 	seenPostKeys = $state(new SvelteSet<string>());
 	readerAuthorId = $state<string | null>(null);
 	readerDate = $state<string | null>(null);
@@ -113,10 +113,10 @@ class FriendsState {
 		return profile.friendCode;
 	}
 
-	/** Opens a friend's journal reader, optionally at a specific page date. */
-	openJournal(authorId: string, date?: string | null) {
+	/** Opens a friend's journal reader, optionally at a page ID or legacy date. */
+	openJournal(authorId: string, pageId?: string | null) {
 		this.readerAuthorId = authorId;
-		this.readerDate = date ?? null;
+		this.readerDate = pageId ?? null;
 	}
 
 	closeJournal() {
@@ -126,17 +126,18 @@ class FriendsState {
 
 	/** A shared page stays "new" until its own page has actually been opened. */
 	isPostSeen(post: FriendPost) {
-		return this.seenPostKeys.has(postKey(post.authorId, post.date));
+		return this.seenPostKeys.has(postKey(post.authorId, post.entryId || post.date));
 	}
 
-	markPageSeen(authorId: string, date: string) {
-		if (!authorId || !date) return;
-		const key = postKey(authorId, date);
+	markPageSeen(post: FriendPost) {
+		const entryId = post.entryId || post.date;
+		if (!post.authorId || !entryId) return;
+		const key = postKey(post.authorId, entryId);
 		if (this.seenPostKeys.has(key)) return;
 		// Clear the badge immediately, then sync in the background.
 		this.seenPostKeys.add(key);
 		this.persistSeenPages();
-		void this.pushSeenPages([{ ownerId: authorId, date }]);
+		void this.pushSeenPages([{ ownerId: post.authorId, entryId, date: post.date }]);
 	}
 
 	private persistSeenPages() {
@@ -152,7 +153,7 @@ class FriendsState {
 	}
 
 	/** Store seen pages in Supabase so badges agree across devices. */
-	private async pushSeenPages(entries: { ownerId: string; date: string }[]) {
+	private async pushSeenPages(entries: { ownerId: string; entryId: string; date: string }[]) {
 		if (!isSupabaseConfigured || !auth.signedIn || entries.length === 0) return;
 		const valid = entries.filter(
 			(entry) => isUuid(entry.ownerId) && /^\d{4}-\d{2}-\d{2}$/.test(entry.date)
@@ -160,7 +161,11 @@ class FriendsState {
 		if (valid.length === 0) return;
 		try {
 			const { error } = await supabase.rpc('vidjo_friend_pages_mark_seen', {
-				p_entries: valid.map((entry) => ({ ownerId: entry.ownerId, date: entry.date }))
+				p_entries: valid.map((entry) => ({
+					ownerId: entry.ownerId,
+					entryId: entry.entryId,
+					date: entry.date
+				}))
 			});
 			if (error) throw error;
 		} catch (error) {
@@ -192,10 +197,12 @@ class FriendsState {
 			try {
 				const { data, error } = await supabase
 					.from('vidjo_friend_page_seen')
-					.select('owner_id, page_date')
+					.select('owner_id, post_entry_id')
 					.eq('user_id', this.currentUserId);
 				if (!error && data) {
-					serverKeys = data.map((row) => postKey(row.owner_id as string, row.page_date as string));
+					serverKeys = data.map((row) =>
+						postKey(row.owner_id as string, row.post_entry_id as string)
+					);
 				}
 			} catch (error) {
 				console.warn('[VidJo] Could not load seen pages.', error);
@@ -203,13 +210,14 @@ class FriendsState {
 		}
 
 		if (serverKeys !== null) {
-			const pending: { ownerId: string; date: string }[] = [];
+			const pending: { ownerId: string; entryId: string; date: string }[] = [];
 			// Fresh account with nothing recorded yet: treat everything already
 			// on the shelf as read so an existing feed does not light up at once.
 			if (serverKeys.length === 0 && localKeys === null) {
 				for (const post of this.posts) {
-					serverKeys.push(postKey(post.authorId, post.date));
-					pending.push({ ownerId: post.authorId, date: post.date });
+					const entryId = post.entryId || post.date;
+					serverKeys.push(postKey(post.authorId, entryId));
+					pending.push({ ownerId: post.authorId, entryId, date: post.date });
 				}
 			}
 
@@ -218,8 +226,19 @@ class FriendsState {
 				if (seen.has(key)) continue;
 				const parsed = parseSeenKey(key);
 				if (!parsed) continue;
-				seen.add(key);
-				pending.push(parsed);
+				const legacyDate = /^\d{4}-\d{2}-\d{2}$/.test(parsed.pageId);
+				const post = legacyDate
+					? this.posts
+							.filter((item) => item.authorId === parsed.ownerId && item.date === parsed.pageId)
+							.sort((a, b) => (b.createdAt ?? '').localeCompare(a.createdAt ?? ''))[0]
+					: this.posts.find(
+							(item) => item.authorId === parsed.ownerId && item.entryId === parsed.pageId
+						);
+				if (!post) continue;
+				const entryId = post.entryId || post.date;
+				const stableKey = postKey(post.authorId, entryId);
+				seen.add(stableKey);
+				pending.push({ ownerId: post.authorId, entryId, date: post.date });
 			}
 
 			this.seenPostKeys.clear();
@@ -236,12 +255,38 @@ class FriendsState {
 			void this.pushSeenPages(
 				localKeys
 					.map(parseSeenKey)
-					.filter((entry): entry is { ownerId: string; date: string } => Boolean(entry))
+					.map((entry) => {
+						if (!entry) return null;
+						const post = this.posts.find(
+							(item) =>
+								item.authorId === entry.ownerId &&
+								(item.entryId === entry.pageId || item.date === entry.pageId)
+						);
+						return post
+							? {
+									ownerId: post.authorId,
+									entryId: post.entryId || post.date,
+									date: post.date
+								}
+							: null;
+					})
+					.filter((entry): entry is { ownerId: string; entryId: string; date: string } =>
+						Boolean(entry)
+					)
 			);
 		}
 
 		this.seenPostKeys.clear();
-		for (const key of localKeys) this.seenPostKeys.add(key);
+		for (const key of localKeys) {
+			const parsed = parseSeenKey(key);
+			if (!parsed) continue;
+			const post = this.posts.find(
+				(item) =>
+					item.authorId === parsed.ownerId &&
+					(item.entryId === parsed.pageId || item.date === parsed.pageId)
+			);
+			if (post) this.seenPostKeys.add(postKey(post.authorId, post.entryId || post.date));
+		}
 		this.persistSeenPages();
 	}
 
@@ -624,7 +669,9 @@ class FriendsState {
 			const videoPath = row.video_path || '';
 
 			return {
-				id: `friend-${row.owner_id}-${row.entry_date}`,
+				id: `friend-${row.owner_id}-${row.id}`,
+				entryId: row.id,
+				createdAt: row.created_at,
 				authorId: row.owner_id,
 				authorName: cleanDisplayName(author?.displayName || author?.username),
 				authorUsername: author?.username || 'student',
@@ -830,7 +877,7 @@ class FriendsState {
 	}
 
 	private enrich(post: FriendPost): FriendPost {
-		const key = postKey(post.authorId, post.date);
+		const key = postKey(post.authorId, post.entryId || post.date);
 		return {
 			...post,
 			reactions: this.reactionMap[key]?.counts ?? post.reactions,
@@ -864,7 +911,10 @@ class FriendsState {
 
 		const reactions: Record<string, { counts: FriendPostReaction; mine: ReactionKey[] }> = {};
 		for (const row of reactionRows ?? []) {
-			const key = postKey(row.post_owner_id as string, row.post_date as string);
+			const key = postKey(
+				row.post_owner_id as string,
+				(row.post_entry_id as string) || (row.post_date as string)
+			);
 			const entry = reactions[key] ?? { counts: { ...EMPTY_REACTIONS }, mine: [] };
 			const reaction = row.reaction as ReactionKey;
 
@@ -895,7 +945,10 @@ class FriendsState {
 
 		const comments: Record<string, FriendComment[]> = {};
 		for (const row of commentRows ?? []) {
-			const key = postKey(row.post_owner_id as string, row.post_date as string);
+			const key = postKey(
+				row.post_owner_id as string,
+				(row.post_entry_id as string) || (row.post_date as string)
+			);
 			const author = authorMap.get(row.author_id as string);
 			const created = new Date(row.created_at as string);
 			const own = (row.author_id as string) === this.currentUserId;
@@ -1163,7 +1216,7 @@ class FriendsState {
 			if (error) throw error;
 
 			const rows = commentRows ?? [];
-			const dates = [...new Set(rows.map((row) => row.post_date as string).filter(Boolean))];
+			const entryIds = [...new Set(rows.map((row) => row.post_entry_id as string).filter(Boolean))];
 
 			// `vidjo_comments` has no foreign key to `vidjo_entries`, so fetch the
 			// matching page metadata separately instead of relying on an embed.
@@ -1171,15 +1224,15 @@ class FriendsState {
 				string,
 				{ title: string | null; owner_id: string; entry_date: string }
 			>();
-			if (dates.length > 0) {
+			if (entryIds.length > 0) {
 				const { data: entries } = await supabase
 					.from('vidjo_entries')
-					.select('entry_date, title, owner_id')
+					.select('id, entry_date, title, owner_id')
 					.eq('owner_id', this.currentUserId)
-					.in('entry_date', dates);
+					.in('id', entryIds);
 
 				for (const entry of entries ?? []) {
-					entryMap.set(entry.entry_date as string, {
+					entryMap.set(entry.id as string, {
 						title: (entry.title as string) || null,
 						owner_id: entry.owner_id as string,
 						entry_date: entry.entry_date as string
@@ -1205,7 +1258,8 @@ class FriendsState {
 
 			const notifications: NotificationItem[] = rows.map((row) => {
 				const date = row.post_date as string;
-				const entry = entryMap.get(date);
+				const entryId = row.post_entry_id as string;
+				const entry = entryMap.get(entryId);
 				const author = authorMap.get(row.author_id as string);
 
 				return {
@@ -1218,7 +1272,8 @@ class FriendsState {
 					),
 					fromUserAvatar: normalizeImageUrl((author?.avatar_url as string) || null),
 					postOwnerId: entry?.owner_id || this.currentUserId,
-					postId: `friend-${this.currentUserId}-${date}`,
+					postId: `friend-${this.currentUserId}-${entryId}`,
+					postEntryId: entryId,
 					postTitle: entry?.title || 'Untitled page',
 					postDate: date,
 					text: row.body as string,
@@ -1394,7 +1449,8 @@ class FriendsState {
 		const post = this.posts.find((item) => item.id === postId);
 		if (!post) return;
 
-		const key = postKey(post.authorId, post.date);
+		const pageId = post.entryId || post.date;
+		const key = postKey(post.authorId, pageId);
 		const current = this.reactionMap[key] ?? { counts: { ...EMPTY_REACTIONS }, mine: [] };
 		const hasReacted = current.mine.includes(reaction);
 		const counts = { ...current.counts };
@@ -1420,12 +1476,13 @@ class FriendsState {
 							.from('vidjo_reactions')
 							.delete()
 							.eq('post_owner_id', post.authorId)
-							.eq('post_date', post.date)
+							.eq('post_entry_id', pageId)
 							.eq('user_id', auth.user!.id)
 							.eq('reaction', reaction)
 					: supabase.from('vidjo_reactions').insert({
 							post_owner_id: post.authorId,
 							post_date: post.date,
+							post_entry_id: pageId,
 							user_id: auth.user!.id,
 							reaction
 						});
@@ -1447,7 +1504,8 @@ class FriendsState {
 		const post = this.posts.find((item) => item.id === postId);
 		if (!post) return;
 
-		const key = postKey(post.authorId, post.date);
+		const pageId = post.entryId || post.date;
+		const key = postKey(post.authorId, pageId);
 		const temp: FriendComment = {
 			id: `local-${Date.now()}`,
 			authorId: auth.ownerId,
@@ -1470,6 +1528,7 @@ class FriendsState {
 			.insert({
 				post_owner_id: post.authorId,
 				post_date: post.date,
+				post_entry_id: pageId,
 				context: 'friends',
 				author_id: auth.user.id,
 				// Send the raw text so the database trigger can detect direct
@@ -1513,7 +1572,7 @@ class FriendsState {
 		if (!post) return false;
 
 		const clean = censor(text);
-		const key = postKey(post.authorId, post.date);
+		const key = postKey(post.authorId, post.entryId || post.date);
 		const previous =
 			(this.commentMap[key] ?? []).find((c) => c.id === commentId) ??
 			post.comments.find((c) => c.id === commentId);
@@ -1581,7 +1640,7 @@ class FriendsState {
 		const post = this.posts.find((item) => item.id === postId);
 		if (!post) return false;
 
-		const key = postKey(post.authorId, post.date);
+		const key = postKey(post.authorId, post.entryId || post.date);
 		const removed =
 			(this.commentMap[key] ?? []).find((c) => c.id === commentId) ??
 			post.comments.find((c) => c.id === commentId);

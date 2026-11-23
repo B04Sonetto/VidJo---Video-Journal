@@ -19,7 +19,9 @@ export interface Sticker {
 }
 
 export interface Entry {
+	id: string;
 	date: string;
+	createdAt: string;
 	mood: MoodKey | '';
 	title: string;
 	mind: string;
@@ -75,8 +77,10 @@ export interface StreakInfo {
 }
 
 export interface EntryRow {
+	id: string;
 	owner_id: string;
 	entry_date: string;
+	created_at?: string;
 	mood: MoodKey | null;
 	title: string | null;
 	mind: string | null;
@@ -217,6 +221,8 @@ export interface FriendPostReaction {
 
 export interface FriendPost {
 	id: string;
+	entryId?: string;
+	createdAt?: string;
 	authorId: string;
 	authorName: string;
 	authorUsername: string;
@@ -254,6 +260,7 @@ export interface NotificationItem {
 	/** Owner of the page the notification refers to (defaults to the current user). */
 	postOwnerId?: string;
 	postId?: string;
+	postEntryId?: string;
 	postTitle?: string;
 	postDate?: string;
 	text?: string;

@@ -57,7 +57,8 @@
 	);
 	const volumePct = $derived(Math.round(spotify.volume * 100));
 	const today = $derived(todayKey());
-	const todaySong = $derived(journal.entries[today]?.song ?? null);
+	const todayEntryId = $derived(journal.latestEntryId(today));
+	const todaySong = $derived(journal.entries[todayEntryId]?.song ?? null);
 	const isTodaySongAttached = $derived(
 		Boolean(todaySong && spotify.track?.uri && todaySong.uri === spotify.track.uri)
 	);
@@ -80,16 +81,16 @@
 		if (!song) return;
 		const entry = journal.ensureEntry(today);
 		if (!entry) return;
-		journal.current = today;
+		journal.current = entry.id;
 		journal.side = 'L';
 		await journal.setSongForCurrent(song);
 		journal.toast("Song attached to today's page");
 	}
 
 	async function removeSongFromToday() {
-		const entry = journal.entries[today];
+		const entry = journal.entries[journal.latestEntryId(today)];
 		if (!entry?.song) return;
-		journal.current = today;
+		journal.current = entry.id;
 		journal.side = 'L';
 		await journal.setSongForCurrent(null);
 		journal.toast("Song removed from today's page");

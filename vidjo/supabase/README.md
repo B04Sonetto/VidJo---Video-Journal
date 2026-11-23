@@ -159,6 +159,29 @@ the Supabase SQL editor. It prevents optional profile creation from aborting
 authentication; users can finish profile setup in VidJo after signing in. Check
 the Supabase Postgres logs for the underlying profile error.
 
+### Multiple pages and daily limits
+
+To enable multiple journal pages per date and the server-enforced daily limits,
+run these scripts in the Supabase SQL editor, in order:
+
+1. [`schema.sql`](./schema.sql)
+2. [`fixes/fix-community-features.sql`](./fixes/fix-community-features.sql)
+3. [`fixes/fix-friend-page-seen.sql`](./fixes/fix-friend-page-seen.sql)
+4. [`fixes/fix-multiple-pages-and-daily-limits.sql`](./fixes/fix-multiple-pages-and-daily-limits.sql)
+
+The migration assigns stable IDs to existing pages and updates feed reactions,
+comments, reports, pins, and friend-page read state to use those IDs. New pages
+can share a date; the calendar opens the newest page for the selected date.
+Database triggers enforce up to **3 pages** and **3 Community shares** per
+member's configured local day. Deleting a page removes its share event and
+refunds that page's quota slot. Comments keep the existing 10-per-minute cap
+and also have a 5-second cooldown.
+
+The app's timezone is saved server-side. To reduce quota resets caused by
+changing timezone repeatedly, a stored timezone can be changed only once every
+30 days. The migration is safe to re-run, but it must be applied to the live
+Supabase project; deploying the app alone does not enable server-side limits.
+
 ## 6. Google sign-in (optional)
 
 Google is disabled by default in a new Supabase project. To enable it:

@@ -63,8 +63,9 @@
 					entry.privacy !== 'private' &&
 					(entry.title || entry.mind || entry.refl || entry.videoPath)
 			)
-			.map(([date, entry]) => ({
-				date,
+			.map(([, entry]) => ({
+				entryId: entry.id,
+				date: entry.date,
 				title: entry.title || 'Untitled page',
 				mood: entry.mood,
 				hasVideo: Boolean(entry.videoPath),
@@ -341,7 +342,7 @@
 						</div>
 					{:else}
 						<ul class="profile-scroll mt-3 max-h-[240px] space-y-2 overflow-y-auto pr-1">
-							{#each sharedPosts.slice(0, 8) as post (post.date)}
+							{#each sharedPosts.slice(0, 8) as post (post.entryId)}
 								{@const mood = post.mood && MOOD_BY_KEY[post.mood] ? MOOD_BY_KEY[post.mood] : null}
 								<li>
 									<button
@@ -349,7 +350,7 @@
 										class="flex w-full items-center gap-3 rounded-2xl border border-cover-edge bg-cover/25 p-3 text-left transition-colors hover:border-book-accent/50 hover:bg-cover/40"
 										onclick={() => {
 											onClose();
-											nav.jump(post.date);
+											nav.jump(post.entryId || post.date);
 										}}
 									>
 										{#if mood}

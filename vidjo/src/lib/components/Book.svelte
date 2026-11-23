@@ -7,6 +7,7 @@
 	import { journal } from '#lib/state/journal.svelte';
 	import { nav } from '#lib/state/navigation.svelte';
 	import { viewport } from '#lib/state/viewport.svelte';
+	import { dateKey, todayKey } from '#lib/dates';
 	import type { Entry } from '#lib/types';
 
 	interface Flip {
@@ -37,6 +38,11 @@
 	const index = $derived(dates.indexOf(journal.current));
 	const total = $derived(dates.length);
 	const currentEntry = $derived(journal.entries[journal.current]);
+	const todayPages = $derived(
+		Object.values(journal.entries).filter(
+			(entry) => dateKey(new Date(entry.createdAt)) === todayKey()
+		).length
+	);
 	const streak = $derived(journal.streak);
 	const atStart = $derived(index === 0 && (!viewport.single || journal.side === 'L'));
 	const atEnd = $derived(index === total - 1 && (!viewport.single || journal.side === 'R'));
@@ -156,8 +162,16 @@
 			return;
 		}
 
-		const dir: 1 | -1 = target > journal.current ? 1 : -1;
-		moveTo(target, dir);
+		const resolvedTarget = journal.entries[target] ? target : journal.latestEntryId(target);
+		if (!resolvedTarget) {
+			const entry = journal.ensureEntry(target);
+			if (!entry) return;
+			journal.current = entry.id;
+			journal.side = side;
+			return;
+		}
+		const dir: 1 | -1 = dates.indexOf(resolvedTarget) > index ? 1 : -1;
+		moveTo(resolvedTarget, dir);
 		journal.side = side;
 	});
 
@@ -234,6 +248,17 @@
 		{#if streak.longest > streak.current}
 			<span class="text-book-bg/30">· best {streak.longest}</span>
 		{/if}
+	</div>
+{/if}
+
+{#if journal.ready}
+	<div
+		class="mx-auto mb-2 flex w-full max-w-[720px] justify-end"
+		title={todayPages >= 3 ? 'Daily page limit reached' : 'Create another page for today'}
+	>
+		<Button size="sm" icon="plus" disabled={todayPages >= 3} onclick={() => journal.createEntry()}>
+			Add Page · {todayPages}/3
+		</Button>
 	</div>
 {/if}
 

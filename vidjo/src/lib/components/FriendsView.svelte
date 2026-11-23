@@ -87,7 +87,10 @@
 
 	function openReader(shelf: Shelf) {
 		// Land on the unread page instead of always showing the newest one.
-		friends.openJournal(shelf.friend.id, shelf.newPosts[0]?.date ?? null);
+		friends.openJournal(
+			shelf.friend.id,
+			shelf.newPosts[0]?.entryId || shelf.newPosts[0]?.date || null
+		);
 	}
 
 	async function copyMyCode() {

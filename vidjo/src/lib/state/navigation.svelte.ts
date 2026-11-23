@@ -19,7 +19,7 @@ class Navigation {
 	/** When set, the profile page renders this user's profile instead of the current user's. */
 	viewingProfileUserId = $state<string | null>(null);
 
-	/** A date the book should flip to. Consumed by Book.svelte. */
+	/** A page ID or date the book should flip to. Consumed by Book.svelte. */
 	target = $state<string | null>(null);
 
 	/** Which side of the book to show after the jump. Consumed by Book.svelte. */

@@ -307,10 +307,10 @@
 		};
 	}
 
-	function entrySnapshot(date: string): SharedJournalEntry {
-		const entry = journal.entries[date];
+	function entrySnapshot(id: string): SharedJournalEntry {
+		const entry = journal.entries[id];
 		return {
-			date,
+			date: entry?.date ?? '',
 			title: entry?.title ?? '',
 			mind: entry?.mind ?? '',
 			refl: entry?.refl ?? '',
@@ -1023,7 +1023,7 @@
 						<ul class="space-y-1.5">
 							{#each journal.sortedDates.slice(0, 30) as date (date)}
 								{@const entry = journal.entries[date]}
-								{@const when = new Date(`${date}T12:00:00`)}
+								{@const when = new Date(`${entry?.date ?? ''}T12:00:00`)}
 								<li>
 									<button
 										type="button"
@@ -1041,7 +1041,7 @@
 											</span>
 											<span class="block truncate font-ui text-[11px] text-book-ink/60">
 												{Number.isNaN(when.getTime())
-													? date
+													? entry?.date
 													: when.toLocaleDateString(undefined, {
 															month: 'short',
 															day: 'numeric',

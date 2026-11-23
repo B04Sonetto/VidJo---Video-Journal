@@ -50,8 +50,8 @@ export function countsForStreak(entry: Entry | undefined): boolean {
 export function summarizeStreak(entries: Record<string, Entry>, today = todayKey()): StreakSummary {
 	const days = new Set<string>();
 
-	for (const [key, entry] of Object.entries(entries)) {
-		if (key <= today && countsForStreak(entry)) days.add(key);
+	for (const entry of Object.values(entries)) {
+		if (entry.date <= today && countsForStreak(entry)) days.add(entry.date);
 	}
 
 	const ordered = [...days].sort();

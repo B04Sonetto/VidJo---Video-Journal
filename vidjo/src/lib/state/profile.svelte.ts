@@ -356,7 +356,10 @@ class ProfileState {
 					.from('vidjo_profiles')
 					.select('username')
 					// `_` and `%` are ILIKE wildcards; escape them so `a_b` cannot match `axb`.
-					.ilike('username', clean.replace(/[\\%_]/g, (char) => `\\${char}`))
+					.ilike(
+						'username',
+						clean.replace(/[\\%_]/g, (char) => `\\${char}`)
+					)
 					.maybeSingle();
 
 				if (queryError) {
@@ -625,6 +628,7 @@ class ProfileState {
 
 				this.viewedProfilePosts = (
 					(entries ?? []) as {
+						id: string;
 						entry_date: string;
 						title: string | null;
 						mood: MoodKey | null;
@@ -633,6 +637,7 @@ class ProfileState {
 						video_path: string | null;
 					}[]
 				).map((row) => ({
+					entryId: row.id,
 					date: row.entry_date,
 					title: row.title || 'Community entry',
 					mood: (row.mood as MoodKey | '') || '',

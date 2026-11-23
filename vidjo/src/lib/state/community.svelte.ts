@@ -162,12 +162,12 @@ function isUuid(value: string) {
 	return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value);
 }
 
-function postKey(ownerId: string, date: string) {
-	return `${ownerId}:${date}`;
+function postKey(ownerId: string, pageId: string) {
+	return `${ownerId}:${pageId}`;
 }
 
 function formatPostDate(date: string) {
-	if (date === journal.current) return 'Today';
+	if (date === journal.currentDate) return 'Today';
 	const parsed = new Date(`${date}T00:00:00`);
 	if (Number.isNaN(parsed.getTime())) return date;
 	return parsed.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
@@ -251,13 +251,15 @@ class CommunityState {
 		);
 	}
 
-	pinKey(slug: string, ownerId: string, date: string) {
-		return `${slug}:${ownerId}:${date}`;
+	pinKey(slug: string, ownerId: string, pageId: string) {
+		return `${slug}:${ownerId}:${pageId}`;
 	}
 
 	isPostPinned(post: CommunityPost) {
 		if (!post.communitySlug) return false;
-		return Boolean(this.pinnedKeys[this.pinKey(post.communitySlug, post.authorId, post.date)]);
+		return Boolean(
+			this.pinnedKeys[this.pinKey(post.communitySlug, post.authorId, post.entryId || post.date)]
+		);
 	}
 
 	tagFor(slug: string) {
@@ -272,21 +274,24 @@ class CommunityState {
 		return this.communities.find((community) => community.slug === slug)?.icon || 'globe';
 	}
 
-	reactionsFor(ownerId: string, date: string): FriendPostReaction {
-		return this.reactionMap[postKey(ownerId, date)]?.counts ?? { ...EMPTY_REACTIONS };
+	reactionsFor(ownerId: string, pageId: string): FriendPostReaction {
+		return this.reactionMap[postKey(ownerId, pageId)]?.counts ?? { ...EMPTY_REACTIONS };
 	}
 
-	mineFor(ownerId: string, date: string): (keyof FriendPostReaction)[] {
-		return this.reactionMap[postKey(ownerId, date)]?.mine ?? [];
+	mineFor(ownerId: string, pageId: string): (keyof FriendPostReaction)[] {
+		return this.reactionMap[postKey(ownerId, pageId)]?.mine ?? [];
 	}
 
-	commentsFor(ownerId: string, date: string): FriendComment[] {
-		return this.commentMap[postKey(ownerId, date)] ?? [];
+	commentsFor(ownerId: string, pageId: string): FriendComment[] {
+		return this.commentMap[postKey(ownerId, pageId)] ?? [];
 	}
 
 	/** Total cheers on a page within the last `days` days (0 = all time). */
 	reactionScoreSince(post: FriendPost, days = 0): number {
-		return this.scoreTimes(this.reactionMap[postKey(post.authorId, post.date)]?.times, days);
+		return this.scoreTimes(
+			this.reactionMap[postKey(post.authorId, post.entryId || post.date)]?.times,
+			days
+		);
 	}
 
 	/** Total cheers on a comment within the last `days` days (0 = all time). */
@@ -461,7 +466,7 @@ class CommunityState {
 		try {
 			const { data, error } = await supabase
 				.from('vidjo_community_pinned_posts')
-				.select('community_slug, post_owner_id, post_date');
+				.select('community_slug, post_owner_id, post_date, post_entry_id');
 			if (error) throw error;
 
 			const keys: Record<string, boolean> = {};
@@ -470,7 +475,7 @@ class CommunityState {
 					this.pinKey(
 						row.community_slug as string,
 						row.post_owner_id as string,
-						row.post_date as string
+						(row.post_entry_id as string) || (row.post_date as string)
 					)
 				] = true;
 			}
@@ -557,20 +562,25 @@ class CommunityState {
 	 * through a SECURITY DEFINER RPC (RLS blocks direct cross-user updates).
 	 */
 	async deletePost(postId: string): Promise<boolean> {
-		// Own pages come from the journal as `mine-<date>`; remote rows use
-		// `community-<owner>-<date>`.
-		const mineMatch = postId.match(/^mine-(\d{4}-\d{2}-\d{2})$/);
-		const communityMatch = postId.match(/^community-(.+)-(\d{4}-\d{2}-\d{2})$/);
-
-		const ownerId = mineMatch ? this.currentUserId : communityMatch?.[1];
-		const entryDate = mineMatch?.[1] ?? communityMatch?.[2];
-
-		if (!ownerId || !entryDate) return false;
+		const post = this.posts.find((item) => item.id === postId);
+		const ownEntryId = postId.startsWith('mine-') ? postId.slice('mine-'.length) : '';
+		const ownEntry = ownEntryId ? journal.entries[ownEntryId] : undefined;
+		const legacyMineMatch = postId.match(/^mine-(\d{4}-\d{2}-\d{2})$/);
+		const legacyCommunityMatch = postId.match(/^community-(.+)-(\d{4}-\d{2}-\d{2})$/);
+		const ownerId =
+			post?.authorId ||
+			(ownEntry || legacyMineMatch ? this.currentUserId : legacyCommunityMatch?.[1]);
+		const entryId =
+			post?.entryId || ownEntryId || legacyMineMatch?.[1] || legacyCommunityMatch?.[2];
+		const entryDate =
+			post?.date || ownEntry?.date || legacyMineMatch?.[1] || legacyCommunityMatch?.[2];
+		if (!ownerId || !entryId || !entryDate) return false;
 
 		const isMine = ownerId === this.currentUserId;
 		const slug =
-			this.posts.find((post) => post.id === postId)?.communitySlug ||
-			journal.entries[entryDate]?.communitySlug ||
+			post?.communitySlug ||
+			ownEntry?.communitySlug ||
+			journal.entries[entryId]?.communitySlug ||
 			'';
 		const isModerator = this.canModerate(slug);
 
@@ -587,10 +597,10 @@ class CommunityState {
 			}
 
 			try {
-				const { data, error } = await supabase.rpc('vidjo_community_unshare_post', {
+				const { data, error } = await supabase.rpc('vidjo_community_unshare_entry', {
 					p_slug: slug,
 					p_post_owner_id: ownerId,
-					p_post_date: entryDate
+					p_post_entry_id: entryId
 				});
 				if (error) throw error;
 				if (!data) {
@@ -608,7 +618,7 @@ class CommunityState {
 			}
 		}
 
-		const entry = journal.entries[entryDate];
+		const entry = journal.entries[entryId];
 		if (entry) {
 			// Keep the page shared with friends if it was shared both ways;
 			// otherwise it becomes private again.
@@ -616,7 +626,7 @@ class CommunityState {
 			entry.shareWithFriends = false;
 			entry.communitySlug = '';
 			entry.sample = false;
-			journal.queueSave(entryDate);
+			journal.queueSave(entryId);
 
 			if (isSupabaseConfigured && auth.signedIn) {
 				await journal.flush();
@@ -641,7 +651,7 @@ class CommunityState {
 					share_with_friends: false
 				})
 				.eq('owner_id', ownerId)
-				.eq('entry_date', entryDate);
+				.eq('id', entryId);
 
 			if (error) throw error;
 
@@ -670,6 +680,7 @@ class CommunityState {
 							privacy?: string | null;
 							owner_id?: string;
 							entry_date?: string;
+							id?: string;
 						} | null;
 						if (row?.owner_id === this.currentUserId) return;
 						if (row?.privacy === 'community') {
@@ -680,10 +691,9 @@ class CommunityState {
 						// Unsharing (community -> friends/private) or deleting a
 						// page still has to disappear from every other viewer's feed.
 						const owner = row?.owner_id;
-						const date = row?.entry_date;
 						const wasInFeed =
-							Boolean(owner && date) &&
-							this.posts.some((post) => post.authorId === owner && post.date === date);
+							Boolean(owner && row?.id) &&
+							this.posts.some((post) => post.authorId === owner && post.entryId === row?.id);
 						if (wasInFeed) this.scheduleRefresh();
 					}
 				)
@@ -811,7 +821,8 @@ class CommunityState {
 				}
 
 				return {
-					id: `community-${row.owner_id}-${row.entry_date}`,
+					id: `community-${row.owner_id}-${row.id}`,
+					entryId: row.id as string,
 					authorId: row.owner_id as string,
 					authorName: cleanDisplayName(
 						(author?.display_name as string) || (author?.username as string)
@@ -861,7 +872,10 @@ class CommunityState {
 
 		const reactions: Record<string, ReactionEntry> = {};
 		for (const row of reactionRows ?? []) {
-			const key = postKey(row.post_owner_id as string, row.post_date as string);
+			const key = postKey(
+				row.post_owner_id as string,
+				(row.post_entry_id as string) || (row.post_date as string)
+			);
 			const entry = reactions[key] ?? emptyReactionEntry();
 			const reaction = row.reaction as ReactionKey;
 			if (reaction in entry.counts) {
@@ -910,7 +924,10 @@ class CommunityState {
 
 		const comments: Record<string, FriendComment[]> = {};
 		for (const row of commentRows ?? []) {
-			const key = postKey(row.post_owner_id as string, row.post_date as string);
+			const key = postKey(
+				row.post_owner_id as string,
+				(row.post_entry_id as string) || (row.post_date as string)
+			);
 			const author = authorMap.get(row.author_id as string);
 			const created = new Date(row.created_at as string);
 			const createdMs = created.getTime();
@@ -943,7 +960,8 @@ class CommunityState {
 	}
 
 	async toggleReaction(post: FriendPost, reaction: ReactionKey) {
-		const key = postKey(post.authorId, post.date);
+		const pageId = post.entryId || post.date;
+		const key = postKey(post.authorId, pageId);
 		const current = this.reactionMap[key] ?? emptyReactionEntry();
 		const hasReacted = current.mine.includes(reaction);
 		const counts = { ...current.counts };
@@ -969,13 +987,14 @@ class CommunityState {
 						.from('vidjo_reactions')
 						.delete()
 						.eq('post_owner_id', post.authorId)
-						.eq('post_date', post.date)
+						.eq('post_entry_id', pageId)
 						.eq('user_id', auth.user.id)
 						.eq('reaction', reaction);
 				} else {
 					const { error } = await supabase.from('vidjo_reactions').insert({
 						post_owner_id: post.authorId,
 						post_date: post.date,
+						post_entry_id: pageId,
 						user_id: auth.user.id,
 						reaction
 					});
@@ -995,7 +1014,8 @@ class CommunityState {
 		if (!raw.trim()) return;
 		const clean = censor(raw);
 
-		const key = postKey(post.authorId, post.date);
+		const pageId = post.entryId || post.date;
+		const key = postKey(post.authorId, pageId);
 		const temp: FriendComment = {
 			id: `local-${Date.now()}`,
 			authorId: auth.ownerId,
@@ -1022,6 +1042,7 @@ class CommunityState {
 					.insert({
 						post_owner_id: post.authorId,
 						post_date: post.date,
+						post_entry_id: pageId,
 						context: 'community',
 						author_id: auth.user.id,
 						// Send the raw text so the database trigger can detect direct
@@ -1052,7 +1073,7 @@ class CommunityState {
 	async updateComment(post: FriendPost, commentId: string, text: string): Promise<boolean> {
 		if (!text.trim()) return false;
 		const clean = censor(text);
-		const key = postKey(post.authorId, post.date);
+		const key = postKey(post.authorId, post.entryId || post.date);
 		const previous =
 			(this.commentMap[key] ?? []).find((c) => c.id === commentId) ??
 			post.comments.find((c) => c.id === commentId);
@@ -1121,7 +1142,7 @@ class CommunityState {
 	}
 
 	async deleteComment(post: FriendPost, commentId: string): Promise<boolean> {
-		const key = postKey(post.authorId, post.date);
+		const key = postKey(post.authorId, post.entryId || post.date);
 		const removed =
 			(this.commentMap[key] ?? []).find((c) => c.id === commentId) ??
 			post.comments.find((c) => c.id === commentId);
@@ -1181,7 +1202,7 @@ class CommunityState {
 
 	/** Cheer a single note. Counts, "my cheers", and timestamps stay in sync. */
 	async toggleCommentReaction(post: FriendPost, comment: FriendComment, reaction: ReactionKey) {
-		const key = postKey(post.authorId, post.date);
+		const key = postKey(post.authorId, post.entryId || post.date);
 		const hasReacted = (comment.userReactions ?? []).includes(reaction);
 		const counts = { ...(comment.reactions ?? EMPTY_REACTIONS) };
 		const mine = [...(comment.userReactions ?? [])];
@@ -1233,7 +1254,7 @@ class CommunityState {
 	/** Moderator moderation: remove any note, even one authored by someone else. */
 	async deleteCommentAsAdmin(post: FriendPost, commentId: string): Promise<boolean> {
 		const slug = 'communitySlug' in post ? String(post.communitySlug ?? '') : '';
-		const key = postKey(post.authorId, post.date);
+		const key = postKey(post.authorId, post.entryId || post.date);
 		const removed =
 			(this.commentMap[key] ?? []).find((comment) => comment.id === commentId) ??
 			post.comments.find((comment) => comment.id === commentId);
@@ -1337,15 +1358,16 @@ class CommunityState {
 
 	async togglePin(post: CommunityPost): Promise<boolean> {
 		if (!post.communitySlug || !this.canModerate(post.communitySlug)) return false;
-		const key = this.pinKey(post.communitySlug, post.authorId, post.date);
+		const pageId = post.entryId || post.date;
+		const key = this.pinKey(post.communitySlug, post.authorId, pageId);
 		const before = Boolean(this.pinnedKeys[key]);
 		this.pinnedKeys = { ...this.pinnedKeys, [key]: !before };
 
 		try {
-			const { data, error } = await supabase.rpc('vidjo_community_toggle_pin', {
+			const { data, error } = await supabase.rpc('vidjo_community_toggle_pin_entry', {
 				p_slug: post.communitySlug,
 				p_post_owner_id: post.authorId,
-				p_post_date: post.date
+				p_post_entry_id: pageId
 			});
 			if (error) throw error;
 			const pinned = typeof data === 'boolean' ? data : !before;
@@ -1363,10 +1385,10 @@ class CommunityState {
 	async reportPost(post: CommunityPost, reason: string): Promise<boolean> {
 		if (!post.communitySlug || !isSupabaseConfigured || !auth.signedIn) return false;
 		try {
-			const { error } = await supabase.rpc('vidjo_community_report_post', {
+			const { error } = await supabase.rpc('vidjo_community_report_entry', {
 				p_slug: post.communitySlug,
 				p_post_owner_id: post.authorId,
-				p_post_date: post.date,
+				p_post_entry_id: post.entryId || post.date,
 				p_reason: reason.slice(0, 240)
 			});
 			if (error) throw error;
