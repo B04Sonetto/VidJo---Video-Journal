@@ -86,6 +86,8 @@
 		video_added: 'Videos added',
 		video_removed: 'Videos removed',
 		video_play_failed: 'Playback failures',
+		highlight_added: 'Photos added',
+		highlight_removed: 'Photos removed',
 		friend_request_sent: 'Friend requests sent',
 		friend_request_accepted: 'Friend requests accepted',
 		friend_request_declined: 'Friend requests declined',

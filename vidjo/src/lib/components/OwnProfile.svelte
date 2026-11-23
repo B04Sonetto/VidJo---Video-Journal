@@ -22,7 +22,8 @@
 		title?: string;
 		mind?: string;
 		videoPath?: string;
-	}) => Boolean(entry.saved || entry.title || entry.mind || entry.videoPath);
+		highlightPath?: string;
+	}) => Boolean(entry.saved || entry.title || entry.mind || entry.videoPath || entry.highlightPath);
 
 	const totalPages = $derived(Object.values(journal.entries).filter(hasContent).length);
 
@@ -61,7 +62,7 @@
 			.filter(
 				([, entry]) =>
 					entry.privacy !== 'private' &&
-					(entry.title || entry.mind || entry.refl || entry.videoPath)
+					(entry.title || entry.mind || entry.refl || entry.videoPath || entry.highlightPath)
 			)
 			.map(([, entry]) => ({
 				entryId: entry.id,

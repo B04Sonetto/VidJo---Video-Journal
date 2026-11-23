@@ -5,11 +5,11 @@
  */
 export type RasterImageMime = 'image/jpeg' | 'image/png' | 'image/gif' | 'image/webp';
 
-export async function detectRasterImageMime(file: File): Promise<RasterImageMime | null> {
+export async function detectRasterImageMime(blob: Blob): Promise<RasterImageMime | null> {
 	let bytes: Uint8Array;
 
 	try {
-		bytes = new Uint8Array(await file.slice(0, 16).arrayBuffer());
+		bytes = new Uint8Array(await blob.slice(0, 16).arrayBuffer());
 	} catch {
 		return null;
 	}

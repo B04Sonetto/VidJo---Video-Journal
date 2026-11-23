@@ -226,6 +226,8 @@ function mapSharedEntry(value: unknown): SharedJournalEntry | null {
 		videoPath: typeof row.videoPath === 'string' ? row.videoPath : null,
 		videoThumbPath: typeof row.videoThumbPath === 'string' ? row.videoThumbPath : null,
 		videoName: typeof row.videoName === 'string' ? row.videoName : null,
+		highlightPath: typeof row.highlightPath === 'string' ? row.highlightPath : null,
+		highlightName: typeof row.highlightName === 'string' ? row.highlightName : null,
 		song
 	};
 }
@@ -654,7 +656,10 @@ class MessagesState {
 			this.setMessages(threadId, mergeMessages(existing, rows));
 			void this.ensureImageUrls(rows.map((message) => message.imagePath));
 			void this.ensureFileUrls(rows.map((message) => message.filePath));
-			void this.ensureVideoUrls(rows.map((message) => message.sharedEntry?.videoPath));
+			void this.ensureVideoUrls([
+				...rows.map((message) => message.sharedEntry?.videoPath),
+				...rows.map((message) => message.sharedEntry?.highlightPath)
+			]);
 			this.hasMoreByThread = {
 				...this.hasMoreByThread,
 				[threadId]: rows.length >= PAGE_SIZE
@@ -903,7 +908,7 @@ class MessagesState {
 
 		this.setMessages(threadId, mergeMessages(this.messagesByThread[threadId] ?? [], [optimistic]));
 		this.scrollRequest += 1;
-		if (entry.videoPath) void this.ensureVideoUrls([entry.videoPath]);
+		void this.ensureVideoUrls([entry.videoPath, entry.highlightPath]);
 
 		try {
 			const { data, error } = await supabase.rpc('vidjo_dm_send_entry', {
@@ -2092,7 +2097,9 @@ class MessagesState {
 
 		if (message.imagePath) void this.ensureImageUrls([message.imagePath]);
 		if (message.filePath) void this.ensureFileUrls([message.filePath]);
-		if (message.sharedEntry?.videoPath) void this.ensureVideoUrls([message.sharedEntry.videoPath]);
+		if (message.sharedEntry?.videoPath || message.sharedEntry?.highlightPath) {
+			void this.ensureVideoUrls([message.sharedEntry.videoPath, message.sharedEntry.highlightPath]);
+		}
 
 		const existing = this.threads.find((thread) => thread.threadId === threadId);
 		const active = this.panelVisible && threadId === this.activeThreadId;

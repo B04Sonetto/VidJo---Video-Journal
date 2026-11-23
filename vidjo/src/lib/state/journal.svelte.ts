@@ -1,7 +1,8 @@
-import { SvelteDate, SvelteMap } from 'svelte/reactivity';
+import { SvelteDate, SvelteMap, SvelteSet } from 'svelte/reactivity';
 import { track } from '#lib/analytics';
 import { isObscene } from '#lib/censor';
 import { STICKER_BY_KEY } from '#lib/data/stickers';
+import { detectRasterImageMime, type RasterImageMime } from '#lib/imageUpload';
 import { dateKey, isFutureDate, todayKey, uid } from '#lib/dates';
 import { peekDeviceId } from '#lib/identity';
 import { captureError } from '#lib/observability';
@@ -63,6 +64,16 @@ const VIDEO_MIME_BY_EXT: Record<string, string> = {
 	mkv: 'video/x-matroska'
 };
 
+/** Highlights are capped well below the 50 MB bucket limit so pages stay fast. */
+const HIGHLIGHT_MAX_BYTES = 8 * 1024 * 1024;
+
+const HIGHLIGHT_EXT: Record<RasterImageMime, string> = {
+	'image/jpeg': 'jpg',
+	'image/png': 'png',
+	'image/gif': 'gif',
+	'image/webp': 'webp'
+};
+
 /**
  * The bucket's `allowed_mime_types` only accepts plain video MIME types.
  * MediaRecorder commonly reports values such as `video/mp4;codecs=avc1`, so
@@ -97,6 +108,8 @@ function normalizeEntry(
 		videoPath: raw.videoPath || legacyVideoPath(raw.videoUrl),
 		videoThumbPath: raw.videoThumbPath ?? '',
 		videoName: raw.videoName ?? '',
+		highlightPath: raw.highlightPath ?? '',
+		highlightName: raw.highlightName ?? '',
 		excludedFriendIds: Array.isArray(raw.excludedFriendIds) ? raw.excludedFriendIds : [],
 		includedFriendIds: Array.isArray(raw.includedFriendIds) ? raw.includedFriendIds : [],
 		shareWithFriends: Boolean(raw.shareWithFriends),
@@ -166,6 +179,8 @@ export function blankEntry(
 		videoPath: '',
 		videoThumbPath: '',
 		videoName: '',
+		highlightPath: '',
+		highlightName: '',
 		excludedFriendIds: [],
 		includedFriendIds: [],
 		shareWithFriends: false,
@@ -190,6 +205,8 @@ function rowToEntry(row: EntryRow & { song?: unknown }): Entry {
 		videoPath: row.video_path || legacyVideoPath(row.video_url),
 		videoThumbPath: row.video_thumb_path ?? '',
 		videoName: row.video_name ?? '',
+		highlightPath: row.highlight_path ?? '',
+		highlightName: row.highlight_name ?? '',
 		excludedFriendIds: Array.isArray(row.excluded_friend_ids) ? row.excluded_friend_ids : [],
 		includedFriendIds: Array.isArray(row.included_friend_ids) ? row.included_friend_ids : [],
 		shareWithFriends: Boolean(row.share_with_friends),
@@ -216,6 +233,8 @@ function entryToRow(ownerId: string, entry: Entry): EntryRow {
 		sample: Boolean(entry.sample),
 		video_path: entry.videoPath || null,
 		video_thumb_path: entry.videoThumbPath || null,
+		highlight_path: entry.highlightPath || null,
+		highlight_name: entry.highlightName || null,
 		excluded_friend_ids: [...entry.excludedFriendIds],
 		included_friend_ids: [...entry.includedFriendIds],
 		share_with_friends: Boolean(entry.shareWithFriends),
@@ -237,8 +256,11 @@ class Journal {
 	sessionVideos = $state<Record<string, string>>({});
 	/** Signed poster URLs, keyed by entry date. Posters are optional. */
 	sessionThumbs = $state<Record<string, string>>({});
+	/** Signed highlight photo URLs, keyed by entry id. Memory-only, like videos. */
+	sessionHighlights = $state<Record<string, string>>({});
 	/** Per-date reason a stored video cannot be played, so the UI can stop spinning. */
 	videoFailures = $state<Record<string, string>>({});
+	highlightUploading = $state(false);
 
 	ready = $state(false);
 	busy = $state(false);
@@ -261,6 +283,8 @@ class Journal {
 	private signedUrlPending = new Set<string>();
 	private thumbPending = new Set<string>();
 	private thumbUnavailable = new Set<string>();
+	private highlightPending = new Set<string>();
+	private highlightUnavailable = new SvelteSet<string>();
 	private videoRefreshAttempts = new Map<string, number>();
 	private remoteDeletes = new Map<string, Promise<void>>();
 
@@ -381,6 +405,7 @@ class Journal {
 
 		void this.refreshDailyQuota();
 		void this.hydrateVideos(seq);
+		void this.hydrateHighlights(seq);
 	}
 
 	async refreshDailyQuota() {
@@ -426,6 +451,7 @@ class Journal {
 		this.syncing = false;
 		this.remote = false;
 		this.uploading = false;
+		this.highlightUploading = false;
 		this.dailyPageCount = 0;
 		this.dailyCommunityShareCount = 0;
 		this.entries = {};
@@ -438,6 +464,8 @@ class Journal {
 		this.signedUrlPending.clear();
 		this.thumbPending.clear();
 		this.thumbUnavailable.clear();
+		this.highlightPending.clear();
+		this.highlightUnavailable.clear();
 		this.remoteDeletes.clear();
 
 		if (this.saveTimer) {
@@ -451,8 +479,12 @@ class Journal {
 		for (const url of Object.values(this.sessionThumbs)) {
 			if (url.startsWith('blob:')) URL.revokeObjectURL(url);
 		}
+		for (const url of Object.values(this.sessionHighlights)) {
+			if (url.startsWith('blob:')) URL.revokeObjectURL(url);
+		}
 		this.sessionVideos = {};
 		this.sessionThumbs = {};
+		this.sessionHighlights = {};
 		this.videoFailures = {};
 		this.videoRefreshAttempts.clear();
 	}
@@ -652,6 +684,8 @@ class Journal {
 			entry.stickers.length === 0 &&
 			!entry.videoPath &&
 			!this.videoFor(entry.id) &&
+			!entry.highlightPath &&
+			!this.highlightFor(entry.id) &&
 			!entry.song
 		);
 	}
@@ -670,14 +704,18 @@ class Journal {
 		const entry = this.entries[id];
 		if (!entry) return;
 
-		// Clean up video and poster if present
-		if (entry.videoPath || entry.videoThumbPath) {
-			void this.deleteRemoteObjects([entry.videoPath, entry.videoThumbPath]);
-		}
+		// Clean up media objects if present.
+		const remotePaths = [entry.videoPath, entry.videoThumbPath, entry.highlightPath].filter(
+			(path): path is string => Boolean(path)
+		);
+		if (remotePaths.length > 0) void this.deleteRemoteObjects(remotePaths);
 		void deleteStoredVideo(this.videoKey(id));
+		void deleteStoredVideo(this.highlightKey(id));
 		this.clearSessionVideo(id);
 		this.clearSessionThumb(id);
+		this.clearSessionHighlight(id);
 		this.thumbUnavailable.delete(id);
+		this.highlightUnavailable.delete(id);
 
 		// Pick the neighbouring page before mutating so the fallback is the page
 		// next to the one being deleted, not the oldest page in the journal.
@@ -910,6 +948,30 @@ class Journal {
 		return '';
 	}
 
+	/** Signed URL for this page's photo highlight, or '' while it loads. */
+	highlightFor(id: string) {
+		const session = this.sessionHighlights[id];
+		if (session) return session;
+
+		const path = this.entries[id]?.highlightPath;
+		if (path && isSupabaseConfigured && !this.highlightUnavailable.has(id)) {
+			void this.resolveHighlight(id, path);
+		}
+		return '';
+	}
+
+	/** True when Storage refused to sign this page's photo. */
+	highlightFailed(id: string) {
+		return this.highlightUnavailable.has(id);
+	}
+
+	/** Ask Storage for a fresh photo URL after one expires or fails to load. */
+	retryHighlight(id: string) {
+		this.highlightUnavailable.delete(id);
+		this.clearSessionHighlight(id);
+		void this.resolveHighlight(id);
+	}
+
 	/** Human-readable reason the stored video cannot be played, or '' when it can. */
 	videoProblem(date: string) {
 		return this.videoFailures[date] ?? '';
@@ -1031,8 +1093,50 @@ class Journal {
 		}
 	}
 
+	private async resolveHighlight(id: string, path?: string) {
+		const targetPath = path ?? this.entries[id]?.highlightPath;
+		if (!targetPath || !isSupabaseConfigured) return;
+		if (this.sessionHighlights[id] || this.highlightPending.has(id)) return;
+		if (this.highlightUnavailable.has(id)) return;
+
+		this.highlightPending.add(id);
+		try {
+			const { data, error } = await supabase.storage
+				.from(VIDEO_BUCKET)
+				.createSignedUrl(targetPath, SIGNED_URL_TTL);
+
+			if (error || !data?.signedUrl) {
+				console.warn('[VidJo] Could not create a signed highlight URL.', {
+					path: targetPath,
+					message: error?.message ?? 'No signed URL returned'
+				});
+				this.highlightUnavailable.add(id);
+				return;
+			}
+
+			this.sessionHighlights[id] = data.signedUrl;
+			this.highlightUnavailable.delete(id);
+		} catch (error) {
+			console.warn('[VidJo] Could not sign a photo highlight.', error);
+			captureError(error, { area: 'highlight-sign' });
+			this.highlightUnavailable.add(id);
+		} finally {
+			this.highlightPending.delete(id);
+		}
+	}
+
 	private videoKey(date: string) {
 		return `${this.ownerId}:${date}`;
+	}
+
+	private highlightKey(id: string) {
+		return `${this.ownerId}:${id}:highlight`;
+	}
+
+	private clearSessionHighlight(id: string) {
+		const url = this.sessionHighlights[id];
+		if (url?.startsWith('blob:')) URL.revokeObjectURL(url);
+		delete this.sessionHighlights[id];
 	}
 
 	async setVideo(file: File, thumbnail?: Blob | null) {
@@ -1164,6 +1268,172 @@ class Journal {
 		} else {
 			this.toast('Video removed');
 		}
+	}
+
+	async setHighlight(file: File) {
+		const entry = this.entries[this.current];
+		if (!file || !entry) return;
+
+		if (file.size > HIGHLIGHT_MAX_BYTES) {
+			this.toast('Choose a photo smaller than 8 MB.');
+			return;
+		}
+
+		const detected = await detectRasterImageMime(file);
+		if (!detected) {
+			this.toast('Choose a real PNG, JPG, GIF, or WebP photo.');
+			return;
+		}
+
+		const id = entry.id;
+		const ownerId = this.ownerId;
+		const previousPath = entry.highlightPath;
+		const previewUrl = URL.createObjectURL(file);
+		const discardPreview = () => {
+			if (this.sessionHighlights[id] === previewUrl) this.clearSessionHighlight(id);
+		};
+
+		this.clearSessionHighlight(id);
+		this.sessionHighlights[id] = previewUrl;
+		this.highlightUnavailable.delete(id);
+		this.highlightUploading = true;
+
+		try {
+			let uploadedPath = '';
+			let uploadedUrl = '';
+
+			if (this.remote) {
+				const result = await this.uploadHighlightBlob(file, detected, id);
+				uploadedPath = result.path;
+				uploadedUrl = result.url;
+			}
+
+			if (this.ownerId !== ownerId || this.entries[id] !== entry) {
+				discardPreview();
+				return;
+			}
+
+			entry.highlightPath = uploadedPath;
+			entry.highlightName = file.name;
+			entry.sample = false;
+
+			if (uploadedPath) {
+				this.clearSessionHighlight(id);
+				this.sessionHighlights[id] = uploadedUrl;
+				void deleteStoredVideo(this.highlightKey(id));
+				if (previousPath && previousPath !== uploadedPath) {
+					void this.deleteRemoteObjects([previousPath]);
+				}
+				this.toast('Photo highlight added to this page');
+			} else {
+				if (previousPath) void this.deleteRemoteObjects([previousPath]);
+				const stored = await putStoredVideo(this.highlightKey(id), file);
+				this.toast(stored ? 'Photo saved on this device' : 'Photo added for this session');
+			}
+
+			track('highlight_added', {
+				mode: uploadedPath ? 'cloud' : 'device',
+				mime: detected
+			});
+			this.queueSave(id);
+		} finally {
+			this.highlightUploading = false;
+		}
+	}
+
+	async removeHighlight(id = this.current) {
+		const entry = this.entries[id];
+		if (!entry) return;
+
+		const previousPath = entry.highlightPath;
+		this.clearSessionHighlight(id);
+		this.highlightUnavailable.delete(id);
+		void deleteStoredVideo(this.highlightKey(id));
+		entry.highlightPath = '';
+		entry.highlightName = '';
+		entry.sample = false;
+		this.queueSave(id);
+		track('highlight_removed');
+
+		if (!previousPath) {
+			this.toast('Photo removed');
+			return;
+		}
+
+		const deleted = await this.deleteRemoteObjects([previousPath]);
+		if (!deleted && this.remote) {
+			this.toast('Photo removed from this page, but the stored file could not be deleted.');
+		} else {
+			this.toast('Photo removed');
+		}
+	}
+
+	private async uploadHighlightBlob(blob: Blob, mime: RasterImageMime, id: string) {
+		if (!isSupabaseConfigured || !this.remote || !this.ownerId) {
+			return { path: '', url: '' };
+		}
+
+		let uploadedPath = '';
+		try {
+			uploadedPath = `${this.ownerId}/${id}/${Date.now()}-highlight.${HIGHLIGHT_EXT[mime]}`;
+			const { error } = await supabase.storage.from(VIDEO_BUCKET).upload(uploadedPath, blob, {
+				contentType: mime,
+				upsert: true
+			});
+			if (error) throw error;
+
+			const { data: signedData, error: signError } = await supabase.storage
+				.from(VIDEO_BUCKET)
+				.createSignedUrl(uploadedPath, SIGNED_URL_TTL);
+			if (signError) throw signError;
+
+			return { path: uploadedPath, url: signedData?.signedUrl ?? '' };
+		} catch (error) {
+			// A file that cannot be signed is unusable, so do not leave it behind.
+			if (uploadedPath) void this.deleteRemoteObjects([uploadedPath]);
+			console.warn('[VidJo] Photo highlight upload failed.', error);
+			captureError(error, { area: 'highlight-upload' });
+			return { path: '', url: '' };
+		}
+	}
+
+	private async hydrateHighlights(seq: number) {
+		await Promise.all(
+			Object.values(this.entries).map(async (entry) => {
+				const blob = await getStoredVideo(this.highlightKey(entry.id));
+				if (seq !== this.initSeq) return;
+
+				if (blob) {
+					if (entry.highlightPath) {
+						void deleteStoredVideo(this.highlightKey(entry.id));
+						return;
+					}
+					if (!this.sessionHighlights[entry.id]) {
+						this.sessionHighlights[entry.id] = URL.createObjectURL(blob);
+					}
+					if (this.remote) void this.uploadLocalHighlight(entry, blob, seq);
+					return;
+				}
+
+				if (entry.highlightPath) {
+					void this.resolveHighlight(entry.id, entry.highlightPath);
+				}
+			})
+		);
+	}
+
+	private async uploadLocalHighlight(entry: Entry, blob: Blob, seq: number) {
+		const mime = await detectRasterImageMime(blob);
+		if (!mime || seq !== this.initSeq) return;
+
+		const { path, url } = await this.uploadHighlightBlob(blob, mime, entry.id);
+		if (!path || seq !== this.initSeq || this.entries[entry.id] !== entry) return;
+
+		entry.highlightPath = path;
+		if (url) this.sessionHighlights[entry.id] = url;
+		await deleteStoredVideo(this.highlightKey(entry.id));
+		this.queueSave(entry.id);
+		this.toast('Photo synced to your account');
 	}
 
 	private clearSessionVideo(date: string) {

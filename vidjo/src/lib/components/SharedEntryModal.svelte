@@ -6,6 +6,7 @@
 	import AttachedSongCard from '#lib/components/AttachedSongCard.svelte';
 	import Avatar from '#lib/components/Avatar.svelte';
 	import CommunityIcon from '#lib/components/CommunityIcon.svelte';
+	import PhotoHighlight from '#lib/components/PhotoHighlight.svelte';
 	import ThemedVideoPlayer from '#lib/components/ThemedVideoPlayer.svelte';
 	import type { SharedJournalEntry } from '#lib/types';
 
@@ -16,6 +17,7 @@
 		senderAvatar = '',
 		videoUrl = '',
 		thumbUrl = '',
+		photoUrl = '',
 		onClose
 	}: {
 		open: boolean;
@@ -24,6 +26,7 @@
 		senderAvatar?: string;
 		videoUrl?: string;
 		thumbUrl?: string;
+		photoUrl?: string;
 		onClose: () => void;
 	} = $props();
 
@@ -118,6 +121,16 @@
 					<CommunityIcon name="x" size={18} />
 				</button>
 			</header>
+
+			{#if entry?.highlightPath && photoUrl}
+				<div class="border-b border-line bg-book-bg p-3">
+					<PhotoHighlight
+						src={photoUrl}
+						caption={entry.highlightName || entry.title || 'Photo highlight'}
+						class="aspect-[4/3] max-h-[50vh] w-full"
+					/>
+				</div>
+			{/if}
 
 			{#if entry?.videoPath && videoUrl}
 				<div class="border-b border-line bg-book-bg p-2">

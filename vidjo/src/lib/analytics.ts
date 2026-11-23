@@ -17,6 +17,8 @@ export type AnalyticsEvent =
 	| 'video_added'
 	| 'video_removed'
 	| 'video_play_failed'
+	| 'highlight_added'
+	| 'highlight_removed'
 	| 'friend_request_sent'
 	| 'friend_request_accepted'
 	| 'friend_request_declined'
@@ -36,6 +38,8 @@ const ALLOWED_EVENTS = new Set<AnalyticsEvent>([
 	'video_added',
 	'video_removed',
 	'video_play_failed',
+	'highlight_added',
+	'highlight_removed',
 	'friend_request_sent',
 	'friend_request_accepted',
 	'friend_request_declined',

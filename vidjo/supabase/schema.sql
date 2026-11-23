@@ -99,6 +99,8 @@
 		sample boolean not null default false,
 		video_path text,
 		video_thumb_path text,
+		highlight_path text,
+		highlight_name text,
 		excluded_friend_ids text[] not null default '{}',
 		included_friend_ids text[] not null default '{}',
 		share_with_friends boolean not null default false,
@@ -110,6 +112,8 @@
 
 	alter table public.vidjo_entries add column if not exists video_path text;
 	alter table public.vidjo_entries add column if not exists video_thumb_path text;
+	alter table public.vidjo_entries add column if not exists highlight_path text;
+	alter table public.vidjo_entries add column if not exists highlight_name text;
 	alter table public.vidjo_entries add column if not exists excluded_friend_ids text[] not null default '{}';
 	alter table public.vidjo_entries add column if not exists included_friend_ids text[] not null default '{}';
 	alter table public.vidjo_entries add column if not exists share_with_friends boolean not null default false;
@@ -618,11 +622,13 @@
 
 		insert into public.vidjo_entries (
 			owner_id, entry_date, mood, title, mind, refl, privacy,
-			stickers, saved, sample, video_path, video_url, video_name, updated_at
+			stickers, saved, sample, video_path, video_url, video_name,
+			highlight_path, highlight_name, updated_at
 		)
 		select
 			uid_text, entry_date, mood, title, mind, refl, privacy,
-			stickers, saved, sample, video_path, video_url, video_name, updated_at
+			stickers, saved, sample, video_path, video_url, video_name,
+			highlight_path, highlight_name, updated_at
 		from public.vidjo_entries
 		where owner_id = device_id
 		on conflict (owner_id, entry_date) do nothing;
@@ -648,7 +654,10 @@
 		'vidjo-videos',
 		false,
 		52428800,
-		array['video/webm', 'video/mp4', 'video/quicktime', 'video/x-matroska', 'image/jpeg']
+		array[
+			'video/webm', 'video/mp4', 'video/quicktime', 'video/x-matroska',
+			'image/jpeg', 'image/png', 'image/gif', 'image/webp'
+		]
 	)
 	on conflict (id) do update set
 		public = false,
@@ -674,7 +683,8 @@
 				or exists (
 					select 1 from public.vidjo_entries e
 					where (e.video_path = storage.objects.name
-						or e.video_thumb_path = storage.objects.name)
+						or e.video_thumb_path = storage.objects.name
+						or e.highlight_path = storage.objects.name)
 						and e.privacy in ('friends', 'community')
 				)
 			)
@@ -1785,7 +1795,7 @@
 				or exists (
 					select 1
 					from public.vidjo_entries e
-					where e.video_path = storage.objects.name
+					where (e.video_path = storage.objects.name or e.highlight_path = storage.objects.name)
 						and (
 							e.owner_id = auth.uid()::text
 							or (
@@ -3326,6 +3336,8 @@
 			'video_added',
 			'video_removed',
 			'video_play_failed',
+			'highlight_added',
+			'highlight_removed',
 			'friend_request_sent',
 			'friend_request_accepted',
 			'friend_request_declined',
@@ -4073,17 +4085,20 @@
 			where e.owner_id = target::text
 				and e.sample = false
 				and e.entry_date <= today
-				and public.vidjo_entry_counts(
-					e.saved,
-					e.mood,
-					e.title,
-					e.mind,
-					e.refl,
-					e.stickers,
-					e.video_path,
-					e.video_thumb_path,
-					e.included_friend_ids,
-					e.excluded_friend_ids
+				and (
+					public.vidjo_entry_counts(
+						e.saved,
+						e.mood,
+						e.title,
+						e.mind,
+						e.refl,
+						e.stickers,
+						e.video_path,
+						e.video_thumb_path,
+						e.included_friend_ids,
+						e.excluded_friend_ids
+					)
+					or length(coalesce(e.highlight_path, '')) > 0
 				)
 		), runs as (
 			select day, day - (row_number() over (order by day))::integer as grp
@@ -4113,17 +4128,20 @@
 				where e.owner_id = target::text
 					and e.entry_date = cursor_day
 					and e.sample = false
-					and public.vidjo_entry_counts(
-						e.saved,
-						e.mood,
-						e.title,
-						e.mind,
-						e.refl,
-						e.stickers,
-						e.video_path,
-						e.video_thumb_path,
-						e.included_friend_ids,
-						e.excluded_friend_ids
+					and (
+						public.vidjo_entry_counts(
+							e.saved,
+							e.mood,
+							e.title,
+							e.mind,
+							e.refl,
+							e.stickers,
+							e.video_path,
+							e.video_thumb_path,
+							e.included_friend_ids,
+							e.excluded_friend_ids
+						)
+						or length(coalesce(e.highlight_path, '')) > 0
 					)
 			);
 			current_run := current_run + 1;

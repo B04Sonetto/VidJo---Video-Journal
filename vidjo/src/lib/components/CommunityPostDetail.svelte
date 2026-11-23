@@ -8,8 +8,10 @@
 	import AttachedSongCard from '#lib/components/AttachedSongCard.svelte';
 	import Avatar from '#lib/components/Avatar.svelte';
 	import CommunityIcon from '#lib/components/CommunityIcon.svelte';
+	import PhotoHighlight from '#lib/components/PhotoHighlight.svelte';
 	import ThemedVideoPlayer from '#lib/components/ThemedVideoPlayer.svelte';
 	import PromptModal from '#lib/components/PromptModal.svelte';
+	import Spinner from '#lib/components/ui/Spinner.svelte';
 	import type { CommunityPost, FriendPostReaction } from '#lib/types';
 
 	let {
@@ -231,6 +233,22 @@
 			class="min-h-0 flex-1 modal-scroll overflow-x-hidden overflow-y-auto px-4 py-5 min-[720px]:px-6"
 		>
 			<!-- Media -->
+			{#if post.highlightUrl}
+				<div class="mb-3">
+					<PhotoHighlight
+						src={post.highlightUrl}
+						caption={post.highlightName || post.title || 'Photo highlight'}
+						class="aspect-[4/3] max-h-[480px] w-full"
+					/>
+				</div>
+			{:else if post.highlightPath}
+				<div
+					class="mb-3 flex aspect-[4/3] max-h-[480px] flex-col items-center justify-center gap-2 rounded-[3px] border border-line bg-desk text-book-bg"
+				>
+					<Spinner size={22} class="text-book-accent" />
+					<span class="font-ui text-xs font-semibold">Opening photo…</span>
+				</div>
+			{/if}
 			{#if post.videoUrl}
 				<div class="overflow-hidden rounded-[3px] border border-line bg-black">
 					<ThemedVideoPlayer

@@ -9,6 +9,7 @@
 	import { MOOD_BY_KEY } from '#lib/data/moods';
 	import { STICKER_BY_KEY } from '#lib/data/stickers';
 	import CommunityIcon from '#lib/components/CommunityIcon.svelte';
+	import PhotoHighlight from '#lib/components/PhotoHighlight.svelte';
 	import ThemedVideoPlayer from '#lib/components/ThemedVideoPlayer.svelte';
 	import ProfileModal from '#lib/components/ProfileModal.svelte';
 	import CommunityPostDetail from '#lib/components/CommunityPostDetail.svelte';
@@ -49,8 +50,14 @@
 	let deleteTarget = $state<CommunityPost | null>(null);
 	let deleteBusy = $state(false);
 	let videoRemoveAck = $state(false);
-	let deleteHasVideo = $derived(
-		Boolean(deleteTarget?.videoUrl || deleteTarget?.videoPath || deleteTarget?.videoName)
+	let deleteHasMedia = $derived(
+		Boolean(
+			deleteTarget?.videoUrl ||
+			deleteTarget?.videoPath ||
+			deleteTarget?.videoName ||
+			deleteTarget?.highlightUrl ||
+			deleteTarget?.highlightPath
+		)
 	);
 	let commentConfirmId = $state<string | null>(null);
 	let editingCommentId = $state<string | null>(null);
@@ -146,7 +153,12 @@
 			.filter(
 				([, entry]) =>
 					entry.privacy === 'community' &&
-					(entry.title || entry.mind || entry.refl || entry.videoPath || entry.mood) &&
+					(entry.title ||
+						entry.mind ||
+						entry.refl ||
+						entry.videoPath ||
+						entry.highlightPath ||
+						entry.mood) &&
 					(!entry.communitySlug || joined.has(entry.communitySlug))
 			)
 			.map(([, entry]) => ({
@@ -168,6 +180,9 @@
 				videoName: entry.videoName,
 				videoUrl: journal.sessionVideos[entry.id] || '',
 				videoThumbUrl: journal.sessionThumbs[entry.id] || '',
+				highlightPath: entry.highlightPath,
+				highlightUrl: journal.highlightFor(entry.id),
+				highlightName: entry.highlightName,
 				reactions: { love: 0, spark: 0, warm: 0, proud: 0 },
 				userReactions: [],
 				comments: [],
@@ -871,7 +886,28 @@
 							: ''}"
 					>
 						<!-- Media / cover -->
-						{#if post.videoUrl}
+						{#if post.highlightUrl}
+							<div class="relative overflow-hidden rounded-[2px] border border-line bg-desk">
+								<PhotoHighlight
+									src={post.highlightUrl}
+									caption={post.highlightName || post.title}
+									showCaption={false}
+									class="aspect-[4/3] max-h-[290px] w-full"
+								/>
+								<span
+									class="pointer-events-none absolute top-2 left-2 rounded-full bg-desk/90 px-2 py-0.5 font-ui text-[9px] font-bold text-book-bg"
+								>
+									{post.tag}
+								</span>
+							</div>
+						{:else if post.highlightPath}
+							<div
+								class="relative flex aspect-[4/3] flex-col items-center justify-center gap-2 overflow-hidden rounded-[2px] border border-line bg-desk text-book-bg"
+							>
+								<Spinner size={22} class="text-book-accent" />
+								<span class="font-ui text-[10px] font-semibold">Opening photo…</span>
+							</div>
+						{:else if post.videoUrl}
 							<div class="relative overflow-hidden rounded-[2px] border border-line bg-desk">
 								<ThemedVideoPlayer
 									src={post.videoUrl}
@@ -1878,23 +1914,23 @@
 
 				<p class="mt-4 font-ui text-sm leading-relaxed text-book-ink/70">
 					{#if moderatorRemoving}
-						This page will stop appearing in the community feed. The author's journal entry, video,
-						and stickers stay exactly where they are.
+						This page will stop appearing in the community feed. The author's journal entry, photos,
+						videos, and stickers stay exactly where they are.
 					{:else}
-						This page will stop appearing in the community feed. Your journal entry, video, and
-						stickers stay exactly where they are.
+						This page will stop appearing in the community feed. Your journal entry, photos, videos,
+						and stickers stay exactly where they are.
 					{/if}
 				</p>
 
-				{#if deleteHasVideo}
+				{#if deleteHasMedia}
 					<div class="mt-4 rounded-xl border border-amber-400/60 bg-amber-50/90 p-3">
 						<div class="flex items-start gap-2">
 							<CommunityIcon name="alert" size={16} class="mt-0.5 shrink-0 text-amber-700" />
 							<div>
-								<p class="font-ui text-xs font-bold text-amber-900">This page has a video</p>
+								<p class="font-ui text-xs font-bold text-amber-900">This page has media</p>
 								<p class="mt-0.5 font-ui text-[11px] leading-relaxed text-amber-900/80">
-									Removing the page will also hide its video from the community feed. The author's
-									journal copy stays safe.
+									Removing the page will also hide its photo and video from the community feed. The
+									author's journal copy stays safe.
 								</p>
 								<label
 									class="mt-2 flex items-center gap-2 font-ui text-[11px] font-semibold text-amber-900"
@@ -1904,7 +1940,7 @@
 										bind:checked={videoRemoveAck}
 										class="size-3.5 accent-amber-700"
 									/>
-									I understand the video will be hidden
+									I understand the media will be hidden
 								</label>
 							</div>
 						</div>
@@ -1917,7 +1953,7 @@
 						variant="danger"
 						icon="trash"
 						loading={deleteBusy}
-						disabled={deleteBusy || (deleteHasVideo && !videoRemoveAck)}
+						disabled={deleteBusy || (deleteHasMedia && !videoRemoveAck)}
 						onclick={confirmDelete}
 					>
 						{deleteBusy

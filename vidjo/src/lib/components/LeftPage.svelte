@@ -4,6 +4,7 @@
 	import AttachedSongCard from '#lib/components/AttachedSongCard.svelte';
 	import MoodPicker from '#lib/components/MoodPicker.svelte';
 	import CommunityIcon from '#lib/components/CommunityIcon.svelte';
+	import PhotoHighlight from '#lib/components/PhotoHighlight.svelte';
 	import RecordVideoModal from '#lib/components/RecordVideoModal.svelte';
 	import ThemedVideoPlayer from '#lib/components/ThemedVideoPlayer.svelte';
 	import VideoEditorModal from '#lib/components/VideoEditorModal.svelte';
@@ -31,6 +32,9 @@
 
 	const id = $props.id();
 	let uploadInput = $state<HTMLInputElement | null>(null);
+	let photoInput = $state<HTMLInputElement | null>(null);
+	let mediaTab = $state<'auto' | 'photo' | 'video'>('auto');
+	let removeKind = $state<'video' | 'photo'>('video');
 	let recordOpen = $state(false);
 	let editorOpen = $state(false);
 	let editorFile = $state<File | null>(null);
@@ -43,6 +47,17 @@
 
 	const videoUrl = $derived(journal.videoFor(date));
 	const posterUrl = $derived(journal.thumbFor(date));
+	const highlightUrl = $derived(journal.highlightFor(date));
+	const hasPhoto = $derived(Boolean(entry.highlightPath || highlightUrl));
+	const hasVideo = $derived(
+		Boolean(videoUrl || journal.entries[date]?.videoPath || journal.entries[date]?.videoName)
+	);
+	const showPhoto = $derived(mediaTab === 'photo' || (mediaTab === 'auto' && hasPhoto));
+	const showVideo = $derived(
+		mediaTab === 'video' || (mediaTab === 'auto' && !hasPhoto && hasVideo)
+	);
+	const savingMedia = $derived(journal.uploading || journal.highlightUploading);
+	const savingLabel = $derived(journal.highlightUploading ? 'Saving photo…' : 'Saving video…');
 	const pageDate = $derived(entry.date);
 	const dow = $derived(parseDate(pageDate).toLocaleDateString('en-US', { weekday: 'long' }));
 	const dateText = $derived(
@@ -78,6 +93,20 @@
 		}
 	}
 
+	function pickPhoto(event: Event) {
+		const input = event.currentTarget as HTMLInputElement;
+		const file = input.files?.[0];
+		input.value = '';
+		if (!file) return;
+		mediaTab = 'photo';
+		void journal.setHighlight(file);
+	}
+
+	function replacePhoto() {
+		if (preview) return;
+		photoInput?.click();
+	}
+
 	function editCurrentVideo() {
 		if (!videoUrl) return;
 		editorFile = null;
@@ -91,8 +120,9 @@
 		editorUrl = '';
 	}
 
-	function askRemove() {
+	function askRemove(kind: 'video' | 'photo' = 'video') {
 		if (preview) return;
+		removeKind = kind;
 		removeAsk = true;
 	}
 
@@ -105,8 +135,10 @@
 		if (removeBusy) return;
 		removeBusy = true;
 		try {
-			await journal.removeVideo(date);
+			if (removeKind === 'photo') await journal.removeHighlight(date);
+			else await journal.removeVideo(date);
 			removeAsk = false;
+			mediaTab = 'auto';
 		} finally {
 			removeBusy = false;
 		}
@@ -142,7 +174,7 @@
 	class:enter
 	class:paper-dotted={journal.paper === 'dotted'}
 	class:paper-grid={journal.paper === 'grid'}
-	aria-label="Left page: video and mood"
+	aria-label="Left page: photos, videos, and mood"
 >
 	<div class="flex min-h-[62px] flex-wrap items-start justify-between gap-2">
 		<div>
@@ -178,59 +210,107 @@
 		<div
 			class="relative flex min-h-0 flex-1 items-center justify-center overflow-hidden rounded-[2px] bg-[radial-gradient(circle_at_30%_30%,var(--color-cover),var(--color-desk)_70%)]"
 		>
-			{#if videoUrl}
-				{#key videoUrl}
-					<ThemedVideoPlayer
-						src={videoUrl}
-						poster={posterUrl}
-						class="min-h-0 flex-1"
-						onError={() => {
-							if (journal.entries[date]?.videoPath) {
-								journal.refreshVideo(date);
-							}
-						}}
-						onLoadedData={() => journal.videoPlayed(date)}
-					/>
-				{/key}
-			{:else if journal.videoProblem(date)}
+			{#if hasPhoto && hasVideo}
 				<div
-					class="flex flex-col items-center gap-2 px-6 text-center font-hand text-lg text-book-bg"
+					class="absolute top-2 right-2 z-[5] flex rounded-lg border border-line bg-desk/90 p-0.5 font-ui text-[10px] font-bold text-book-bg"
 				>
-					<div class="font-ui text-[15px] font-semibold">Video unavailable</div>
-					<p class="m-0 text-[14px] leading-snug text-lav/90">
-						{journal.videoProblem(date)}
-					</p>
-					{#if !preview}
-						<div class="flex flex-wrap justify-center gap-2">
-							<Button
-								size="sm"
-								variant="outline"
-								icon="refresh"
-								onclick={() => journal.retryVideo(date)}
-							>
-								Try again
-							</Button>
-							<Button size="sm" variant="paper" onclick={askRemove}>Remove</Button>
-						</div>
-					{/if}
+					<button
+						type="button"
+						class="rounded-md px-2 py-1 transition-colors {showPhoto
+							? 'bg-book-bg text-book-ink'
+							: 'hover:bg-white/10'}"
+						onclick={() => (mediaTab = 'photo')}
+					>
+						Photo
+					</button>
+					<button
+						type="button"
+						class="rounded-md px-2 py-1 transition-colors {showVideo
+							? 'bg-book-bg text-book-ink'
+							: 'hover:bg-white/10'}"
+						onclick={() => (mediaTab = 'video')}
+					>
+						Video
+					</button>
 				</div>
-			{:else if journal.entries[date]?.videoPath}
-				<div class="flex flex-col items-center gap-2.5 text-center font-hand text-lg text-book-bg">
-					<Spinner size={26} class="text-lav" />
-					<span>Loading video…</span>
-				</div>
+			{/if}
+
+			{#if showPhoto}
+				<PhotoHighlight
+					src={highlightUrl}
+					caption={entry.title || (pageDate === todayKey() ? "Today's photo" : 'Photo highlight')}
+					loading={Boolean(entry.highlightPath && !highlightUrl && !journal.highlightFailed(date))}
+					onRemove={!preview ? () => askRemove('photo') : undefined}
+					onReplace={!preview ? replacePhoto : undefined}
+					onRetry={entry.highlightPath ? () => journal.retryHighlight(date) : undefined}
+					class="h-full w-full"
+				/>
+			{:else if showVideo}
+				{#if videoUrl}
+					{#key videoUrl}
+						<ThemedVideoPlayer
+							src={videoUrl}
+							poster={posterUrl}
+							class="min-h-0 flex-1"
+							onError={() => {
+								if (journal.entries[date]?.videoPath) {
+									journal.refreshVideo(date);
+								}
+							}}
+							onLoadedData={() => journal.videoPlayed(date)}
+						/>
+					{/key}
+				{:else if journal.videoProblem(date)}
+					<div
+						class="flex flex-col items-center gap-2 px-6 text-center font-hand text-lg text-book-bg"
+					>
+						<div class="font-ui text-[15px] font-semibold">Video unavailable</div>
+						<p class="m-0 text-[14px] leading-snug text-lav/90">
+							{journal.videoProblem(date)}
+						</p>
+						{#if !preview}
+							<div class="flex flex-wrap justify-center gap-2">
+								<Button
+									size="sm"
+									variant="outline"
+									icon="refresh"
+									onclick={() => journal.retryVideo(date)}
+								>
+									Try again
+								</Button>
+								<Button size="sm" variant="paper" onclick={() => askRemove('video')}>Remove</Button>
+							</div>
+						{/if}
+					</div>
+				{:else}
+					<div
+						class="flex flex-col items-center gap-2.5 text-center font-hand text-lg text-book-bg"
+					>
+						<Spinner size={26} class="text-lav" />
+						<span>Loading video…</span>
+					</div>
+				{/if}
 			{:else}
-				<div class="flex flex-col items-center gap-4 px-4 text-center text-book-bg">
+				<div class="flex flex-col items-center gap-3.5 px-4 text-center text-book-bg">
 					<span class="flex size-14 items-center justify-center rounded-full bg-white/10 text-lav">
-						<CommunityIcon name="video" size={26} />
+						<CommunityIcon name="camera" size={24} />
 					</span>
-					<div class="font-ui text-[15px] font-semibold">No video on this page yet</div>
+					<div class="font-ui text-[15px] font-semibold">Add a moment to this page</div>
 					<div class="flex flex-wrap justify-center gap-2.5">
-						<Button size="md" icon="camera" disabled={preview} onclick={() => (recordOpen = true)}>
-							Record video
+						<Button size="md" icon="upload" disabled={preview} onclick={() => photoInput?.click()}>
+							Add photo
 						</Button>
 						<Button
 							variant="outline"
+							size="md"
+							icon="camera"
+							disabled={preview}
+							onclick={() => (recordOpen = true)}
+						>
+							Record video
+						</Button>
+						<Button
+							variant="ghost"
 							size="md"
 							icon="upload"
 							disabled={preview}
@@ -242,13 +322,13 @@
 				</div>
 			{/if}
 
-			{#if journal.uploading}
+			{#if savingMedia}
 				<div
-					class="pointer-events-none absolute inset-0 z-[3] flex flex-col items-center justify-center gap-2.5 bg-desk/70 text-center font-ui text-sm text-white"
+					class="pointer-events-none absolute inset-0 z-[6] flex flex-col items-center justify-center gap-2.5 bg-desk/70 text-center font-ui text-sm text-white"
 					role="status"
 				>
 					<Spinner size={26} class="text-gold" />
-					Saving video…
+					{savingLabel}
 				</div>
 			{/if}
 		</div>
@@ -257,7 +337,7 @@
 			class="relative z-[2] mt-1.5 flex h-9 shrink-0 items-center justify-between gap-2 px-0.5 font-hand text-lg font-bold text-ink min-[900px]:text-xl"
 		>
 			<span class="min-w-0 truncate pr-1">{caption}</span>
-			{#if videoUrl && !preview}
+			{#if showVideo && videoUrl && !preview}
 				<div class="flex shrink-0 items-center gap-1">
 					<button
 						type="button"
@@ -273,7 +353,7 @@
 						class="video-remove flex size-9 flex-none items-center justify-center rounded-lg border border-line bg-light text-accent hover:border-danger/50 hover:bg-danger/10 hover:text-danger"
 						aria-label="Remove video"
 						title="Remove video"
-						onclick={askRemove}
+						onclick={() => askRemove('video')}
 					>
 						<CommunityIcon name="trash" size={15} />
 					</button>
@@ -338,15 +418,17 @@
 			aria-describedby={`${id}-remove-help`}
 		>
 			<h2 id={`${id}-remove-title`} class="font-display text-xl font-bold text-balance">
-				Remove this video?
+				{removeKind === 'photo' ? 'Remove this photo?' : 'Remove this video?'}
 			</h2>
 			<p id={`${id}-remove-help`} class="mt-2.5 font-ui text-sm leading-relaxed text-lav">
-				The video will be deleted from this page. The file cannot be recovered.
+				{removeKind === 'photo'
+					? 'The photo highlight will be deleted from this page. The file cannot be recovered.'
+					: 'The video will be deleted from this page. The file cannot be recovered.'}
 			</p>
 			<div class="mt-6 flex justify-center gap-3">
 				<Button variant="outline" onclick={cancelRemove} disabled={removeBusy}>Cancel</Button>
 				<Button variant="danger" icon="trash" loading={removeBusy} onclick={confirmRemove}>
-					Remove video
+					{removeKind === 'photo' ? 'Remove photo' : 'Remove video'}
 				</Button>
 			</div>
 		</div>
@@ -355,6 +437,13 @@
 
 {#if !preview}
 	<input bind:this={uploadInput} type="file" accept="video/*" class="hidden" onchange={pickVideo} />
+	<input
+		bind:this={photoInput}
+		type="file"
+		accept="image/jpeg,image/png,image/webp,image/gif"
+		class="hidden"
+		onchange={pickPhoto}
+	/>
 	<RecordVideoModal
 		open={recordOpen}
 		{date}

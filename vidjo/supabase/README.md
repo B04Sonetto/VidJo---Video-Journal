@@ -182,6 +182,16 @@ changing timezone repeatedly, a stored timezone can be changed only once every
 30 days. The migration is safe to re-run, but it must be applied to the live
 Supabase project; deploying the app alone does not enable server-side limits.
 
+### Photo highlights
+
+To enable per-page photo highlights, run
+[`fixes/add-photo-highlights.sql`](./fixes/add-photo-highlights.sql) after the
+multiple-pages migration. It adds `highlight_path` and `highlight_name` to
+`vidjo_entries`, allows PNG/WebP/GIF/JPEG in the private `vidjo-videos` bucket,
+updates the storage read policy, and makes photo-only pages count toward
+streaks. Highlights are uploaded as private storage objects; the browser only
+receives short-lived signed URLs. The script is safe to re-run.
+
 ## 6. Google sign-in (optional)
 
 Google is disabled by default in a new Supabase project. To enable it:

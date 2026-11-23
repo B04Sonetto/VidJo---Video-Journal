@@ -34,6 +34,7 @@ export function countsForStreak(entry: Entry | undefined): boolean {
 		entry.stickers.length > 0 ||
 		entry.videoPath ||
 		entry.videoThumbPath ||
+		entry.highlightPath ||
 		entry.includedFriendIds.length > 0 ||
 		entry.excludedFriendIds.length > 0
 	);

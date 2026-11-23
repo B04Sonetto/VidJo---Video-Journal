@@ -15,6 +15,7 @@
 		imageSrc,
 		fileUrl = '',
 		entryThumbUrl = '',
+		entryPhotoUrl = '',
 		onOpenImage,
 		onReply,
 		onCopy,
@@ -34,6 +35,7 @@
 		imageSrc: string;
 		fileUrl?: string;
 		entryThumbUrl?: string;
+		entryPhotoUrl?: string;
 		onOpenImage: (src: string) => void;
 		onReply: (message: DmMessage) => void;
 		onCopy: (message: DmMessage) => void;
@@ -460,7 +462,28 @@
 									onOpenEntry(message.sharedEntry!, message.senderId, message.senderName)}
 								aria-label={`Open journal page from ${entryDate}`}
 							>
-								{#if message.sharedEntry.videoPath}
+								{#if message.sharedEntry.highlightPath}
+									<span class="relative block h-24 overflow-hidden bg-cover/40">
+										{#if entryPhotoUrl}
+											<img
+												src={entryPhotoUrl}
+												alt=""
+												class="block h-full w-full object-cover"
+												loading="lazy"
+												decoding="async"
+											/>
+										{:else}
+											<span
+												class="block h-full w-full bg-[radial-gradient(ellipse_at_center,var(--color-cover)_0%,var(--color-desk)_85%)]"
+											></span>
+										{/if}
+										<span
+											class="absolute top-1.5 left-1.5 rounded-full bg-desk/90 px-2 py-0.5 font-ui text-[9px] font-bold tracking-wide text-book-bg uppercase"
+										>
+											Photo
+										</span>
+									</span>
+								{:else if message.sharedEntry.videoPath}
 									<!-- A still frame keeps the card light; the full video opens in the page modal. -->
 									<span class="relative block h-24 overflow-hidden bg-cover/40">
 										{#if entryThumbUrl}

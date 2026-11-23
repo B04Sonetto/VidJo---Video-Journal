@@ -352,7 +352,7 @@
 					class:left-[580px]={flip.dir < 0}
 				>
 					{#if flip.dir > 0}
-						<LeftPage entry={flip.from} date={flip.from.date} pageNumber={flip.fromLeft} preview />
+						<LeftPage entry={flip.from} date={flip.from.id} pageNumber={flip.fromLeft} preview />
 					{:else}
 						<RightPage entry={flip.from} pageNumber={flip.fromRight} preview />
 					{/if}
@@ -368,18 +368,13 @@
 						{#if flip.dir > 0}
 							<RightPage entry={flip.from} pageNumber={flip.fromRight} preview />
 						{:else}
-							<LeftPage
-								entry={flip.from}
-								date={flip.from.date}
-								pageNumber={flip.fromLeft}
-								preview
-							/>
+							<LeftPage entry={flip.from} date={flip.from.id} pageNumber={flip.fromLeft} preview />
 						{/if}
 					</div>
 
 					<div class="face back absolute inset-0">
 						{#if flip.dir > 0}
-							<LeftPage entry={flip.to} date={flip.to.date} pageNumber={flip.toLeft} preview />
+							<LeftPage entry={flip.to} date={flip.to.id} pageNumber={flip.toLeft} preview />
 						{:else}
 							<RightPage entry={flip.to} pageNumber={flip.toRight} preview />
 						{/if}

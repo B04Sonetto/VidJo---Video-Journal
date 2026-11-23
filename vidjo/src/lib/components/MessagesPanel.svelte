@@ -41,6 +41,7 @@
 		senderAvatar: string;
 		videoUrl: string;
 		thumbUrl: string;
+		photoUrl: string;
 	} | null>(null);
 	let previewSrc = $state('');
 	let noticeTimer: ReturnType<typeof setTimeout> | null = null;
@@ -303,7 +304,8 @@
 			senderName: sender?.name || senderName || 'A friend',
 			senderAvatar: sender?.avatar || '',
 			videoUrl: entry.videoPath ? (messages.videoUrls[entry.videoPath] ?? '') : '',
-			thumbUrl: entry.videoThumbPath ? (messages.videoUrls[entry.videoThumbPath] ?? '') : ''
+			thumbUrl: entry.videoThumbPath ? (messages.videoUrls[entry.videoThumbPath] ?? '') : '',
+			photoUrl: entry.highlightPath ? (messages.videoUrls[entry.highlightPath] ?? '') : ''
 		};
 	}
 
@@ -319,6 +321,8 @@
 			videoPath: entry?.videoPath ?? null,
 			videoThumbPath: entry?.videoThumbPath ?? null,
 			videoName: entry?.videoName ?? null,
+			highlightPath: entry?.highlightPath ?? null,
+			highlightName: entry?.highlightName ?? null,
 			song: entry?.song ?? null
 		};
 	}
@@ -644,6 +648,9 @@
 									showSeen={lastMineIndex === index}
 									entryThumbUrl={message.sharedEntry?.videoThumbPath
 										? (messages.videoUrls[message.sharedEntry.videoThumbPath] ?? '')
+										: ''}
+									entryPhotoUrl={message.sharedEntry?.highlightPath
+										? (messages.videoUrls[message.sharedEntry.highlightPath] ?? '')
 										: ''}
 									imageSrc={message.previewUrl ||
 										messages.imageUrls[message.imagePath ?? ''] ||
@@ -1086,6 +1093,7 @@
 		senderAvatar={sharedEntryView?.senderAvatar ?? ''}
 		videoUrl={sharedEntryView?.videoUrl ?? ''}
 		thumbUrl={sharedEntryView?.thumbUrl ?? ''}
+		photoUrl={sharedEntryView?.photoUrl ?? ''}
 		onClose={() => (sharedEntryView = null)}
 	/>
 	<ImageLightbox open={Boolean(previewSrc)} src={previewSrc} onClose={() => (previewSrc = '')} />

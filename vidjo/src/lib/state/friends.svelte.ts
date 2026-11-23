@@ -628,7 +628,7 @@ class FriendsState {
 		const rows = ((data as EntryRow[] | null) ?? []).filter(
 			(row) =>
 				isVisibleToFriend(row, viewerId) &&
-				(row.title || row.mind || row.refl || row.video_path || row.mood)
+				(row.title || row.mind || row.refl || row.video_path || row.highlight_path || row.mood)
 		);
 		const friendMap = new SvelteMap(this.friends.map((friend) => [friend.id, friend]));
 
@@ -667,6 +667,7 @@ class FriendsState {
 		return rows.map((row) => {
 			const author = friendMap.get(row.owner_id);
 			const videoPath = row.video_path || '';
+			const highlightPath = row.highlight_path || '';
 
 			return {
 				id: `friend-${row.owner_id}-${row.id}`,
@@ -689,6 +690,9 @@ class FriendsState {
 				videoName: videoPath ? row.video_name || '' : '',
 				videoUrl: '',
 				videoThumbUrl: '',
+				highlightPath,
+				highlightUrl: '',
+				highlightName: highlightPath ? row.highlight_name || '' : '',
 				song: normalizeSong((row as EntryRow & { song?: unknown }).song),
 				reactions: { ...EMPTY_REACTIONS },
 				userReactions: [],
@@ -699,15 +703,17 @@ class FriendsState {
 	}
 
 	/**
-	 * Signs the video and poster for the pages the reader is looking at.
+	 * Signs photos and videos for the pages the reader is looking at.
 	 *
 	 * The reader only ever shows one page at a time, so the friends feed no
-	 * longer signs up to 100 posts (video + poster each) on load. Results are
-	 * cached for the signed URL's lifetime, so flipping back is instant.
+	 * longer signs up to 100 posts' media on load. Results are cached for the
+	 * signed URL's lifetime, so flipping back is instant.
 	 */
 	async ensureMedia(posts: FriendPost[]): Promise<void> {
 		const targets = posts.filter(
-			(post) => post.videoPath && !post.videoUrl && !this.mediaInFlight.has(post.id)
+			(post) =>
+				!this.mediaInFlight.has(post.id) &&
+				((post.videoPath && !post.videoUrl) || (post.highlightPath && !post.highlightUrl))
 		);
 		if (targets.length === 0) return;
 
@@ -716,39 +722,58 @@ class FriendsState {
 
 		try {
 			const urls = await this.resolveUrls(
-				targets.flatMap((post) => [post.videoPath as string, post.videoThumbPath ?? ''])
+				targets.flatMap((post) => [
+					post.videoPath ?? '',
+					post.videoThumbPath ?? '',
+					post.highlightPath ?? ''
+				])
 			);
 
 			this.posts = this.posts.map((post) => {
-				if (!ids.has(post.id) || !post.videoPath) return post;
+				if (!ids.has(post.id)) return post;
+				const next: FriendPost = { ...post };
 
-				const videoUrl = urls[post.videoPath] ?? '';
-				if (!videoUrl) {
-					// The file was deleted or is no longer accessible. Treat the
-					// post as video-less so the reader stops asking for it.
-					return {
-						...post,
-						videoPath: '',
-						videoThumbPath: '',
-						videoName: '',
-						videoThumbUrl: ''
-					};
+				if (post.videoPath) {
+					const videoUrl = urls[post.videoPath] ?? '';
+					if (!videoUrl) {
+						next.videoPath = '';
+						next.videoThumbPath = '';
+						next.videoName = '';
+						next.videoThumbUrl = '';
+					} else {
+						next.videoUrl = videoUrl;
+						next.videoThumbUrl = post.videoThumbPath
+							? (urls[post.videoThumbPath] ?? '')
+							: (post.videoThumbUrl ?? '');
+					}
 				}
 
-				return {
-					...post,
-					videoUrl,
-					videoThumbUrl: post.videoThumbPath
-						? (urls[post.videoThumbPath] ?? '')
-						: (post.videoThumbUrl ?? '')
-				};
+				if (post.highlightPath) {
+					const highlightUrl = urls[post.highlightPath] ?? '';
+					if (!highlightUrl) {
+						next.highlightPath = '';
+						next.highlightName = '';
+					} else {
+						next.highlightUrl = highlightUrl;
+					}
+				}
+
+				return next;
 			});
 		} catch (error) {
-			console.warn('[VidJo] Could not sign a friend video URL.', error);
-			// Do not leave the reader spinning on a page that cannot load.
+			console.warn('[VidJo] Could not sign a friend media URL.', error);
+			// Do not leave the reader spinning on media that cannot load.
 			this.posts = this.posts.map((post) =>
 				ids.has(post.id)
-					? { ...post, videoPath: '', videoThumbPath: '', videoName: '', videoThumbUrl: '' }
+					? {
+							...post,
+							videoPath: '',
+							videoThumbPath: '',
+							videoName: '',
+							videoThumbUrl: '',
+							highlightPath: '',
+							highlightName: ''
+						}
 					: post
 			);
 		} finally {
@@ -836,7 +861,10 @@ class FriendsState {
 			const sharedWithFriends =
 				entry.privacy === 'friends' || (entry.privacy === 'community' && entry.shareWithFriends);
 
-			if (sharedWithFriends && (entry.title || entry.mind || entry.videoPath || entry.mood)) {
+			if (
+				sharedWithFriends &&
+				(entry.title || entry.mind || entry.videoPath || entry.highlightPath || entry.mood)
+			) {
 				out.push({
 					id: `my-${date}`,
 					authorId,
@@ -855,6 +883,9 @@ class FriendsState {
 					videoName: entry.videoName,
 					videoUrl: journal.sessionVideos[date],
 					videoThumbUrl: journal.sessionThumbs[date] || '',
+					highlightPath: entry.highlightPath,
+					highlightUrl: journal.highlightFor(entry.id),
+					highlightName: entry.highlightName,
 					song: entry.song ?? null,
 					reactions: { ...EMPTY_REACTIONS },
 					userReactions: [],

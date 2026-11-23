@@ -46,6 +46,12 @@ export interface Entry {
 	videoThumbPath: string;
 	videoName: string;
 	/**
+	 * Optional photo highlight for this page. Stored as an object path in the
+	 * private bucket; short-lived signed URLs live in journal session state.
+	 */
+	highlightPath: string;
+	highlightName: string;
+	/**
 	 * Friend IDs excluded from seeing this post, even when privacy allows friends.
 	 */
 	excludedFriendIds: string[];
@@ -92,6 +98,8 @@ export interface EntryRow {
 	sample: boolean | null;
 	video_path: string | null;
 	video_thumb_path: string | null;
+	highlight_path: string | null;
+	highlight_name: string | null;
 	excluded_friend_ids: string[] | null;
 	included_friend_ids: string[] | null;
 	share_with_friends: boolean | null;
@@ -242,6 +250,9 @@ export interface FriendPost {
 	videoThumbPath?: string;
 	videoName?: string;
 	videoCaption?: string;
+	highlightPath?: string;
+	highlightUrl?: string;
+	highlightName?: string;
 	song?: EntrySong | null;
 	reactions: FriendPostReaction;
 	userReactions: ('love' | 'spark' | 'warm' | 'proud')[];
@@ -302,6 +313,8 @@ export interface SharedJournalEntry {
 	videoPath?: string | null;
 	videoThumbPath?: string | null;
 	videoName?: string | null;
+	highlightPath?: string | null;
+	highlightName?: string | null;
 	song?: EntrySong | null;
 }
 

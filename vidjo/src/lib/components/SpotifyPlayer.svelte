@@ -47,6 +47,35 @@
 		void spotify.playTrack(track);
 	}
 
+	let optionsOpen = $state(false);
+	let optionsEl = $state<HTMLDivElement | null>(null);
+	let showPanelLyrics = $state(true);
+
+	function closeOptions() {
+		optionsOpen = false;
+	}
+
+	function handleWindowPointerDown(event: PointerEvent) {
+		if (!optionsOpen) return;
+		const target = event.target as Node | null;
+		if (target && optionsEl && !optionsEl.contains(target)) closeOptions();
+	}
+
+	function handleWindowKeydown(event: KeyboardEvent) {
+		if (!optionsOpen || event.key !== 'Escape') return;
+		event.stopPropagation();
+		closeOptions();
+	}
+
+	function toggleFallingLyrics() {
+		profile.fallingLyrics = !profile.fallingLyrics;
+		void profile.savePreferences();
+	}
+
+	$effect(() => {
+		if (!spotify.panelOpen) optionsOpen = false;
+	});
+
 	let seeking = $state(false);
 	let seekDraft = $state(0);
 
@@ -120,6 +149,8 @@
 	}
 </script>
 
+<svelte:window onpointerdown={handleWindowPointerDown} onkeydown={handleWindowKeydown} />
+
 {#if showBar}
 	{#if spotify.panelOpen}
 		<div
@@ -166,24 +197,113 @@
 							</div>
 						</div>
 					</div>
-					<div class="flex items-center gap-1.5">
-						{#if spotify.connected}
-							<button
-								type="button"
-								class="rounded-full border border-cover-edge bg-cover/30 px-3 py-1.5 font-ui text-[11px] font-semibold text-book-bg/80 hover:bg-cover/50 hover:text-book-bg"
-								onclick={() => void spotify.disconnect()}
-							>
-								Disconnect
-							</button>
-						{/if}
+					<div class="relative flex items-center gap-1" bind:this={optionsEl}>
 						<button
 							type="button"
-							class="flex size-9 items-center justify-center rounded-full border border-cover-edge bg-cover/30 text-book-bg/80 hover:bg-cover/50 hover:text-book-bg"
+							class="flex size-8 items-center justify-center rounded-full border border-cover-edge bg-cover/30 text-book-bg/75 transition-colors hover:bg-cover/50 hover:text-book-bg"
+							onclick={() => (optionsOpen = !optionsOpen)}
+							aria-label="Player options"
+							aria-expanded={optionsOpen}
+							title="Player options and lyrics"
+						>
+							<CommunityIcon name="settings" size={15} />
+						</button>
+						<button
+							type="button"
+							class="flex size-8 items-center justify-center rounded-full border border-cover-edge bg-cover/30 text-book-bg/75 transition-colors hover:bg-cover/50 hover:text-book-bg"
 							onclick={() => (spotify.panelOpen = false)}
 							aria-label="Close player"
 						>
-							<CommunityIcon name="x" size={16} />
+							<CommunityIcon name="x" size={15} />
 						</button>
+
+						{#if optionsOpen}
+							<div
+								class="absolute top-full right-0 z-30 mt-2 w-[244px] overflow-hidden rounded-2xl border border-cover-edge bg-desk-2/98 p-1.5 text-left shadow-[0_20px_60px_rgba(0,0,0,.55)]"
+								transition:fly={{ y: -6, duration: 140 }}
+								role="group"
+								aria-label="Player options"
+							>
+								<p
+									class="px-2.5 pt-1.5 pb-1 font-ui text-[9px] font-bold tracking-[.16em] text-book-bg/45 uppercase"
+								>
+									Display
+								</p>
+								<button
+									type="button"
+									class="flex w-full items-start gap-2.5 rounded-xl px-2.5 py-2 text-left transition-colors hover:bg-cover/25"
+									aria-pressed={profile.fallingLyrics}
+									onclick={toggleFallingLyrics}
+								>
+									<span
+										class="mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-lg bg-book-accent/15 text-book-accent"
+									>
+										<CommunityIcon name="sparkles" size={14} />
+									</span>
+									<span class="min-w-0 flex-1">
+										<span class="block font-ui text-[11px] font-bold text-book-bg">
+											Falling lyrics
+										</span>
+										<span class="mt-0.5 block font-ui text-[10px] leading-snug text-book-bg/55">
+											Words drift over your journal pages
+										</span>
+									</span>
+									<span
+										class="shrink-0 rounded-full px-2 py-0.5 font-ui text-[10px] font-bold {profile.fallingLyrics
+											? 'bg-[#1DB954]/25 text-[#BFF3D1]'
+											: 'bg-cover/50 text-book-bg/60'}"
+									>
+										{profile.fallingLyrics ? 'On' : 'Off'}
+									</span>
+								</button>
+								<button
+									type="button"
+									class="flex w-full items-start gap-2.5 rounded-xl px-2.5 py-2 text-left transition-colors hover:bg-cover/25"
+									aria-pressed={showPanelLyrics}
+									onclick={() => (showPanelLyrics = !showPanelLyrics)}
+								>
+									<span
+										class="mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-lg bg-cover/25 text-book-bg/75"
+									>
+										<CommunityIcon name={showPanelLyrics ? 'eye' : 'eye-off'} size={14} />
+									</span>
+									<span class="min-w-0 flex-1">
+										<span class="block font-ui text-[11px] font-bold text-book-bg">
+											Live lyrics here
+										</span>
+										<span class="mt-0.5 block font-ui text-[10px] leading-snug text-book-bg/55">
+											Show the current line in the player
+										</span>
+									</span>
+									<span
+										class="shrink-0 rounded-full px-2 py-0.5 font-ui text-[10px] font-bold {showPanelLyrics
+											? 'bg-[#1DB954]/25 text-[#BFF3D1]'
+											: 'bg-cover/50 text-book-bg/60'}"
+									>
+										{showPanelLyrics ? 'On' : 'Off'}
+									</span>
+								</button>
+
+								{#if spotify.connected}
+									<div class="my-1 h-px bg-cover-edge/70"></div>
+									<button
+										type="button"
+										class="flex w-full items-center gap-2.5 rounded-xl px-2.5 py-2 text-left font-ui text-[11px] font-semibold text-[#FFB4B4] transition-colors hover:bg-danger/10"
+										onclick={() => {
+											closeOptions();
+											void spotify.disconnect();
+										}}
+									>
+										<span
+											class="flex size-7 shrink-0 items-center justify-center rounded-lg bg-danger/10 text-danger"
+										>
+											<CommunityIcon name="logout" size={14} />
+										</span>
+										Disconnect Spotify
+									</button>
+								{/if}
+							</div>
+						{/if}
 					</div>
 				</header>
 
@@ -298,7 +418,7 @@
 								</div>
 							</div>
 
-							{#if profile.fallingLyrics && spotify.track}
+							{#if profile.fallingLyrics && showPanelLyrics && spotify.track}
 								<div
 									class="mt-3 rounded-xl border border-book-accent/25 bg-book-accent/10 px-3 py-2.5 text-center"
 								>
@@ -388,33 +508,33 @@
 								</p>
 							{/if}
 
-							<div class="mt-3 flex items-center justify-center gap-2">
+							<div class="mt-3 flex items-center justify-center gap-1.5">
 								<button
 									type="button"
-									class="flex size-10 items-center justify-center rounded-full border border-cover-edge bg-cover/30 text-book-bg/85 hover:bg-cover/50 hover:text-book-bg disabled:opacity-40"
+									class="flex size-9 items-center justify-center rounded-full border border-cover-edge bg-cover/30 text-book-bg/85 hover:bg-cover/50 hover:text-book-bg disabled:opacity-40"
 									onclick={() => void spotify.previous()}
 									disabled={!spotify.canControl}
 									aria-label="Previous track"
 								>
-									<CommunityIcon name="skip-back" size={17} />
+									<CommunityIcon name="skip-back" size={15} />
 								</button>
 								<button
 									type="button"
-									class="flex size-12 items-center justify-center rounded-full bg-cta text-cta-text shadow-[0_10px_24px_var(--color-cta-shadow)] hover:bg-cta-hover disabled:opacity-40"
+									class="flex size-11 items-center justify-center rounded-full bg-cta text-cta-text shadow-[0_10px_24px_var(--color-cta-shadow)] hover:bg-cta-hover disabled:opacity-40"
 									onclick={() => void spotify.togglePlay()}
 									disabled={!spotify.canControl}
 									aria-label={spotify.playing ? 'Pause' : 'Play'}
 								>
-									<CommunityIcon name={spotify.playing ? 'pause' : 'play'} size={20} />
+									<CommunityIcon name={spotify.playing ? 'pause' : 'play'} size={18} />
 								</button>
 								<button
 									type="button"
-									class="flex size-10 items-center justify-center rounded-full border border-cover-edge bg-cover/30 text-book-bg/85 hover:bg-cover/50 hover:text-book-bg disabled:opacity-40"
+									class="flex size-9 items-center justify-center rounded-full border border-cover-edge bg-cover/30 text-book-bg/85 hover:bg-cover/50 hover:text-book-bg disabled:opacity-40"
 									onclick={() => void spotify.next()}
 									disabled={!spotify.canControl}
 									aria-label="Next track"
 								>
-									<CommunityIcon name="skip-forward" size={17} />
+									<CommunityIcon name="skip-forward" size={15} />
 								</button>
 							</div>
 
@@ -448,33 +568,6 @@
 									In-app playback needs a Spotify Premium account.
 								</p>
 							{/if}
-
-							<div
-								class="mt-3 flex items-center justify-between gap-3 rounded-xl border border-cover-edge/70 bg-cover/15 px-3 py-2"
-							>
-								<div class="flex min-w-0 items-center gap-2">
-									<CommunityIcon name="sparkles" size={14} class="shrink-0 text-book-accent" />
-									<div class="min-w-0">
-										<p class="font-ui text-[11px] font-bold text-book-bg">Falling lyrics</p>
-										<p class="font-ui text-[10px] text-book-bg/55">
-											Words drift over your journal pages
-										</p>
-									</div>
-								</div>
-								<button
-									type="button"
-									class="shrink-0 rounded-full px-3 py-1.5 font-ui text-[11px] font-bold transition-colors {profile.fallingLyrics
-										? 'bg-[#1DB954]/25 text-[#BFF3D1]'
-										: 'bg-cover/50 text-book-bg/70'}"
-									aria-pressed={profile.fallingLyrics}
-									onclick={() => {
-										profile.fallingLyrics = !profile.fallingLyrics;
-										void profile.savePreferences();
-									}}
-								>
-									{profile.fallingLyrics ? 'On' : 'Off'}
-								</button>
-							</div>
 						</div>
 
 						<div class="mt-4">

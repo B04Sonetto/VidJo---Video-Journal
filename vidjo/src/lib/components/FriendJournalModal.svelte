@@ -11,6 +11,7 @@
 	import Avatar from '#lib/components/Avatar.svelte';
 	import CommunityIcon from '#lib/components/CommunityIcon.svelte';
 	import FallingLyrics from '#lib/components/FallingLyrics.svelte';
+	import PhotoHighlight from '#lib/components/PhotoHighlight.svelte';
 	import ThemedVideoPlayer from '#lib/components/ThemedVideoPlayer.svelte';
 	import ProfileModal from '#lib/components/ProfileModal.svelte';
 	import Button from '#lib/components/ui/Button.svelte';
@@ -153,7 +154,7 @@
 	$effect(() => {
 		if (!open || sorted.length === 0) return;
 
-		// The reader shows one page at a time, so only that page's video is
+		// The reader shows one page at a time, so only that page's media is
 		// signed. Prefetching the neighbours keeps page flipping instant.
 		const neighbours = [
 			sorted[index],
@@ -161,7 +162,10 @@
 			sorted[(index - 1 + sorted.length) % sorted.length]
 		];
 		const wanted = [...new Map(neighbours.map((post) => [post?.id, post])).values()].filter(
-			(post): post is FriendPost => Boolean(post?.videoPath && !post.videoUrl)
+			(post): post is FriendPost =>
+				Boolean(
+					post && ((post.videoPath && !post.videoUrl) || (post.highlightPath && !post.highlightUrl))
+				)
 		);
 
 		if (wanted.length > 0) void friends.ensureMedia(wanted);
@@ -285,7 +289,13 @@
 	}
 
 	function hasMedia(entry: FriendPost) {
-		return Boolean(entry.videoUrl || entry.videoPath || entry.videoName);
+		return Boolean(
+			entry.videoUrl ||
+			entry.videoPath ||
+			entry.videoName ||
+			entry.highlightUrl ||
+			entry.highlightPath
+		);
 	}
 </script>
 
@@ -337,47 +347,68 @@
 {/snippet}
 
 {#snippet mediaBlock(p: FriendPost)}
-	{#if p.videoUrl}
-		<ThemedVideoPlayer
-			src={p.videoUrl}
-			poster={p.videoThumbUrl || ''}
-			preload="metadata"
-			class="reader-video aspect-video max-h-[260px] w-full min-[720px]:max-h-[380px]"
-		/>
-	{:else if p.videoPath}
-		<!-- The signed URL for this page is still being created. -->
-		<div
-			class="flex aspect-[16/10] flex-col items-center justify-center gap-3 bg-desk text-book-bg"
-		>
-			<span
-				class="flex size-12 items-center justify-center rounded-full bg-book-bg/10 text-book-accent"
+	<div class="flex flex-col gap-3">
+		{#if p.highlightUrl}
+			<PhotoHighlight
+				src={p.highlightUrl}
+				caption={p.highlightName || p.title || 'Photo highlight'}
+				class="reader-photo aspect-[4/3] max-h-[340px] w-full min-[720px]:max-h-[420px]"
+			/>
+		{:else if p.highlightPath}
+			<div
+				class="flex aspect-[4/3] max-h-[340px] flex-col items-center justify-center gap-3 bg-desk text-book-bg"
 			>
-				<Spinner size={22} />
-			</span>
-			<p class="font-ui text-xs font-semibold text-book-bg/70">Loading video…</p>
-		</div>
-	{:else if p.videoName}
-		<div
-			class="relative flex aspect-[16/10] flex-col items-center justify-center overflow-hidden bg-[radial-gradient(ellipse_at_center,var(--color-cover)_0%,var(--color-desk)_85%)] text-center text-book-bg"
-		>
-			<span
-				class="absolute top-3 left-4 flex items-center gap-1.5 font-mono text-[11px] text-red-300"
+				<span
+					class="flex size-12 items-center justify-center rounded-full bg-book-bg/10 text-book-accent"
+				>
+					<Spinner size={22} />
+				</span>
+				<p class="font-ui text-xs font-semibold text-book-bg/70">Opening photo…</p>
+			</div>
+		{/if}
+
+		{#if p.videoUrl}
+			<ThemedVideoPlayer
+				src={p.videoUrl}
+				poster={p.videoThumbUrl || ''}
+				preload="metadata"
+				class="reader-video aspect-video max-h-[260px] w-full min-[720px]:max-h-[380px]"
+			/>
+		{:else if p.videoPath}
+			<!-- The signed URL for this page is still being created. -->
+			<div
+				class="flex aspect-[16/10] flex-col items-center justify-center gap-3 bg-desk text-book-bg"
 			>
-				<span class="size-2 animate-pulse rounded-full bg-red-400"></span>
-				REC
-			</span>
-			<span class="absolute top-3 right-4 font-mono text-[11px] text-book-accent">VIDJO</span>
-			<span
-				class="flex size-14 items-center justify-center rounded-full bg-book-bg/95 text-book-ink shadow-lg"
+				<span
+					class="flex size-12 items-center justify-center rounded-full bg-book-bg/10 text-book-accent"
+				>
+					<Spinner size={22} />
+				</span>
+				<p class="font-ui text-xs font-semibold text-book-bg/70">Loading video…</p>
+			</div>
+		{:else if p.videoName}
+			<div
+				class="relative flex aspect-[16/10] flex-col items-center justify-center overflow-hidden bg-[radial-gradient(ellipse_at_center,var(--color-cover)_0%,var(--color-desk)_85%)] text-center text-book-bg"
 			>
-				<CommunityIcon name="play" size={24} />
-			</span>
-			<p class="mt-3 max-w-[85%] font-display text-lg font-bold [overflow-wrap:anywhere]">
-				{p.videoName || 'A small video moment'}
-			</p>
-			<p class="font-hand text-sm text-book-bg/70">Recorded with VidJo</p>
-		</div>
-	{/if}
+				<span
+					class="absolute top-3 left-4 flex items-center gap-1.5 font-mono text-[11px] text-red-300"
+				>
+					<span class="size-2 animate-pulse rounded-full bg-red-400"></span>
+					REC
+				</span>
+				<span class="absolute top-3 right-4 font-mono text-[11px] text-book-accent">VIDJO</span>
+				<span
+					class="flex size-14 items-center justify-center rounded-full bg-book-bg/95 text-book-ink shadow-lg"
+				>
+					<CommunityIcon name="play" size={24} />
+				</span>
+				<p class="mt-3 max-w-[85%] font-display text-lg font-bold [overflow-wrap:anywhere]">
+					{p.videoName || 'A small video moment'}
+				</p>
+				<p class="font-hand text-sm text-book-bg/70">Recorded with VidJo</p>
+			</div>
+		{/if}
+	</div>
 {/snippet}
 
 {#snippet moodArt(p: FriendPost)}
@@ -1024,7 +1055,9 @@
 										style="background-image: repeating-linear-gradient(115deg, var(--color-book-accent) 0 7px, var(--color-book-bg) 7px 14px)"
 										aria-hidden="true"
 									></span>
-									<div class="grid gap-4 min-[720px]:grid-cols-[minmax(0,1fr)_minmax(0,1.05fr)] min-[720px]:gap-5">
+									<div
+										class="grid gap-4 min-[720px]:grid-cols-[minmax(0,1fr)_minmax(0,1.05fr)] min-[720px]:gap-5"
+									>
 										<div>
 											<div class="overflow-hidden rounded-[3px] border border-line bg-desk">
 												{#if hasMedia(page)}
@@ -1040,7 +1073,8 @@
 												class="absolute top-0 right-0 grid size-12 rotate-[6deg] place-items-center border border-book-accent/70 bg-book-bg text-center shadow-sm"
 												aria-hidden="true"
 											>
-												<span class="font-ui text-[8px] leading-tight font-bold tracking-wide text-note-accent"
+												<span
+													class="text-note-accent font-ui text-[8px] leading-tight font-bold tracking-wide"
 													>VIA<br />VIDJO</span
 												>
 											</span>
@@ -1088,7 +1122,9 @@
 										{censor(page.title)}
 									</h3>
 								{/if}
-								<div class="mt-4 grid gap-4 min-[700px]:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)] min-[700px]:gap-5">
+								<div
+									class="mt-4 grid gap-4 min-[700px]:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)] min-[700px]:gap-5"
+								>
 									<div>
 										<div class="overflow-hidden rounded-[2px] border border-book-ink/25 bg-desk">
 											{#if hasMedia(page)}
@@ -1098,17 +1134,21 @@
 											{/if}
 										</div>
 										{#if moodOf(page)}
-											<p class="mt-2 font-ui text-[10px] text-center font-semibold tracking-wide uppercase">
+											<p
+												class="mt-2 text-center font-ui text-[10px] font-semibold tracking-wide uppercase"
+											>
 												Mood: {moodOf(page)?.l}
 											</p>
 										{/if}
 									</div>
-									<div class="min-w-0 border-t border-book-ink/30 pt-3 min-[700px]:border-t-0 min-[700px]:border-l min-[700px]:pl-5">
+									<div
+										class="min-w-0 border-t border-book-ink/30 pt-3 min-[700px]:border-t-0 min-[700px]:border-l min-[700px]:pl-5"
+									>
 										{#if page.mind || page.refl}
 											{@render mindBlock(page, false)}
 											{@render reflBlock(page, false)}
 										{:else}
-											<p class="mt-2 font-display text-lg italic text-book-ink/60">
+											<p class="mt-2 font-display text-lg text-book-ink/60 italic">
 												No words filed with this page.
 											</p>
 										{/if}
@@ -1121,7 +1161,9 @@
 								</div>
 								{@render stickerRow(page, false)}
 							</article>
-							<div class="mx-auto mt-5 max-w-[760px] rounded-2xl shadow-[0_10px_24px_rgba(0,0,0,.35)]">
+							<div
+								class="mx-auto mt-5 max-w-[760px] rounded-2xl shadow-[0_10px_24px_rgba(0,0,0,.35)]"
+							>
 								{@render socialBlock(page)}
 							</div>
 						{:else if notebookStyle === 'letter'}
@@ -1134,7 +1176,9 @@
 										class="pointer-events-none absolute top-0 right-0 h-12 w-12 border-b border-l border-line bg-book-edge/60 [clip-path:polygon(100%_0,0_0,100%_100%)]"
 										aria-hidden="true"
 									></span>
-									<p class="font-ui text-[10px] font-bold tracking-[.2em] text-note-accent uppercase">
+									<p
+										class="text-note-accent font-ui text-[10px] font-bold tracking-[.2em] uppercase"
+									>
 										A letter from {firstName}
 									</p>
 									{@render dateRow(page, false)}
@@ -1153,7 +1197,9 @@
 										</div>
 									{/if}
 									{@render stickerRow(page, false)}
-									<div class="mt-6 flex items-end justify-between gap-3 border-t border-line/70 pt-4">
+									<div
+										class="mt-6 flex items-end justify-between gap-3 border-t border-line/70 pt-4"
+									>
 										<p class="font-hand text-xl leading-none text-book-ink/80">
 											With love,<br />{firstName}
 										</p>
@@ -1182,16 +1228,21 @@
 											Daily ledger
 										</p>
 										<p class="font-mono text-[11px] font-bold text-book-ink/70">
-											Entry {String(index + 1).padStart(2, '0')} / {String(sorted.length).padStart(2, '0')}
+											Entry {String(index + 1).padStart(2, '0')} / {String(sorted.length).padStart(
+												2,
+												'0'
+											)}
 										</p>
 									</div>
-									<div class="grid grid-cols-[62px_minmax(0,1fr)] min-[720px]:grid-cols-[92px_minmax(0,1fr)]">
+									<div
+										class="grid grid-cols-[62px_minmax(0,1fr)] min-[720px]:grid-cols-[92px_minmax(0,1fr)]"
+									>
 										<div
 											class="border-r border-line/80 px-2 py-4 text-center font-mono text-[10px] leading-relaxed font-bold text-book-ink/60 min-[720px]:px-3 min-[720px]:text-[11px]"
 										>
 											{page.dateFormatted.split(' ').slice(0, 2).join(' ')}
 										</div>
-										<div class="paper-lined min-w-0 px-3 py-4 min-[720px]:px-5">
+										<div class="min-w-0 paper-lined px-3 py-4 min-[720px]:px-5">
 											{@render titleBlock(page, false)}
 											{#if hasMedia(page)}
 												<div class="mt-3 overflow-hidden rounded-[3px] border border-line bg-desk">
@@ -1211,10 +1262,14 @@
 									<div
 										class="flex items-center justify-between gap-3 border-t border-line/80 bg-paper-deep/40 px-4 py-2"
 									>
-										<span class="font-ui text-[10px] font-semibold tracking-wide uppercase text-book-ink/60">
+										<span
+											class="font-ui text-[10px] font-semibold tracking-wide text-book-ink/60 uppercase"
+										>
 											Filed by {firstName}
 										</span>
-										<span class="flex items-center gap-1.5 font-ui text-[10px] font-semibold text-book-ink/60">
+										<span
+											class="flex items-center gap-1.5 font-ui text-[10px] font-semibold text-book-ink/60"
+										>
 											<span class="size-3 rounded-[2px] border border-book-ink/40"></span>
 											Shared
 										</span>

@@ -781,6 +781,8 @@ class CommunityState {
 				let videoUrl = '';
 				let videoThumbPath = (row.video_thumb_path as string | null) ?? '';
 				let videoThumbUrl = '';
+				let highlightPath = (row.highlight_path as string | null) ?? '';
+				let highlightUrl = '';
 
 				if (videoPath) {
 					try {
@@ -820,6 +822,27 @@ class CommunityState {
 					}
 				}
 
+				if (highlightPath) {
+					try {
+						const { data: signed, error } = await supabase.storage
+							.from(VIDEO_BUCKET)
+							.createSignedUrl(highlightPath, SIGNED_URL_TTL);
+						if (error || !signed?.signedUrl) {
+							console.warn('[VidJo] Could not sign a community photo highlight.', {
+								path: highlightPath,
+								status: error?.statusCode ?? null,
+								message: error?.message ?? 'No signed URL returned'
+							});
+							highlightPath = '';
+						} else {
+							highlightUrl = signed.signedUrl;
+						}
+					} catch (error) {
+						console.warn('[VidJo] Could not sign a community photo.', error);
+						highlightPath = '';
+					}
+				}
+
 				return {
 					id: `community-${row.owner_id}-${row.id}`,
 					entryId: row.id as string,
@@ -841,6 +864,9 @@ class CommunityState {
 					videoName: videoPath ? (row.video_name as string) || '' : '',
 					videoUrl,
 					videoThumbUrl,
+					highlightPath,
+					highlightUrl,
+					highlightName: highlightPath ? (row.highlight_name as string) || '' : '',
 					song: normalizeSong((row as { song?: unknown }).song),
 					reactions: { ...EMPTY_REACTIONS },
 					userReactions: [],

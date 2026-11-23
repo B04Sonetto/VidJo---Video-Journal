@@ -176,7 +176,7 @@
 
 	let totalPages = $derived(
 		Object.values(journal.entries).filter(
-			(entry) => entry.saved || entry.title || entry.mind || entry.videoPath
+			(entry) => entry.saved || entry.title || entry.mind || entry.videoPath || entry.highlightPath
 		).length
 	);
 
@@ -290,7 +290,7 @@
 			.filter(
 				([, entry]) =>
 					entry.privacy !== 'private' &&
-					(entry.title || entry.mind || entry.refl || entry.videoPath)
+					(entry.title || entry.mind || entry.refl || entry.videoPath || entry.highlightPath)
 			)
 			.map(([, entry]) => ({
 				entryId: entry.id,
@@ -555,7 +555,10 @@
 
 	async function exportJournal() {
 		const entries = Object.entries(journal.entries)
-			.filter(([, entry]) => entry.saved || entry.title || entry.mind || entry.videoPath)
+			.filter(
+				([, entry]) =>
+					entry.saved || entry.title || entry.mind || entry.videoPath || entry.highlightPath
+			)
 			.map(([date, entry]) => ({ ...entry, date }));
 
 		const data = {
@@ -593,14 +596,15 @@
 				// from the underlying object store.
 				const { data: videoRows } = await supabase
 					.from('vidjo_entries')
-					.select('video_path, video_thumb_path')
+					.select('video_path, video_thumb_path, highlight_path')
 					.eq('owner_id', userId)
-					.or('video_path.not.is.null,video_thumb_path.not.is.null');
+					.or('video_path.not.is.null,video_thumb_path.not.is.null,highlight_path.not.is.null');
 
 				const videoPaths = (videoRows ?? []).flatMap((row) => {
 					const paths: string[] = [];
 					if (row.video_path) paths.push(row.video_path as string);
 					if (row.video_thumb_path) paths.push(row.video_thumb_path as string);
+					if (row.highlight_path) paths.push(row.highlight_path as string);
 					return paths;
 				});
 
@@ -609,7 +613,7 @@
 						.from(VIDEO_BUCKET)
 						.remove(videoPaths);
 					if (videoRemoveError) {
-						console.warn('[VidJo] Could not remove account videos.', videoRemoveError);
+						console.warn('[VidJo] Could not remove account media.', videoRemoveError);
 						captureError(new Error(videoRemoveError.message), { area: 'account-delete-videos' });
 					}
 				}
@@ -1683,20 +1687,22 @@
 														class="absolute inset-x-0 bottom-0 h-1.5"
 														style="background-image: repeating-linear-gradient(115deg, var(--color-book-accent) 0 5px, var(--color-book-bg) 5px 10px)"
 													></span>
-													<span class="absolute top-3 left-2 h-1 w-10 rounded-full bg-book-accent/70"
+													<span
+														class="absolute top-3 left-2 h-1 w-10 rounded-full bg-book-accent/70"
 													></span>
-													<span class="absolute top-3 right-2 size-5 rotate-[8deg] border border-book-accent/70 bg-book-bg"
+													<span
+														class="absolute top-3 right-2 size-5 rotate-[8deg] border border-book-accent/70 bg-book-bg"
 													></span>
-													<span class="absolute top-5 left-2 h-1 w-[55%] rounded-full bg-line"></span>
-													<span class="absolute top-7 left-2 h-1 w-[68%] rounded-full bg-line"></span>
+													<span class="absolute top-5 left-2 h-1 w-[55%] rounded-full bg-line"
+													></span>
+													<span class="absolute top-7 left-2 h-1 w-[68%] rounded-full bg-line"
+													></span>
 												</span>
 											{:else if option.id === 'newsprint'}
 												<span
 													class="absolute inset-x-3 inset-y-1.5 overflow-hidden rounded-sm border border-line bg-book-bg px-2 py-1.5 shadow-md"
 												>
-													<span
-														class="block h-1.5 w-[70%] rounded-full bg-book-ink/70"
-													></span>
+													<span class="block h-1.5 w-[70%] rounded-full bg-book-ink/70"></span>
 													<span class="mt-1 flex gap-1.5">
 														<span class="min-w-0 flex-1 space-y-1">
 															<span class="block h-0.5 w-full bg-book-ink/40"></span>
@@ -1730,9 +1736,11 @@
 												<span
 													class="absolute inset-x-3 inset-y-2 overflow-hidden rounded-sm border border-line bg-book-bg shadow-md"
 												>
-													<span class="absolute inset-x-0 top-0 h-3 border-b border-line bg-paper-deep/70"
+													<span
+														class="absolute inset-x-0 top-0 h-3 border-b border-line bg-paper-deep/70"
 													></span>
-													<span class="absolute top-1.5 left-2 h-1 w-8 rounded-full bg-book-accent/70"
+													<span
+														class="absolute top-1.5 left-2 h-1 w-8 rounded-full bg-book-accent/70"
 													></span>
 													<span class="absolute inset-y-3 left-9 w-px bg-book-ink/25"></span>
 													<span class="absolute top-5 left-2 h-0.5 w-5 rounded-full bg-line"></span>
@@ -1741,7 +1749,8 @@
 													<span class="absolute top-8 left-2 h-0.5 w-5 rounded-full bg-line"></span>
 													<span class="absolute top-8 left-11 h-0.5 w-[70%] rounded-full bg-line"
 													></span>
-													<span class="absolute top-11 left-2 h-0.5 w-5 rounded-full bg-line"></span>
+													<span class="absolute top-11 left-2 h-0.5 w-5 rounded-full bg-line"
+													></span>
 													<span class="absolute top-11 left-11 h-0.5 w-[50%] rounded-full bg-line"
 													></span>
 												</span>
@@ -1805,8 +1814,8 @@
 								</button>
 							</div>
 							<p class="mt-2 font-ui text-[11px] text-book-bg/60">
-								Synced lyrics are looked up for the track currently playing. If none are
-								available, your pages stay clean.
+								Synced lyrics are looked up for the track currently playing. If none are available,
+								your pages stay clean.
 							</p>
 						</div>
 					{/if}

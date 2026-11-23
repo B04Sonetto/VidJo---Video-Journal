@@ -144,6 +144,7 @@
 			void entry.refl;
 			void entry.videoPath;
 			void entry.videoName;
+			void entry.highlightPath;
 			void entry.stickers;
 			void entry.shareWithFriends;
 			void entry.communitySlug;
